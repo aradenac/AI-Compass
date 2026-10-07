@@ -150,6 +150,8 @@ db.runs.forEach(function(r,i){
  if(!r.caseSnapshot)r.caseSnapshot=JSON.parse(JSON.stringify(db.cases.find(function(c){return c.id===r.case;})||{}));
  if(!r.solutionSnapshot)r.solutionSnapshot=JSON.parse(JSON.stringify(db.solutions.find(function(x){return x.id===r.solution;})||{}));
  if(!r.protocolSnapshot)r.protocolSnapshot=JSON.parse(JSON.stringify(db.protocols.find(function(x){return x.id===r.protocol;})||{}));
+ if(!r.taskContextSnapshot){var tc=db.cases.find(function(x){return x.id===r.case;});r.taskContextSnapshot=tc?ancestors(tc.task).map(function(t){return {id:t.id,name:t.name,phase:t.phase,criteria:t.criteria,baseline:t.baseline};}):[];}
+
 });
 }
 ensureDefaults();persist();
@@ -159,7 +161,7 @@ function user(){return db.users.find(function(x){return x.id===currentUser;});}
 function canEdit(){return !!user()&&user().role==="workgroup";}
 function canContribute(){return !!user();}
 function visibleSolution(s){return canEdit()||s.publication==="published";}
-function visibleRun(r){return canEdit()||r.status==="published";}
+function visibleRun(r){return canEdit()||(r.status==="published"&&!!rec("solutions",r.solution)&&visibleSolution(rec("solutions",r.solution)));}
 function rec(type,id){return(db[type]||[]).find(function(x){return x.id===id;});}
 function next(prefix){return prefix+"_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,6);}
 function textOf(x){return x==null?"":String(x);}
@@ -208,7 +210,6 @@ function modal(){if(!ui.modal)return "";return '<div class="modal-backdrop" id="
 function openModal(title,body,footer){ui.modal="shown";ui.modalTitle=title;ui.modalBody=body;ui.modalFooter=footer||"";render();}
 function closeModal(){ui.modal="";render();}
 
-/* HELPERS_AND_SHELL */
 
 function dashboardPage(){
 var published=db.runs.filter(function(r){return r.status==="published";}),passed=published.filter(function(r){return r.accepted;}),unique=new Set(published.map(function(r){return r.solution;}));
@@ -473,12 +474,12 @@ openForm("Create benchmark campaign","campaign",field("title","Campaign name",""
 }
 function detailsRun(id){
 var r=rec("runs",id),c=r&&rec("cases",r.case),s=r&&rec("solutions",r.solution);if(!r||!visibleRun(r))return;c=r.caseSnapshot||c;s=r.solutionSnapshot||s;
-var p=r.protocolSnapshot||rec("protocols",r.protocol),t=rec("tasks",c?.task),baseline=t?.baseline||0;
+var p=r.protocolSnapshot||rec("protocols",r.protocol),t=rec("tasks",c?.task),baseline=r.taskContextSnapshot?.at(-1)?.baseline??t?.baseline??0;
 var html='<div class="row-between"><div>'+badge(r.status)+" "+badge(r.accepted?"DoD accepted":"DoD failed")+'</div><span class="muted small">'+E(r.date)+' · '+E(actor(r.owner))+'</span></div>'+
 '<h3 style="margin:15px 0 5px">'+E(c?.title||r.case)+' × '+E(s?.name||r.solution)+'</h3><p class="muted small">'+E(t?.name||"")+' · '+E(p?.name||"")+' ('+E(p?.version||"")+')</p>'+
 '<div class="grid g3" style="margin-top:17px">'+stat("Quality rubric",r.score+"/100",r.accepted?"Mandatory criteria accepted":"Mandatory criteria failed")+stat("AI / tool spend",money(r.cost),fmt(r.tokens)+" tokens")+stat("Human effort",effort(r)+" min",(baseline?baseline+" min baseline":"Baseline unavailable"))+'</div>'+
 '<div class="card tight" style="margin-top:14px">'+bar("Preparation",baseline?100*r.prep/baseline:0,r.prep+" min")+bar("Steering",baseline?100*r.steer/baseline:0,r.steer+" min")+bar("Review",baseline?100*r.review/baseline:0,r.review+" min")+bar("Corrections",baseline?100*r.correction/baseline:0,r.correction+" min")+'</div>'+
-'<h3 style="margin:16px 0 7px">Test context & acceptance</h3><p class="text-block">'+E(c?.objective||"")+'</p><div class="callout" style="margin:10px 0">Inputs: '+E(c?.inputs||"")+'<hr class="divider">Definition of Done: '+E(c?.dod||"")+'</div>'+
+'<h3 style="margin:16px 0 7px">Original task taxonomy / inherited context</h3><div class="tags">'+(r.taskContextSnapshot||[]).map(function(x){return badge(x.name);}).join("")+'</div><h3 style="margin:16px 0 7px">Test context & acceptance</h3><p class="text-block">'+E(c?.objective||"")+'</p><div class="callout" style="margin:10px 0">Inputs: '+E(c?.inputs||"")+'<hr class="divider">Definition of Done: '+E(c?.dod||"")+'</div>'+
 '<div class="grid g2" style="margin-top:12px">'+stat("Information utility / density",r.utility+"/100","Declared rubric · relative to output volume")+stat("Agent runtime",r.duration+" min",r.interruptions+" interruptions · "+r.reprompts+" reprompts")+'</div><h3 style="margin:16px 0 7px">Observed side effects</h3><pre class="code">'+E(r.sideEffects||"None recorded")+'</pre><h3 style="margin:16px 0 7px">Pinned configuration / version at run time</h3><pre class="code">'+E(s?.config||"")+'</pre>'+
 '<h3 style="margin:16px 0 7px">Initial prompt</h3><pre class="code">'+E(r.prompt)+'</pre>'+
 '<h3 style="margin:16px 0 7px">Interaction trace</h3><pre class="code">'+E(r.transcript)+'</pre>'+
@@ -536,7 +537,8 @@ if(kind==="task"||kind==="taskEdit"){
  var r={id:next("r"),case:d.case,solution:d.solution,protocol:d.protocol,date:new Date().toISOString().slice(0,10),score:toNum(d.score),accepted:d.accepted==="yes",status:d.status,prep:toNum(d.prep),steer:toNum(d.steer),review:toNum(d.review),correction:toNum(d.correction),cost:toNum(d.cost),tokens:toNum(d.tokens),duration:toNum(d.duration),interruptions:toNum(d.interruptions),reprompts:toNum(d.reprompts),utility:toNum(d.utility),sideEffects:d.sideEffects,prompt:req(d.prompt,"Prompt"),transcript:req(d.transcript,"Interaction trace"),artifacts:d.artifacts,notes:d.notes,owner:currentUser,
   caseSnapshot:JSON.parse(JSON.stringify(rec("cases",d.case)||{})),
   solutionSnapshot:JSON.parse(JSON.stringify(rec("solutions",d.solution)||{})),
-  protocolSnapshot:JSON.parse(JSON.stringify(rec("protocols",d.protocol)||{}))};
+  protocolSnapshot:JSON.parse(JSON.stringify(rec("protocols",d.protocol)||{})),
+  taskContextSnapshot:ancestors(rec("cases",d.case)?.task).map(function(t){return {id:t.id,name:t.name,phase:t.phase,criteria:t.criteria,baseline:t.baseline};})};
  db.runs.push(r);ui.page="benchmark";ui.bench="runs";ui.filters.runStatus="all";event("Run",(r.status==="published"?"Published":"Staged")+" benchmark run: "+r.id,r.status!=="published");
 }else if(kind==="solution"||kind==="solutionEdit"){
  var s=kind==="solutionEdit"?rec("solutions",id):{id:next("s"),recommendation:"Not yet qualified; no official usage guidance.",rate:0};
