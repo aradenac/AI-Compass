@@ -31,7 +31,7 @@ python3 -m http.server 8080
 # Open http://localhost:8080/prototype.html
 ```
 
-The app uses **localStorage** for records and the selected demo account. Changes survive page reloads in the same browser/origin. **Export data JSON** saves the prototype dataset; **Reset demo dataset** restores the initial mock records. Other devices, browsers, or origins do not share data.
+The app uses **localStorage** for records and the selected demo account. Changes survive page reloads in the same browser/origin. **Export data JSON** saves the records visible to the current role; workgroup accounts can export/import the full dataset for sharing test scenarios. **Reset demo dataset** restores the initial mock records. Other devices, browsers, or origins do not share data automatically.
 
 ### Mock accounts — choose one on the login screen
 
@@ -54,6 +54,7 @@ No passwords are required. **Identity and permissions are simulated in the brows
 5. **Workgroup:** Workgroup studio → publish the draft run → revise the recommendation for a solution.
 6. **Manager:** Switch account → review consolidated experimental coverage and illustrative cost/value/adoption indicators.
 7. **Workgroup:** Catalog components → create models/providers/harnesses → register a configured solution → stage and publish it. Add a protocol revision or create documentation from the corresponding pages.
+8. **Workgroup:** Mark an outdated solution as superseded or retired, link its successor and verify that historical benchmark evidence remains inspectable. Inspect change history in the activity feed.
 
 Runs retain a **snapshot of their test case, protocol, and solution** as created, so later changes do not rewrite the historical experimental setup. Recommendation and catalog edits are tracked in prototype revision records.
 
