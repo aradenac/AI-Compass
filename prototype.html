@@ -233,7 +233,7 @@ return rs.length?simpleTable(["AI solution","Mean score","Accepted","Coverage","
 function tasksPage(){
 var t=rec("tasks",ui.task)||db.tasks[0];ui.task=t.id;var cases=db.cases.filter(function(c){return descendants(t.id).includes(c.task);}),path=ancestors(t.id);
 var criteria=path.filter(function(x){return x.criteria;}).map(function(x){return '<div class="list-row"><div><strong>'+E(x.name)+'</strong><div class="muted small">'+E(x.criteria)+'</div></div></div>';}).join("");
-var details='<div class="card-head"><div><div class="eyebrow">'+E(t.phase)+' · '+E(t.domain)+'</div><h2>'+E(t.name)+'</h2></div>'+badge(cases.length+" cases")+'</div><p class="muted">'+E(t.desc)+'</p><div class="tags" style="margin-top:13px">'+path.map(function(x){return badge(x.name);}).join("")+'</div><hr class="divider"><div class="row-between"><h3>Definition of Done / expectations</h3>'+(t.baseline?'<span class="tag">Engineer baseline: '+t.baseline+' min</span>':'')+'</div><p class="small" style="margin-top:8px">'+E(t.criteria)+'</p><details style="margin-top:14px"><summary class="pointer small">Show inherited context from ancestors</summary><div class="list">'+criteria+'</div></details><hr class="divider"><div class="row-between"><h3>Attached test cases ('+cases.length+')</h3>'+(canEdit()?btn("+ Add test case","newCase",t.id,"sm"):"")+'</div><div class="list" style="margin-top:9px">'+(cases.map(function(c){return '<div class="list-row"><div>'+linkAction(c.title,"caseDetail",c.id)+'<div class="muted small">'+E(rec("tasks",c.task)?.name||"")+' · '+E(c.objective)+'</div></div>'+badge(c.version)+'</div>';}).join("")||'<p class="muted small">No cases under this branch.</p>')+'</div><hr class="divider"><h3>Evidence-based solution comparison</h3><p class="muted small" style="margin:6px 0 12px">Aggregated published runs under this node; untested cases are not failures. Inspect the Test Cases and runs before making a decision.</p>'+taskEvidence(t.id);
+var details='<div class="card-head"><div><div class="eyebrow">'+E(t.phase)+' · '+E(t.domain)+'</div><h2>'+E(t.name)+'</h2></div><div class="inline-actions">'+badge(cases.length+" cases")+(canEdit()?btn("Edit / move","editTask",t.id,"sm"):"")+'</div></div><p class="muted">'+E(t.desc)+'</p><div class="tags" style="margin-top:13px">'+path.map(function(x){return badge(x.name);}).join("")+'</div><hr class="divider"><div class="row-between"><h3>Definition of Done / expectations</h3>'+(t.baseline?'<span class="tag">Engineer baseline: '+t.baseline+' min</span>':'')+'</div><p class="small" style="margin-top:8px">'+E(t.criteria)+'</p><details style="margin-top:14px"><summary class="pointer small">Show inherited context from ancestors</summary><div class="list">'+criteria+'</div></details><hr class="divider"><div class="row-between"><h3>Attached test cases ('+cases.length+')</h3>'+(canEdit()?btn("+ Add test case","newCase",t.id,"sm"):"")+'</div><div class="list" style="margin-top:9px">'+(cases.map(function(c){return '<div class="list-row"><div>'+linkAction(c.title,"caseDetail",c.id)+'<div class="muted small">'+E(rec("tasks",c.task)?.name||"")+' · '+E(c.objective)+'</div></div>'+badge(c.version)+'</div>';}).join("")||'<p class="muted small">No cases under this branch.</p>')+'</div><hr class="divider"><h3>Evidence-based solution comparison</h3><p class="muted small" style="margin:6px 0 12px">Aggregated published runs under this node; untested cases are not failures. Inspect the Test Cases and runs before making a decision.</p>'+taskEvidence(t.id);
 return heading("Explore","Engineering task hierarchy","An evolving, arbitrary-depth tree. Test Cases are experimental challenges attached to tasks, not branches of the taxonomy.",canEdit()?btn("+ New task node","newTask",t.id,"primary"):"")+ '<div class="split"><section class="card"><div class="card-head"><h2>Task taxonomy</h2>'+badge(db.tasks.length+" nodes")+'</div><div class="filters"><input class="input" data-filter="taskSearch" placeholder="Find task, domain, specialty…" value="'+E(ui.filters.taskSearch||"")+'"><select data-filter="taskPhase">'+[["all","All activities"],["SWE","Software / SWE"],["SYS","Systems / SYS"],["Support","Support"]].map(function(x){return opt(x[0],x[1],ui.filters.taskPhase||"all");}).join("")+'</select></div><div class="tree">'+treeHtml(null,0)+'</div><p class="helper">Select a node to view its DoD, descendants, attached TCs and evaluated solutions.</p></section><section class="card">'+details+'</section></div>';
 }
 function solutionCard(s){
@@ -347,7 +347,7 @@ function workgroupPage(){
 if(!canEdit())return '<div class="empty">Workgroup access required.</div>';
 var draftR=db.runs.filter(function(r){return r.status==="draft";}),draftG=db.guides.filter(function(g){return g.status==="draft";}),incoming=db.feedback.filter(function(f){return f.status==="new"||f.status==="triage";});
 var queue='<div class="list">'+draftR.map(function(r){return '<div class="list-row"><div><strong>'+E(caseOf(r)?.title||r.case)+'</strong><div class="muted small">'+E(rec("solutions",r.solution)?.name||r.solution)+' · score '+r.score+'/100</div></div><div class="inline-actions">'+btn("Inspect","runDetail",r.id,"sm")+btn("Publish","publishRun",r.id,"sm primary")+'</div></div>';}).concat(draftG.map(function(g){return '<div class="list-row"><div><strong>'+E(g.title)+'</strong><div class="muted small">Draft document</div></div>'+btn("Review","guideDetail",g.id,"sm")+'</div>';})).join("")||'<div class="empty">No staged content awaiting publication.</div>';
-return heading("Workgroup operations","Qualification studio","Stage controlled experiments, challenge evidence, moderate incoming feedback, and publish official information.",btn("+ New run","newRun","","primary")+btn("+ New task","newTask","","")+btn("+ New solution","newSolution","",""))+'<div class="grid g4">'+stat("Staged runs",draftR.length,"Publication requires workgroup role")+stat("Pending feedback",incoming.length,"New and triage")+stat("Experimental solutions",db.solutions.filter(function(s){return s.maturity==="experimental";}).length,"Not necessarily inaccessible")+stat("Active campaigns",db.campaigns.filter(function(c){return c.status==="active";}).length,"Organizational groups")+'</div><div class="grid g2" style="margin-top:18px">'+section("Publication queue",queue)+section("Feedback requiring attention",'<div class="list">'+incoming.map(function(f){return '<div class="list-row"><div><strong>'+E(f.title)+'</strong><div class="muted small">'+E(f.type)+' · '+E(actor(f.author))+'</div></div>'+btn("Triage","feedbackDetail",f.id,"sm")+'</div>';}).join("")+'</div>')+'</div><div class="card" style="margin-top:16px"><div class="card-head"><h2>Workgroup workflows</h2></div><div class="grid g3"><div class="muted-panel"><h3>1 · Define evidence</h3><p class="muted small">Create task branches, Test Cases and reproducible protocols.</p><div style="margin-top:9px">'+btn("New Test Case","newCase","","sm")+'</div></div><div class="muted-panel"><h3>2 · Execute & challenge</h3><p class="muted small">Record outcomes, measured effort, cost, prompt and artifacts.</p><div style="margin-top:9px">'+btn("Record run","newRun","","sm")+'</div></div><div class="muted-panel"><h3>3 · Publish & revise</h3><p class="muted small">Review drafts, update recommendations and preserve history.</p><div style="margin-top:9px">'+btn("Recommendations","nav","recommendations","sm")+'</div></div></div></div>';
+return heading("Workgroup operations","Qualification studio","Stage controlled experiments, challenge evidence, moderate incoming feedback, and publish official information.",btn("+ New run","newRun","","primary")+btn("+ New task","newTask","","")+btn("+ New solution","newSolution","","")+btn("+ Protocol","newProtocol","",""))+'<div class="grid g4">'+stat("Staged runs",draftR.length,"Publication requires workgroup role")+stat("Pending feedback",incoming.length,"New and triage")+stat("Experimental solutions",db.solutions.filter(function(s){return s.maturity==="experimental";}).length,"Not necessarily inaccessible")+stat("Active campaigns",db.campaigns.filter(function(c){return c.status==="active";}).length,"Organizational groups")+'</div><div class="grid g2" style="margin-top:18px">'+section("Publication queue",queue)+section("Feedback requiring attention",'<div class="list">'+incoming.map(function(f){return '<div class="list-row"><div><strong>'+E(f.title)+'</strong><div class="muted small">'+E(f.type)+' · '+E(actor(f.author))+'</div></div>'+btn("Triage","feedbackDetail",f.id,"sm")+'</div>';}).join("")+'</div>')+'</div><div class="card" style="margin-top:16px"><div class="card-head"><h2>Workgroup workflows</h2></div><div class="grid g3"><div class="muted-panel"><h3>1 · Define evidence</h3><p class="muted small">Create task branches, Test Cases and reproducible protocols.</p><div style="margin-top:9px">'+btn("New Test Case","newCase","","sm")+'</div></div><div class="muted-panel"><h3>2 · Execute & challenge</h3><p class="muted small">Record outcomes, measured effort, cost, prompt and artifacts.</p><div style="margin-top:9px">'+btn("Record run","newRun","","sm")+'</div></div><div class="muted-panel"><h3>3 · Publish & revise</h3><p class="muted small">Review drafts, update recommendations and preserve history.</p><div style="margin-top:9px">'+btn("Recommendations","nav","recommendations","sm")+'</div></div></div></div>';
 }
 
 
@@ -490,7 +490,7 @@ openModal("Benchmark evidence · "+r.id,html,foot);
 function detailsCase(id){
 var c=rec("cases",id);if(!c||(!canEdit()&&c.status!=="published"))return;var t=rec("tasks",c.task),p=rec("protocols",c.protocol),rs=db.runs.filter(function(r){return r.case===c.id;});
 var html='<div class="row-between">'+badge(c.status)+' '+badge("v"+c.version)+'</div><p style="margin:14px 0">'+E(c.objective)+'</p><h3>Engineering task</h3><p class="small">'+E(t?.name||"")+'</p><h3 style="margin:13px 0 6px">Inputs and test conditions</h3><pre class="code">'+E(c.inputs)+'</pre><h3 style="margin:13px 0 6px">Acceptance / DoD</h3><pre class="code">'+E(c.dod)+'</pre><h3 style="margin:13px 0 6px">Protocol</h3><p class="muted small">'+E(p?.name||"")+' · '+E(p?.autonomy||"")+'</p><hr class="divider"><h3>Recorded benchmark runs</h3>'+simpleTable(["Solution","Observed quality","Publication",""],rs.map(function(r){return '<tr>'+td(E(rec("solutions",r.solution)?.name||r.solution))+td('<span class="score">'+r.score+'/100</span>')+td(badge(r.status))+td(btn("Evidence","runDetail",r.id,"sm"))+'</tr>';}));
-openModal(c.title,html,btn("Close","close","","")+(canEdit()?btn("Run this TC","newRunForCase",c.id,"primary"):""));
+openModal(c.title,html,btn("Close","close","","")+(canEdit()?btn("Fork new challenge","forkCase",c.id,"")+btn("Run this TC","newRunForCase",c.id,"primary"):""));
 }
 function detailsGuide(id){
 var g=rec("guides",id);if(!g||(!canEdit()&&g.status!=="published"))return;
@@ -516,23 +516,31 @@ function handleForm(form){
 var kind=form.dataset.form,id=form.dataset.id,d=formValue(form);if(kind!=="feedback"&&kind!=="triage"&&!canEdit()){toast("Insufficient permissions.");return;}
 var req=function(v,label){if(!String(v||"").trim()){toast(label+" is required.");throw Error("form validation");}return String(v).trim();};
 try{
-if(kind==="task"){
- var node={id:next("t"),parent:d.parent||null,name:req(d.name,"Name"),phase:d.phase,domain:d.domain,baseline:toNum(d.baseline),desc:d.desc,criteria:d.criteria};
- db.tasks.push(node);ui.task=node.id;ui.page="tasks";event("Task","Created task node: "+node.name);
+if(kind==="task"||kind==="taskEdit"){
+ var oldTask=kind==="taskEdit"?rec("tasks",id):null;
+ if(oldTask&&d.parent&&descendants(oldTask.id).includes(d.parent)){toast("A task cannot be its own ancestor.");return;}
+ var node=oldTask||{id:next("t")},before=oldTask?JSON.parse(JSON.stringify(oldTask)):null;
+ Object.assign(node,{parent:d.parent||null,name:req(d.name,"Name"),phase:d.phase,domain:d.domain,baseline:toNum(d.baseline),status:d.status||"active",desc:d.desc,criteria:d.criteria});
+ if(!oldTask)db.tasks.push(node);else revision("Task",node.id,before,node);
+ ui.task=node.id;ui.page="tasks";event("Task",(oldTask?"Updated":"Created")+" task node: "+node.name);
 }else if(kind==="case"){
  var c={id:next("c"),task:d.task,title:req(d.title,"Title"),version:req(d.version,"Version"),protocol:d.protocol,objective:req(d.objective,"Objective"),inputs:d.inputs,dod:req(d.dod,"Definition of Done"),status:"published"};
  db.cases.push(c);ui.page="benchmark";ui.bench="cases";event("Test Case","Added challenging test case: "+c.title);
 }else if(kind==="run"){
- if(toNum(d.score)>100||toNum(d.score)<0){toast("Score must be within 0–100.");return;}
- var r={id:next("r"),case:d.case,solution:d.solution,protocol:d.protocol,date:new Date().toISOString().slice(0,10),score:toNum(d.score),accepted:d.accepted==="yes",status:d.status,prep:toNum(d.prep),steer:toNum(d.steer),review:toNum(d.review),correction:toNum(d.correction),cost:toNum(d.cost),tokens:toNum(d.tokens),prompt:req(d.prompt,"Prompt"),transcript:req(d.transcript,"Interaction trace"),artifacts:d.artifacts,notes:d.notes,owner:currentUser};
+ if(toNum(d.score)>100||toNum(d.score)<0||toNum(d.utility)>100||toNum(d.utility)<0){toast("Rubric scores must be within 0–100.");return;}
+ var r={id:next("r"),case:d.case,solution:d.solution,protocol:d.protocol,date:new Date().toISOString().slice(0,10),score:toNum(d.score),accepted:d.accepted==="yes",status:d.status,prep:toNum(d.prep),steer:toNum(d.steer),review:toNum(d.review),correction:toNum(d.correction),cost:toNum(d.cost),tokens:toNum(d.tokens),duration:toNum(d.duration),interruptions:toNum(d.interruptions),reprompts:toNum(d.reprompts),utility:toNum(d.utility),sideEffects:d.sideEffects,prompt:req(d.prompt,"Prompt"),transcript:req(d.transcript,"Interaction trace"),artifacts:d.artifacts,notes:d.notes,owner:currentUser,
+  caseSnapshot:JSON.parse(JSON.stringify(rec("cases",d.case)||{})),
+  solutionSnapshot:JSON.parse(JSON.stringify(rec("solutions",d.solution)||{})),
+  protocolSnapshot:JSON.parse(JSON.stringify(rec("protocols",d.protocol)||{}))};
  db.runs.push(r);ui.page="benchmark";ui.bench="runs";ui.filters.runStatus="all";event("Run",(r.status==="published"?"Published":"Staged")+" benchmark run: "+r.id);
 }else if(kind==="solution"||kind==="solutionEdit"){
  var s=kind==="solutionEdit"?rec("solutions",id):{id:next("s"),recommendation:"Not yet qualified; no official usage guidance.",rate:0};
+ var previous=kind==="solutionEdit"?JSON.parse(JSON.stringify(s)):null;
  Object.assign(s,{name:req(d.name,"Name"),model:req(d.model,"Model"),provider:req(d.provider,"Provider"),harness:req(d.harness,"Harness"),version:d.version,accessible:d.accessible==="yes",maturity:d.maturity,publication:d.publication,cost:d.cost,skills:d.skills,config:d.config,description:d.description,limitations:d.limitations,tags:d.tags.split(",").map(function(t){return t.trim();}).filter(Boolean)});
- if(kind==="solution")db.solutions.push(s);ui.page="solutions";event("Solution",(kind==="solution"?"Registered":"Updated")+" AI solution: "+s.name);
+ if(kind==="solution")db.solutions.push(s);else revision("Solution",s.id,previous,s);ui.page="solutions";event("Solution",(kind==="solution"?"Registered":"Updated")+" AI solution: "+s.name);
 }else if(kind==="recommendation"){
- var target=rec("solutions",id);if(!target)return;
- target.recommendation=req(d.recommendation,"Recommendation");target.limitations=d.limitations;target.publication=d.publication;ui.page="recommendations";event("Recommendation","Revised "+target.name+" guidance ("+target.publication+").");
+ var target=rec("solutions",id);if(!target)return;var prevRecommendation=JSON.parse(JSON.stringify(target));
+ target.recommendation=req(d.recommendation,"Recommendation");target.limitations=d.limitations;target.publication=d.publication;revision("Recommendation",id,prevRecommendation,target);ui.page="recommendations";event("Recommendation","Revised "+target.name+" guidance ("+target.publication+").");
 }else if(kind==="feedback"){
  if(!canContribute())return;
  var f={id:next("f"),author:currentUser,type:d.type,target:d.target,title:req(d.title,"Title"),body:req(d.body,"Description"),status:"new",linked:"",date:new Date().toISOString().slice(0,10)};
@@ -540,11 +548,19 @@ if(kind==="task"){
 }else if(kind==="triage"){
  if(!canEdit())return;var fb=rec("feedback",id);fb.status=d.status;fb.linked=d.linked;event("Feedback","Triage updated: "+fb.title+" → "+fb.status);
 }else if(kind==="guide"){
- var g=id?rec("guides",id):{id:next("g")};Object.assign(g,{title:req(d.title,"Title"),type:d.type,status:d.status,body:req(d.body,"Document"),owner:currentUser,date:new Date().toISOString().slice(0,10)});
- if(!id)db.guides.push(g);ui.page="knowledge";event("Guide",(id?"Updated":"Created")+" "+g.type.toLowerCase()+": "+g.title);
+ var g=id?rec("guides",id):{id:next("g")},prevGuide=id?JSON.parse(JSON.stringify(g)):null;Object.assign(g,{title:req(d.title,"Title"),type:d.type,status:d.status,body:req(d.body,"Document"),owner:currentUser,date:new Date().toISOString().slice(0,10)});
+ if(!id)db.guides.push(g);else revision("Guide",id,prevGuide,g);ui.page="knowledge";event("Guide",(id?"Updated":"Created")+" "+g.type.toLowerCase()+": "+g.title);
 }else if(kind==="watch"){
  var w=id?rec("watch",id):{id:next("w")};Object.assign(w,{title:req(d.title,"Title"),kind:d.kind,status:d.status,solution:d.solution,summary:req(d.summary,"Summary"),source:d.source,date:new Date().toISOString().slice(0,10)});
  if(!id)db.watch.push(w);ui.page="watch";event("Watch",(id?"Updated":"Added")+" technology signal: "+w.title);
+}else if(kind==="component"||kind==="componentEdit"){
+ var comp=id?rec("components",id):{id:next("component")},prevComp=id?JSON.parse(JSON.stringify(comp)):null;
+ Object.assign(comp,{type:d.type,name:req(d.name,"Component name"),version:d.version,details:d.details,publication:d.publication});
+ if(!id)db.components.push(comp);else revision("Component",id,prevComp,comp);
+ ui.page="solutions";ui.solutionView="components";event("Catalog",(id?"Updated":"Registered")+" "+comp.type+": "+comp.name);
+}else if(kind==="protocol"){
+ var protocol={id:next("p"),name:req(d.name,"Protocol name"),version:req(d.version,"Revision"),autonomy:d.autonomy,description:req(d.description,"Setup"),criteria:req(d.criteria,"Criteria")};
+ db.protocols.push(protocol);ui.page="benchmark";ui.bench="protocols";event("Protocol","Created protocol revision: "+protocol.name+" v"+protocol.version);
 }else if(kind==="campaign"){
  var ca={id:next("b"),title:req(d.title,"Campaign title"),purpose:req(d.purpose,"Campaign purpose"),caseIds:Array.from(form.querySelectorAll('[name="caseIds"]:checked')).map(function(el){return el.value;}),solutionIds:Array.from(form.querySelectorAll('[name="solutionIds"]:checked')).map(function(el){return el.value;}),status:"active",owner:currentUser};
  if(!ca.caseIds.length||!ca.solutionIds.length){toast("Select at least one case and one solution.");return;}db.campaigns.push(ca);ui.page="benchmark";ui.bench="campaigns";event("Campaign","Created campaign: "+ca.title);
@@ -579,6 +595,13 @@ if(act==="feedbackDetail"){detailsFeedback(id);return;}
 if(act==="campaignDetail"){detailsCampaign(id);return;}
 if(act==="watchDetail"){detailsWatch(id);return;}
 if(act==="newTask"){dialogTask(id);return;}
+if(act==="editTask"){dialogTask("",id);return;}
+if(act==="solutionTab"){ui.solutionView=id;render();return;}
+if(act==="newComponent"){dialogComponent();return;}
+if(act==="editComponent"){dialogComponent(id);return;}
+if(act==="newProtocol"){dialogProtocol();return;}
+if(act==="reviseProtocol"){dialogProtocol(id);return;}
+if(act==="forkCase"){dialogCase("",id);return;}
 if(act==="newCase"){dialogCase(id);return;}
 if(act==="newRun"){dialogRun();return;}
 if(act==="newRunForCase"){dialogRun(id);return;}
