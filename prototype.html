@@ -132,11 +132,28 @@ var db;
 try{var saved=localStorage.getItem(KEY);db=saved?JSON.parse(saved):seed();if(!db||!db.tasks||!db.solutions)throw Error("Invalid data");}catch(ex){db=seed();}
 function persist(){localStorage.setItem(KEY,JSON.stringify(db));}
 if(!localStorage.getItem(KEY))persist();
+if(!db.components){
+ db.components=[];
+ ["model","provider","harness"].forEach(function(type){db.solutions.forEach(function(s){
+  var name=s[type];if(name&&!db.components.some(function(c){return c.type===type&&c.name===name;}))
+   db.components.push({id:type+"_"+db.components.length,type:type,name:name,version:"",details:"Catalog item derived from seeded AI solutions."});
+ });});
+}
+db.runs.forEach(function(r,i){
+ if(r.utility==null)r.utility=Math.max(0,r.score-(i%7+2));
+ if(r.sideEffects==null)r.sideEffects=r.accepted?"No significant side effects recorded in this mock review.":"Defects or unsupported assumptions required additional verification.";
+ if(r.interruptions==null)r.interruptions=(i%3);
+ if(r.reprompts==null)r.reprompts=(i%4);
+ if(r.duration==null)r.duration=18+(i*7)%93;
+});
+persist();
 var currentUser=localStorage.getItem(SESSION)||"";
-var ui={page:"dashboard",task:"t5",solution:"s1",bench:"runs",matrix:"task",matrixTarget:"t5",filters:{},expanded:{},modal:"",detail:"",selectedCompare:["s1","s2","s3"],adminTab:"queue"};
+var ui={page:"dashboard",task:"t5",solution:"s1",solutionView:"solutions",bench:"runs",matrix:"task",matrixTarget:"t5",filters:{},expanded:{},modal:"",detail:"",selectedCompare:["s1","s2","s3"],adminTab:"queue"};
 function user(){return db.users.find(function(x){return x.id===currentUser;});}
 function canEdit(){return !!user()&&user().role==="workgroup";}
 function canContribute(){return !!user();}
+function visibleSolution(s){return canEdit()||s.publication==="published";}
+function visibleRun(r){return canEdit()||r.status==="published";}
 function rec(type,id){return(db[type]||[]).find(function(x){return x.id===id;});}
 function next(prefix){return prefix+"_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,6);}
 function textOf(x){return x==null?"":String(x);}
@@ -214,13 +231,13 @@ return '<article class="card solution-card"><div class="solution-title"><div cla
 }
 function solutionsPage(){
 var q=String(ui.filters.solutionSearch||"").toLowerCase(),availability=ui.filters.access||"all",maturity=ui.filters.maturity||"all";
-var solutions=db.solutions.filter(function(s){return (s.name+" "+s.model+" "+s.harness+" "+s.provider+" "+s.tags.join(" ")).toLowerCase().includes(q)&&(availability==="all"||(availability==="yes"?s.accessible:!s.accessible))&&(maturity==="all"||s.maturity===maturity);});
+var solutions=db.solutions.filter(function(s){return visibleSolution(s)&&(s.name+" "+s.model+" "+s.harness+" "+s.provider+" "+s.tags.join(" ")).toLowerCase().includes(q)&&(availability==="all"||(availability==="yes"?s.accessible:!s.accessible))&&(maturity==="all"||s.maturity===maturity);});
 var filters='<div class="filters"><input class="input" data-filter="solutionSearch" placeholder="Search model, harness, provider or capability…" value="'+E(ui.filters.solutionSearch||"")+'"><select data-filter="access">'+[["all","Any access"],["yes","Accessible"],["no","Not accessible"]].map(function(x){return opt(x[0],x[1],availability);}).join("")+'</select><select data-filter="maturity">'+[["all","Any maturity"],["candidate","Candidate"],["experimental","Experimental"],["evaluated","Evaluated"],["qualified","Qualified"]].map(function(x){return opt(x[0],x[1],maturity);}).join("")+'</select></div>';
 var compare=ui.selectedCompare.length>=2?section("Selected solution comparison",solutionComparison(ui.selectedCompare)):'<div class="note" style="margin-top:18px">Select two or more solution cards to compare configurations, accessibility, evidence, outcomes, cost and effort side by side.</div>';
 return heading("Explore","AI solution catalog","A solution is a versioned combination of model, provider, harness, configuration and capabilities. Accessible and inaccessible candidates coexist.",canEdit()?btn("+ Register solution","newSolution","","primary"):"")+filters+'<div class="grid g3">'+(solutions.length?solutions.map(solutionCard).join(""):'<div class="empty">No solutions match these filters.</div>')+'</div><div style="margin-top:20px">'+compare+'</div>';
 }
 function solutionComparison(ids){
-var ss=ids.map(function(id){return rec("solutions",id);}).filter(Boolean);
+var ss=ids.map(function(id){return rec("solutions",id);}).filter(function(s){return s&&visibleSolution(s);});
 if(!ss.length)return '<div class="empty">Select solutions to compare.</div>';
 var measures=[
  ["Access",function(s){return badge(s.accessible?"Accessible":"Not accessible");}],
@@ -239,7 +256,7 @@ var measures=[
 return '<p class="muted small" style="margin-bottom:12px">Different task mixes are not directly comparable. Use common Test Cases in the Benchmark lab for fair performance comparisons.</p>'+simpleTable(["Property"].concat(ss.map(function(s){return s.name;})),measures.map(function(row){return '<tr>'+td('<strong>'+row[0]+'</strong>')+ss.map(function(s){return td(row[1](s));}).join("")+'</tr>';}));
 }
 function solutionDetail(id){
-var s=rec("solutions",id);if(!s)return;var rs=sRuns(id),stats=solutionStats(id),cases=new Set(rs.map(function(x){return x.case;}));
+var s=rec("solutions",id);if(!s||!visibleSolution(s))return;var rs=sRuns(id),stats=solutionStats(id),cases=new Set(rs.map(function(x){return x.case;}));
 var html='<div class="grid g2">'+stat("Published runs",stats.count,cases.size+" distinct test cases")+stat("Mean result",stats.count?stats.score+"/100":"Unknown",stats.count?stats.accept+"% accepted":"No controlled evidence")+'</div><hr class="divider"><div class="tags">'+badge(s.accessible?"Accessible":"Not accessible")+badge(s.maturity)+badge(s.publication)+'</div><p style="margin-top:13px">'+E(s.description)+'</p><h3 style="margin:18px 0 8px">Recommended use</h3><div class="callout">'+E(s.recommendation)+'</div><h3 style="margin:17px 0 8px">Configuration snapshot</h3><pre class="code">'+E(s.config)+'</pre><h3 style="margin:16px 0 7px">Capabilities</h3><p>'+E(s.skills)+'</p><h3 style="margin:16px 0 7px">Limitations</h3><p class="muted">'+E(s.limitations)+'</p><h3 style="margin:18px 0 8px">Benchmark evidence</h3>'+simpleTable(["Case","Score","Accepted","Evidence"],rs.map(function(r){return '<tr>'+td(E(rec("cases",r.case)?.title||r.case))+td('<span class="score">'+r.score+'</span>')+td(badge(r.accepted?"Accepted":"Failed"))+td(btn("Inspect","runDetail",r.id,"sm"))+'</tr>';}))+(canEdit()?'<div class="inline-actions" style="margin-top:15px">'+btn("Edit solution","editSolution",id,"sm")+btn("Update recommendation","editRecommendation",id,"sm")+btn("Benchmark this solution","newRunForSolution",id,"primary sm")+'</div>':'');
 openModal(s.name,html);
 }
@@ -256,13 +273,13 @@ return heading("Experiments","Benchmark lab","One experimental data model suppor
 }
 function runRegistry(){
 var sol=ui.filters.runSolution||"all",task=ui.filters.runTask||"all",status=ui.filters.runStatus||"all";
-var filtered=db.runs.filter(function(r){var c=caseOf(r);return (sol==="all"||r.solution===sol)&&(task==="all"||(c&&descendants(task).includes(c.task)))&&(status==="all"||r.status===status);}).sort(function(a,b){return b.date.localeCompare(a.date);});
+var filtered=db.runs.filter(function(r){var c=caseOf(r);return visibleRun(r)&&(sol==="all"||r.solution===sol)&&(task==="all"||(c&&descendants(task).includes(c.task)))&&(status==="all"||r.status===status);}).sort(function(a,b){return b.date.localeCompare(a.date);});
 var filters='<div class="filters"><select data-filter="runTask">'+[opt("all","All tasks",task)].concat(db.tasks.filter(function(t){return db.cases.some(function(c){return c.task===t.id;});}).map(function(t){return opt(t.id,t.name,task);})).join("")+'</select><select data-filter="runSolution">'+[opt("all","All solutions",sol)].concat(db.solutions.map(function(s){return opt(s.id,s.name,sol);})).join("")+'</select><select data-filter="runStatus">'+[["all","Any publication status"],["published","Published"],["draft","Draft"]].map(function(x){return opt(x[0],x[1],status);}).join("")+'</select><span class="muted small">'+filtered.length+" result(s)"+'</span></div>';
 var table=simpleTable(["Date / run","Test Case","Solution","Score / DoD","Human work","AI cost","Status",""],filtered.map(function(r){return '<tr>'+td('<strong>'+E(r.date)+'</strong><div class="muted small mono">'+E(r.id)+'</div>')+td(E(caseOf(r)?.title||r.case))+td(E(rec("solutions",r.solution)?.name||r.solution))+td('<span class="score'+(r.score<75?' low':'')+'">'+r.score+'/100</span><div>'+badge(r.accepted?"Accepted":"Failed")+'</div>')+td(effort(r)+" min")+td(money(r.cost))+td(badge(r.status))+td(btn("Evidence","runDetail",r.id,"sm"))+'</tr>';}));
 return filters+table;
 }
 function caseRegistry(){
-var rows=db.cases.map(function(c){var t=rec("tasks",c.task),rs=db.runs.filter(function(r){return r.case===c.id&&r.status==="published";});return '<tr>'+td(linkAction(c.title,"caseDetail",c.id)+'<div class="muted small">'+E(c.objective)+'</div>')+td(t?linkAction(t.name,"task",t.id):"Unknown")+td(E(c.version))+td(rs.length+" / "+new Set(rs.map(function(r){return r.solution;})).size+" solutions")+td(btn("Inspect","caseDetail",c.id,"sm")+(canEdit()?btn("Run","newRunForCase",c.id,"sm"):""))+'</tr>';});
+var rows=db.cases.filter(function(c){return canEdit()||c.status==="published";}).map(function(c){var t=rec("tasks",c.task),rs=db.runs.filter(function(r){return r.case===c.id&&r.status==="published";});return '<tr>'+td(linkAction(c.title,"caseDetail",c.id)+'<div class="muted small">'+E(c.objective)+'</div>')+td(t?linkAction(t.name,"task",t.id):"Unknown")+td(E(c.version))+td(rs.length+" / "+new Set(rs.map(function(r){return r.solution;})).size+" solutions")+td(btn("Inspect","caseDetail",c.id,"sm")+(canEdit()?btn("Run","newRunForCase",c.id,"sm"):""))+'</tr>';});
 return '<p class="muted small" style="margin-bottom:14px">New Test Cases challenge old conclusions. A repeated run of an existing TC measures variance; it does not create a new category.</p>'+simpleTable(["Experimental challenge","Engineering task","Version","Published runs",""],rows);
 }
 function comparisonMatrix(){
@@ -400,7 +417,7 @@ var checkSolutions=db.solutions.map(function(s){return '<label class="small" sty
 openForm("Create benchmark campaign","campaign",field("title","Campaign name","","text","full")+field("purpose","Hypothesis / qualification objective","","textarea","full")+'<div class="field"><label>Selected test cases</label><div class="muted-panel" style="max-height:200px;overflow:auto">'+checkCases+'</div></div><div class="field"><label>Selected solutions</label><div class="muted-panel" style="max-height:200px;overflow:auto">'+checkSolutions+'</div></div>',"","Create campaign");
 }
 function detailsRun(id){
-var r=rec("runs",id),c=r&&rec("cases",r.case),s=r&&rec("solutions",r.solution);if(!r)return;
+var r=rec("runs",id),c=r&&rec("cases",r.case),s=r&&rec("solutions",r.solution);if(!r||!visibleRun(r))return;
 var p=rec("protocols",r.protocol),t=rec("tasks",c?.task),baseline=t?.baseline||0;
 var html='<div class="row-between"><div>'+badge(r.status)+" "+badge(r.accepted?"DoD accepted":"DoD failed")+'</div><span class="muted small">'+E(r.date)+' · '+E(actor(r.owner))+'</span></div>'+
 '<h3 style="margin:15px 0 5px">'+E(c?.title||r.case)+' × '+E(s?.name||r.solution)+'</h3><p class="muted small">'+E(t?.name||"")+' · '+E(p?.name||"")+' ('+E(p?.version||"")+')</p>'+
@@ -417,7 +434,7 @@ var foot=btn("Close","close","","")+(canEdit()?btn("Repeat this case","repeatRun
 openModal("Benchmark evidence · "+r.id,html,foot);
 }
 function detailsCase(id){
-var c=rec("cases",id);if(!c)return;var t=rec("tasks",c.task),p=rec("protocols",c.protocol),rs=db.runs.filter(function(r){return r.case===c.id;});
+var c=rec("cases",id);if(!c||(!canEdit()&&c.status!=="published"))return;var t=rec("tasks",c.task),p=rec("protocols",c.protocol),rs=db.runs.filter(function(r){return r.case===c.id;});
 var html='<div class="row-between">'+badge(c.status)+' '+badge("v"+c.version)+'</div><p style="margin:14px 0">'+E(c.objective)+'</p><h3>Engineering task</h3><p class="small">'+E(t?.name||"")+'</p><h3 style="margin:13px 0 6px">Inputs and test conditions</h3><pre class="code">'+E(c.inputs)+'</pre><h3 style="margin:13px 0 6px">Acceptance / DoD</h3><pre class="code">'+E(c.dod)+'</pre><h3 style="margin:13px 0 6px">Protocol</h3><p class="muted small">'+E(p?.name||"")+' · '+E(p?.autonomy||"")+'</p><hr class="divider"><h3>Recorded benchmark runs</h3>'+simpleTable(["Solution","Observed quality","Publication",""],rs.map(function(r){return '<tr>'+td(E(rec("solutions",r.solution)?.name||r.solution))+td('<span class="score">'+r.score+'/100</span>')+td(badge(r.status))+td(btn("Evidence","runDetail",r.id,"sm"))+'</tr>';}));
 openModal(c.title,html,btn("Close","close","","")+(canEdit()?btn("Run this TC","newRunForCase",c.id,"primary"):""));
 }
