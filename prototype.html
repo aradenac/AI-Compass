@@ -132,6 +132,7 @@ var db;
 try{var saved=localStorage.getItem(KEY);db=saved?JSON.parse(saved):seed();if(!db||!db.tasks||!db.solutions)throw Error("Invalid data");}catch(ex){db=seed();}
 function persist(){localStorage.setItem(KEY,JSON.stringify(db));}
 if(!localStorage.getItem(KEY))persist();
+function ensureDefaults(){
 if(!db.components){
  db.components=[];
  ["model","provider","harness"].forEach(function(type){db.solutions.forEach(function(s){
@@ -139,14 +140,19 @@ if(!db.components){
    db.components.push({id:type+"_"+db.components.length,type:type,name:name,version:"",details:"Catalog item derived from seeded AI solutions."});
  });});
 }
+if(!db.revisions)db.revisions=[];
 db.runs.forEach(function(r,i){
  if(r.utility==null)r.utility=Math.max(0,r.score-(i%7+2));
  if(r.sideEffects==null)r.sideEffects=r.accepted?"No significant side effects recorded in this mock review.":"Defects or unsupported assumptions required additional verification.";
  if(r.interruptions==null)r.interruptions=(i%3);
  if(r.reprompts==null)r.reprompts=(i%4);
  if(r.duration==null)r.duration=18+(i*7)%93;
+ if(!r.caseSnapshot)r.caseSnapshot=JSON.parse(JSON.stringify(db.cases.find(function(c){return c.id===r.case;})||{}));
+ if(!r.solutionSnapshot)r.solutionSnapshot=JSON.parse(JSON.stringify(db.solutions.find(function(x){return x.id===r.solution;})||{}));
+ if(!r.protocolSnapshot)r.protocolSnapshot=JSON.parse(JSON.stringify(db.protocols.find(function(x){return x.id===r.protocol;})||{}));
 });
-persist();
+}
+ensureDefaults();persist();
 var currentUser=localStorage.getItem(SESSION)||"";
 var ui={page:"dashboard",task:"t5",solution:"s1",solutionView:"solutions",bench:"runs",matrix:"task",matrixTarget:"t5",filters:{},expanded:{},modal:"",detail:"",selectedCompare:["s1","s2","s3"],adminTab:"queue"};
 function user(){return db.users.find(function(x){return x.id===currentUser;});}
@@ -173,6 +179,7 @@ function sRuns(id){return db.runs.filter(function(r){return r.solution===id&&r.s
 function solutionStats(s,rs){var runs=rs||sRuns(s);return {count:runs.length,score:Math.round(avg(runs.map(function(r){return r.score;}))),accept:runs.length?Math.round(100*runs.filter(function(r){return r.accepted;}).length/runs.length):null,effort:Math.round(avg(runs.map(effort))),cost:avg(runs.map(function(r){return r.cost;}))};}
 function badge(v){var low=String(v||"").toLowerCase(),kind=/^(published|qualified|accepted|closed|accessible|active)$/.test(low)?"green":/^(draft|experimental|triage|review|watching|planned|evaluated)$/.test(low)?"amber":/^(failed|inaccessible|retired|superseded|rejected)$/.test(low)?"red":/^(candidate|new|pending)$/.test(low)?"blue":"";return '<span class="tag '+kind+'">'+E(v)+'</span>';}
 function actor(id){var u=rec("users",id);return u?u.name:"Unknown";}
+function revision(type,id,before,after){db.revisions.push({id:next("rev"),type:type,objectId:id,by:currentUser,date:new Date().toISOString().slice(0,10),before:JSON.parse(JSON.stringify(before)),after:JSON.parse(JSON.stringify(after))});}
 function event(type,text){db.events.unshift({id:next("e"),date:new Date().toISOString().slice(0,10),actor:currentUser,type:type,text:text});db.events=db.events.slice(0,120);}
 function saveEvent(type,text){event(type,text);persist();render();toast("Saved locally · "+type);}
 function toast(message){var el=document.getElementById("toast");if(!el)return;el.innerHTML='<div class="toast">'+E(message)+'</div>';clearTimeout(window.toastTimer);window.toastTimer=setTimeout(function(){el.innerHTML="";},3300);}
@@ -300,7 +307,7 @@ var mode=ui.matrix||"task",target=ui.matrixTarget;if(mode==="task"&&!rec("tasks"
 var targetOpts=mode==="task"?db.tasks.filter(function(t){return db.cases.some(function(c){return descendants(t.id).includes(c.task);});}).map(function(t){return opt(t.id,t.name,target);}):db.solutions.map(function(s){return opt(s.id,s.name,target);});
 var controls='<div class="filters"><label class="small">Benchmark perspective</label><select data-filter="matrixMode">'+opt("task","Task → compare solutions",mode)+opt("solution","Solution → compare tasks",mode)+'</select><select data-filter="matrixTarget">'+targetOpts.join("")+'</select></div>';
 var cs=mode==="task"?db.cases.filter(function(c){return descendants(target).includes(c.task);}):db.cases.filter(function(c){return db.runs.some(function(r){return r.case===c.id&&r.solution===target&&r.status==="published";});});
-var cols=mode==="task"?db.solutions.filter(function(s){return db.runs.some(function(r){return r.solution===s.id&&cs.some(function(c){return c.id===r.case;})&&r.status==="published";});}):[rec("solutions",target)];
+var cols=mode==="task"?db.solutions.filter(function(s){return visibleSolution(s)&&db.runs.some(function(r){return r.solution===s.id&&cs.some(function(c){return c.id===r.case;})&&r.status==="published";});}):[rec("solutions",target)].filter(function(s){return s&&visibleSolution(s);});
 var matrix=cs.length?simpleTable(["Common test case / task"].concat(cols.map(function(s){return s.name;})),cs.map(function(c){return '<tr>'+td(linkAction(c.title,"caseDetail",c.id)+'<div class="muted small">'+E(rec("tasks",c.task)?.name||"")+'</div>')+cols.map(function(s){var rs=db.runs.filter(function(r){return r.case===c.id&&r.solution===s.id&&r.status==="published";});return td(rs.length?'<span class="score'+(avg(rs.map(function(x){return x.score;}))<75?' low':'')+'">'+Math.round(avg(rs.map(function(x){return x.score;})))+'/100</span><div class="muted small">'+rs.length+' run(s)</div>':'<span class="muted">Not tested</span>');}).join("")+'</tr>';}).concat([ '<tr>'+td("<strong>Coverage</strong>")+cols.map(function(s){return td(db.cases.filter(function(c){return cs.some(function(x){return x.id===c.id;})&&db.runs.some(function(r){return r.case===c.id&&r.solution===s.id&&r.status==="published";});}).length+"/"+cs.length+" cases");}).join("")+'</tr>' ])):'<div class="empty">No matching published evidence yet.</div>';
 return controls+'<div class="note" style="margin-bottom:16px"><strong>'+E(mode==="task"?"Task-centric benchmark":"Solution-centric benchmark")+'</strong> · '+E(mode==="task"?"Same task and test cases, multiple solutions. Compare common cases, not unequal portfolios.":"One solution across tasks and concrete cases; reveal its actual coverage.")+'</div>'+matrix+'<p class="helper">Scores summarize observed results only. Missing comparisons are unknown, not zero. For audited comparison, open each run and inspect its context and DoD.</p>';
 }
@@ -464,14 +471,14 @@ var checkSolutions=db.solutions.map(function(s){return '<label class="small" sty
 openForm("Create benchmark campaign","campaign",field("title","Campaign name","","text","full")+field("purpose","Hypothesis / qualification objective","","textarea","full")+'<div class="field"><label>Selected test cases</label><div class="muted-panel" style="max-height:200px;overflow:auto">'+checkCases+'</div></div><div class="field"><label>Selected solutions</label><div class="muted-panel" style="max-height:200px;overflow:auto">'+checkSolutions+'</div></div>',"","Create campaign");
 }
 function detailsRun(id){
-var r=rec("runs",id),c=r&&rec("cases",r.case),s=r&&rec("solutions",r.solution);if(!r||!visibleRun(r))return;
-var p=rec("protocols",r.protocol),t=rec("tasks",c?.task),baseline=t?.baseline||0;
+var r=rec("runs",id),c=r&&rec("cases",r.case),s=r&&rec("solutions",r.solution);if(!r||!visibleRun(r))return;c=r.caseSnapshot||c;s=r.solutionSnapshot||s;
+var p=r.protocolSnapshot||rec("protocols",r.protocol),t=rec("tasks",c?.task),baseline=t?.baseline||0;
 var html='<div class="row-between"><div>'+badge(r.status)+" "+badge(r.accepted?"DoD accepted":"DoD failed")+'</div><span class="muted small">'+E(r.date)+' · '+E(actor(r.owner))+'</span></div>'+
 '<h3 style="margin:15px 0 5px">'+E(c?.title||r.case)+' × '+E(s?.name||r.solution)+'</h3><p class="muted small">'+E(t?.name||"")+' · '+E(p?.name||"")+' ('+E(p?.version||"")+')</p>'+
 '<div class="grid g3" style="margin-top:17px">'+stat("Quality rubric",r.score+"/100",r.accepted?"Mandatory criteria accepted":"Mandatory criteria failed")+stat("AI / tool spend",money(r.cost),fmt(r.tokens)+" tokens")+stat("Human effort",effort(r)+" min",(baseline?baseline+" min baseline":"Baseline unavailable"))+'</div>'+
 '<div class="card tight" style="margin-top:14px">'+bar("Preparation",baseline?100*r.prep/baseline:0,r.prep+" min")+bar("Steering",baseline?100*r.steer/baseline:0,r.steer+" min")+bar("Review",baseline?100*r.review/baseline:0,r.review+" min")+bar("Corrections",baseline?100*r.correction/baseline:0,r.correction+" min")+'</div>'+
 '<h3 style="margin:16px 0 7px">Test context & acceptance</h3><p class="text-block">'+E(c?.objective||"")+'</p><div class="callout" style="margin:10px 0">Inputs: '+E(c?.inputs||"")+'<hr class="divider">Definition of Done: '+E(c?.dod||"")+'</div>'+
-'<h3 style="margin:16px 0 7px">Exact configuration</h3><pre class="code">'+E(s?.config||"")+'</pre>'+
+'<div class="grid g2" style="margin-top:12px">'+stat("Information utility / density",r.utility+"/100","Declared rubric · relative to output volume")+stat("Agent runtime",r.duration+" min",r.interruptions+" interruptions · "+r.reprompts+" reprompts")+'</div><h3 style="margin:16px 0 7px">Observed side effects</h3><pre class="code">'+E(r.sideEffects||"None recorded")+'</pre><h3 style="margin:16px 0 7px">Pinned configuration / version at run time</h3><pre class="code">'+E(s?.config||"")+'</pre>'+
 '<h3 style="margin:16px 0 7px">Initial prompt</h3><pre class="code">'+E(r.prompt)+'</pre>'+
 '<h3 style="margin:16px 0 7px">Interaction trace</h3><pre class="code">'+E(r.transcript)+'</pre>'+
 '<h3 style="margin:16px 0 7px">Artifacts / evidence references</h3><pre class="code">'+E(r.artifacts)+'</pre>'+
@@ -589,7 +596,7 @@ if(act==="newCampaign"){dialogCampaign();return;}
 if(act==="publishRun"){if(!editable())return;var r=rec("runs",id);if(r){r.status="published";ui.modal="";saveEvent("Run","Published benchmark run "+id);}return;}
 if(act==="publishGuide"){if(!editable())return;var g=rec("guides",id);if(g){g.status="published";g.date=new Date().toISOString().slice(0,10);ui.modal="";saveEvent("Guide","Published document: "+g.title);}return;}
 if(act==="export"){var blob=new Blob([JSON.stringify(db,null,2)],{type:"application/json"});var link=document.createElement("a");link.href=URL.createObjectURL(blob);link.download="ai-compass-demo-data.json";link.click();setTimeout(function(){URL.revokeObjectURL(link.href);},2000);toast("Exported full mock dataset.");return;}
-if(act==="reset"){if(confirm("Replace all browser-saved prototype data with the initial mock dataset? This cannot be undone.")){db=seed();persist();ui.modal="";ui.filters={};ui.page="dashboard";render();toast("Mock dataset restored.");}return;}
+if(act==="reset"){if(confirm("Replace all browser-saved prototype data with the initial mock dataset? This cannot be undone.")){db=seed();ensureDefaults();persist();ui.modal="";ui.filters={};ui.page="dashboard";render();toast("Mock dataset restored.");}return;}
 });
 document.addEventListener("click",function(ev){if(ev.target&&ev.target.id==="backdrop")closeModal();});
 document.addEventListener("keydown",function(ev){if(ev.key==="Escape"&&ui.modal)closeModal();});
