@@ -119,7 +119,7 @@ return {
   {id:"w2",title:"Provider cost changes",kind:"Provider",source:"Illustrative provider bulletin",summary:"Verify pricing changes before revising cost/value guidance.",status:"pending",solution:"s2",date:"2026-10-06"}
  ],
  events:[
-  {id:"e1",date:"2026-10-07",actor:"u1",type:"Run",text:"Staged a Python backend benchmark run (draft)."},
+  {id:"e1",date:"2026-10-07",actor:"u1",type:"Run",internal:true,text:"Staged a Python backend benchmark run (draft)."},
   {id:"e2",date:"2026-10-07",actor:"u5",type:"Result",text:"Published engineering briefing benchmark."},
   {id:"e3",date:"2026-10-06",actor:"u2",type:"Feedback",text:"Proposed hardware-in-the-loop test cases."},
   {id:"e4",date:"2026-10-05",actor:"u5",type:"Guide",text:"Published benchmark interpretation FAQ."},
@@ -180,7 +180,7 @@ function solutionStats(s,rs){var runs=rs||sRuns(s);return {count:runs.length,sco
 function badge(v){var low=String(v||"").toLowerCase(),kind=/^(published|qualified|accepted|closed|accessible|active)$/.test(low)?"green":/^(draft|experimental|triage|review|watching|planned|evaluated)$/.test(low)?"amber":/^(failed|inaccessible|retired|superseded|rejected)$/.test(low)?"red":/^(candidate|new|pending)$/.test(low)?"blue":"";return '<span class="tag '+kind+'">'+E(v)+'</span>';}
 function actor(id){var u=rec("users",id);return u?u.name:"Unknown";}
 function revision(type,id,before,after){db.revisions.push({id:next("rev"),type:type,objectId:id,by:currentUser,date:new Date().toISOString().slice(0,10),before:JSON.parse(JSON.stringify(before)),after:JSON.parse(JSON.stringify(after))});}
-function event(type,text){db.events.unshift({id:next("e"),date:new Date().toISOString().slice(0,10),actor:currentUser,type:type,text:text});db.events=db.events.slice(0,120);}
+function event(type,text,internal){db.events.unshift({id:next("e"),date:new Date().toISOString().slice(0,10),actor:currentUser,type:type,internal:!!internal,text:text});db.events=db.events.slice(0,120);}
 function saveEvent(type,text){event(type,text);persist();render();toast("Saved locally · "+type);}
 function toast(message){var el=document.getElementById("toast");if(!el)return;el.innerHTML='<div class="toast">'+E(message)+'</div>';clearTimeout(window.toastTimer);window.toastTimer=setTimeout(function(){el.innerHTML="";},3300);}
 function field(name,label,value,type,extra){return '<div class="field'+(extra==="full"?' span2':'')+'"><label for="f_'+E(name)+'">'+E(label)+'</label>'+(type==="textarea"?'<textarea name="'+E(name)+'" id="f_'+E(name)+'">'+E(value)+'</textarea>':'<input class="input" id="f_'+E(name)+'" type="'+E(type||"text")+'" name="'+E(name)+'" value="'+E(value)+'"'+(type==="number"?' step="any" min="0"':'')+'>')+'</div>';}
@@ -201,7 +201,7 @@ function btn(text,act,id,cls){return '<button class="btn '+(cls||"")+'" data-act
 function simpleTable(head,rows){return '<div class="table-wrap"><table><thead><tr>'+head.map(function(x){return '<th>'+E(x)+'</th>';}).join("")+'</tr></thead><tbody>'+rows.join("")+'</tbody></table></div>';}
 function td(x){return "<td>"+x+"</td>";}
 function bar(label,v,display){return '<div class="metric"><span>'+E(label)+'</span><strong>'+E(display==null?Math.round(v)+"%":display)+'</strong></div><div class="bar"><i style="width:'+Math.max(0,Math.min(100,Number(v)||0))+'%"></i></div>';}
-function eventList(items){return '<div class="timeline">'+items.map(function(x){return '<div class="event"><strong>'+E(x.text)+'</strong><div class="event-meta">'+E(x.date)+' · '+E(x.type)+' · '+E(actor(x.actor))+'</div></div>';}).join("")+'</div>';}
+function eventList(items){return '<div class="timeline">'+items.filter(function(x){return canEdit()||!x.internal;}).map(function(x){return '<div class="event"><strong>'+E(x.text)+'</strong><div class="event-meta">'+E(x.date)+' · '+E(x.type)+' · '+E(actor(x.actor))+'</div></div>';}).join("")+'</div>';}
 function render(){var pages={dashboard:dashboardPage,tasks:tasksPage,solutions:solutionsPage,recommendations:recommendationsPage,benchmark:benchmarkPage,knowledge:knowledgePage,watch:watchPage,feedback:feedbackPage,activity:activityPage,management:managementPage,workgroup:workgroupPage};var labels={dashboard:"Overview",tasks:"Task explorer",solutions:"AI solutions",recommendations:"Recommendations",benchmark:"Benchmark lab",knowledge:"Guides & charter",watch:"Technology watch",feedback:"Feedback & ideas",activity:"Activity feed",management:"Management view",workgroup:"Workgroup studio"};if(!user()){login();return;}if(ui.page==="workgroup"&&!canEdit())ui.page="dashboard";shell((pages[ui.page]||dashboardPage)(),labels[ui.page]);}
 function login(){document.getElementById("app").innerHTML='<div class="login-wall"><div class="login-box"><div class="row"><div class="brand-mark">✦</div><div><h1>AI Compass</h1><p class="muted">Interactive product workflow prototype</p></div></div><p class="lead">Select a simulated account to explore role-specific journeys. No password or server authentication is used; all data stays in this browser.</p><div class="login-users">'+db.users.map(function(u){return '<button class="login-user" data-act="login" data-id="'+E(u.id)+'"><span class="avatar">'+E(u.initials)+'</span><span><strong>'+E(u.name)+'</strong><span class="tiny-role">'+E(u.role)+' · '+E(u.bu)+'</span></span></button>';}).join("")+'</div><hr class="divider"><div class="row-between"><span class="muted small">Mock accounts · no real security · shared local data</span>'+btn("Reset demo dataset","reset","","sm")+'</div></div></div>';}
 function modal(){if(!ui.modal)return "";return '<div class="modal-backdrop" id="backdrop"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="dialog-title"><div class="modal-header"><h2 id="dialog-title">'+E(ui.modalTitle||"Details")+'</h2><button class="x" data-act="close" aria-label="Close dialog">×</button></div><div class="modal-body">'+(ui.modalBody||"")+'</div>'+(ui.modalFooter?'<div class="modal-footer">'+ui.modalFooter+'</div>':"")+'</div></div>';}
@@ -532,12 +532,12 @@ if(kind==="task"||kind==="taskEdit"){
   caseSnapshot:JSON.parse(JSON.stringify(rec("cases",d.case)||{})),
   solutionSnapshot:JSON.parse(JSON.stringify(rec("solutions",d.solution)||{})),
   protocolSnapshot:JSON.parse(JSON.stringify(rec("protocols",d.protocol)||{}))};
- db.runs.push(r);ui.page="benchmark";ui.bench="runs";ui.filters.runStatus="all";event("Run",(r.status==="published"?"Published":"Staged")+" benchmark run: "+r.id);
+ db.runs.push(r);ui.page="benchmark";ui.bench="runs";ui.filters.runStatus="all";event("Run",(r.status==="published"?"Published":"Staged")+" benchmark run: "+r.id,r.status!=="published");
 }else if(kind==="solution"||kind==="solutionEdit"){
  var s=kind==="solutionEdit"?rec("solutions",id):{id:next("s"),recommendation:"Not yet qualified; no official usage guidance.",rate:0};
  var previous=kind==="solutionEdit"?JSON.parse(JSON.stringify(s)):null;
  Object.assign(s,{name:req(d.name,"Name"),model:req(d.model,"Model"),provider:req(d.provider,"Provider"),harness:req(d.harness,"Harness"),version:d.version,accessible:d.accessible==="yes",maturity:d.maturity,publication:d.publication,cost:d.cost,skills:d.skills,config:d.config,description:d.description,limitations:d.limitations,tags:d.tags.split(",").map(function(t){return t.trim();}).filter(Boolean)});
- if(kind==="solution")db.solutions.push(s);else revision("Solution",s.id,previous,s);ui.page="solutions";event("Solution",(kind==="solution"?"Registered":"Updated")+" AI solution: "+s.name);
+ if(kind==="solution")db.solutions.push(s);else revision("Solution",s.id,previous,s);ui.page="solutions";event("Solution",(kind==="solution"?"Registered":"Updated")+" AI solution: "+s.name,s.publication!=="published");
 }else if(kind==="recommendation"){
  var target=rec("solutions",id);if(!target)return;var prevRecommendation=JSON.parse(JSON.stringify(target));
  target.recommendation=req(d.recommendation,"Recommendation");target.limitations=d.limitations;target.publication=d.publication;revision("Recommendation",id,prevRecommendation,target);ui.page="recommendations";event("Recommendation","Revised "+target.name+" guidance ("+target.publication+").");
@@ -549,7 +549,7 @@ if(kind==="task"||kind==="taskEdit"){
  if(!canEdit())return;var fb=rec("feedback",id);fb.status=d.status;fb.linked=d.linked;event("Feedback","Triage updated: "+fb.title+" → "+fb.status);
 }else if(kind==="guide"){
  var g=id?rec("guides",id):{id:next("g")},prevGuide=id?JSON.parse(JSON.stringify(g)):null;Object.assign(g,{title:req(d.title,"Title"),type:d.type,status:d.status,body:req(d.body,"Document"),owner:currentUser,date:new Date().toISOString().slice(0,10)});
- if(!id)db.guides.push(g);else revision("Guide",id,prevGuide,g);ui.page="knowledge";event("Guide",(id?"Updated":"Created")+" "+g.type.toLowerCase()+": "+g.title);
+ if(!id)db.guides.push(g);else revision("Guide",id,prevGuide,g);ui.page="knowledge";event("Guide",(id?"Updated":"Created")+" "+g.type.toLowerCase()+": "+g.title,g.status!=="published");
 }else if(kind==="watch"){
  var w=id?rec("watch",id):{id:next("w")};Object.assign(w,{title:req(d.title,"Title"),kind:d.kind,status:d.status,solution:d.solution,summary:req(d.summary,"Summary"),source:d.source,date:new Date().toISOString().slice(0,10)});
  if(!id)db.watch.push(w);ui.page="watch";event("Watch",(id?"Updated":"Added")+" technology signal: "+w.title);
