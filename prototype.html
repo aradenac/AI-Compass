@@ -349,13 +349,39 @@ function openForm(title,kind,body,id,buttonTitle){if(kind!=="feedback"&&!editabl
 var form='<form id="modalForm" data-form="'+E(kind)+'" data-id="'+E(id||"")+'"><div class="form-grid">'+body+'</div></form>';
 openModal(title,form,'<button class="btn" data-act="close">Cancel</button><button class="btn primary" type="submit" form="modalForm">'+E(buttonTitle||"Save to browser")+'</button>');
 }
-function dialogTask(parent){
-var t=rec("tasks",parent)||rec("tasks",ui.task),parents=[["","Root level"]].concat(optionsFrom("tasks",function(x){return x.name;}));
-openForm("Create task hierarchy node","task",selectField("parent","Parent category",parents,t?.id||"")+field("name","Task or category name","","text","full")+field("phase","Engineering / V-cycle activity",t?.phase||"SWE")+field("domain","Engineering domain",t?.domain||"Software")+field("baseline","Engineer-only baseline (minutes; 0 for categories)",0,"number")+field("desc","Problem / scope","","textarea","full")+field("criteria","Expected outcomes / Definition of Done","","textarea","full"),"","Create task");
+function dialogTask(parent,existing){
+var old=rec("tasks",existing),t=old||rec("tasks",parent)||rec("tasks",ui.task),parents=[["","Root level"]].concat(db.tasks.filter(function(x){return !old||!descendants(old.id).includes(x.id);}).map(function(x){return[x.id,x.name];}));
+openForm(old?"Edit and reorganize task node":"Create task hierarchy node",old?"taskEdit":"task",
+selectField("parent","Parent category",parents,old?old.parent||"":t?.id||"")+
+field("name","Task or category name",old?.name||"","text","full")+
+field("phase","Engineering / V-cycle activity",t?.phase||"SWE")+
+field("domain","Engineering domain / specialty",t?.domain||"Software")+
+field("baseline","Engineer-only baseline (minutes; 0 for categories)",old?.baseline||0,"number")+
+selectField("status","Lifecycle",[["active","Active"],["retired","Retired"]],old?.status||"active")+
+field("desc","Problem / scope",old?.desc||"","textarea","full")+
+field("criteria","Expected outcomes / Definition of Done",old?.criteria||"","textarea","full"),existing||"",old?"Save task node":"Create task");
 }
-function dialogCase(task){
-var t=rec("tasks",task)||rec("tasks",ui.task)||db.tasks[4];
-openForm("Define reproducible Test Case","case",selectField("task","Associated engineering task",optionsFrom("tasks",function(x){return x.name;}),t.id,"full")+field("title","Test Case title","TC · New challenge","","full")+field("version","Case version","1.0")+selectField("protocol","Evaluation protocol",optionsFrom("protocols",function(x){return x.name+" · "+x.version;}),"p1")+field("objective","What does this case challenge?","","textarea","full")+field("inputs","Initial state / input files / environment","","textarea","full")+field("dod","Specific acceptance conditions (DoD)","","textarea","full"),"","Create Test Case");
+function dialogComponent(id){
+var c=rec("components",id);
+openForm(c?"Edit catalog component":"Register catalog component",c?"componentEdit":"component",
+selectField("type","Object type",[["model","Model"],["provider","Provider"],["harness","Harness"]],c?.type||"model")+
+selectField("publication","Publication status",[["draft","Draft"],["published","Published"]],c?.publication||"draft")+
+field("name","Component name",c?.name||"","text","full")+
+field("version","Version / revision (if applicable)",c?.version||"")+
+field("details","Notes, capabilities, limitations",c?.details||"","textarea","full"),id,c?"Save component":"Create component");
+}
+function dialogProtocol(id){
+var p=rec("protocols",id);
+openForm(p?"Create a new protocol revision":"Define benchmark protocol","protocol",
+field("name","Protocol name",p?.name||"","text","full")+
+field("version","Revision",p?(String(Number(p.version)||1)+".1"):"1.0")+
+selectField("autonomy","Degree of autonomy",[["Guided","Guided"],["Semi-autonomous","Semi-autonomous"],["Autonomous","Autonomous"]],p?.autonomy||"Semi-autonomous")+
+field("description","Invariants, inputs and controlled setup",p?.description||"","textarea","full")+
+field("criteria","Scoring rubric / mandatory acceptance / measurement",p?.criteria||"","textarea","full"),"","Create protocol revision");
+}
+function dialogCase(task,fromCase){
+var from=rec("cases",fromCase),t=rec("tasks",from?.task)||rec("tasks",task)||rec("tasks",ui.task)||db.tasks[4];
+openForm("Define reproducible Test Case","case",selectField("task","Associated engineering task",optionsFrom("tasks",function(x){return x.name;}),t.id,"full")+field("title","Test Case title",from?from.title+" · new challenge":"TC · New challenge","","full")+field("version","Case version",from?from.version+".1":"1.0")+selectField("protocol","Evaluation protocol",optionsFrom("protocols",function(x){return x.name+" · "+x.version;}),from?.protocol||"p1")+field("objective","What does this case challenge?",from?.objective||"","textarea","full")+field("inputs","Initial state / input files / environment",from?.inputs||"","textarea","full")+field("dod","Specific acceptance conditions (DoD)",from?.dod||"","textarea","full"),"","Create Test Case");
 }
 function dialogRun(preCase,preSolution,repeat){
 var orig=rec("runs",repeat),c=rec("cases",preCase)||rec("cases",orig?.case)||db.cases[0],s=rec("solutions",preSolution)||rec("solutions",orig?.solution)||db.solutions[0];
@@ -371,6 +397,11 @@ field("review","Review (minutes, estimate)",orig?.review??20,"number")+
 field("correction","Corrections (minutes, estimate)",orig?.correction??10,"number")+
 field("cost","AI / tooling cost (EUR)",orig?.cost??1.5,"number")+
 field("tokens","Total token count",orig?.tokens??20000,"number")+
+field("duration","Machine runtime (minutes)",orig?.duration??35,"number")+
+field("interruptions","Human interruptions (count)",orig?.interruptions??0,"number")+
+field("reprompts","Follow-up prompts (count)",orig?.reprompts??0,"number")+
+field("utility","Information usefulness / density (0–100)",orig?.utility??75,"number")+
+field("sideEffects","Side effects, irrelevant output and verification overhead",orig?.sideEffects||"","textarea","full")+
 field("prompt","Full prompt / initial instructions",orig?.prompt||"","textarea","full")+
 field("transcript","Conversation / interaction trace",orig?.transcript||"","textarea","full")+
 field("artifacts","Output artifacts / references / input snapshots",orig?.artifacts||"","textarea","full")+
@@ -381,9 +412,9 @@ function dialogSolution(id){
 var s=rec("solutions",id),edit=!!s;
 openForm(edit?"Edit AI solution":"Register AI solution",edit?"solutionEdit":"solution",
 field("name","Solution name",s?.name||"","text","full")+
-field("model","Model / version",s?.model||"")+
-field("provider","Provider",s?.provider||"")+
-field("harness","Harness / environment",s?.harness||"")+
+selectField("model","Model",db.components.filter(function(c){return c.type==="model";}).map(function(c){return[c.name,c.name];}),s?.model)+
+selectField("provider","Provider",db.components.filter(function(c){return c.type==="provider";}).map(function(c){return[c.name,c.name];}),s?.provider)+
+selectField("harness","Harness / environment",db.components.filter(function(c){return c.type==="harness";}).map(function(c){return[c.name,c.name];}),s?.harness)+
 field("version","Version label",s?.version||"")+
 selectField("accessible","Accessible to enterprise users?",[["yes","Accessible"],["no","Not accessible"]],s?(s.accessible?"yes":"no"):"no")+
 selectField("maturity","Qualification maturity",[["candidate","Candidate"],["experimental","Experimental"],["evaluated","Evaluated"],["qualified","Qualified"]],s?.maturity||"candidate")+
