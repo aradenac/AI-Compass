@@ -27,7 +27,163 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;b
 <div id="app"></div><div id="toast" aria-live="polite"></div>
 <script>
 "use strict";
-/* STATE_AND_DATA */
+
+var KEY="ai-compass-demo-v1", SESSION="ai-compass-demo-user";
+var TODAY="2026-10-08";
+var seed=function(){
+return {
+ version:1,
+ users:[
+  {id:"u1",name:"Maya Laurent",role:"workgroup",bu:"Embedded Systems",initials:"ML"},
+  {id:"u2",name:"Nicolas Bernard",role:"engineer",bu:"Embedded Systems",initials:"NB"},
+  {id:"u3",name:"Lena Martin",role:"management",bu:"R&D Management",initials:"LM"},
+  {id:"u4",name:"Amir Haddad",role:"reader",bu:"Group Innovation",initials:"AH"},
+  {id:"u5",name:"Sofia Ramos",role:"workgroup",bu:"Digital Solutions",initials:"SR"}
+ ],
+ tasks:[
+  {id:"t1",parent:null,name:"Software Development",phase:"Software",domain:"Engineering",baseline:0,desc:"Software engineering tasks across the development lifecycle.",criteria:"Correctness; traceability; maintainability."},
+  {id:"t2",parent:"t1",name:"Embedded Software",phase:"SWE",domain:"Embedded",baseline:0,desc:"Firmware, RTOS, embedded drivers and integration.",criteria:"Functional compliance; deterministic behavior; resource usage."},
+  {id:"t3",parent:"t2",name:"MCU",phase:"SWE",domain:"MCU",baseline:0,desc:"Microcontroller software development.",criteria:"Integration; constrained resources; reproducible tests."},
+  {id:"t4",parent:"t3",name:"Driver Development",phase:"SWE.3–4",domain:"Embedded",baseline:0,desc:"Implement and validate hardware device drivers.",criteria:"Required API; errors; diagnostics; tests; documentation."},
+  {id:"t5",parent:"t4",name:"KSZ8851SNL Ethernet Driver",phase:"SWE.3–4",domain:"Ethernet",baseline:420,desc:"Implement a Zephyr SPI Ethernet driver from component datasheets and an existing workspace.",criteria:"Builds cleanly; SPI operations functional; IRQ and recovery covered; Twister tests; regression tests; documentation."},
+  {id:"t6",parent:"t3",name:"Zephyr RTOS Test Development",phase:"SWE.4–5",domain:"Testing",baseline:160,desc:"Create ztest/Twister test suites for embedded modules.",criteria:"Repeatable tests; positive and negative cases; meaningful coverage; CI green."},
+  {id:"t7",parent:"t1",name:"Code Review & Refactoring",phase:"SWE.4",domain:"Software",baseline:130,desc:"Review and refactor C/C++ with behavior preservation.",criteria:"Defects identified; no functional regression; clear diff; tests."},
+  {id:"t8",parent:null,name:"Systems Engineering",phase:"SYS",domain:"Systems",baseline:0,desc:"Requirements, architecture, verification and system integration.",criteria:"Traceability and engineering completeness."},
+  {id:"t9",parent:"t8",name:"Requirements Engineering",phase:"SYS.2",domain:"Requirements",baseline:0,desc:"Elicit, analyze and reformulate system and software requirements.",criteria:"Clarity; atomicity; verifiability; consistency."},
+  {id:"t10",parent:"t9",name:"Requirements Refactoring",phase:"SYS.2",domain:"Requirements",baseline:260,desc:"Reformulate an exported specification to unambiguous, verifiable requirements.",criteria:"Preserve intent; EARS where relevant; completeness; no invented constraints; review-ready document."},
+  {id:"t11",parent:null,name:"Data & Automation",phase:"Support",domain:"Data",baseline:0,desc:"Scripts, web services, parsing, databases, analytics.",criteria:"Reliable automation and reproducibility."},
+  {id:"t12",parent:"t11",name:"PDF Extraction & Data Validation",phase:"Support",domain:"Python",baseline:180,desc:"Extract structured evidence from technical PDF documents.",criteria:"Extraction accuracy; source provenance; error handling; tests."},
+  {id:"t13",parent:"t11",name:"Python Backend Feature",phase:"SWE.3–4",domain:"Python",baseline:180,desc:"Implement and verify a backend feature on an existing Python service.",criteria:"API contract; tests; errors; security; reviewability."},
+  {id:"t14",parent:null,name:"Documentation & Communication",phase:"Support",domain:"Documentation",baseline:0,desc:"Technical documentation and reports.",criteria:"Factually accurate; targeted; structured."},
+  {id:"t15",parent:"t14",name:"Technical Report Summarization",phase:"Support",domain:"Documentation",baseline:95,desc:"Summarize a complex engineering report, retaining key evidence.",criteria:"Faithful; accurate; clear; decision-ready; sources linked."}
+ ],
+ solutions:[
+  {id:"s1",name:"Claude Code · Opus",model:"Claude Opus",provider:"Anthropic",harness:"Claude Code",version:"Demo 2026-09",accessible:true,maturity:"qualified",publication:"published",cost:"High",rate:15,skills:"Shell, filesystem, repository search, agent planning",config:"Model: Claude Opus\nHarness: Claude Code\nPermissions: project-limited\nPlanning: enabled",description:"Agentic development workflow for complex repository work.",limitations:"Relatively high cost; external provider.",recommendation:"Recommended for complex embedded features and broad repository analysis.",tags:["Coding","Agentic","Repository"]},
+  {id:"s2",name:"GLM-5.2 · Claude Code Router",model:"GLM-5.2",provider:"Scaleway",harness:"Claude Code + CCR",version:"Demo 2026-10",accessible:true,maturity:"experimental",publication:"published",cost:"Low",rate:2,skills:"Shell, filesystem, repo editing; route configuration",config:"Provider: Scaleway\nModel: GLM-5.2\nHarness: Claude Code + CCR\nReasoning: max\nOutput limit: 16384",description:"Cost-conscious agent workflow using a hosted model and router.",limitations:"Routing and context-size issues require validation.",recommendation:"Promising low-cost coding candidate; inspect context failures.",tags:["Coding","Hosted","Experimental"]},
+  {id:"s3",name:"OpenCode · Qwen Coder",model:"Qwen3 Coder",provider:"Hosted API",harness:"OpenCode",version:"Demo 2026-09",accessible:true,maturity:"evaluated",publication:"published",cost:"Low",rate:3.5,skills:"Shell, repository tools, skills, file operations",config:"Harness: OpenCode\nModel: Qwen3 Coder\nProvider: hosted API\nPermissions: reviewed",description:"General engineering coding assistant.",limitations:"Limited benchmark coverage for hardware-oriented work.",recommendation:"Alternative for focused implementation and script development.",tags:["Coding","Open tooling","Value"]},
+  {id:"s4",name:"GPT · Web Assistant",model:"GPT-6",provider:"OpenAI",harness:"ChatGPT Web",version:"Demo 2026-10",accessible:true,maturity:"qualified",publication:"published",cost:"Medium",rate:6,skills:"Web search, documents, synthesis, analysis",config:"Harness: ChatGPT Web\nDocument features: enabled\nNo automatic local file edits",description:"Research, analysis, drafting and document processing.",limitations:"Not designed for unattended local repository changes.",recommendation:"Recommended for requirements and document analysis.",tags:["Documents","Research","Analysis"]},
+  {id:"s5",name:"NextCoder · Preview",model:"NextCoder Preview",provider:"External preview",harness:"OpenCode",version:"Mock preview",accessible:false,maturity:"candidate",publication:"published",cost:"Unknown",rate:0,skills:"Potential code and agentic capabilities (unverified)",config:"Candidate only; not configured.",description:"Technology-watch placeholder for a not-yet-accessible candidate.",limitations:"Access and claimed performance not independently verified.",recommendation:"Track for future qualification; not an operational recommendation.",tags:["Watch","Candidate"]},
+  {id:"s6",name:"Gemini · CLI",model:"Gemini (hosted)",provider:"Google",harness:"Gemini CLI",version:"Demo 2026-10",accessible:true,maturity:"evaluated",publication:"published",cost:"Low",rate:1.8,skills:"Shell, file editing, repository investigation",config:"Harness: Gemini CLI\nSandbox: enabled\nPermissions: reviewed",description:"CLI agent for smaller engineering workflows.",limitations:"Autonomy varies with tool permissions and task scope.",recommendation:"Alternative candidate for scripting and repository exploration.",tags:["Coding","CLI","Analysis"]}
+ ],
+ protocols:[
+  {id:"p1",name:"Controlled repository task v1",version:"1.0",autonomy:"Semi-autonomous",description:"Same repository snapshot, DoD, allowed tools and briefing for all compared solutions.",criteria:"Quality 0–100; mandatory DoD pass; report preparation, steering, review and correction effort."},
+  {id:"p2",name:"Document analysis v1",version:"1.0",autonomy:"Guided",description:"Identical input docs and acceptance rubric; reviewers check fidelity and completeness.",criteria:"Fidelity; actionable novel content; no invented facts; traceable findings."}
+ ],
+ cases:[
+  {id:"c1",task:"t5",title:"TC1 · Initial driver build",version:"1.0",protocol:"p1",objective:"Implement the initial working SPI Ethernet driver.",inputs:"Sanitized Zephyr repository snapshot, KSZ8851SNL datasheet, target board configuration.",dod:"Driver builds; SPI transfer; initialization; unit test evidence.",status:"published"},
+  {id:"c2",task:"t5",title:"TC2 · Incomplete integration baseline",version:"1.0",protocol:"p1",objective:"Finish an incomplete device driver and fix integration defects.",inputs:"Snapshot with incomplete IRQ handling and error paths; sanitized component reference.",dod:"IRQ; timeouts; failure recovery; tests and no regression.",status:"published"},
+  {id:"c3",task:"t5",title:"TC3 · Adversarial constraints",version:"1.0",protocol:"p1",objective:"Challenge prior positive outcomes with tighter memory and partial specifications.",inputs:"Constrained board config, incomplete register descriptions, CI tests.",dod:"No invented registers; robust failure handling; CI green.",status:"published"},
+  {id:"c4",task:"t6",title:"TC1 · Twister test harness",version:"1.0",protocol:"p1",objective:"Generate and execute embedded test suite.",inputs:"Sample module, test requirements, native_sim environment.",dod:"Pass/fail tests; Twister configuration; CI green.",status:"published"},
+  {id:"c5",task:"t10",title:"TC1 · Requirements cleanup",version:"1.0",protocol:"p2",objective:"Refactor a representative requirements export.",inputs:"Sanitized requirements export, source glossary and constraints.",dod:"Atomic, verifiable requirements; full coverage; no semantic drift.",status:"published"},
+  {id:"c6",task:"t7",title:"TC1 · Constrained C refactor",version:"1.0",protocol:"p1",objective:"Improve maintainability without behavior change.",inputs:"C module with baseline unit tests and static-analysis report.",dod:"Tests green; reduced complexity; annotated diff.",status:"published"},
+  {id:"c7",task:"t12",title:"TC1 · Multi-layout PDF parse",version:"1.0",protocol:"p2",objective:"Extract document metadata and financial tables.",inputs:"Sanitized PDF sample set and reference JSON.",dod:"Reliable structured extraction, provenance and exceptions.",status:"published"},
+  {id:"c8",task:"t13",title:"TC1 · REST feature implementation",version:"1.0",protocol:"p1",objective:"Implement backend endpoint in an existing service.",inputs:"Minimal Python API repo, OpenAPI requirements, baseline tests.",dod:"API contract, edge cases, tests and documentation.",status:"published"},
+  {id:"c9",task:"t15",title:"TC1 · Engineering briefing",version:"1.0",protocol:"p2",objective:"Summarize long technical analysis for decision makers.",inputs:"Public example report and source references.",dod:"Accurate summary, novelty, citations and recommendations.",status:"published"}
+ ],
+ runs:[
+  {id:"r1",case:"c1",solution:"s1",protocol:"p1",date:"2026-09-28",score:94,accepted:true,status:"published",prep:12,steer:15,review:26,correction:10,cost:8.6,tokens:98000,prompt:"Implement KSZ8851SNL Ethernet SPI driver per attached DoD.",transcript:"Agent inspected drivers/ethernet, drafted files, ran Twister. Engineer clarified interrupt mapping once.",artifacts:"driver.patch; twister.log; reviewer-notes.md",notes:"Driver compiles; minor correction in interrupt setup.",owner:"u1"},
+  {id:"r2",case:"c1",solution:"s2",protocol:"p1",date:"2026-09-29",score:82,accepted:true,status:"published",prep:12,steer:28,review:34,correction:25,cost:1.2,tokens:110000,prompt:"Implement KSZ8851SNL Ethernet SPI driver per attached DoD.",transcript:"Agent implemented basic driver; engineer intervened for SPI API mismatch and corrected two test assertions.",artifacts:"patch.diff; tests.log",notes:"Accepted after engineering correction.",owner:"u1"},
+  {id:"r3",case:"c1",solution:"s3",protocol:"p1",date:"2026-09-30",score:79,accepted:true,status:"published",prep:13,steer:20,review:35,correction:33,cost:2.1,tokens:76000,prompt:"Implement driver against same source snapshot.",transcript:"Agent generated driver structure and tests; review found a missing retry branch.",artifacts:"driver.diff; review.txt",notes:"Good value; more correction time.",owner:"u5"},
+  {id:"r4",case:"c2",solution:"s1",protocol:"p1",date:"2026-10-01",score:91,accepted:true,status:"published",prep:9,steer:13,review:24,correction:14,cost:6.8,tokens:83000,prompt:"Complete and validate IRQ and error behavior.",transcript:"Agent found IRQ race, revised implementation, ran relevant tests.",artifacts:"irq.diff; twister.txt",notes:"Good recovery behavior.",owner:"u1"},
+  {id:"r5",case:"c2",solution:"s2",protocol:"p1",date:"2026-10-01",score:87,accepted:true,status:"published",prep:11,steer:24,review:30,correction:22,cost:1.45,tokens:126000,prompt:"Complete and validate IRQ and error behavior.",transcript:"Agent made iterative fixes. One manual re-prompt about timeout handling.",artifacts:"irq.patch; report.md",notes:"Comparable quality at lower API cost.",owner:"u1"},
+  {id:"r6",case:"c3",solution:"s1",protocol:"p1",date:"2026-10-03",score:71,accepted:false,status:"published",prep:15,steer:29,review:42,correction:85,cost:11.5,tokens:156000,prompt:"Implement under limited specs and tight MCU memory constraints.",transcript:"Agent introduced an unsupported register assumption. Reviewer rejected the deliverable.",artifacts:"failed-run.diff; findings.md",notes:"Adversarial case challenges initial recommendation.",owner:"u5"},
+  {id:"r7",case:"c4",solution:"s2",protocol:"p1",date:"2026-10-02",score:90,accepted:true,status:"published",prep:8,steer:17,review:22,correction:9,cost:0.86,tokens:53000,prompt:"Create Zephyr Twister tests for module.",transcript:"Produced ztest fixture and Twister yaml, tests passed.",artifacts:"tests.patch; twister.log",notes:"Strong on bounded tests.",owner:"u1"},
+  {id:"r8",case:"c4",solution:"s6",protocol:"p1",date:"2026-10-03",score:77,accepted:true,status:"published",prep:9,steer:31,review:24,correction:24,cost:0.55,tokens:55000,prompt:"Build Twister suite with negative cases.",transcript:"Produced working tests after permission retry.",artifacts:"twister.yml; tests.diff",notes:"Works with more guidance.",owner:"u5"},
+  {id:"r9",case:"c5",solution:"s4",protocol:"p2",date:"2026-10-04",score:93,accepted:true,status:"published",prep:12,steer:8,review:32,correction:12,cost:3.3,tokens:42000,prompt:"Rewrite requirements using verifiable phrasing and preserve intent.",transcript:"Created structured before/after requirements comparison and gap list.",artifacts:"requirements-review.md",notes:"Review confirmed broad intent preservation.",owner:"u1"},
+  {id:"r10",case:"c5",solution:"s1",protocol:"p2",date:"2026-10-04",score:83,accepted:true,status:"published",prep:12,steer:14,review:34,correction:24,cost:6.7,tokens:71000,prompt:"Refactor requirements against given source.",transcript:"Produced revisions; some ambiguities remained.",artifacts:"revised-requirements.md",notes:"Good but higher cost.",owner:"u1"},
+  {id:"r11",case:"c6",solution:"s3",protocol:"p1",date:"2026-10-05",score:88,accepted:true,status:"published",prep:7,steer:15,review:19,correction:10,cost:0.94,tokens:62000,prompt:"Refactor C module without behavioral change.",transcript:"Applied targeted extraction and static-analysis fixes; tests green.",artifacts:"refactor.diff; test-output.txt",notes:"Efficient on bounded C change.",owner:"u5"},
+  {id:"r12",case:"c7",solution:"s4",protocol:"p2",date:"2026-10-05",score:91,accepted:true,status:"published",prep:10,steer:10,review:21,correction:11,cost:2.2,tokens:31000,prompt:"Parse and validate tabular PDF evidence.",transcript:"Extracted structured JSON and cited source pages.",artifacts:"parsed.json; review.md",notes:"Reliable extraction on this sample.",owner:"u5"},
+  {id:"r13",case:"c8",solution:"s3",protocol:"p1",date:"2026-10-06",score:85,accepted:true,status:"published",prep:10,steer:12,review:20,correction:10,cost:1.8,tokens:74000,prompt:"Implement existing API feature with tests.",transcript:"Added endpoint and tests; fixed one validation error.",artifacts:"api.diff; pytest.txt",notes:"Strong baseline result.",owner:"u5"},
+  {id:"r14",case:"c8",solution:"s2",protocol:"p1",date:"2026-10-07",score:89,accepted:true,status:"draft",prep:11,steer:17,review:23,correction:7,cost:1.1,tokens:79000,prompt:"Implement existing API feature with tests.",transcript:"Produced feature in local test harness. Awaiting publication.",artifacts:"feature.diff; pytest.log",notes:"Draft result, ready for workgroup review.",owner:"u1"},
+  {id:"r15",case:"c9",solution:"s4",protocol:"p2",date:"2026-10-07",score:96,accepted:true,status:"published",prep:6,steer:4,review:14,correction:3,cost:1.25,tokens:22000,prompt:"Summarize technical report with sourced actionable findings.",transcript:"Produced concise decision memo with references.",artifacts:"summary.md",notes:"Low review burden.",owner:"u5"}
+ ],
+ campaigns:[
+  {id:"b1",title:"Embedded driver solution comparison",purpose:"Compare agents on fixed KSZ8851SNL challenge set.",caseIds:["c1","c2","c3"],solutionIds:["s1","s2","s3"],status:"active",owner:"u1"},
+  {id:"b2",title:"Document fidelity qualification",purpose:"Compare assistants on source-grounded requirements and PDF work.",caseIds:["c5","c7","c9"],solutionIds:["s1","s4"],status:"active",owner:"u5"}
+ ],
+ guides:[
+  {id:"g1",type:"Charter",title:"AI Usage Charter / Impulse",status:"published",body:"• Never paste restricted data into an unapproved service.\n• Verify every consequential AI output before engineering acceptance.\n• Record model, provider, harness and configuration for controlled evaluations.\n• Human accountability remains with the engineer.\n• Use the published solution guide and applicable security policy.",owner:"u1",date:"2026-09-20"},
+  {id:"g2",type:"Guide",title:"Configure Claude Code + CCR + hosted model",status:"published",body:"1. Configure model provider and authentication in your own environment.\n2. Register the model in your router.\n3. Configure reasoning, output and context limits.\n4. Run a smoke test and verify tool calls.\n5. Respect local security and project policy.",owner:"u1",date:"2026-10-02"},
+  {id:"g3",type:"FAQ",title:"What counts as a successful benchmark?",status:"published",body:"The mandatory DoD must be satisfied. Scores, time, cost, reproducibility and engineering corrections are recorded separately. An incomplete or failed run remains useful evidence.",owner:"u5",date:"2026-10-05"},
+  {id:"g4",type:"Training",title:"Interpreting evidence and comparison scores",status:"published",body:"Compare common test cases. Inspect sample size and coverage. A missing evaluation is unknown, not zero. Evaluate total assisted cost rather than token price alone.",owner:"u5",date:"2026-10-06"},
+  {id:"g5",type:"Guide",title:"Prepare a reproducible benchmark package",status:"draft",body:"Pin inputs and revisions; record prompts and exact agent configuration; save execution log, output artifacts, engineering review and costs.",owner:"u1",date:"2026-10-07"}
+ ],
+ feedback:[
+  {id:"f1",author:"u2",type:"Experience",target:"s2",title:"Router context failure on large repository",body:"Context limit interrupted the workflow. Need a tested conversation-recovery guide.",status:"triage",date:"2026-10-05",linked:""},
+  {id:"f2",author:"u2",type:"Idea",target:"t6",title:"Add hardware-in-the-loop test cases",body:"Benchmark autonomy when tests depend on a physical bench and flashing.",status:"new",date:"2026-10-06",linked:""},
+  {id:"f3",author:"u4",type:"Need",target:"t15",title:"Summary reports for product line managers",body:"We need evidence-linked summaries consumable by non-engineers.",status:"planned",date:"2026-10-06",linked:"c9"},
+  {id:"f4",author:"u2",type:"Experience",target:"s3",title:"Efficient on small C refactor",body:"Tests and code changes were easy to review; manual time was low.",status:"closed",date:"2026-10-07",linked:"r11"}
+ ],
+ watch:[
+  {id:"w1",title:"New agent harness candidate",kind:"Harness",source:"Internal technology watch / illustrative",summary:"Evaluate a future orchestration harness after tool-use validation.",status:"watching",solution:"s5",date:"2026-10-03"},
+  {id:"w2",title:"Provider cost changes",kind:"Provider",source:"Illustrative provider bulletin",summary:"Verify pricing changes before revising cost/value guidance.",status:"pending",solution:"s2",date:"2026-10-06"}
+ ],
+ events:[
+  {id:"e1",date:"2026-10-07",actor:"u1",type:"Run",text:"Staged a Python backend benchmark run (draft)."},
+  {id:"e2",date:"2026-10-07",actor:"u5",type:"Result",text:"Published engineering briefing benchmark."},
+  {id:"e3",date:"2026-10-06",actor:"u2",type:"Feedback",text:"Proposed hardware-in-the-loop test cases."},
+  {id:"e4",date:"2026-10-05",actor:"u5",type:"Guide",text:"Published benchmark interpretation FAQ."},
+  {id:"e5",date:"2026-10-03",actor:"u1",type:"Evidence",text:"Added adversarial KSZ8851SNL case to challenge previous conclusions."}
+ ],
+ settings:{adoption:[{label:"Embedded Systems",active:21,eligible:34},{label:"Digital Solutions",active:18,eligible:31},{label:"Systems Engineering",active:12,eligible:29}]}
+};
+};
+var db;
+try{var saved=localStorage.getItem(KEY);db=saved?JSON.parse(saved):seed();if(!db||!db.tasks||!db.solutions)throw Error("Invalid data");}catch(ex){db=seed();}
+function persist(){localStorage.setItem(KEY,JSON.stringify(db));}
+if(!localStorage.getItem(KEY))persist();
+var currentUser=localStorage.getItem(SESSION)||"";
+var ui={page:"dashboard",task:"t5",solution:"s1",bench:"runs",matrix:"task",matrixTarget:"t5",filters:{},expanded:{},modal:"",detail:"",selectedCompare:["s1","s2","s3"],adminTab:"queue"};
+function user(){return db.users.find(function(x){return x.id===currentUser;});}
+function canEdit(){return !!user()&&user().role==="workgroup";}
+function canContribute(){return !!user();}
+function rec(type,id){return(db[type]||[]).find(function(x){return x.id===id;});}
+function next(prefix){return prefix+"_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,6);}
+function textOf(x){return x==null?"":String(x);}
+function E(x){return textOf(x).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");}
+function opt(v,label,selected){return '<option value="'+E(v)+'"'+(String(v)===String(selected)?' selected':'')+'>'+E(label)+'</option>';}
+function money(n){return "€"+Number(n||0).toFixed(2);}
+function fmt(n){return Number(n||0).toLocaleString("en-US");}
+function avg(xs){return xs.length?xs.reduce(function(a,b){return a+Number(b||0);},0)/xs.length:0;}
+function effort(r){return ["prep","steer","review","correction"].reduce(function(n,k){return n+Number(r[k]||0);},0);}
+function caseOf(r){return rec("cases",r.case);}
+function taskOfCase(r){var c=caseOf(r);return c&&rec("tasks",c.task);}
+function children(t){return db.tasks.filter(function(x){return x.parent===t;});}
+function ancestors(t){var a=[],seen={};while(t&&!seen[t]){seen[t]=true;var item=rec("tasks",t);if(!item)break;a.unshift(item);t=item.parent;}return a;}
+function descendants(id){var found=[id];for(var i=0;i<found.length;i++){children(found[i]).forEach(function(t){if(found.indexOf(t.id)<0)found.push(t.id);});}return found;}
+function runsForTask(id,published){var group=descendants(id);return db.runs.filter(function(r){var c=caseOf(r);return c&&group.includes(c.task)&&(!published||r.status==="published");});}
+function sRuns(id){return db.runs.filter(function(r){return r.solution===id&&r.status==="published";});}
+function solutionStats(s,rs){var runs=rs||sRuns(s);return {count:runs.length,score:Math.round(avg(runs.map(function(r){return r.score;}))),accept:runs.length?Math.round(100*runs.filter(function(r){return r.accepted;}).length/runs.length):null,effort:Math.round(avg(runs.map(effort))),cost:avg(runs.map(function(r){return r.cost;}))};}
+function badge(v){var low=String(v||"").toLowerCase(),kind=/^(published|qualified|accepted|closed|accessible|active)$/.test(low)?"green":/^(draft|experimental|triage|review|watching|planned|evaluated)$/.test(low)?"amber":/^(failed|inaccessible|retired|superseded|rejected)$/.test(low)?"red":/^(candidate|new|pending)$/.test(low)?"blue":"";return '<span class="tag '+kind+'">'+E(v)+'</span>';}
+function actor(id){var u=rec("users",id);return u?u.name:"Unknown";}
+function event(type,text){db.events.unshift({id:next("e"),date:new Date().toISOString().slice(0,10),actor:currentUser,type:type,text:text});db.events=db.events.slice(0,120);}
+function saveEvent(type,text){event(type,text);persist();render();toast("Saved locally · "+type);}
+function toast(message){var el=document.getElementById("toast");if(!el)return;el.innerHTML='<div class="toast">'+E(message)+'</div>';clearTimeout(window.toastTimer);window.toastTimer=setTimeout(function(){el.innerHTML="";},3300);}
+function field(name,label,value,type,extra){return '<div class="field'+(extra==="full"?' span2':'')+'"><label for="f_'+E(name)+'">'+E(label)+'</label>'+(type==="textarea"?'<textarea name="'+E(name)+'" id="f_'+E(name)+'">'+E(value)+'</textarea>':'<input class="input" id="f_'+E(name)+'" type="'+E(type||"text")+'" name="'+E(name)+'" value="'+E(value)+'"'+(type==="number"?' step="any" min="0"':'')+'>')+'</div>';}
+function selectField(name,label,options,selected,full){return '<div class="field'+(full?' span2':'')+'"><label for="f_'+E(name)+'">'+E(label)+'</label><select id="f_'+E(name)+'" name="'+E(name)+'">'+options.map(function(o){return opt(o[0],o[1],selected);}).join("")+'</select></div>';}
+function formValue(form){var data=Object.fromEntries(new FormData(form).entries());return data;}
+function toNum(v){return Number(v)||0;}
+function optionsFrom(type,format){return db[type].map(function(x){return[x.id,format?format(x):x.title||x.name];});}
+function navButton(page,icon,title,count){return '<button class="nav-link'+(ui.page===page?' active':'')+'" data-act="nav" data-id="'+page+'"><span class="nav-icon">'+icon+'</span>'+title+(count!=null?'<span class="count">'+count+'</span>':'')+'</button>';}
+function shell(inner,title){var u=user();if(!u)return login();
+document.getElementById("app").innerHTML='<div class="app"><aside class="sidebar"><div class="brand"><div class="brand-mark">✦</div><div><div class="brand-name">AI Compass</div><div class="brand-note">Evidence workspace</div></div></div><div class="nav-area"><div class="nav-group"><div class="nav-label">Discover</div>'+
+navButton("dashboard","◈","Overview")+navButton("tasks","▤","Task explorer")+navButton("solutions","◇","AI solutions")+navButton("recommendations","✧","Recommendations")+'</div><div class="nav-group"><div class="nav-label">Evaluate</div>'+navButton("benchmark","◫","Benchmark lab")+navButton("knowledge","▣","Guides & charter")+navButton("watch","◉","Technology watch")+'</div><div class="nav-group"><div class="nav-label">Collaborate</div>'+navButton("feedback","♧","Feedback & ideas",db.feedback.filter(function(x){return x.status==="new"||x.status==="triage";}).length)+navButton("activity","◷","Activity feed")+navButton("management","▥","Management view")+(canEdit()?navButton("workgroup","⚙","Workgroup studio",db.runs.filter(function(x){return x.status==="draft";}).length+db.guides.filter(function(x){return x.status==="draft";}).length):"")+'</div></div><div class="side-foot"><div class="demo">INTERACTIVE PROTOTYPE<br>All records are simulated and saved only in this browser.</div><button data-act="export">↓ Export data JSON</button><button data-act="reset">↺ Reset demo dataset</button></div></aside><section class="main"><header class="topbar"><div class="top-label"><span class="crumb">Workspace</span><span class="muted">/</span><strong>'+E(title)+'</strong></div><div class="top-actions"><span class="tag blue">LOCAL DEMO</span><button class="account" data-act="switch"><span class="avatar">'+E(u.initials)+'</span><span><strong>'+E(u.name)+'</strong><span class="tiny-role">'+E(u.role)+" · "+E(u.bu)+'</span></span><span class="muted">⌄</span></button></div></header><main class="content">'+inner+'</main></section></div>'+modal();
+}
+function heading(eyebrow,title,desc,actions){return '<div class="page-head"><div><div class="eyebrow">'+E(eyebrow)+'</div><h1>'+E(title)+'</h1><p class="lead">'+E(desc)+'</p></div><div class="head-actions">'+(actions||"")+'</div></div>';}
+function stat(label,value,foot){return '<div class="card"><div class="stat-label">'+E(label)+'</div><div class="stat-value">'+E(value)+'</div><div class="stat-foot">'+E(foot||"")+'</div></div>';}
+function section(title,body,action){return '<section class="card"><div class="card-head"><h2>'+E(title)+'</h2>'+(action||"")+'</div>'+body+'</section>';}
+function linkAction(text,act,id){return '<button class="linkish" data-act="'+E(act)+'" data-id="'+E(id)+'">'+E(text)+'</button>';}
+function btn(text,act,id,cls){return '<button class="btn '+(cls||"")+'" data-act="'+E(act)+'" data-id="'+E(id||"")+'">'+E(text)+'</button>';}
+function simpleTable(head,rows){return '<div class="table-wrap"><table><thead><tr>'+head.map(function(x){return '<th>'+E(x)+'</th>';}).join("")+'</tr></thead><tbody>'+rows.join("")+'</tbody></table></div>';}
+function td(x){return "<td>"+x+"</td>";}
+function bar(label,v,display){return '<div class="metric"><span>'+E(label)+'</span><strong>'+E(display==null?Math.round(v)+"%":display)+'</strong></div><div class="bar"><i style="width:'+Math.max(0,Math.min(100,Number(v)||0))+'%"></i></div>';}
+function eventList(items){return '<div class="timeline">'+items.map(function(x){return '<div class="event"><strong>'+E(x.text)+'</strong><div class="event-meta">'+E(x.date)+' · '+E(x.type)+' · '+E(actor(x.actor))+'</div></div>';}).join("")+'</div>';}
+function render(){var pages={dashboard:dashboardPage,tasks:tasksPage,solutions:solutionsPage,recommendations:recommendationsPage,benchmark:benchmarkPage,knowledge:knowledgePage,watch:watchPage,feedback:feedbackPage,activity:activityPage,management:managementPage,workgroup:workgroupPage};var labels={dashboard:"Overview",tasks:"Task explorer",solutions:"AI solutions",recommendations:"Recommendations",benchmark:"Benchmark lab",knowledge:"Guides & charter",watch:"Technology watch",feedback:"Feedback & ideas",activity:"Activity feed",management:"Management view",workgroup:"Workgroup studio"};if(!user()){login();return;}if(ui.page==="workgroup"&&!canEdit())ui.page="dashboard";shell((pages[ui.page]||dashboardPage)(),labels[ui.page]);}
+function login(){document.getElementById("app").innerHTML='<div class="login-wall"><div class="login-box"><div class="row"><div class="brand-mark">✦</div><div><h1>AI Compass</h1><p class="muted">Interactive product workflow prototype</p></div></div><p class="lead">Select a simulated account to explore role-specific journeys. No password or server authentication is used; all data stays in this browser.</p><div class="login-users">'+db.users.map(function(u){return '<button class="login-user" data-act="login" data-id="'+E(u.id)+'"><span class="avatar">'+E(u.initials)+'</span><span><strong>'+E(u.name)+'</strong><span class="tiny-role">'+E(u.role)+' · '+E(u.bu)+'</span></span></button>';}).join("")+'</div><hr class="divider"><div class="row-between"><span class="muted small">Mock accounts · no real security · shared local data</span>'+btn("Reset demo dataset","reset","","sm")+'</div></div></div>';}
+function modal(){if(!ui.modal)return "";return '<div class="modal-backdrop" id="backdrop"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="dialog-title"><div class="modal-header"><h2 id="dialog-title">'+E(ui.modalTitle||"Details")+'</h2><button class="x" data-act="close" aria-label="Close dialog">×</button></div><div class="modal-body">'+(ui.modalBody||"")+'</div>'+(ui.modalFooter?'<div class="modal-footer">'+ui.modalFooter+'</div>':"")+'</div></div>';}
+function openModal(title,body,footer){ui.modal="shown";ui.modalTitle=title;ui.modalBody=body;ui.modalFooter=footer||"";render();}
+function closeModal(){ui.modal="";render();}
+
 /* HELPERS_AND_SHELL */
 /* VIEWS_ONE */
 /* VIEWS_TWO */
