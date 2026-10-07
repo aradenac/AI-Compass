@@ -87,7 +87,8 @@ The system must support:
 - Browsing and searching from any node; finding solutions without requiring the user to reach a leaf.
 - Metadata and transversal filters independent of the tree (e.g., domain, specialty, project phase, V-cycle activity, complexity, confidentiality).
 - Contextual information or properties associated with tasks and their branches.
-- Stable identities and historical references: rearranging the tree must not change past experimental evidence.
+- **Inherited task properties:** a node can expose effective classification/context properties inherited from its ancestors, alongside its own explicitly defined properties. Local overrides or exceptions must be identifiable rather than silently changing the meaning of a parent's property.
+- Stable identities and historical references: rearranging the tree or changing inherited properties must not retroactively reinterpret the recorded context of past experiments.
 - Aggregated performance/coverage views at higher levels without pretending they were directly benchmarked.
 
 The hierarchy is primarily an **engineering activity taxonomy**. A task can be broad or specific. Multiple cross-cutting classifications may apply to the same task; they should not all be forced into the tree.
@@ -190,6 +191,8 @@ Each run should provide:
 
 A reproducible setup does **not** guarantee identical outputs from stochastic AI systems. Repeated runs characterize that variability.
 
+**External evidence is also relevant:** public or third-party benchmarks, research, provider documentation, and other published observations can support technology watch or qualification. The source, publication/retrieval date, tested setup, methodology (where known), and limitations should be recorded. Such references must be labeled separately from controlled internal runs and voluntary field feedback; unsupported vendor claims must not be presented as reproduced results.
+
 **Ordinary engineer usage is different:** the platform does not retain their day-to-day prompts, complete conversations, or artifacts merely because a recommended solution is used. Engineers may nevertheless submit voluntary feedback.
 
 ## 9. Metrics: quality, autonomy, information, and economic value
@@ -205,9 +208,11 @@ Benchmark results must preserve **raw observations** separately from derived met
 | Human corrections | Approximate additional engineering work required to reach acceptance. |
 | Autonomy | Successful independent progression, human intervention demand, failure/escalation patterns. |
 | AI resource use | Input/output tokens, model calls, elapsed runtime, tooling/API expenditure. |
-| Information utility | Relevant, novel, correct, actionable information relative to verbosity and adverse side effects. |
+| Information utility / density | Relevant, novel, correct, actionable information in proportion to the amount produced (e.g., tokens or output volume), accounting for irrelevant content and adverse side effects. |
 | Reliability | Variation between repeated runs; completion/acceptance rate; recurring failure modes. |
 | Cost/value | Direct AI/tool costs, valued human effort, saved work versus engineer-only baseline, cost per accepted result. |
+
+**Useful information density** is a distinct evaluation objective: outputs should be assessed for how much correct, relevant, novel, actionable content they deliver per unit of output, not simply for length or novelty alone. Errors, misleading conclusions, and additional verification or correction burdens count against practical utility. The precise measurement method is still open; no particular formula is mandated.
 
 The four human effort categories are **approximately declared**, not required to be timed precisely. Their uncertainty and the method of estimation should be visible; false numerical precision should be avoided.
 
@@ -270,7 +275,13 @@ A lightweight content lifecycle is sufficient initially:
 
 **Draft → Published → Superseded / Retired**
 
-Candidate qualification status and solution accessibility remain separate concepts: a candidate can be inaccessible; an accessible solution need not be recommended.
+**Keep three separate dimensions rather than one overloaded status:**
+
+- **Accessibility:** whether the solution is accessible to enterprise users; inaccessible candidates remain visible and comparable.
+- **Qualification maturity:** whether evidence is still preliminary/experimental, has been evaluated, or is sufficient for qualification. These descriptors summarize evidence maturity and do not themselves grant publication rights.
+- **Publication and recommendation lifecycle:** draft versus published content, followed where relevant by supersession/retirement; publication of a solution's record does not automatically mean it is recommended.
+
+A candidate can be inaccessible and qualified, while an accessible solution can be experimental or not recommended. Exact labels and transitions can be settled during design without conflating these dimensions.
 
 The system should retain dates and provenance such as **created, published, last verified/reviewed, validity, and supersession relationship**. It should highlight advice potentially due for review or rendered obsolete, and maintain history rather than silently replacing previous conclusions.
 
@@ -288,6 +299,8 @@ Engineers should be able to:
 - See what has changed through a news feed (new solutions, experiments, results, recommendations, or guides).
 - Submit qualitative feedback on real usage.
 - Suggest tasks, tools, new needs, missing documentation, or further evaluation.
+
+**Centralized feedback and ideas register:** submissions should be available to the workgroup in one place, with enough structured context to identify the referenced task/solution, classify and search themes, review and triage contributions, track their disposition or follow-up, and link them to resulting experiments, documentation changes, or new test cases. This is a workflow for managing contributions, **not** a requirement to capture ordinary user conversations. Contribution visibility, moderation, and detailed status names remain design choices.
 
 Feedback contributes to a **continuous improvement loop**:
 
@@ -390,6 +403,9 @@ The following have **not** been specified or mandated yet:
 
 - Exact scoring algorithms, metric weights, confidence thresholds, aggregation and normalization methods.
 - Detailed benchmark protocol templates and test-set design requirements.
+- Inheritance and override semantics for task properties, including historical version snapshots.
+- Exact qualification maturity labels, feedback triage statuses, and contribution moderation policy.
+- Information-density measurement methodology and handling of unreliable external benchmark claims.
 - Final UX, page structure, data storage, stack, deployment topology, or integration architecture.
 - Exact role/identity technical implementation and confidential artifact access policy.
 - Instrumentation for adoption measurement, automated benchmarking, and cost capture.
