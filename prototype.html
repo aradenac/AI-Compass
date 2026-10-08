@@ -908,10 +908,9 @@ db.campaigns.filter(function(c){return c.archived;}).map(function(c){return '<di
 '<div style="margin-top:18px">'+section("Staged theoretical forecasts available for experiment",'<div class="list">'+db.proposals.filter(function(p){return ["staged","reviewed","published"].includes(p.status);}).map(function(p){return '<div class="list-row"><div><strong>'+E(p.name)+'</strong><div class="muted small">'+E(rec("tasks",p.task)?.name||"")+' · theoretical / '+E(p.status)+'</div></div>'+btn("Inspect","forecastDetail",p.id,"sm")+'</div>';}).join("")+'</div>')+'</div>';
 }
 function testDesignPage(){
-if(!canEdit())return resultsPage();
-var tab=ui.testTab||"cases",tabs='<div class="pill-tabs">'+[['cases','Test Cases'],['protocols','Protocols']].map(function(x){return '<button class="tab'+(tab===x[0]?' active':'')+'" data-act="testTab" data-id="'+x[0]+'">'+x[1]+'</button>';}).join("")+'</div>';
-return heading("Test engineering","Test design","Define reusable, independent experimental challenges and versioned evaluation protocols. These are prepared before benchmark execution.",btn("+ Test Case","newCase","","primary")+btn("+ Protocol","newProtocol","",""))+
-'<div class="card">'+tabs+(tab==="protocols"?protocolRegistry():caseRegistry())+'</div>';
+ if(!canEdit())return resultsPage();
+ return heading("Test engineering","Test design","Define Test Cases, navigate forks and maintain their inputs and acceptance criteria.",btn("+ Test Case","newCase","","primary"))+
+ '<div class="card">'+caseRegistry()+'</div>';
 }
 function crossEvidenceComparison(){
 var task=ui.filters.crossTask||"all";
@@ -1013,9 +1012,7 @@ var cols=mode==="task"?db.solutions.filter(function(s){return visibleSolution(s)
 var matrix=cs.length?simpleTable(["Common test case / task"].concat(cols.map(function(s){return s.name;})),cs.map(function(c){return '<tr>'+td(linkAction(c.title,"caseDetail",c.id)+'<div class="muted small">'+E(rec("tasks",c.task)?.name||"")+'</div>')+cols.map(function(s){var rs=db.runs.filter(function(r){return r.case===c.id&&r.solution===s.id&&r.status==="published";});return td(rs.length?'<span class="score'+(avg(rs.map(function(x){return x.score;}))<75?' low':'')+'">'+Math.round(avg(rs.map(function(x){return x.score;})))+'/100</span><div class="muted small">'+rs.length+' run(s)</div>':'<span class="muted">Not tested</span>');}).join("")+'</tr>';}).concat([ '<tr>'+td("<strong>Coverage</strong>")+cols.map(function(s){return td(db.cases.filter(function(c){return cs.some(function(x){return x.id===c.id;})&&db.runs.some(function(r){return r.case===c.id&&r.solution===s.id&&r.status==="published";});}).length+"/"+cs.length+" cases");}).join("")+'</tr>' ])):'<div class="empty">No matching published evidence yet.</div>';
 return controls+'<div class="note" style="margin-bottom:16px"><strong>'+E(mode==="task"?"Task-centric benchmark":"Solution-centric benchmark")+'</strong> · '+E(mode==="task"?"Same task and test cases, multiple solutions. Compare common cases, not unequal portfolios.":"One solution across tasks and concrete cases; reveal its actual coverage.")+'</div>'+matrix+'<p class="helper">Scores summarize observed results only. Missing comparisons are unknown, not zero. For audited comparison, open each run and inspect its context and DoD.</p>';
 }
-function protocolRegistry(){
-return '<p class="muted small" style="margin-bottom:13px">Protocols describe controlled setup, autonomy, acceptance and scoring invariants. Each run pins a protocol version.</p>'+simpleTable(["Protocol","Version","Autonomy","Measurement rules",""],db.protocols.map(function(p){return '<tr>'+td('<strong>'+E(p.name)+'</strong><div class="muted small">'+E(p.description)+'</div>')+td(E(p.version))+td(badge(p.autonomy))+td(E(p.criteria))+td(canEdit()?btn("Create revision","reviseProtocol",p.id,"sm"):"")+'</tr>';}));
-}
+
 function campaignRegistry(){
 var groups=["planned","active","review","published"];
 return '<div class="card"><div class="filters">'+badge(db.campaigns.filter(function(x){return !x.archived;}).length+" campaigns")+' '+groups.map(function(k){return badge(db.campaigns.filter(function(x){return x.stage===k;}).length+" "+k);}).join(" ")+'</div>'+
@@ -1184,15 +1181,7 @@ field("version","Version / revision (if applicable)",c?.version||"")+
 field("details","Notes, capabilities, limitations",c?.details||fromWatch?.summary||"","textarea","full"),id,c?"Save component":"Create component");
 if(fromWatch&&ui.modal){var linkedForm=document.querySelector("#modalForm");if(linkedForm)linkedForm.dataset.watch=fromWatch.id;}
 }
-function dialogProtocol(id){
-var p=rec("protocols",id);
-openForm(p?"Create a new protocol revision":"Define benchmark protocol","protocol",
-field("name","Protocol name",p?.name||"","text","full")+
-field("version","Revision",p?(String(Number(p.version)||1)+".1"):"1.0")+
-selectField("autonomy","Degree of autonomy",[["Guided","Guided"],["Semi-autonomous","Semi-autonomous"],["Autonomous","Autonomous"]],p?.autonomy||"Semi-autonomous")+
-field("description","Invariants, inputs and controlled setup",p?.description||"","textarea","full")+
-field("criteria","Scoring rubric / mandatory acceptance / measurement",p?.criteria||"","textarea","full"),"","Create protocol revision");
-}
+
 function dialogCase(task,fromCase){
  var from=rec("cases",fromCase),t=rec("tasks",from?.task)||rec("tasks",task)||rec("tasks",ui.task)||db.tasks[4];
  var taskField=from?'<div class="span2"><strong>Inherited engineering task:</strong> '+E(t.name)+
@@ -1233,7 +1222,6 @@ selectField("solution","Already benchmarked AI Solution",existing.map(function(x
 '</div><p class="helper">The previous solution/configuration remains pinned. Different parameters, versions, provider or harness should be recorded as a new tested combination.</p></div>'+
 '<input type="hidden" name="qualification" value="'+E(qualificationId||"")+'"><input type="hidden" name="forecastId" value="'+E(forecastId||"")+'">';
 var fields=selectField("case","Test Case",optionsFrom("cases",function(x){return x.title+" · "+(rec("tasks",x.task)?.name||"");}),c.id,true)+setup+
-selectField("protocol","Benchmark protocol",optionsFrom("protocols",function(x){return x.name+" · "+x.version;}),c.protocol)+
 (projection?'<div class="span2 note warn">Validation of theoretical forecast: '+E(projection.name)+'. Assumptions are pinned when you save the run. Any changed configuration must be explained.</div>'+field("forecastDeviation","Differences from projected configuration (if any)","","textarea","full"):"")+
 selectField("accepted","DoD acceptance",[["yes","Accepted — mandatory DoD met"],["no","Failed / incomplete"]],orig?(orig.accepted?"yes":"no"):"yes")+
 field("score","Quality rubric score (0–100)",orig?.score??80,"number")+
@@ -1474,7 +1462,6 @@ openForm("Campaign · Define a Test Case","campaignCase",
 selectField("task","Engineering task",optionsFrom("tasks",function(t){return t.name;}),c.task||"t5",true))+
 field("title","Test Case title","","text","full")+
 field("version","Test Case version","1.0")+
-selectField("protocol","Benchmark protocol",optionsFrom("protocols",function(p){return p.name+" · "+p.version;}),"p1")+
 field("objective","Specific experimental challenge","","textarea","full")+
 field("inputs","Initial input context / files / references","","textarea","full")+
 field("dod","Mandatory acceptance criteria / Definition of Done","","textarea","full"),
@@ -2251,7 +2238,6 @@ if(act==="task"){ui.task=id;ui.matrixTarget=id;ui.modal="";ui.page="tasks";rende
 if(act==="expand"){ui.expanded[id]=ui.expanded[id]===false?true:false;render();return;}
 if(act==="solution"){ui.modal="";solutionDetail(id);return;}
 if(act==="benchTab"){ui.bench=id;render();return;}
-if(act==="testTab"){ui.testTab=id;render();return;}
 if(act==="resultsTab"){ui.resultsTab=id;render();return;}
 if(act==="benchSolution"){ui.page="results";ui.resultsTab="runs";ui.filters.runSolution=id;ui.filters.runTask="all";ui.modal="";render();return;}
 if(act==="matrix"){ui.page="results";ui.resultsTab="matrix";ui.modal="";render();return;}
@@ -2307,8 +2293,6 @@ if(act==="newComponent"){dialogComponent();return;}
 if(act==="newComponentType"){dialogComponent("",id);return;}
 if(act==="catalogFromWatch"){var watch=rec("watch",id);if(watch)dialogComponent("",watch.kind==="Model"?"model":watch.kind==="Provider"?"provider":watch.kind==="Harness"?"harness":"model",id);return;}
 if(act==="editComponent"){dialogComponent(id);return;}
-if(act==="newProtocol"){dialogProtocol();return;}
-if(act==="reviseProtocol"){dialogProtocol(id);return;}
 if(act==="forkCase"){dialogCase("",id);return;}
 if(act==="newCase"){dialogCase(id);return;}
 if(act==="newRun"){dialogCampaign();return;}
