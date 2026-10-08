@@ -693,6 +693,8 @@ if(!canEdit())return resultsPage();
 return heading("Campaign work","Benchmark Workspace","Campaign-led work: configure a scope and AI setup, execute guided Test Cases, close for staging, review, publish or reopen.",btn("+ New campaign","newCampaign","","primary"))+
 '<div class="note" style="margin-bottom:15px">Choose <strong>Solution coverage</strong> to test one fixed configuration across tasks and Test Cases, or <strong>Task comparison</strong> to compare multiple configurations on shared tests of a fixed task. No separate qualification queue is required.</div>'+
 campaignRegistry()+
+(db.campaigns.some(function(c){return c.archived;})?'<details class="card" style="margin-top:14px"><summary class="pointer"><strong>Archived campaigns ('+db.campaigns.filter(function(c){return c.archived;}).length+')</strong></summary><div class="list">'+
+db.campaigns.filter(function(c){return c.archived;}).map(function(c){return '<div class="list-row"><div><strong>'+E(c.title)+'</strong><div class="muted small">Archived; historical experiment evidence retained</div></div>'+btn("Restore","campaignRestore",c.id,"sm")+'</div>';}).join("")+'</div></details>':"")+
 '<div style="margin-top:18px">'+section("Staged theoretical forecasts available for experiment",'<div class="list">'+db.proposals.filter(function(p){return ["staged","reviewed","published"].includes(p.status);}).map(function(p){return '<div class="list-row"><div><strong>'+E(p.name)+'</strong><div class="muted small">'+E(rec("tasks",p.task)?.name||"")+' · theoretical / '+E(p.status)+'</div></div>'+btn("Inspect","forecastDetail",p.id,"sm")+'</div>';}).join("")+'</div>')+'</div>';
 }
 function testDesignPage(){
@@ -1483,6 +1485,10 @@ if(d.decision==="publish"){
 c.updated=TODAY;revision("Campaign review",id,before,c);event("Campaign",c.title+" peer review: "+(d.decision==="publish"?"published":"reopened for work"),false);
 persist();detailsCampaign(id);
 }
+function restoreCampaign(id){
+if(!canEdit())return;var c=rec("campaigns",id);if(!c||!c.archived)return;
+c.archived=false;c.updated=TODAY;event("Campaign","Restored archived campaign "+c.title,true);persist();ui.modal="";render();
+}
 function campaignRecordRun(t,d){
 var c=rec("campaigns",t.campaign),tc=rec("cases",t.case),setup=t.solutionSetup;
 if(!c||!tc||!setup)return {error:"Invalid trial setup."};
@@ -1790,6 +1796,7 @@ if(act==="campaignActivate"){setCampaignStage(id,"active");return;}
 if(act==="campaignClose"){setCampaignStage(id,"review");return;}
 if(act==="campaignReopen"){setCampaignStage(id,"active");return;}
 if(act==="campaignDelete"){campaignRemove(id);return;}
+if(act==="campaignRestore"){restoreCampaign(id);return;}
 if(act==="campaignReview"){campaignReviewForm(id);return;}
 if(act==="campaignNewCase"){campaignNewCase(id);return;}
 if(act==="campaignAttachCase"){campaignAttachCase(id);return;}
