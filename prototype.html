@@ -517,6 +517,11 @@ function login(){document.getElementById("app").innerHTML='<div class="login-wal
 function modal(){if(!ui.modal)return "";return '<div class="modal-backdrop" id="backdrop"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="dialog-title"><div class="modal-header"><h2 id="dialog-title">'+E(ui.modalTitle||"Details")+'</h2><button class="x" data-act="close" aria-label="Close dialog">×</button></div><div class="modal-body">'+(ui.modalBody||"")+'</div>'+(ui.modalFooter?'<div class="modal-footer">'+ui.modalFooter+'</div>':"")+'</div></div>';}
 function openModal(title,body,footer){ui.modal="shown";ui.modalTitle=title;ui.modalBody=body;ui.modalFooter=footer||"";render();}
 function closeModal(){ui.modal="";render();}
+function modalContainsForm(){
+ // Detect the rendered form rather than a specific form ID, including forms in detail modals.
+ var backdrop=document.getElementById("backdrop");
+ return !!(backdrop&&backdrop.querySelector("form"));
+}
 
 
 
@@ -2113,7 +2118,9 @@ if(act==="publishGuide"){if(!editable())return;var g=rec("guides",id);if(g){g.st
 if(act==="export"){var out=canEdit()?db:Object.assign({},db,{solutions:db.solutions.filter(visibleSolution),components:db.components.filter(function(c){return !c.publication||c.publication==="published";}),runs:db.runs.filter(visibleRun),guides:db.guides.filter(function(g){return g.status==="published";}),events:db.events.filter(function(e){return !e.internal;}).map(publicActivityEvent),watch:db.watch.filter(watchVisible),researchEvidence:db.researchEvidence.filter(researchVisible),watchSourceLinks:db.watchSourceLinks.filter(function(l){return watchVisible(rec("watch",l.watch))&&researchVisible(rec("researchEvidence",l.source));}),feedbackMessages:db.feedbackMessages.filter(function(m){return m.visibility==="public";}),proposals:db.proposals.filter(function(p){return p.status==="published";}),campaigns:db.campaigns.filter(function(c){return !c.archived&&c.stage==="published";}),campaignTrials:[],qualifications:[],revisions:[]});var blob=new Blob([JSON.stringify(out,null,2)],{type:"application/json"});var link=document.createElement("a");link.href=URL.createObjectURL(blob);link.download="ai-compass-demo-data.json";link.click();setTimeout(function(){URL.revokeObjectURL(link.href);},2000);toast(canEdit()?"Exported full mock dataset.":"Exported published mock records.");return;}
 if(act==="reset"){if(confirm("Replace all browser-saved prototype data with the initial mock dataset? This cannot be undone.")){db=seed();ensureDefaults();persist();ui.modal="";ui.filters={};ui.page="dashboard";render();toast("Mock dataset restored.");}return;}
 });
-document.addEventListener("click",function(ev){if(ev.target&&ev.target.id==="backdrop")closeModal();});
+document.addEventListener("click",function(ev){
+ if(ev.target&&ev.target.id==="backdrop"&&!modalContainsForm())closeModal();
+});
 document.addEventListener("change",function(ev){
 if(ev.target&&ev.target.id==="importFile"){
  if(!canEdit())return;
@@ -2172,7 +2179,9 @@ document.addEventListener("dragend",function(){
  ui.draggedTask="";resetTaskDropStyle();var app=document.getElementById("app");if(app&&app.classList)app.classList.remove("organizing-drag");
  if(document.querySelectorAll)document.querySelectorAll(".organizer-handle.dragging").forEach(function(el){el.classList.remove("dragging");});
 });
-document.addEventListener("keydown",function(ev){if(ev.key==="Escape"&&ui.modal)closeModal();});
+document.addEventListener("keydown",function(ev){
+ if(ev.key==="Escape"&&ui.modal&&!modalContainsForm())closeModal();
+});
 window.addEventListener("storage",function(ev){if(ev.key===KEY){try{db=JSON.parse(ev.newValue)||seed();render();}catch(ex){}}});
 render();
 
