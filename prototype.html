@@ -884,7 +884,7 @@ if(kind==="task"||kind==="taskEdit"){
 ui.modal="";persist();render();toast("Changes saved in this browser.");
 }catch(ex){if(ex.message!=="form validation")throw ex;}
 }
-document.addEventListener("submit",function(ev){if(ev.target.matches("#modalForm")){ev.preventDefault();handleForm(ev.target);}});
+document.addEventListener("submit",function(ev){if(ev.target.matches(".inline-task-form")){ev.preventDefault();saveInlineTask(ev.target);return;}if(ev.target.matches("#modalForm")){ev.preventDefault();handleForm(ev.target);}});
 document.addEventListener("change",function(ev){
 var el=ev.target;
 if(el.hasAttribute("data-compare")){var id=el.getAttribute("data-compare");if(el.checked&&!ui.selectedCompare.includes(id))ui.selectedCompare.push(id);if(!el.checked)ui.selectedCompare=ui.selectedCompare.filter(function(x){return x!==id;});render();return;}
@@ -924,6 +924,12 @@ if(act==="revisionDetail"){detailsRevision(id);return;}
 if(act==="import"){if(!editable())return;document.getElementById("importFile").click();return;}
 if(act==="newTask"){dialogTask(id);return;}
 if(act==="editTask"){dialogTask("",id);return;}
+if(act==="organizeToggle"){if(!canEdit())return;ui.taskView=ui.taskView==="organize"?"browse":"organize";ui.editingTask="";ui.inlineDraft=null;render();return;}
+if(act==="organizeAddRoot"){if(!canEdit())return;ui.inlineDraft={parent:null};ui.editingTask="";render();return;}
+if(act==="organizeAddChild"){if(!canEdit())return;ui.inlineDraft={parent:id};ui.editingTask="";ui.expanded[id]=true;render();return;}
+if(act==="organizeEdit"||act==="organizeSelect"){if(!canEdit())return;ui.task=id;ui.editingTask=id;ui.inlineDraft=null;render();return;}
+if(act==="organizeCancel"){ui.editingTask="";ui.inlineDraft=null;render();return;}
+if(act==="organizeUp"||act==="organizeDown"){if(!canEdit())return;var moved=taskOrganizerReorder(id,act==="organizeUp"?"up":"down");if(moved){render();toast("Task order updated.");}else toast("Already at the edge of this section.");return;}
 if(act==="solutionTab"){ui.solutionView=id;render();return;}
 if(act==="newComponent"){dialogComponent();return;}
 if(act==="editComponent"){dialogComponent(id);return;}
@@ -964,6 +970,48 @@ if(ev.target&&ev.target.id==="importFile"){
  reader.readAsText(file);
  ev.target.value="";
 }
+});
+
+/* Drag only by the dedicated handle; explicitly separated drop zones allow
+   reparenting, inserting before a sibling and moving sections at root level. */
+function taskDropTarget(element){
+ if(!element||!element.closest)return null;
+ return element.closest("[data-drop-parent], [data-drop-inside]");
+}
+function resetTaskDropStyle(){
+ if(!document.querySelectorAll)return;
+ document.querySelectorAll(".organizer-drop.drop-active, .organizer-node-row.drop-inside").forEach(function(el){el.classList.remove("drop-active","drop-inside");});
+}
+document.addEventListener("dragstart",function(ev){
+ var handle=ev.target&&ev.target.closest&&ev.target.closest("[data-task-drag]");
+ if(!handle||!canEdit()||ui.taskView!=="organize")return;
+ ui.draggedTask=handle.dataset.taskDrag;
+ if(ev.dataTransfer){ev.dataTransfer.effectAllowed="move";ev.dataTransfer.setData("text/plain",ui.draggedTask);}
+ handle.classList.add("dragging");
+});
+document.addEventListener("dragover",function(ev){
+ if(!ui.draggedTask||!canEdit()||ui.taskView!=="organize")return;
+ var target=taskDropTarget(ev.target);if(!target)return;
+ var parent=target.hasAttribute("data-drop-inside")?target.dataset.dropInside:(target.dataset.dropParent||null),
+     before=target.hasAttribute("data-drop-inside")?"":target.dataset.dropBefore||"";
+ if(!isValidTaskMove(ui.draggedTask,parent,before))return;
+ ev.preventDefault();
+ if(ev.dataTransfer)ev.dataTransfer.dropEffect="move";
+ resetTaskDropStyle();target.classList.add(target.hasAttribute("data-drop-inside")?"drop-inside":"drop-active");
+});
+document.addEventListener("drop",function(ev){
+ if(!ui.draggedTask||!canEdit()||ui.taskView!=="organize")return;
+ var target=taskDropTarget(ev.target),dragId=ui.draggedTask;
+ if(!target){ui.draggedTask="";resetTaskDropStyle();return;}
+ ev.preventDefault();
+ var parent=target.hasAttribute("data-drop-inside")?target.dataset.dropInside:target.dataset.dropParent||null,
+     before=target.hasAttribute("data-drop-inside")?"":target.dataset.dropBefore||"";
+ ui.draggedTask="";resetTaskDropStyle();
+ dropTaskOn(dragId,parent,before);
+});
+document.addEventListener("dragend",function(){
+ ui.draggedTask="";resetTaskDropStyle();
+ if(document.querySelectorAll)document.querySelectorAll(".organizer-handle.dragging").forEach(function(el){el.classList.remove("dragging");});
 });
 document.addEventListener("keydown",function(ev){if(ev.key==="Escape"&&ui.modal)closeModal();});
 window.addEventListener("storage",function(ev){if(ev.key===KEY){try{db=JSON.parse(ev.newValue)||seed();render();}catch(ex){}}});
