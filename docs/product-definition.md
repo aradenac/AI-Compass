@@ -46,19 +46,19 @@ The workgroup requires a distinct information architecture, not the end-user `Di
 
 | Workgroup screen | Primary responsibility |
 | --- | --- |
-| Dashboard | **Read-only daily overview**: qualification pipeline status, recent user feedback, technology-watch signals. It must not contain qualification creation, stage transitions or redundant KPI cards. |
+| Dashboard | **Read-only daily campaign pipeline**: Planned, In progress, Under review, Published; latest feedback and technology-watch signals. No campaign editing or state-changing controls. |
 | Task management | Maintain the task tree in place while still inspecting the engineer-facing navigation and task evidence. |
 | Technology watch | Record and examine external signals, publications, potential providers/harnesses/models and attributed estimates; bring relevant components into the catalog. |
 | Technology catalog | Maintain individual models, providers and harnesses; it is **not** a benchmark launch point. |
 | Test design | Create, update and inspect reusable Test Cases and versioned benchmark protocols. |
-| Benchmark workspace | **The operational entry point** for qualification planning, benchmark configuration/execution records, campaign management, review and publication. |
+| Benchmark workspace | **Campaign-centred operational entry point**: create/edit campaigns, select task/solution comparison mode, attach Test Cases, log execution steps and outcomes, close, review/publish and reopen campaigns. |
 | Results explorer | **The analytical entry point** for published run evidence, coverage and task- or solution-centric comparison; distinct from the operational workbench. |
 | Recommendations | Inspect and maintain evidence-linked decisions and their publication state. |
 | Guides & charter | Maintain, filter, search, sort, edit and publish knowledge articles. |
 | Feedback & discussions | Triage contributions and converse using private and public threads with separate histories. |
 | Activity feed & management view | Retain the established provenance and reporting views until separately reconsidered. |
 
-The **qualification pipeline** remains an important daily dashboard visualization, with the stages **To qualify → Qualifying → Review → Published**. The dashboard is strictly a status view (a read-only card can open a read-only detail). **Transitions, experimental work, review and publication take place in Benchmark workspace** rather than on the dashboard, a Technology Watch signal or the component catalog. Avoid reintroducing a separate, redundant Workgroup Studio.
+The **campaign pipeline** is the workgroup's daily dashboard: **Planned → In progress → Under review → Published**. It is a strictly read-only summary; campaigns are created, opened, edited, closed, reviewed, published, reopened or archived in **Benchmark workspace**. The campaign replaces separate qualification queues as the central work object. A measured AI Solution is still identified by its first controlled run, not by creating a campaign.
 
 ## 3. Access, publication, and organizational scope
 
@@ -156,25 +156,42 @@ The system must distinguish:
 
 There is no mandatory quota of TCs per task. A task can start with one and accumulate more.
 
-## 7. Two complementary benchmarking directions
+## 7. Campaign-centred benchmarking and comparison modes
 
-Both of the following are first-class workflows based on **the same underlying experimental records**:
+The **Benchmark Campaign** is the principal workgroup object for experimental preparation, controlled execution, peer review and publication. Benchmark Runs remain the atomic, independently auditable measurement records, and Test Cases remain reusable challenges linked to the task taxonomy. Campaigns coordinate them without redefining their meaning.
 
-### A. Solution-centric evaluation
+### Mode A — Solution-centred campaign
 
-Select an AI solution and evaluate it on TCs associated with **multiple tasks**, to determine its strengths, limitations, versatility, and applicable engineering scope.
+A member chooses and pins **one concrete AI configuration** (model, provider, harness, version, permissions, tools and relevant configuration). The campaign then evaluates this setup across **several Test Cases**, optionally drawn from **multiple engineering tasks**, to map its applicability, strengths, weaknesses, costs, quality and autonomy.
 
-Question: **What can this solution do effectively?**
+Question: **What can this particular AI configuration accomplish across the chosen engineering tasks?**
 
-### B. Task-centric comparison
+The fixed configuration is recorded at campaign creation, before any run. A new AI Solution identity is generated when its first controlled run is actually recorded.
 
-Select a task and run **multiple AI solutions against shared TCs**, to compare their results under comparable conditions.
+### Mode B — Task-centred comparison campaign
 
-Question: **Which solution is most appropriate for this task?**
+The member chooses **one engineering task** as the fixed comparison scope. Several reusable or newly authored Test Cases associated with that task challenge **multiple AI configurations**. Each execution selects or builds the tested solution (model, provider, harness and configuration), and records the outcome under the same experimental data model.
 
-These are alternative views over a task × test-case × AI-solution result space; they must not become incompatible benchmark systems.
+Question: **Which tested configuration is appropriate for this task, with what evidence, effort and cost?**
 
-A **Benchmark Campaign** may group a deliberate collection of runs (e.g., “qualify model X” or “compare five solutions on driver development”). This is an organizational convenience, not a second source of measurement truth.
+Comparisons must report the Test Cases, protocol conditions and sample sizes; unmatched challenge sets must not be treated as like-for-like rankings.
+
+### Lifecycle and ownership
+
+A campaign defines its experimental objective, strategy, fixed task or fixed AI setup, owner, notes and linked Test Cases/runs. Its operational lifecycle is:
+
+**Planned → In progress → Under review → Published**
+
+- **Planned:** prepared and editable, but not yet executing new Test Cases.
+- **In progress:** add or attach Test Cases and execute guided, resumable runs.
+- **Under review:** closing stages collected evidence and outcomes for another workgroup member's review; publication has not yet occurred.
+- **Published:** peer-reviewed controlled run evidence is released, including accepted and failed trials. Publication is not a blanket endorsement of the AI configuration.
+- **Reopen:** move an under-review or published campaign back to In progress, preserving all earlier evidence and audit events. A review can also reject the submission and reopen it for corrections.
+- **Edit/delete:** campaign metadata is editable, with guards preserving comparison scope once trials exist. Empty campaigns can be deleted; evidence-bearing campaigns are archived so underlying runs never disappear. Archived campaigns can be restored.
+
+The owner and the publishing reviewer should be different workgroup members; a single creator must not bypass the prototype's independent campaign review. This does not impose a mandatory two-reviewer quorum for general product recommendations outside the campaign workflow.
+
+The daily Dashboard shows the four campaign columns and progress/ownership **read-only**, while the Benchmark Workspace is the actual control surface.
 
 ## 8. Benchmark protocol, run, and evidence
 
