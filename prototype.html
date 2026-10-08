@@ -1539,7 +1539,7 @@ openForm("Step 5 · Results, artifacts & metrics","campaignTrialOutcome",fields,
 }
 function campaignReviewForm(id){
 var c=rec("campaigns",id);if(!canEdit()||!c||c.stage!=="review")return;
-openForm("Peer review · "+c.title,"campaignReview",
+openForm("Campaign review · "+c.title,"campaignReview",
 '<div class="span2 note">Any workgroup member, including the campaign creator, can review the staged evidence and publish it or request rework. These decisions are reversible; the activity history and experimental records are retained.</div>'+
 selectField("decision","Review decision",[["publish","Accept and publish campaign"],["rework","Reopen for corrections"]],"publish",true)+
 field("reviewNotes","Review findings / evidence gaps / publication rationale",c.reviewNotes||"","textarea","full"),
@@ -1782,21 +1782,28 @@ function unpublishCampaign(id){
  var c=rec("campaigns",id);if(!c||c.stage!=="published")return;
  var before=JSON.parse(JSON.stringify(c));
  c.stage="review";c.status="closed";c.updated=TODAY;
- campaignRuns(c).forEach(function(r){r.status="draft";});
+ var affectedSolutions=new Set();
+ campaignRuns(c).forEach(function(r){r.status="draft";affectedSolutions.add(r.solution);});
+ affectedSolutions.forEach(function(solutionId){
+  var sol=rec("solutions",solutionId);
+  if(sol?.createdFromBenchmark&&sol.publication==="published"&&!db.runs.some(function(r){return r.solution===solutionId&&r.status==="published";})){
+   sol.publication="draft";sol.maturity="experimental";
+  }
+ });
  revision("Campaign publication withdrawn",id,before,c);
  event("Campaign","Unpublished campaign: "+c.title,true,{campaignId:id,priorReviewer:c.reviewer});
  persist();detailsCampaign(id);
 }
 function campaignDecision(id,d){
 if(!canEdit())return;var c=rec("campaigns",id);if(!c||c.stage!=="review")return;
-if(!String(d.reviewNotes||"").trim()){toast("Enter the peer review conclusion.");return;}
+if(!String(d.reviewNotes||"").trim()){toast("Enter the campaign review conclusion.");return;}
 if(d.decision==="publish"&&!campaignRuns(c).length){toast("Record at least one completed Test Case before publishing the campaign.");return;}
 var before=JSON.parse(JSON.stringify(c));c.reviewNotes=d.reviewNotes;c.reviewer=currentUser;
 if(d.decision==="publish"){
  c.stage="published";c.status="published";
  campaignRuns(c).forEach(function(r){r.status="published";var sol=rec("solutions",r.solution);if(sol&&sol.publication==="draft"){sol.publication="published";sol.maturity="evaluated";}});
 }else{c.stage="active";c.status="active";}
-c.updated=TODAY;revision("Campaign review",id,before,c);event("Campaign",c.title+" peer review: "+(d.decision==="publish"?"published":"reopened for work"),false);
+c.updated=TODAY;revision("Campaign review",id,before,c);event("Campaign",c.title+" review decision: "+(d.decision==="publish"?"published":"reopened for work"),false);
 persist();detailsCampaign(id);
 }
 function restoreCampaign(id){
