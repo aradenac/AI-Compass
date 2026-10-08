@@ -1656,12 +1656,15 @@ openForm("Step 3 · Installation & setup","campaignTrialSetup",fields,campaignId
 function campaignTrialInteraction(id){
 var t=rec("campaignTrials",id),c=t&&rec("campaigns",t.campaign);
 if(!t||!c||c.stage!=="active"||t.status==="completed"||!canEdit())return;
-var logs=t.interactions.map(function(v,i){return '<div class="list-row"><div><strong>Interaction '+(i+1)+' · '+E(v.kind||"Interaction")+'</strong>'+
+var logs=t.interactions.map(function(v,i){return '<div class="list-row"><div><strong>Interaction '+(i+1)+' · '+E(v.kind||"Interaction")+
+ (v.frameworkActorId?' · '+E((t.frameworkParticipantsSnapshots||[]).find(function(x){return x.id===v.frameworkActorId;})?.label||"Participant"):"")+'</strong>'+
 '<div class="muted small">'+E(v.at)+' · human '+displayMinutes(v.humanMinutes)+' · agent '+displayMinutes(v.agentMinutes)+'</div><p class="small">'+E(v.description)+'</p></div></div>';}).join("");
 var fields='<div class="span2 note">Step 4 — The <strong>first prompt is the first interaction</strong>, not part of installation. Log further prompts, document submissions, skills activation, option changes, reviews and corrections in the same chronological sequence. Enter separate human and agent durations.</div>'+
 '<div class="span2"><strong>'+E(rec("cases",t.case)?.title||"Test Case")+'</strong><div class="list">'+(logs||'<div class="muted small">No interactions yet. Start with your first prompt/instruction or first action.</div>')+'</div></div>'+
 guidedField("at","Interaction date and time",campaignLocalTime(),"datetime-local",null,"Local calendar timestamp of the action. Log interruptions and separate sessions accurately; must be at or after installation start.")+
 guidedField("kind","Interaction type","Initial prompt","text",null,"Free description such as first prompt, input documents provided, option activation, review, correction, restart, or follow-up prompt.")+
+ (t.frameworkId?selectField("frameworkActorId","Responsible participant / workflow step",
+ [["","Framework-wide / coordinator"]].concat((t.frameworkParticipantsSnapshots||[]).map(function(p){return[p.id,p.label];})),"",true):"")+
 durationField("humanMinutes","Human interaction time (minutes)",0,"Estimated active human work for this action, not time while the AI is working autonomously. 0–7 days.")+
 durationField("agentMinutes","Agent execution / waiting time (minutes)",0,"Elapsed agent runtime related to this iteration. The run's total agent runtime is computed as the sum of these durations.")+
 guidedField("description","Action and observations","","textarea","full","Explain what you did, what the agent produced, and why another interaction was needed. This supports autonomy and effort analysis.")+
@@ -1822,7 +1825,7 @@ forecastPanel+(r.initialSetup?'<h3 style="margin:17px 0 8px">Step-by-step experi
 ((r.initialSetup.inputDocuments||r.initialSetup.providedSkills)?'<div class="note" style="margin-top:7px"><strong>Legacy interaction input summary (not installation):</strong><p class="small">Documents: '+E(r.initialSetup.inputDocuments||"—")+'</p><p class="small">Skills/options: '+E(r.initialSetup.providedSkills||"—")+'</p></div>':"")+
 simpleTable(["Iteration / date-time","Human effort","Agent runtime","Action & observations"],(r.interactions||[]).map(function(v,i){
  return '<tr>'+td('Iteration '+(i+1)+'<div class="muted small">'+E(v.at)+'</div>')+td(v.humanMinutes+' min')+
- td(v.agentMinutes+' min')+td('<strong>'+E(v.kind)+'</strong><p class="small">'+E(v.description)+'</p><p class="muted small">Prompt/instructions: '+E(v.promptUpdate||"None")+'</p><p class="muted small">Documents: '+E(v.inputDocuments||"—")+', skills/options: '+E(v.providedSkills||"—")+'. Artifacts: '+E(v.artifacts||"—")+'</p>')+'</tr>';
+ td(v.agentMinutes+' min')+td('<strong>'+E(v.kind)+(v.frameworkActorId?' · '+E((r.frameworkParticipantsSnapshots||[]).find(function(p){return p.id===v.frameworkActorId;})?.label||"Participant"):"")+'</strong><p class="small">'+E(v.description)+'</p><p class="muted small">Prompt/instructions: '+E(v.promptUpdate||"None")+'</p><p class="muted small">Documents: '+E(v.inputDocuments||"—")+', skills/options: '+E(v.providedSkills||"—")+'. Artifacts: '+E(v.artifacts||"—")+'</p>')+'</tr>';
  }))+ '<div class="note" style="margin-top:10px"><strong>Produced outputs:</strong> '+E(r.resultDetails?.outputDocuments||r.artifacts||"Not recorded")+
  '<p class="small">Quality evaluation: '+E(r.resultDetails?.qualityAssessment||r.resultDetails?.deliverableNotes||"Not recorded")+'</p>'+
  '<p class="small">Information utility assessment: '+E(r.resultDetails?.utilityAssessment||r.resultDetails?.densityNotes||"Not recorded")+'</p>'+
@@ -2181,6 +2184,7 @@ if(!guide||guide.type!=="Installation"){toast("Select an installation guide.");r
  if(["humanMinutes","agentMinutes"].some(function(k){return String(d[k]??"").trim()===""||!Number.isFinite(Number(d[k]))||Number(d[k])<0||Number(d[k])>10080;})){toast("Provide human and agent duration in minutes (0–10080).");return;}
  if(Date.parse(d.at)<Date.parse(session.startedAt)){toast("An iteration cannot predate initial setup.");return;}
  session.interactions.push({at:d.at,kind:d.kind||"Interaction",humanMinutes:Number(d.humanMinutes),agentMinutes:Number(d.agentMinutes),
+  frameworkActorId:(session.frameworkParticipantsSnapshots||[]).some(function(p){return p.id===d.frameworkActorId;})?d.frameworkActorId:"",
   description:d.description,promptUpdate:d.promptUpdate||"",inputDocuments:d.inputDocuments||"",providedSkills:d.providedSkills||"",artifacts:d.artifacts||""});
  session.step=2;event("Trial","Logged interaction for "+rec("cases",session.case)?.title,true);
  persist();campaignTrialInteraction(id);return;
