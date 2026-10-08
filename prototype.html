@@ -898,15 +898,42 @@ selectField("status","Publication",[["draft","Draft"],["published","Published"]]
 field("title","Title",g?.title||"","text","full")+
 field("body","Document text",g?.body||"","textarea","full"),id,g?"Save document":"Create document");
 }
+function watchSourceRow(i,e){
+return '<div class="watch-source-row muted-panel" data-source-index="'+i+'"><div class="row-between"><strong class="small">Source '+(i+1)+'</strong>'+badge(e?.confidence||"unverified")+'</div>'+
+'<input type="hidden" name="sourceId_'+i+'" value="'+E(e?.id||"")+'">'+
+'<div class="form-grid" style="margin-top:10px">'+
+field("sourceTitle_"+i,"Article, benchmark or reference",e?.title||"","text","full")+
+selectField("sourceType_"+i,"Source classification",[["Independent benchmark","Independent benchmark"],["Research paper","Research paper"],["Vendor claim","Vendor / provider claim"],["Expert estimate","Expert estimate"],["Other","Other"]],e?.type||"Independent benchmark")+
+selectField("sourceConfidence_"+i,"Confidence",[["low","Low"],["medium","Medium"],["high","High"]],e?.confidence||"low")+
+field("sourceURL_"+i,"URL / citation / document reference",e?.source||"","text","full")+
+field("sourceClaim_"+i,"What does this source support?",e?.assessment||"","textarea","full")+
+field("sourceLimits_"+i,"Assumptions / limitations",e?.limitations||"","textarea","full")+
+'</div></div>';
+}
 function dialogWatch(id){
-var w=rec("watch",id);
-openForm(w?"Review technology-watch signal":"New technology-watch signal","watch",
-field("title","Signal title",w?.title||"","text","full")+
-selectField("kind","Technology category",[["Model","Model"],["Harness","Harness"],["Provider","Provider"],["Tool","Tool"],["Research","Research"]],w?.kind||"Model")+
-selectField("status","Watch state",[["watching","Watching"],["pending","Pending evaluation"],["reviewed","Reviewed"]],w?.status||"watching")+
-selectField("component","Watch candidate (model / provider / harness)",[["","No component linked"]].concat(db.components.map(function(c){return[c.id,c.type+": "+c.name];})),w?.component||"")+
-field("source","Source / provenance",w?.source||"","text","full")+
-field("summary","Observation and follow-up",w?.summary||"","textarea","full"),id,w?"Update signal":"Create signal");
+if(!canEdit())return;
+var w=rec("watch",id),evidence=w?watchEvidence(w.id):[];
+var sources=evidence.length?evidence:[null];
+var body='<div class="span2 note">A watch entry is an evidence-backed <strong>hypothesis</strong>, not a catalog component and not a qualification. Register the literature now; you can later link several watch entries to a task-specific forecast.</div>'+
+field("title","Signal or hypothesis title",w?.title||"","text","full")+
+selectField("kind","Technology theme",[["Model","Model"],["Provider","Provider"],["Harness","Harness"],["Configuration","Configuration / combination"],["Tool","Tools and integrations"],["Research","Research finding"]],w?.kind||"Configuration")+
+selectField("status","Evidence collection status",[["watching","Under review"],["pending","Collecting evidence"],["reviewed","Documented"]],w?.status||"watching")+
+field("hypothesis","Reasoned hypothesis / intuition",w?.hypothesis||w?.summary||"","textarea","full")+
+field("assumptions","Assumptions and conditions for engineering use",w?.assumptions||"","textarea","full")+
+field("potential","Expected benefit / engineering activities to investigate",w?.potential||"","textarea","full")+
+'<div class="span2"><div class="row-between"><strong>Literature, public benchmarks & supporting evidence</strong><button type="button" class="btn sm" data-act="addWatchSource">+ Add source</button></div><p class="muted small" style="margin:8px 0 11px">Every source retains its citation, confidence, claim, and limits. These are NOT controlled internal benchmark results.</p><div id="watch-source-list">'+sources.map(function(e,i){return watchSourceRow(i,e);}).join("")+'</div></div>';
+openForm(w?"Edit hypothesis and evidence":"Create watch entry with evidence",w?"watchEdit":"watch",body,id||"",w?"Save watch entry":"Save watch entry");
+}
+function collectWatchSources(d,signalId){
+var indexes=Object.keys(d).filter(function(k){return /^sourceTitle_\d+$/.test(k);}).map(function(k){return Number(k.split("_")[1]);});
+var changes=[];
+for(var index of indexes){
+ var title=String(d["sourceTitle_"+index]||"").trim(),source=String(d["sourceURL_"+index]||"").trim(),assessment=String(d["sourceClaim_"+index]||"").trim();
+ if(!title&&!source&&!assessment)continue;
+ if(!title||!source||!assessment)return {error:"Complete the title, reference and supported claim for source "+(index+1)+"."};
+ changes.push({id:d["sourceId_"+index]||"",title:title,source:source,assessment:assessment,type:d["sourceType_"+index]||"Other",confidence:d["sourceConfidence_"+index]||"low",limitations:d["sourceLimits_"+index]||"Not specified",signal:signalId});
+}
+return {sources:changes};
 }
 function dialogCampaign(){
 var checkCases=db.cases.map(function(c){return '<label class="small" style="display:block;margin:5px 0"><input type="checkbox" name="caseIds" value="'+E(c.id)+'"> '+E(c.title)+' <span class="muted">('+E(rec("tasks",c.task)?.name||"")+')</span></label>';}).join("");
@@ -1123,9 +1150,18 @@ if(kind==="task"||kind==="taskEdit"){
  if(!oldQ)db.qualifications.push(qualification);else revision("Qualification",qualification.id,prior,qualification);
  if(qualification.sourceWatch){var watch=rec("watch",qualification.sourceWatch);if(watch&&watch.status==="watching")watch.status="pending";}
  ui.page="dashboard";event("Qualification",(oldQ?"Updated":"Created")+" qualification: "+qualification.title,true);
-}else if(kind==="watch"){
- var w=id?rec("watch",id):{id:next("w")};Object.assign(w,{title:req(d.title,"Title"),kind:d.kind,status:d.status,component:d.component||"",solution:w?.solution||"",summary:req(d.summary,"Summary"),source:d.source,date:new Date().toISOString().slice(0,10)});
- if(!id)db.watch.push(w);ui.page="watch";event("Watch",(id?"Updated":"Added")+" technology signal: "+w.title);
+}else if(kind==="watch"||kind==="watchEdit"){
+ var w=kind==="watchEdit"?rec("watch",id):{id:next("w")};if(!w)return;
+ var collected=collectWatchSources(d,w.id);if(collected.error){toast(collected.error);return;}
+ var original=kind==="watchEdit"?JSON.parse(JSON.stringify(w)):null;
+ Object.assign(w,{title:req(d.title,"Hypothesis title"),kind:d.kind,status:d.status,hypothesis:req(d.hypothesis,"Hypothesis"),assumptions:d.assumptions||"",potential:d.potential||"",summary:d.hypothesis,component:w.component||"",date:new Date().toISOString().slice(0,10)});
+ if(kind==="watch")db.watch.push(w);else revision("Watch hypothesis",w.id,original,w);
+ collected.sources.forEach(function(src){
+  var existing=rec("researchEvidence",src.id),before=existing?JSON.parse(JSON.stringify(existing)):null;
+  if(existing){Object.assign(existing,src,{date:new Date().toISOString().slice(0,10)});revision("Watch source",existing.id,before,existing);}
+  else db.researchEvidence.push(Object.assign(src,{id:next("research"),date:new Date().toISOString().slice(0,10),author:currentUser}));
+ });
+ ui.page="watch";event("Watch",(kind==="watchEdit"?"Updated":"Created")+" evidence-backed hypothesis: "+w.title,true);
 }else if(kind==="research"||kind==="researchEdit"){
  var item=kind==="researchEdit"?rec("researchEvidence",id):{id:next("research")},oldEvidence=kind==="researchEdit"?JSON.parse(JSON.stringify(item)):null;
  Object.assign(item,{title:req(d.title,"Title"),type:d.type,confidence:d.confidence,component:d.component||"",signal:d.signal||"",source:req(d.source,"Source reference"),assessment:req(d.assessment,"Assessment"),limitations:req(d.limitations,"Limitations"),date:new Date().toISOString().slice(0,10),author:currentUser});
@@ -1222,6 +1258,7 @@ if(act==="newFeedback"){dialogFeedback();return;}
 if(act==="newGuide"){dialogGuide();return;}
 if(act==="editGuide"){dialogGuide(id);return;}
 if(act==="newWatch"){dialogWatch();return;}
+if(act==="addWatchSource"){var list=document.getElementById("watch-source-list");if(list){var next=list.querySelectorAll(".watch-source-row").length;list.insertAdjacentHTML("beforeend",watchSourceRow(next,null));}return;}
 if(act==="editWatch"){dialogWatch(id);return;}
 if(act==="newResearch"){dialogResearch();return;}
 if(act==="newResearchForWatch"){dialogResearch("",id);return;}
