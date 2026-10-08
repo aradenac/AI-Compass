@@ -418,7 +418,7 @@ var navigation=canEdit()?
 '<div class="nav-group"><div class="nav-label">WORKSPACE</div>'+navButton("dashboard","◈","Dashboard")+navButton("tasks","▤","Task management")+'</div>'+
 '<div class="nav-group"><div class="nav-label">TECHNOLOGY INTELLIGENCE</div>'+navButton("watch","◉","Technology watch")+navButton("solutions","◇","Technology catalog")+'</div>'+
 '<div class="nav-group"><div class="nav-label">EXPERIMENTS</div>'+navButton("testdesign","▣","Test design")+navButton("benchmark","⚙","Benchmark workspace")+navButton("results","◫","Results explorer")+navButton("recommendations","✧","Recommendations")+'</div>'+
-'<div class="nav-group"><div class="nav-label">KNOWLEDGE & COLLABORATION</div>'+navButton("knowledge","▦","Guides & charter")+navButton("feedback","♧","Feedback & discussions",db.feedback.filter(function(x){return x.status==="new"||x.status==="triage";}).length)+navButton("activity","◷","Activity feed")+'</div>'+
+'<div class="nav-group"><div class="nav-label">KNOWLEDGE & COLLABORATION</div>'+navButton("knowledge","▦","Guides & charter")+navButton("feedback","♧","Feedback & discussions")+navButton("activity","◷","Activity feed")+'</div>'+
 '<div class="nav-group"><div class="nav-label">REPORTING</div>'+navButton("management","▥","Management view")+'</div>':
 '<div class="nav-group"><div class="nav-label">Discover</div>'+navButton("dashboard","◈","Overview")+navButton("tasks","▤","Task explorer")+navButton("solutions","◇","AI solutions")+navButton("recommendations","✧","Recommendations")+'</div>'+
 '<div class="nav-group"><div class="nav-label">Evaluate</div>'+navButton("results","◫","Benchmark results")+navButton("knowledge","▣","Guides & charter")+navButton("watch","◉","Technology watch")+'</div>'+
@@ -917,19 +917,22 @@ field("assessment","Findings, claimed performance and/or predictions",e?.assessm
 field("limitations","Methodology, uncertainty and assumptions",e?.limitations||"","textarea","full"),id,e?"Save evidence":"Register source");
 }
 function feedbackPage(){
-var status=ui.filters.feedbackStatus||"all",search=(ui.filters.feedbackSearch||"").toLowerCase();
-var items=db.feedback.filter(function(x){return (status==="all"||x.status===status)&&(x.title+" "+x.body+" "+x.type).toLowerCase().includes(search);}).sort(function(a,b){return String(b.date).localeCompare(String(a.date));});
+var search=(ui.filters.feedbackSearch||"").toLowerCase();
+var items=db.feedback.filter(function(x){return (x.title+" "+x.body+" "+x.type).toLowerCase().includes(search);})
+ .sort(function(a,b){return String(b.date).localeCompare(String(a.date));});
 var rows=items.map(function(x){
 var target=rec("tasks",x.target)||rec("solutions",x.target),
-publicReplies=db.feedbackMessages.filter(function(m){return m.feedback===x.id&&m.visibility==="public";}).length,
-internalReplies=db.feedbackMessages.filter(function(m){return m.feedback===x.id&&m.visibility==="internal";}).length;
+replies=db.feedbackMessages.filter(function(m){return m.feedback===x.id&&(canEdit()||m.visibility==="public");});
 return '<tr>'+td(linkAction(x.title,"feedbackDetail",x.id)+'<div class="muted small">'+E(x.body.slice(0,120))+'</div>')+
-td(badge(x.type))+td(target?E(target.name):"—")+td(E(actor(x.author))+'<div class="muted small">'+E(rec("users",x.author)?.bu||"")+'</div>')+
-td('<span>'+publicReplies+' public'+(canEdit()?' · '+internalReplies+' internal':"")+'</span>')+td(badge(x.status))+td(btn("Open threads","feedbackDetail",x.id,"sm"))+'</tr>';
+td(badge(x.type))+td(target?E(target.name):"—")+td(E(actor(x.author)))+
+td(replies.length+" messages"+(canEdit()?" · "+replies.filter(function(x){return x.visibility==="internal";}).length+" internal":""))+
+td(btn("Read conversation","feedbackDetail",x.id,"sm"))+'</tr>';
 });
-return heading("Collaboration","Feedback & discussions","Follow up user reports through two separate chronological conversations: public replies and workgroup-only internal discussion.",btn("+ Submit feedback","newFeedback","","primary"))+
-'<div class="card"><div class="filters"><input class="input" data-filter="feedbackSearch" placeholder="Search feedback or needs…" value="'+E(ui.filters.feedbackSearch||"")+'"><select data-filter="feedbackStatus">'+[["all","All states"],["new","New"],["triage","Triage"],["planned","Planned"],["closed","Closed"]].map(function(x){return opt(x[0],x[1],status);}).join("")+'</select>'+badge(items.length+" threads")+'</div>'+
-simpleTable(["Issue / idea","Kind","Related","Contributor","Discussion","State",""],rows)+'</div>';
+return heading("Collaboration","Feedback & discussions",
+"One chronological conversation per contribution. Each message has its own public or workgroup-only visibility; actions and bug tracking are managed outside feedback.",
+!canEdit()?btn("+ Submit feedback","newFeedback","","primary"):"")+
+'<div class="card"><div class="filters"><input class="input" data-filter="feedbackSearch" placeholder="Find contributions and ideas…" value="'+E(ui.filters.feedbackSearch||"")+'">'+badge(items.length+" contributions")+'</div>'+
+simpleTable(["Feedback / idea","Kind","Related context","Contributor","Conversation",""],rows)+'</div>';
 }
 function activityPage(){
 var revisions=canEdit()?section("Change history · preserved revisions",db.revisions.length?simpleTable(["Date","Object","Changed by",""],db.revisions.slice().reverse().map(function(rev){return '<tr>'+td(E(rev.date))+td(E(rev.type)+' · '+E(rev.objectId))+td(E(actor(rev.by)))+td(btn("Inspect revision","revisionDetail",rev.id,"sm"))+'</tr>';})):'<div class="empty">No modified records yet. Revise a solution or task to create an auditable change.</div>'):'';
@@ -1061,6 +1064,7 @@ selectField("supersededBy","Replacement / successor solution",[["","No successor
 selectField("publication","Record publication status",[["draft","Draft"],["published","Published"],["superseded","Superseded"],["retired","Retired"]],s.publication),id,"Save recommendation");
 }
 function dialogFeedback(){
+if(canEdit())return;
 openForm("Submit feedback, an idea or a need","feedback",
 selectField("type","Contribution type",[["Experience","Real-use feedback"],["Idea","New idea"],["Need","Missing capability / unmet need"]],"Experience")+
 selectField("target","Related task or solution",[["","General / unspecified"]].concat(db.tasks.filter(function(t){return t.baseline>0;}).map(function(t){return[t.id,"Task: "+t.name];})).concat(db.solutions.filter(visibleSolution).map(function(s){return[s.id,"Solution: "+s.name];})),"")+
@@ -1455,27 +1459,40 @@ var g=rec("guides",id);if(!g||(!canEdit()&&g.status!=="published"))return;
 openModal(g.title,'<div class="row-between"><div>'+badge(g.type)+' '+badge(g.status)+'</div><span class="muted small">Last update: '+E(g.date)+' · '+E(actor(g.owner))+'</span></div><pre class="text-block" style="margin-top:18px;white-space:pre-wrap;font-family:inherit">'+E(g.body)+'</pre>',
 btn("Close","close","","")+(canEdit()?btn("Edit document","editGuide",id,"")+(g.status==="draft"?btn("Publish document","publishGuide",id,"primary"):""):""));
 }
-function feedbackThreadMarkup(id,visibility){
-var msgs=db.feedbackMessages.filter(function(x){return x.feedback===id&&x.visibility===visibility;}).sort(function(a,b){return a.date.localeCompare(b.date);});
-var content=msgs.map(function(m){return '<div class="feedback-message"><div class="row-between"><strong>'+E(actor(m.author))+'</strong><span class="muted small">'+E(m.date.replace("T"," ").slice(0,16))+'</span></div><div class="text-block small" style="margin-top:6px">'+E(m.body)+'</div></div>';}).join("")||'<div class="muted small" style="padding:11px">No replies yet.</div>';
-var label=visibility==="public"?"Public discussion":"Workgroup internal discussion",hint=visibility==="public"?"Visible to the contributor and all readers":"Not shared with engineers or general readers";
-return '<section class="feedback-thread"><div class="row-between"><h3>'+label+'</h3>'+badge(msgs.length+" replies")+'</div><p class="muted small" style="margin:5px 0 13px">'+hint+'</p><div class="feedback-messages">'+content+'</div><form class="feedback-reply-form" data-feedback="'+E(id)+'" data-visibility="'+visibility+'"><label class="small" for="reply_'+visibility+'">Reply to '+label.toLowerCase()+'</label><textarea id="reply_'+visibility+'" name="reply" required placeholder="Write a '+visibility+' response…" rows="3"></textarea><div class="right" style="margin-top:8px"><button class="btn sm primary" type="submit">Post '+visibility+' reply</button></div></form></section>';
+function feedbackThreadMarkup(id){
+var msgs=db.feedbackMessages.filter(function(m){return m.feedback===id&&(canEdit()||m.visibility==="public");})
+ .sort(function(a,b){return a.date.localeCompare(b.date)||a.id.localeCompare(b.id);});
+var list=msgs.map(function(m){
+return '<div class="feedback-message"><div class="row-between"><div class="row"><strong>'+E(actor(m.author))+'</strong> '+
+badge(m.visibility==="internal"?"INTERNAL · workgroup only":"PUBLIC")+'</div><span class="muted small">'+E(m.date.replace("T"," ").slice(0,19))+'</span></div>'+
+'<div class="text-block small" style="margin-top:8px">'+E(m.body)+'</div></div>';}).join("")||'<p class="muted small">No replies yet.</p>';
+var compose='<form class="feedback-reply-form" data-feedback="'+E(id)+'"><div class="row-between"><strong>Reply to the conversation</strong>'+
+(canEdit()?'<select name="visibility" aria-label="Visibility"><option value="public">Public response</option><option value="internal">Internal workgroup note</option></select>':
+'<input type="hidden" name="visibility" value="public">')+'</div>'+
+'<textarea name="reply" required placeholder="Write a reply…" rows="3"></textarea><div class="right" style="margin-top:8px"><button class="btn sm primary" type="submit">Post reply</button></div></form>';
+return '<section class="feedback-thread"><h3 style="margin-bottom:11px">Conversation · chronological history</h3>'+
+'<p class="muted small" style="margin-bottom:11px">Public and internal replies appear in their actual order. Private notes are visible only to workgroup members.</p>'+
+'<div class="feedback-messages">'+list+'</div>'+compose+'</section>';
 }
 function detailsFeedback(id){
-var f=rec("feedback",id);if(!f)return;var tar=rec("solutions",f.target)||rec("tasks",f.target);
-var body='<div class="row-between"><div>'+badge(f.type)+' '+badge(f.status)+'</div><span class="muted small">'+E(f.date)+' · '+E(actor(f.author))+'</span></div>'+
-'<h3 style="margin:15px 0 8px">'+E(f.title)+'</h3><p class="text-block">'+E(f.body)+'</p><div class="note" style="margin-top:14px">Related: '+E(tar?.name||"General")+(f.linked?' · linked evidence: '+E(f.linked):"")+'</div>'+
-'<div class="feedback-threads" style="margin-top:18px">'+feedbackThreadMarkup(f.id,"public")+(canEdit()?feedbackThreadMarkup(f.id,"internal"):"")+'</div>';
-if(canEdit())body+='<hr class="divider"><h3 style="margin-bottom:10px">Workgroup disposition</h3><form id="modalForm" data-form="triage" data-id="'+E(f.id)+'"><div class="form-grid">'+selectField("status","Case status",[["new","New"],["triage","Triage"],["planned","Planned"],["closed","Closed"]],f.status)+field("linked","Linked TC / evidence / action reference",f.linked||"")+'</div></form>';
-openModal("Feedback · "+f.title,body,btn("Close","close","","")+(canEdit()?'<button type="submit" form="modalForm" class="btn primary">Save disposition</button>':""));
+var f=rec("feedback",id);if(!f)return;
+var target=rec("solutions",f.target)||rec("tasks",f.target);
+var body='<div class="row-between"><div>'+badge(f.type)+'</div><span class="muted small">'+E(f.date)+' · '+E(actor(f.author))+'</span></div>'+
+'<h3 style="margin:15px 0 8px">'+E(f.title)+'</h3><p class="text-block">'+E(f.body)+'</p>'+
+'<p class="muted small" style="margin:12px 0">Related topic: '+E(target?.name||"General")+'</p>'+
+feedbackThreadMarkup(f.id);
+openModal("Feedback · "+f.title,body,btn("Close","close","",""));
 }
 function handleFeedbackReply(form){
-var id=form.dataset.feedback,visibility=form.dataset.visibility;
-if(!rec("feedback",id)||!canContribute()||(visibility==="internal"&&!canEdit())||!["public","internal"].includes(visibility))return;
-var d=formValue(form),message=String(d.reply||"").trim();
-if(!message){toast("Reply cannot be empty.");return;}
-db.feedbackMessages.push({id:next("msg"),feedback:id,visibility:visibility,author:currentUser,date:new Date().toISOString(),body:message});
-event("Feedback",visibility==="internal"?"New internal feedback note":"Public reply posted",visibility==="internal");persist();detailsFeedback(id);toast(visibility==="public"?"Public reply saved.":"Internal note saved.");
+var id=form.dataset.feedback,d=formValue(form),visibility=d.visibility||"public";
+if(!rec("feedback",id)||!canContribute()||!["public","internal"].includes(visibility)||(visibility==="internal"&&!canEdit()))return;
+var message=String(d.reply||"").trim();if(!message){toast("Reply cannot be empty.");return;}
+var item={id:next("msg"),feedback:id,visibility:visibility,author:currentUser,date:new Date().toISOString(),body:message};
+db.feedbackMessages.push(item);
+event("Feedback",visibility==="internal"?"Internal comment added":"Public response added",visibility==="internal",
+ {objectType:"Feedback",objectId:id,messageId:item.id,visibility:visibility,characterCount:message.length});
+persist();detailsFeedback(id);
+toast(visibility==="internal"?"Internal note saved.":"Public reply saved.");
 }
 function detailsCampaign(id){
 var c=rec("campaigns",id);if(!c||c.archived||(!canEdit()&&c.stage!=="published"))return;
@@ -1603,7 +1620,7 @@ if(result.created)event("Solution","New measured AI solution from campaign "+c.t
 return {run:r};
 }
 function handleForm(form){
-var kind=form.dataset.form,id=form.dataset.id,d=formValue(form);if(kind!=="feedback"&&kind!=="triage"&&!canEdit()){toast("Insufficient permissions.");return;}
+var kind=form.dataset.form,id=form.dataset.id,d=formValue(form);if(kind!=="feedback"&&!canEdit()){toast("Insufficient permissions.");return;}
 var req=function(v,label){if(!String(v||"").trim()){toast(label+" is required.");throw Error("form validation");}return String(v).trim();};
 try{
 if(kind==="campaignReview"){
@@ -1754,11 +1771,9 @@ if(kind==="task"||kind==="taskEdit"){
  var target=rec("solutions",id);if(!target)return;var prevRecommendation=JSON.parse(JSON.stringify(target));
  target.recommendation=req(d.recommendation,"Recommendation");target.limitations=d.limitations;target.publication=d.publication;target.supersededBy=d.supersededBy||"";target.lastReviewed=new Date().toISOString().slice(0,10);revision("Recommendation",id,prevRecommendation,target);ui.page="recommendations";event("Recommendation","Revised "+target.name+" guidance ("+target.publication+").");
 }else if(kind==="feedback"){
- if(!canContribute())return;
+ if(!canContribute()||canEdit()){toast("Workgroup accounts cannot submit user feedback.");return;}
  var f={id:next("f"),author:currentUser,type:d.type,target:d.target,title:req(d.title,"Title"),body:req(d.body,"Description"),status:"new",linked:"",date:new Date().toISOString().slice(0,10)};
  db.feedback.push(f);ui.page="feedback";event("Feedback","New "+f.type.toLowerCase()+": "+f.title);
-}else if(kind==="triage"){
- if(!canEdit())return;var fb=rec("feedback",id);fb.status=d.status;fb.linked=d.linked;event("Feedback","Triage updated: "+fb.title+" → "+fb.status);
 }else if(kind==="guide"){
  var g=id?rec("guides",id):{id:next("g")},prevGuide=id?JSON.parse(JSON.stringify(g)):null;Object.assign(g,{title:req(d.title,"Title"),type:d.type,status:d.status,body:req(d.body,"Document"),owner:currentUser,date:new Date().toISOString().slice(0,10)});
  if(!id)db.guides.push(g);else revision("Guide",id,prevGuide,g);ui.page="knowledge";event("Guide",(id?"Updated":"Created")+" "+g.type.toLowerCase()+": "+g.title,g.status!=="published");
@@ -1954,7 +1969,7 @@ if(act==="repeatRun"){
 if(act==="newSolution"){dialogSolution();return;}
 if(act==="editSolution"){dialogSolution(id);return;}
 if(act==="editRecommendation"){dialogRecommendation(id);return;}
-if(act==="newFeedback"){dialogFeedback();return;}
+if(act==="newFeedback"){if(!canEdit())dialogFeedback();return;}
 if(act==="newGuide"){dialogGuide();return;}
 if(act==="editGuide"){dialogGuide(id);return;}
 if(act==="newWatch"){dialogWatch();return;}
