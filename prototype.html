@@ -1156,6 +1156,101 @@ selectField("owner","Campaign owner",db.users.filter(function(u){return u.role==
 field("notes","Context, constraints and campaign notes",c?.notes||"","textarea","full");
 openForm(c?"Edit campaign":"Step 1 · Create benchmark campaign","campaign",body,id||"",c?"Save campaign":"Create campaign & continue");
 }
+function campaignLocalTime(){
+var date=new Date();return new Date(date.getTime()-date.getTimezoneOffset()*60000).toISOString().slice(0,16);
+}
+function campaignNewCase(id){
+var c=rec("campaigns",id);if(!c||c.stage!=="active"||!canEdit())return;
+openForm("Campaign · Define a Test Case","campaignCase",
+'<div class="span2 note">Step 2 — A Test Case is a reproducible challenge, independently identified and reusable. Its task can vary in a solution-centred campaign; a task-comparison campaign fixes the task.</div>'+
+(c.mode==="task_compare"?
+'<div class="span2"><strong>Fixed task: '+E(rec("tasks",c.task)?.name||"Not set")+'</strong><input type="hidden" name="task" value="'+E(c.task)+'"></div>':
+selectField("task","Engineering task",optionsFrom("tasks",function(t){return t.name;}),c.task||"t5",true))+
+field("title","Test Case title","","text","full")+
+field("version","Test Case version","1.0")+
+selectField("protocol","Benchmark protocol",optionsFrom("protocols",function(p){return p.name+" · "+p.version;}),"p1")+
+field("objective","Specific experimental challenge","","textarea","full")+
+field("inputs","Initial input context / files / references","","textarea","full")+
+field("dod","Mandatory acceptance criteria / Definition of Done","","textarea","full"),
+id,"Create Test Case & return to campaign");
+}
+function campaignAttachCase(id){
+var c=rec("campaigns",id);if(!c||c.stage!=="active"||!canEdit())return;
+var available=db.cases.filter(function(x){return !c.caseIds.includes(x.id)&&(c.mode!=="task_compare"||x.task===c.task);});
+openForm("Attach existing challenge","campaignAttachCase",
+selectField("case","Reusable Test Case",available.map(function(x){return[x.id,x.title+" · "+(rec("tasks",x.task)?.name||"")];}),available[0]?.id||"",true)+
+'<div class="span2 note">Attaching does not duplicate a Test Case, alter the original, or change its existing experimental evidence.</div>',
+id,"Attach to campaign");
+}
+function campaignTrialStart(campaignId,caseId){
+var c=rec("campaigns",campaignId),tc=rec("cases",caseId);
+if(!c||!tc||c.stage!=="active"||!canEdit()||!c.caseIds.includes(caseId))return;
+var fixed=c.mode==="solution_scope",setup=c.solutionSetup||{},suggested=tc.inputs||"";
+var fields='<div class="span2 note">Step 3 — Record the <strong>initial experimental setup</strong> and start time. This is not a software installation guide. Every field is attached to this execution only.</div>'+
+'<input type="hidden" name="case" value="'+E(tc.id)+'"><div class="span2"><strong>'+E(tc.title)+'</strong><p class="muted small">'+E(rec("tasks",tc.task)?.name||"")+' · DoD: '+E(tc.dod)+'</p></div>'+
+(fixed?'<div class="span2 note"><strong>Fixed campaign solution:</strong> '+["model","provider","harness"].map(function(k){return E(rec("components",setup[k])?.name||"Not set");}).join(" · ")+'</div>':
+selectField("existingSolution","Optional already benchmarked AI Solution",[["","New configuration for this Test Case"]].concat(db.solutions.filter(function(x){return db.runs.some(function(r){return r.solution===x.id;});}).map(function(x){return[x.id,x.name+" · "+x.version];})),"",true)+
+selectField("modelComponent","Model",comboComponentOptions("model"),"")+
+selectField("providerComponent","Provider",comboComponentOptions("provider"),"")+
+selectField("harnessComponent","Harness",comboComponentOptions("harness"),"")+
+field("version","Configuration version","1.0")+
+field("configuration","Model / harness settings used in this experiment","","textarea","full")+
+field("capabilities","Agent tools, skills and allowed integrations","","textarea","full"))+
+field("startedAt","Configuration / experiment start date and time",campaignLocalTime(),"datetime-local")+
+field("setupMinutes","Human preparation duration (minutes)","","number")+
+field("initialPrompt","Initial prompt / instructions actually supplied","","textarea","full")+
+field("inputDocuments","Input documents, file paths, versions and source references",suggested,"textarea","full")+
+field("providedSkills","Provided skills, tools and contextual knowledge","","textarea","full")+
+field("setupNotes","Experimental setup notes, constraints and environment","","textarea","full");
+openForm("Step 3 · Initial configuration","campaignTrialSetup",fields,campaignId,"Save setup → interactions");
+}
+function campaignTrialInteraction(id){
+var t=rec("campaignTrials",id),c=t&&rec("campaigns",t.campaign);
+if(!t||!c||c.stage!=="active"||t.status==="completed"||!canEdit())return;
+var logs=t.interactions.map(function(v,i){return '<div class="list-row"><div><strong>Iteration '+(i+1)+' · '+E(v.kind||"Interaction")+'</strong><div class="muted small">'+E(v.at)+' · human '+v.humanMinutes+' min · agent '+v.agentMinutes+' min</div><p class="small">'+E(v.description)+'</p></div></div>';}).join("");
+var fields='<div class="span2 note">Step 4 — Log each interaction with its calendar time, approximate human effort and agent runtime. A review, prompt correction or restart is an iteration; you can add as many as needed. The timeline supports autonomy analysis.</div>'+
+'<div class="span2"><strong>'+E(rec("cases",t.case)?.title||"Test Case")+'</strong><div class="list">'+(logs||'<div class="muted small">No recorded interactions yet.</div>')+'</div></div>'+
+field("at","When did this interaction happen?",campaignLocalTime(),"datetime-local")+
+field("kind","Interaction nature (free text)","Review and corrective prompt")+
+field("humanMinutes","Human effort (minutes)","","number")+
+field("agentMinutes","Agent runtime / waiting (minutes)","","number")+
+field("description","What happened? Review, prompt changes, observed behavior","","textarea","full")+
+field("promptUpdate","Changed prompt or additional instructions, if any","","textarea","full")+
+field("artifacts","Files, intermediate output and evidence references","","textarea","full");
+openForm("Step 4 · Timed interactions","campaignInteraction",fields,id,"Save interaction & add another");
+ui.modalFooter=btn("Back to campaign","openCampaign",t.campaign,"")+
+btn("Finish iterations → outcome","campaignFinishIterations",id,"primary")+
+'<button class="btn" type="submit" form="modalForm">+ Save interaction</button>';render();
+}
+function campaignTrialOutcome(id){
+var t=rec("campaignTrials",id),c=t&&rec("campaigns",t.campaign);
+if(!t||!c||c.stage!=="active"||t.status==="completed"||!canEdit())return;
+var logged=t.interactions.reduce(function(n,x){return n+Number(x.humanMinutes||0);},0);
+var fields='<div class="span2 note">Step 5 — Conclude the independent experimental execution. Preserve failed experiments as evidence. Numeric metrics are separate from free-form review notes and linked output artifacts.</div>'+
+'<div class="span2"><strong>'+E(rec("cases",t.case)?.title||t.case)+'</strong><p class="muted small">'+t.interactions.length+' iteration(s) · '+logged+' min logged human interactions</p></div>'+
+selectField("accepted","Definition of Done outcome",[["yes","Accepted — mandatory DoD passed"],["no","Failed / rejected"]],"no",true)+
+field("score","Quality score (0–100)","","number")+
+field("utility","Information utility / density score (0–100)","","number")+
+field("tokensInput","Input tokens consumed","","number")+
+field("tokensOutput","Output tokens consumed","","number")+
+field("cost","Estimated AI/tooling cost (EUR)","","number")+
+field("finalRuntime","Additional or total measured machine runtime (minutes)","","number")+
+field("reviewMinutes","Final human review time (minutes)","","number")+
+field("correctionMinutes","Final corrections after review (minutes)","","number")+
+field("outputDocuments","Produced outputs: documents, code, reports, file paths / links","","textarea","full")+
+field("deliverableNotes","What exactly did the LLM/agent produce?","","textarea","full")+
+field("densityNotes","Information relevance, novelty, correctness, actionability, unnecessary content","","textarea","full")+
+field("conclusion","Acceptance/failure reasons and review notes","","textarea","full");
+openForm("Step 5 · Result, artifacts and metrics","campaignTrialOutcome",fields,id,"Close Test Case execution");
+}
+function campaignReviewForm(id){
+var c=rec("campaigns",id);if(!canEdit()||!c||c.stage!=="review")return;
+openForm("Peer review · "+c.title,"campaignReview",
+'<div class="span2 note">A workgroup member other than the campaign owner should review the closed campaign. The original runs and their timelines remain auditable. You may request revisions or publish reviewed results.</div>'+
+selectField("decision","Review decision",[["publish","Accept and publish campaign"],["rework","Reopen for corrections"]],"publish",true)+
+field("reviewNotes","Review findings / evidence gaps / publication rationale",c.reviewNotes||"","textarea","full"),
+id,"Save review decision");
+}
 function dialogQualification(id,watchId,feedbackId){
 if(!canEdit())return;
 var q=rec("qualifications",id),w=rec("watch",watchId),f=rec("feedback",feedbackId);
