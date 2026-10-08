@@ -49,11 +49,11 @@ The workgroup requires a distinct information architecture, not the end-user `Di
 | Dashboard | **Read-only daily campaign pipeline**: Planned, In progress, Under review, Published; latest feedback and technology-watch signals. No campaign editing or state-changing controls. |
 | Task management | Maintain the task tree in place while still inspecting the engineer-facing navigation and task evidence. |
 | Technology watch | Create evidence-backed hypotheses, select previously registered citations or add new ones, derive theoretical forecasts and manage their publication state. |
-| Technology catalog | Maintain individual models, providers and harnesses; it is **not** a benchmark launch point. |
+| Technology catalog | Maintain Models, Providers, Harnesses and Frameworks independently; frameworks describe coordinated multi-participant workflows, not single model/provider/harness triples. |
 | Test design | Create and inspect reusable, versioned Test Cases; navigate the parent–fork tree and assign collision-free fork versions. |
-| Benchmark workspace | **Campaign-centred operational entry point**: create/edit campaigns, link any number of Technology Watch signals, select task/solution comparison mode, attach Test Cases, log execution steps and outcomes, close, review/publish and reopen campaigns. |
+| Benchmark workspace | **Campaign-centred operational entry point**: create/edit campaigns, link Technology Watch signals and setup guides, optionally select a Framework and configure several model/provider/harness participants, attach Test Cases, record executions, close, review/publish and reopen campaigns. |
 | Results explorer | **The analytical entry point** for published run evidence, coverage and task- or solution-centric comparison; distinct from the operational workbench. |
-| Recommendations | Inspect and maintain evidence-linked decisions and their publication state. |
+| Recommendations (Knowledge & Collaboration) | Inspect and maintain evidence-linked decisions and their publication state; this screen is not under Experiments. |
 | Guides & charter | Maintain, filter, search, sort, edit and publish knowledge articles. |
 | Feedback & discussions | Read end-user contributions and reply through one chronological thread with public/internal visibility per message; no corrective-action management. |
 | Activity feed & management view | Activity feed records enriched attributable events, opens per-event details, and exports structured JSON/CSV for workgroup reporting; management views remain separately scoped. |
@@ -76,7 +76,7 @@ Exact identity-provider/SSO implementation and finer-grained access policies rem
 
 ## 4. Catalog and definition of an AI solution
 
-The **workgroup catalog is organized primarily around three independent, reusable component types: AI Models, Providers, and Harnesses**. Members maintain each item's version, capabilities, availability, lifecycle and provenance. These catalog candidates exist **before** they are combined or benchmarked; they are **not** themselves AI Solutions.
+The **workgroup catalog is organized around four independent, reusable component types: AI Models, Providers, Harnesses and Frameworks**. Members maintain each item's version, capabilities, availability, lifecycle and provenance. These catalog candidates exist **before** they are combined or benchmarked; they are **not** themselves AI Solutions.
 
 **A measured AI Solution is registered by the first controlled benchmark run of a specific assembled setup.** Before that run, the workgroup may create a distinct, task-linked **Theoretical Configuration / Forecast** based on Technology Watch evidence. Forecasts are comparable solution candidates, but their numbers remain predictions and not empirical AI Solution results. During benchmark preparation, a workgroup member selects one model, one provider, one harness, and the complete versioned configuration (prompts, parameters, tools, skills, etc.). Once that setup has a recorded run — including a failed or unpublished run — it becomes an identifiable AI Solution linked to its evidence. The same exact configuration can be reused across tasks, TCs and runs; materially changed components or configurations produce a distinct solution.
 
@@ -92,6 +92,12 @@ An **AI Solution** is the concrete, reproducible combination of:
 - **Versions and dependencies:** information necessary to interpret and, when possible, recreate the evaluated setup.
 
 The same model under different providers, harnesses, or configurations can constitute distinct AI solutions and yield different results.
+
+**Frameworks are a fourth catalog type, not another field in a single model/provider/harness triple.** A Framework is a workflow or orchestration methodology (examples: n8n, BMAD Method, GitHub Spec Kit), which can assemble several **participants**. Each participant has a stable ID within its campaign, a role, a model, a provider, a harness, a configuration version, parameters, available tools, and an access flag. The campaign stores a `frameworkId` and an arbitrary-length collection of `frameworkInstances`; these participants are separate potential AI Solution configurations, not copies of the Framework itself. The framework identity, chosen participant and configuration are pinned in execution snapshots.
+
+The user-requested label **PMAD** is kept as an *unverified* example, separately from verified **BMAD Method**, pending identification of the intended product. Do not present PMAD as verified or silently identify it with BMAD.
+
+**Current prototype boundary:** each experimental session presently selects one registered Framework participant and produces one individually attributed AI Solution benchmark result. Multi-agent *collaborative execution within one session*, with a composite result and defensible attribution of cost/quality to participants, is a distinct future data-model extension. Do not assign a shared aggregate quality score to each participant as though each had delivered the result independently.
 
 Component candidates and resulting AI Solutions may be **accessible or inaccessible** to enterprise users. Accessibility is a visible/filterable property, not an exclusion rule. Untested candidates remain discoverable in the independent component catalogs and technology watch; only recorded benchmark combinations appear in the AI Solution discovery view.
 
@@ -168,7 +174,7 @@ A member chooses and pins **one concrete AI configuration** (model, provider, ha
 
 Question: **What can this particular AI configuration accomplish across the chosen engineering tasks?**
 
-The fixed configuration is recorded at campaign creation, before any run. A new AI Solution identity is generated when its first controlled run is actually recorded.
+Without a Framework, the fixed configuration is recorded at campaign creation before any run. With a Framework selected, the campaign instead records one or more individually labeled and configured participants; execution selects which participant will be evaluated. A new measured AI Solution identity is generated when that specific configuration has its first controlled run.
 
 ### Mode B — Task-centred comparison campaign
 
@@ -180,7 +186,7 @@ Comparisons must report the Test Cases, experimental conditions and sample sizes
 
 ### Lifecycle and ownership
 
-A campaign defines its experimental objective, strategy, fixed task or fixed AI setup, owner, notes, **zero or more linked Technology Watch signals**, and Test Cases/runs. Signals are selected by checkboxes at creation or editing and may be associated with a forecast. Links preserve references without copying or transforming Technology Watch estimates into measured results. New benchmark run records pin a snapshot of the campaign's selected signals; changing links while a campaign is Under review requires a new review cycle. Its operational lifecycle is:
+A campaign defines its experimental objective, strategy, fixed task or fixed AI setup, optionally a Framework and its participant configurations, **an optional referenced setup guide**, owner, notes, **zero or more linked Technology Watch signals**, and Test Cases/runs. Signals are selected by checkboxes at creation or editing and may be associated with a forecast. Links preserve references without copying or transforming Technology Watch estimates into measured results. New benchmark run records pin a snapshot of the campaign's selected signals; changing links while a campaign is Under review requires a new review cycle. Its operational lifecycle is:
 
 **Planned → In progress → Under review → Published**
 
@@ -207,12 +213,12 @@ Historical records may retain legacy protocol identifiers and snapshots for back
 
 A Test Case in an **open campaign** follows a guided, resumable sequence.
 
-1. **Installation and setup:** select a reusable **Installation guide** from Guides & Charter or register one inline. A guide may optionally be associated with an AI Solution; its version/snapshot is retained in the run. A linked guide is applicable to an **exact versioned AI configuration**, while unlinked installation guides remain reusable across solutions. Record actual model/provider/harness setup, local installation start, environment/deployment notes and human setup duration. Prompting the agent, submitting inputs or activating runtime skills/options is **not installation**.
+1. **Installation and setup:** use the reusable **Setup / Installation guide** preselected when creating the campaign, choose another compatible guide from Guides & Charter, or register a new one inline. Every guide is a catalogued resource identified by an ID, and can contain **procedure text, an HTTP(S) URL, or both**, with at least one of the latter required. A guide may optionally be associated with an exact AI Solution or a Framework; unassigned guides are reusable across solutions. The selected guide and its content/URL snapshot are retained in the run. Record actual model/provider/harness setup, local installation start, environment/deployment notes and human setup duration. Prompting the agent, submitting inputs or activating runtime skills/options is **not installation**.
 2. **Timed interactions (at least one):** initial prompt/instructions are logged as the first interaction. Subsequent prompts, input documents, enabled skills/options, reviews and corrections are timestamped with independent human intervention and agent runtime/waiting durations plus intermediate evidence. **Total agent runtime is derived by summing those iteration durations**, not independently entered in Step 5.
 3. **Results, artifacts and metrics:** record accepted/failed DoD, Quality and Information Utility scores (0–100, supported by free-form evaluation), **optional total tokens** with explicit multiplier, and one cost classification: run-specific numeric EUR amount, flat-rate/subscription (cost unallocated), or unknown. Flat-rate/unknown must not be treated as €0. Record final human review and correction durations, one canonical set of produced output references, and optional additional notes. No redundant separate input/output token fields, additional runtime input, duplicated deliverable descriptions or utility-related loose text fields.
 4. **Close run:** pin Test Case, solution configuration, installation guide, interaction timeline, outputs and known/unknown metrics. Failed runs remain auditable. Closing a run does not close the campaign.
 
-Installation guides are reusable knowledge-base items, and may be shared across AI Solutions. In this prototype they are text procedures and references, not binary uploaded packages.
+Setup guides are reusable knowledge-base entries: create/select them at campaign planning and select/override them when executing. They support text-only, URL-only and combined references; links use HTTP(S) and are not binary uploads. Their IDs and snapshots give provenance even when the referenced website changes.
 
 ### Benchmark Run
 
@@ -451,11 +457,13 @@ These are functional entities/relationships, **not a mandated physical database 
 | --- | --- |
 | Task Node | A stable, editable node in the engineering activity tree, with parent/children and metadata. |
 | Test Case | A concrete, versioned experimental challenge linked to a task, optionally a child fork of another Test Case. Not a task-tree level. |
-| AI Model / Provider / Harness | Versioned catalog components. |
+| AI Model / Provider / Harness | Versioned component catalog records defining an individually measured AI configuration. |
+| Framework | Catalogued orchestration/process tool, optionally linked to one or more independently configured AI participants within a campaign. |
+| Framework Participant | Campaign-scoped, role-labeled model/provider/harness trio, exact version/configuration and stable participant ID. |
 | AI Solution | Versioned and uniquely identifiable combination of model, provider, harness, configuration and capabilities, registered from its **first benchmark run**; never merely an untested candidate. |
 | Benchmark Run | One AI solution × one Test Case execution, including recorded conditions, observations and the campaign’s pinned technological signals. |
 | Campaign Trial Session | In-progress step-by-step Test Case execution: initial setup, timestamped iterative human/agent interventions, interim artifacts, and eventual accepted/failed outcome. |
-| Benchmark Campaign | **Primary workgroup process**: objective, comparison mode, fixed task or fixed AI setup, linked watch signals, owner, lifecycle, Test Case membership, resumable sessions, runs, closure and review. |
+| Benchmark Campaign | **Primary workgroup process**: objective, comparison mode, optionally Framework plus participant trios, referenced Setup Guide, fixed task or single setup, linked watch signals, owner, lifecycle, Test Cases and runs, closure and review. |
 | Evidence | Inputs, traces, reviews, artifacts, provenance, test results, and cost records from controlled runs. |
 | External Research Evidence | Reusable canonical literature/source records with citation, type, confidence, scope and limitations, distinct from internal runs; not owned by just one Watch Entry. |
 | Watch-Source Link | Many-to-many references linking shared external sources to Watch Entries without copying their content. |
@@ -475,7 +483,7 @@ Core relationship:
 
 **Technology Watch hypotheses + literature → Theoretical Forecast (task + components + assumptions) → Staging → Review → Optional theoretical publication**
 
-**Component catalogs (Model / Provider / Harness) → Configured benchmark setup → First Run → Measured AI Solution → Evaluation → Recommendation**
+**Component catalog (Model / Provider / Harness) → Single configured participant → First Run → Measured AI Solution → Evaluation → Recommendation; optional Framework → multiple participant definitions at Campaign level**
 
 **Theoretical forecast ↔ Controlled benchmark run (optional validation, immutable original prediction)**
 
