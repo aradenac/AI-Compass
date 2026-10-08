@@ -43,7 +43,7 @@ The app uses **localStorage** for records and the selected demo account. Changes
 
 | Test user | Simulated role | Suggested journey |
 | --- | --- | --- |
-| Maya Laurent | AI workgroup · Embedded Systems | Create task nodes, TCs, protocols and runs; inspect evidence; publish and triage feedback. |
+| Maya Laurent | AI workgroup · Embedded Systems | Create task nodes, fork/versioned TCs and runs; inspect evidence; publish and triage feedback. |
 | Sofia Ramos | AI workgroup · Digital Solutions | Contribute benchmarks from another BU to the same shared dataset. |
 | Nicolas Bernard | Engineer · Embedded Systems | Navigate tasks, compare solutions, read guides, and submit field feedback or needs. |
 | Lena Martin | R&D Management | Assess V-cycle/task coverage, adoption, potential value, and workgroup throughput. |
@@ -69,8 +69,8 @@ Sign in as **Maya Laurent** or **Sofia Ramos**. The workgroup has its own sideba
 | Workspace | **Task management** | Edit/reparent/reorder the taxonomy in-place, and inspect its engineer-facing view. |
 | Technology intelligence | **Technology watch** | Create evidence-backed watch hypotheses and task-linked theoretical forecasts with staging and review. |
 | Technology intelligence | **Technology catalog** | Maintain models, providers and harnesses independently; no benchmark launch button. |
-| Experiments | **Test design** | Define Test Cases and benchmark protocols. No result-interpretation workflow mixed into this screen. |
-| Experiments | **Benchmark workspace** | **Campaign-centric** guided process: create/edit a campaign, choose a comparison mode, add Test Cases, record timed iterations and outcomes, close for peer review, publish or reopen. |
+| Experiments | **Test design** | Define Test Cases and navigate task-grouped parent/fork trees. Forking assigns collision-free child versions. No protocol tab or protocol selector. |
+| Experiments | **Benchmark workspace** | **Campaign-centric** guided process: create/edit a campaign, link any number of technology-watch signals, choose a comparison mode, add Test Cases, record timed iterations and outcomes, close for review, publish or reopen. |
 | Experiments | **Results explorer** | Compare theoretical predictions against measured runs with separate evidence labels, plus inspect benchmark matrices. |
 | Experiments | **Recommendations** | Maintain evidence-linked published decisions and guidance. |
 | Knowledge & collaboration | **Guides & charter** | Search, sort, filter and edit existing articles, plus create and publish new ones. |
@@ -86,9 +86,9 @@ The **Dashboard** now shows the four **campaign states**: **Planned → In progr
 
 The **campaign is the workgroup's primary unit of experimental work and review**. A controlled run remains the atomic unit of evidence, and Test Cases remain reusable independent challenges.
 
-1. **Create campaign:** specify name, qualification goal, owner, comments and experimental strategy. Choose **Solution-centred** (one fixed model + provider + harness + configuration across Test Cases and potentially multiple tasks) or **Task-centred** (one fixed engineering task, multiple AI configurations compared on the task's Test Cases).
+1. **Create campaign:** specify name, qualification goal, owner, comments and **zero or more linked technological signals**. Choose **Solution-centred** (one fixed model + provider + harness + configuration across Test Cases and potentially multiple tasks) or **Task-centred** (one fixed engineering task, multiple AI configurations compared on the task's Test Cases).
 2. **Open the campaign:** a new campaign starts in **Planned**. Open it to begin execution. The campaign can later be closed, reopened or edited. A configuration is defined using already declared catalog components; a newly measured AI Solution is registered after its first run.
-3. **Add challenges:** create Test Cases directly inside the campaign (task, protocol, inputs, DoD) or attach existing reusable Test Cases. Task-centred campaigns restrict cases to the fixed task; solution-centred campaigns accept tasks across the taxonomy.
+3. **Add challenges:** create Test Cases directly inside the campaign (task, inputs, constraints, DoD) or attach existing reusable Test Cases. No separate benchmark protocol is required. Task-centred campaigns restrict cases to the fixed task; solution-centred campaigns accept tasks across the taxonomy.
 4. **Execute each Test Case via guided forms:**
    - **Installation & setup (Step 3):** select an existing **Installation guide** from Guides & Charter or create a reusable guide inline, optionally linked to the AI Solution. Record environment, install/start timestamp and **human installation duration** (0–7 days). Prompts are not part of installation.
    - **Timed interactions (Step 4):** the **first prompt** is logged as the first interaction. Subsequent prompts, input documents, skills/options, reviews, corrections and intermediate artifacts have their own timestamps, human duration and agent duration. Agent runtime is summed automatically.
@@ -128,7 +128,7 @@ The Technology Catalog stays independent; creating a Watch Entry does not redire
 
 ### Benchmark process vs. result exploration vs. test design
 
-**Test design** manages reusable, versioned Test Cases and protocols. **Benchmark workspace** owns qualification planning, configurations, execution records, draft-run review and publication. **Results explorer** owns comparison and analytical reading, including the shared TC evidence matrix. These roles are separated deliberately rather than provided as flat tabs of one `Benchmark lab`.
+**Test design** manages reusable, versioned Test Cases and a task-grouped parent/fork hierarchy. **Benchmark workspace** owns qualification planning, configurations, execution records, draft-run review and publication. **Results explorer** owns comparison and analytical reading, including the shared TC evidence matrix. These roles are separated deliberately rather than provided as flat tabs of one `Benchmark lab`.
 
 Try the evidence-first path **Technology Watch → sources → theoretical forecast → stage/review → Results explorer**, or the controlled path **Test design → Benchmark workspace → benchmark run → measured AI Solution**. Existing run snapshots and revision history remain intact.
 
@@ -157,7 +157,7 @@ All changes are persisted in `localStorage`; node IDs remain stable, and prior b
 
 1. **Maya (workgroup):** Open **Dashboard**, observe qualification statuses and read feedback without manipulating the pipeline there.
 2. **Maya:** Open **Technology Watch**, create a Watch Entry with literature sources directly in the form, then derive a task-linked theoretical forecast.
-3. **Maya:** Open **Test design** to create a TC and a versioned protocol.
+3. **Maya:** Open **Test design** to create a Test Case, then fork it twice. Observe distinct child versions (for example, 1.0.1 and 1.0.2) in the hierarchy.
 4. **Maya:** Open **Benchmark workspace**, create a campaign in one of the two modes, open it, define Test Cases, and follow guided setup → interactions → result steps.
 5. **Maya:** Close the campaign for independent peer review, then switch to Sofia Ramos to approve publication or request rework.
 6. **Maya:** Open **Results explorer → Measured vs theoretical** to compare staged theoretical forecasts and benchmarked configurations with explicit provenance.
@@ -165,6 +165,6 @@ All changes are persisted in `localStorage`; node IDs remain stable, and prior b
 8. **Maya:** Open **Activity Feed**, inspect an event detail and export detailed JSON/CSV. Then edit an article in **Guides & charter** and inspect its revision history.
 9. **Nicolas (engineer):** Switch account; verify only the public feedback conversation and published documents are visible. Management view remains a separate, largely unchanged perspective.
 
-Runs retain a **snapshot of their test case, protocol, and solution** as created, so later changes do not rewrite the historical experimental setup. Recommendation and catalog edits are tracked in prototype revision records.
+Runs retain a **snapshot of their Test Case and AI solution**, together with the campaign's linked technological signals, as created, so later changes do not rewrite the historical experimental setup. Recommendation and catalog edits are tracked in prototype revision records.
 
 > **Prototype limitations:** Demo data, accounts, scores, costs, adoption figures, artifacts and transcripts are synthetic. Evidence filenames are illustrative text, not real uploaded files. Local role guards can be bypassed by someone with browser developer tools; confidential material must not be entered. No real AI model calls, automated execution, centralized multi-user synchronization or production authentication exist yet.
