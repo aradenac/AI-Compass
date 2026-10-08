@@ -391,7 +391,7 @@ The second input path is still:
 
 Task-centric discovery and the Results Explorer must support **side-by-side comparisons of forecasts and experimentally tested solutions**. The presentation must distinguish estimated versus observed metrics and display source type, evidence coverage/sample count, confidence and comparable task scope. In particular, expected quality/acceptance/cost/time must never be rendered as observed benchmark means, even if the forecast has been published.
 
-A staged theoretical configuration can later be taken into the Benchmark Workspace as the initial experiment setup. The resulting run pins a **snapshot of the original forecast** and creates or reuses the measured solution identity; the source forecast remains intact. Any difference between predicted and observed results can then be audited instead of rewriting the past prediction.
+A staged theoretical configuration can later seed a **new prepopulated Benchmark Campaign** in the Benchmark Workspace. The campaign then follows guided Test Case setup, timed interactions, outcome recording, closure and peer review. The resulting run pins a **snapshot of the original forecast** and creates or reuses the measured solution identity; the source forecast remains intact. Any difference between predicted and observed results can then be audited instead of rewriting the past prediction.
 
 The Technology Watch screen owns evidence collection and forecast staging/review. The Benchmark Workspace owns controlled experiment planning and execution, and qualification decisions for measured solutions. The daily dashboard remains a read-only progress overview.
 
