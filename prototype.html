@@ -356,6 +356,9 @@ db.campaigns.forEach(function(c,i){
  if(!Array.isArray(c.caseIds))c.caseIds=[];
  if(!c.updated)c.updated=TODAY;
  if(!c.owner)c.owner="u1";
+  if(!Array.isArray(c.watchIds))c.watchIds=c.watchId?[c.watchId]:rec("proposals",c.forecastId)?.watchIds?.slice()||[];
+  c.watchIds=Array.from(new Set(c.watchIds.filter(function(id){return !!rec("watch",id);})));
+
 });
 if(!db.revisions)db.revisions=[];
 db.tasks.forEach(function(t,i){if(!Number.isFinite(t.order))t.order=i;});
@@ -1451,6 +1454,9 @@ selectField("accessible","Company access",[["yes","Accessible"],["no","Not acces
 field("version","Fixed combined configuration version",setup.version||"1.0")+
 field("configuration","Combined setup notes / versioned configuration (NOT an installation guide)",setup.configuration||"","textarea","full")+
 field("capabilities","Agent tools / skills planned",setup.capabilities||"","textarea","full")+'</div></div>'+
+'<div class="span2"><strong>Linked technology signals (optional, choose one or more)</strong>'+
+'<p class="muted small">Connect the hypotheses motivating this campaign. These links do not transform watch predictions into observed evidence.</p>'+
+'<div class="watch-link-list">'+(db.watch.length?forecastReferenceRows(db.watch,c?.watchIds||projection?.watchIds||[]):'<div class="muted small">No technology signals registered yet.</div>')+'</div></div>'+
 selectField("owner","Campaign owner",db.users.filter(function(u){return u.role==="workgroup";}).map(function(u){return[u.id,u.name];}),c?.owner||currentUser)+
 field("notes","Context, constraints and campaign notes",c?.notes||projection?.uncertainty||"","textarea","full")+
 '<input type="hidden" name="forecastId" value="'+E(c?.forecastId||forecastId||"")+'"><input type="hidden" name="seedCaseId" value="'+E(caseId||"")+'">';
@@ -1759,7 +1765,13 @@ var head='<div class="row-between"><div class="tags">'+badge(campaignStatusLabel
 '<h3 style="margin:13px 0 7px">'+E(c.title)+'</h3><p class="text-block">'+E(c.purpose)+'</p>'+
 '<p class="muted small" style="margin-top:8px">'+E(c.notes||"")+'</p>'+
 '<div class="note" style="margin-top:12px">Step 1: Campaign scope and goal → Step 2: Test Cases → Step 3: Setup → Step 4: Timed interactions → Step 5: Outcome & metrics → Close for review.</div>'+
-'<div class="tags" style="margin-top:12px">'+badge(c.caseIds.length+" Test Cases")+' '+badge(runs.length+" runs")+' '+badge(trials.filter(function(t){return t.status!=="completed";}).length+" active sessions")+'</div>';
+'<div class="tags" style="margin-top:12px">'+badge((c.watchIds||[]).length+" technology signals")+' '+badge(c.caseIds.length+" Test Cases")+' '+badge(runs.length+" runs")+' '+badge(trials.filter(function(t){return t.status!=="completed";}).length+" active sessions")+'</div>';
+head+='<h3 style="margin:13px 0 6px">Linked technology signals</h3>'+
+ '<div class="list">'+((c.watchIds||[]).map(function(signalId){
+  var w=rec("watch",signalId);if(!w||!watchVisible(w))return "";
+  return '<div class="list-row"><div>'+linkAction(w.title,"watchDetail",w.id)+
+  '<div class="muted small">'+E(w.kind)+' · '+E(w.publication)+' · '+E((w.hypothesis||w.summary||"").slice(0,110))+'</div></div></div>';
+ }).filter(Boolean).join("")||'<p class="muted small">No linked signals.</p>')+'</div>';
 if(c.mode==="task_compare")head+='<p class="small" style="margin-top:12px"><strong>Fixed task:</strong> '+E(rec("tasks",c.task)?.name||"Not selected")+'. Choose a configuration for every execution.</p>';
 else head+='<p class="small" style="margin-top:12px"><strong>Fixed AI setup:</strong> '+["model","provider","harness"].map(function(k){return E(rec("components",setup[k])?.name||"Not selected");}).join(" / ")+'</p>'+
 '<pre class="code">'+E(setup.configuration||"Configuration not documented")+'</pre>';
@@ -1890,7 +1902,8 @@ var r={id:next("r"),campaignId:c.id,sessionId:t.id,case:tc.id,solution:sol.id,
  interactions:JSON.parse(JSON.stringify(interactions)),
  resultDetails:{qualityAssessment:d.qualityAssessment||"",utilityAssessment:d.utilityAssessment||"",
  additionalNotes:d.additionalNotes||"",outputDocuments:d.outputDocuments||"",finishedAt:campaignLocalTime()},
- campaignSnapshot:JSON.parse(JSON.stringify({id:c.id,title:c.title,mode:c.mode,purpose:c.purpose,task:c.task,notes:c.notes})),
+ campaignSnapshot:JSON.parse(JSON.stringify({id:c.id,title:c.title,mode:c.mode,purpose:c.purpose,task:c.task,
+  watchIds:(c.watchIds||[]).slice(),watchSnapshots:(c.watchIds||[]).map(function(id){return rec("watch",id);}).filter(Boolean),notes:c.notes})),
  caseSnapshot:JSON.parse(JSON.stringify(tc)),solutionSnapshot:JSON.parse(JSON.stringify(sol)),
  componentSnapshots:JSON.parse(JSON.stringify(sol.componentSnapshots||{})),
  forecastSnapshot:t.forecastSnapshot?JSON.parse(JSON.stringify(t.forecastSnapshot)):null,forecastDeviation:t.forecastSnapshot?String(t.setupNotes||""):"",
@@ -1909,6 +1922,7 @@ if(kind==="campaignReview"){
  campaignDecision(id,d);return;
 }else if(kind==="campaign"){
  var existing=id?rec("campaigns",id):null,mode=d.mode==="solution_scope"?"solution_scope":"task_compare";
+  var watchIds=db.watch.filter(function(w){return d["watch_"+w.id]==="yes";}).map(function(w){return w.id;});
  var setup={model:d.modelComponent||"",provider:d.providerComponent||"",harness:d.harnessComponent||"",
   configuration:d.configuration||"",version:d.version||"1.0",capabilities:d.capabilities||"",accessible:d.accessible==="yes"};
  if(mode==="task_compare"&&!rec("tasks",d.task)){toast("Choose the comparison task.");return;}
@@ -1920,8 +1934,8 @@ if(kind==="campaignReview"){
  var desiredTask=mode==="task_compare"?d.task:"";
  if(existing&&campaignTrialsExistingOrCases(campaign)&&existing.mode!==mode){toast("Campaign mode cannot change after cases or sessions exist.");return;}
  Object.assign(campaign,{forecastId:d.forecastId||existing?.forecastId||"",title:req(d.title,"Campaign title"),purpose:req(d.purpose,"Objective"),
-  mode:mode,task:desiredTask,solutionSetup:setup,notes:d.notes||"",owner:d.owner||currentUser,updated:TODAY});
- if(existing&&before.stage==="review"&&["title","purpose","mode","task","solutionSetup"].some(function(k){return JSON.stringify(before[k])!==JSON.stringify(campaign[k]);})){
+  mode:mode,task:desiredTask,solutionSetup:setup,watchIds:watchIds,notes:d.notes||"",owner:d.owner||currentUser,updated:TODAY});
+ if(existing&&before.stage==="review"&&["title","purpose","mode","task","solutionSetup","watchIds"].some(function(k){return JSON.stringify(before[k])!==JSON.stringify(campaign[k]);})){
  campaign.stage="active";campaign.status="active";campaign.reviewer="";campaign.reviewNotes="";
 }
  if(!existing)db.campaigns.push(campaign);else revision("Campaign",campaign.id,before,campaign);
