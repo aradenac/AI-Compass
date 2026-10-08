@@ -256,11 +256,13 @@ if(!Array.isArray(db.researchEvidence))db.researchEvidence=[
  {id:"research1",title:"Agent coding benchmark — illustrative public result",type:"Independent benchmark",component:"",signal:"w1",source:"Mock external benchmark (no real URL)",date:"2026-10-03",confidence:"low",assessment:"Potential coding strength; tested configuration and methodology require verification.",limitations:"Illustrative observation; not a controlled internal run.",author:"u1"},
  {id:"research2",title:"Provider pricing note — illustrative estimate",type:"Vendor claim",component:"",signal:"w2",source:"Mock provider bulletin",date:"2026-10-06",confidence:"low",assessment:"Potential value improvement, subject to benchmarking.",limitations:"Unverified promotional claim.",author:"u5"}
 ];
-if(!Array.isArray(db.watchSourceLinks))db.watchSourceLinks=[];
-db.researchEvidence.forEach(function(e){
- if(e.signal&&!db.watchSourceLinks.some(function(l){return l.watch===e.signal&&l.source===e.id;}))
-  db.watchSourceLinks.push({watch:e.signal,source:e.id,linkedAt:e.date||TODAY,by:e.author||"u1"});
-});
+if(!Array.isArray(db.watchSourceLinks)){
+ db.watchSourceLinks=[];
+ db.researchEvidence.forEach(function(e){
+  if(e.signal&&!db.watchSourceLinks.some(function(l){return l.watch===e.signal&&l.source===e.id;}))
+   db.watchSourceLinks.push({watch:e.signal,source:e.id,linkedAt:e.date||TODAY,by:e.author||"u1"});
+ });
+}
 if(!Array.isArray(db.feedbackMessages))db.feedbackMessages=[
  {id:"msg1",feedback:"f1",visibility:"public",author:"u1",date:"2026-10-06T09:15:00",body:"Thanks for reporting this; we are investigating context limits."},
  {id:"msg2",feedback:"f1",visibility:"internal",author:"u5",date:"2026-10-06T11:40:00",body:"Reproduce with a large-repo Test Case and capture the exact router configuration."},
@@ -431,8 +433,15 @@ function event(type,message,internal,details){
   generated:"automatic",schemaVersion:2};
  db.events.unshift(e);db.events=db.events.slice(0,1000);
 }
+function publicActivityEvent(e){
+ return Object.assign({},e,{
+  references:(e.references||[]).map(function(r){return {id:r.id,type:r.type,title:r.title};}),
+  revisionIds:[],details:{},associatedRevisions:[]
+ });
+}
 function reportableActivity(){
  return db.events.filter(function(e){return canEdit()||!e.internal;}).map(function(e){
+  if(!canEdit())return publicActivityEvent(e);
   var revisionIds=e.revisionIds||[];
   return Object.assign({},e,{associatedRevisions:revisionIds.map(function(id){return db.revisions.find(function(r){return r.id===id;});}).filter(Boolean)});
  });
@@ -921,7 +930,10 @@ tools+'<div class="grid g2">'+(docs.map(function(g){return '<div class="card"><d
 '<h3 style="margin:12px 0 7px">'+E(g.title)+'</h3><p class="muted small">'+E(g.body.slice(0,170))+(g.body.length>170?"…":"")+'</p><div class="row-between" style="margin-top:14px"><span class="muted small">Author: '+E(actor(g.owner))+'</span><div class="inline-actions">'+btn("Read","guideDetail",g.id,"sm")+(canEdit()?btn("Edit article","editGuide",g.id,"sm primary"):"")+'</div></div></div>';}).join("")||'<div class="empty">No articles match your filters.</div>')+'</div>';
 }
 function watchVisible(w){return !!w&&(canEdit()||w.publication==="published");}
-function researchVisible(e){return !!e&&(canEdit()||(e.publication==="published"&&(!e.signal||watchVisible(rec("watch",e.signal)))));}
+function researchVisible(e){return !!e&&(canEdit()||(e.publication==="published"&&(
+ !db.watchSourceLinks.some(function(l){return l.source===e.id;})||
+ db.watchSourceLinks.some(function(l){return l.source===e.id&&watchVisible(rec("watch",l.watch));})
+)));}
 function sourceIdsForWatch(id){return db.watchSourceLinks.filter(function(x){return x.watch===id;}).map(function(x){return x.source;});}
 function watchEvidence(id){var ids=new Set(sourceIdsForWatch(id));return db.researchEvidence.filter(function(e){return ids.has(e.id)&&researchVisible(e);});}
 function sourceKey(x){return String(x.source||x.title||"").trim().toLowerCase().replace(/\/$/,"");}
@@ -2088,7 +2100,7 @@ if(act==="editResearch"){dialogResearch(id);return;}
 if(act==="newCampaign"){dialogCampaign();return;}
 if(act==="publishRun"){if(!editable())return;var r=rec("runs",id);if(r){r.status="published";ui.modal="";saveEvent("Run","Published benchmark run "+id);}return;}
 if(act==="publishGuide"){if(!editable())return;var g=rec("guides",id);if(g){g.status="published";g.date=new Date().toISOString().slice(0,10);ui.modal="";saveEvent("Guide","Published document: "+g.title);}return;}
-if(act==="export"){var out=canEdit()?db:Object.assign({},db,{solutions:db.solutions.filter(visibleSolution),components:db.components.filter(function(c){return !c.publication||c.publication==="published";}),runs:db.runs.filter(visibleRun),guides:db.guides.filter(function(g){return g.status==="published";}),events:db.events.filter(function(e){return !e.internal;}),watch:db.watch.filter(watchVisible),researchEvidence:db.researchEvidence.filter(researchVisible),watchSourceLinks:db.watchSourceLinks.filter(function(l){return watchVisible(rec("watch",l.watch))&&researchVisible(rec("researchEvidence",l.source));}),feedbackMessages:db.feedbackMessages.filter(function(m){return m.visibility==="public";}),proposals:db.proposals.filter(function(p){return p.status==="published";}),campaigns:db.campaigns.filter(function(c){return !c.archived&&c.stage==="published";}),campaignTrials:[],qualifications:[],revisions:[]});var blob=new Blob([JSON.stringify(out,null,2)],{type:"application/json"});var link=document.createElement("a");link.href=URL.createObjectURL(blob);link.download="ai-compass-demo-data.json";link.click();setTimeout(function(){URL.revokeObjectURL(link.href);},2000);toast(canEdit()?"Exported full mock dataset.":"Exported published mock records.");return;}
+if(act==="export"){var out=canEdit()?db:Object.assign({},db,{solutions:db.solutions.filter(visibleSolution),components:db.components.filter(function(c){return !c.publication||c.publication==="published";}),runs:db.runs.filter(visibleRun),guides:db.guides.filter(function(g){return g.status==="published";}),events:db.events.filter(function(e){return !e.internal;}).map(publicActivityEvent),watch:db.watch.filter(watchVisible),researchEvidence:db.researchEvidence.filter(researchVisible),watchSourceLinks:db.watchSourceLinks.filter(function(l){return watchVisible(rec("watch",l.watch))&&researchVisible(rec("researchEvidence",l.source));}),feedbackMessages:db.feedbackMessages.filter(function(m){return m.visibility==="public";}),proposals:db.proposals.filter(function(p){return p.status==="published";}),campaigns:db.campaigns.filter(function(c){return !c.archived&&c.stage==="published";}),campaignTrials:[],qualifications:[],revisions:[]});var blob=new Blob([JSON.stringify(out,null,2)],{type:"application/json"});var link=document.createElement("a");link.href=URL.createObjectURL(blob);link.download="ai-compass-demo-data.json";link.click();setTimeout(function(){URL.revokeObjectURL(link.href);},2000);toast(canEdit()?"Exported full mock dataset.":"Exported published mock records.");return;}
 if(act==="reset"){if(confirm("Replace all browser-saved prototype data with the initial mock dataset? This cannot be undone.")){db=seed();ensureDefaults();persist();ui.modal="";ui.filters={};ui.page="dashboard";render();toast("Mock dataset restored.");}return;}
 });
 document.addEventListener("click",function(ev){if(ev.target&&ev.target.id==="backdrop")closeModal();});
