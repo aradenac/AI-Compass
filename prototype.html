@@ -85,6 +85,13 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;b
 .watch-source-row{margin:9px 0}.watch-source-row textarea{min-height:65px}
 .watch-library-options{max-height:240px;overflow-y:auto;border:1px solid var(--line);border-radius:9px;margin-top:9px}
 .watch-new-source summary{padding:8px 0}
+
+.metric-help{font-size:12px;font-weight:700;color:#1a699b;display:inline-grid;place-items:center;margin-left:5px;cursor:help;border:1px solid #8eafc8;border-radius:50%;width:17px;height:17px;line-height:1}
+.metric-help:focus{outline:2px solid #2784bd;outline-offset:2px}
+.metric-range-pair{display:grid;grid-template-columns:minmax(85px,1fr) 105px;gap:12px;align-items:center;margin-top:7px}
+.metric-range-pair input[type="range"]{width:100%;accent-color:#276fac}
+.metric-range-pair input[type="number"]{min-width:0;width:100%;box-sizing:border-box}
+.metric-duration .muted{margin-top:6px}
 </style>
 </head>
 <body>
@@ -480,6 +487,55 @@ function detailsActivity(id){
 function saveEvent(type,text){event(type,text);persist();render();toast("Saved locally · "+type);}
 function toast(message){var el=document.getElementById("toast");if(!el)return;el.innerHTML='<div class="toast">'+E(message)+'</div>';clearTimeout(window.toastTimer);window.toastTimer=setTimeout(function(){el.innerHTML="";},3300);}
 function field(name,label,value,type,extra){return '<div class="field'+(extra==="full"?' span2':'')+'"><label for="f_'+E(name)+'">'+E(label)+'</label>'+(type==="textarea"?'<textarea name="'+E(name)+'" id="f_'+E(name)+'">'+E(value)+'</textarea>':'<input class="input" id="f_'+E(name)+'" type="'+E(type||"text")+'" name="'+E(name)+'" value="'+E(value)+'"'+(type==="number"?' step="any" min="0"':'')+'>')+'</div>';}
+function metricHelp(message){
+return ' <span class="metric-help" tabindex="0" role="note" aria-label="Metric guidance" title="'+E(message)+'">ⓘ</span>';
+}
+function guidedField(name,label,value,type,extra,help){
+return field(name,label,value,type,extra).replace('</label>',metricHelp(help)+'</label>');
+}
+function displayMinutes(value){
+ var n=Math.max(0,Math.round(Number(value)||0)),d=Math.floor(n/1440),h=Math.floor(n%1440/60),m=n%60;
+ if(d)return d+' d'+(h?' '+h+' h':'')+(m?' '+m+' min':'');
+ if(h)return h+' h'+(m?' '+m+' min':'');
+ return n+' min';
+}
+function durationSliderPosition(minutes){return Math.round(1000*Math.cbrt(Math.min(10080,Math.max(0,Number(minutes)||0))/10080));}
+function durationSliderMinutes(position){return Math.min(10080,Math.round(10080*Math.pow(Math.max(0,Number(position)||0)/1000,3)));}
+function durationField(name,label,minutes,help){
+ var value=Number.isFinite(Number(minutes))?Math.min(10080,Math.max(0,Number(minutes))):0;
+ return '<div class="field metric-duration"><label for="f_'+E(name)+'">'+E(label)+metricHelp(help)+'</label>'+
+ '<div class="metric-range-pair"><input type="range" min="0" max="1000" step="1" data-duration-slider="'+E(name)+'" value="'+durationSliderPosition(value)+'" aria-label="'+E(label)+' slider">'+
+ '<input class="input" type="number" id="f_'+E(name)+'" name="'+E(name)+'" min="0" max="10080" step="1" data-duration-number="'+E(name)+'" value="'+value+'"></div>'+
+ '<span class="muted small" data-duration-display="'+E(name)+'">'+displayMinutes(value)+' · adjustable from 0 to 7 days</span></div>';
+}
+function scoreField(name,label,description,value){
+ var score=Number(value??50);
+ return '<div class="field"><label for="f_'+E(name)+'">'+E(label)+metricHelp(description)+'</label>'+
+ '<div class="metric-range-pair"><input type="range" min="0" max="100" step="1" data-score-slider="'+E(name)+'" value="'+score+'">'+
+ '<input class="input" type="number" name="'+E(name)+'" id="f_'+E(name)+'" min="0" max="100" step="1" data-score-number="'+E(name)+'" value="'+score+'"></div>'+
+ '<span class="muted small">0 = unusable · 100 = meets all assessed criteria</span></div>';
+}
+function updateMetricControl(el){
+ if(!el?.dataset)return false;
+ var key=el.dataset.durationSlider||el.dataset.durationNumber||el.dataset.scoreSlider||el.dataset.scoreNumber;
+ if(!key)return false;
+ var group=el.closest(".field"),isDuration=!!(el.dataset.durationSlider||el.dataset.durationNumber);
+ var number=group?.querySelector('[name="'+key+'"]'),range=group?.querySelector('input[type="range"]');
+ if(!number||!range)return false;
+ if(el===range)number.value=isDuration?durationSliderMinutes(range.value):range.value;
+ else{
+  var value=Number(number.value);if(!Number.isFinite(value))return true;
+  value=Math.max(0,Math.min(isDuration?10080:100,Math.round(value)));
+  number.value=value;range.value=isDuration?durationSliderPosition(value):value;
+ }
+ if(isDuration){var label=group.querySelector('[data-duration-display]');if(label)label.textContent=displayMinutes(number.value)+' · adjustable from 0 to 7 days';}
+ return true;
+}
+function tokenPreview(form){
+ var input=form?.querySelector('[name="tokenCount"]'),scale=form?.querySelector('[name="tokenScale"]'),out=form?.querySelector('[data-token-preview]');
+ if(!input||!scale||!out)return;
+ out.textContent=String(input.value).trim()===""?'Unknown (optional)':new Intl.NumberFormat('en-US').format(Number(input.value)*Number(scale.value))+' total tokens';
+}
 function selectField(name,label,options,selected,full){return '<div class="field'+(full?' span2':'')+'"><label for="f_'+E(name)+'">'+E(label)+'</label><select id="f_'+E(name)+'" name="'+E(name)+'">'+options.map(function(o){return opt(o[0],o[1],selected);}).join("")+'</select></div>';}
 function formValue(form){var data=Object.fromEntries(new FormData(form).entries());return data;}
 function toNum(v){return Number(v)||0;}
@@ -1978,6 +2034,8 @@ ui.modal="";persist();render();toast("Changes saved in this browser.");
 }
 document.addEventListener("submit",function(ev){if(ev.target.matches(".feedback-reply-form")){ev.preventDefault();handleFeedbackReply(ev.target);return;}if(ev.target.matches(".inline-task-form")){ev.preventDefault();saveInlineTask(ev.target);return;}if(ev.target.matches("#modalForm")){ev.preventDefault();handleForm(ev.target);}});
 document.addEventListener("input",function(ev){
+ if(updateMetricControl(ev.target))return;
+ if(ev.target?.name==="tokenCount")tokenPreview(ev.target.closest("form"));
  var field=ev.target;if(field?.matches?.("[data-source-search]")){
   var q=String(field.value||"").toLowerCase().trim();
   document.querySelectorAll(".watch-library-option").forEach(function(option){option.style.display=(option.dataset.sourceTitle||"").includes(q)?"":"none";});
@@ -1985,6 +2043,13 @@ document.addEventListener("input",function(ev){
 });
 document.addEventListener("change",function(ev){
 var el=ev.target;
+if(updateMetricControl(el))return;
+if(el?.name==="tokenScale"){tokenPreview(el.closest("form"));return;}
+if(el?.name==="costMode"){
+ var area=el.closest("form")?.querySelector("[data-metered-cost]");
+ if(area)area.style.display=el.value==="amount"?"":"none";
+ return;
+}
 if(el&&el.name==="mode"&&el.closest&&el.closest("#modalForm")?.dataset.form==="campaign"){
  document.querySelectorAll(".campaign-mode-panel").forEach(function(panel){panel.style.display=panel.dataset.modePanel===el.value?"":"none";});
  return;
