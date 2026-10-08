@@ -20,6 +20,8 @@ See **[Product Definition](docs/product-definition.md)** for the agreed product 
 
 **Guiding principle:** *Measure and preserve evidence first; derive explainable recommendations from it.*
 
+For the benchmarker's guided campaign workflow, see **[Benchmark Campaign Workflow](docs/benchmark-workflow.md)**.
+
 ## Interactive prototype
 
 **[Open the standalone prototype source](prototype.html)** · Single self-contained HTML file (vanilla CSS/JavaScript; no build system, backend, or external dependencies).
