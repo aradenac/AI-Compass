@@ -49,23 +49,53 @@ No passwords are required. **Identity and permissions are simulated in the brows
 
 The workgroup **Technology catalog** contains three independent inventories: **Models**, **Providers**, and **Harnesses**, including accessible, inaccessible and unbenchmarked candidates. Manage versions, lifecycle and notes in each inventory; do not preregister a solution merely because its components exist.
 
-In **Benchmark lab → New run**, choose **Assemble a new configuration**, select the three components, specify the complete configuration and record the run. That first run creates an AI Solution with a stable identifier and evidence snapshots. Repeating the same combination/version/settings **reuses** the solution; changing the configuration creates a **distinct** solution. An unsuccessful run still identifies the tested configuration, but does not qualify or recommend it. Alternatively, choose **Repeat / compare an already benchmarked solution**.
+In **Benchmark workspace → Record benchmark run**, choose **Assemble a new configuration**, select the three components, specify the complete configuration and record the run. That first run creates an AI Solution with a stable identifier and evidence snapshots. Repeating the same combination/version/settings **reuses** the solution; changing the configuration creates a **distinct** solution. An unsuccessful run still identifies the tested configuration, but does not qualify or recommend it. Alternatively, choose **Repeat / compare an already benchmarked solution**.
 
 An AI Solution is not automatically visible to engineers: its recommendation and publication remain controlled by the workgroup's review process. Legacy seeded benchmark records remain intact.
 
+### Workgroup information architecture (current prototype)
+
+Sign in as **Maya Laurent** or **Sofia Ramos**. The workgroup has its own sidebar, organized by actual responsibilities rather than the standard user-oriented `Discover / Evaluate / Collaborate` categories.
+
+| Group | Screen | Purpose |
+| --- | --- | --- |
+| Workspace | **Dashboard** | Daily read-only qualification pipeline; latest user feedback and technology-watch signals. No KPIs or transition/add buttons. |
+| Workspace | **Task management** | Edit/reparent/reorder the taxonomy in-place, and inspect its engineer-facing view. |
+| Technology intelligence | **Technology watch** | Capture and review signals, create/link independent catalog components, record external literature and estimates. |
+| Technology intelligence | **Technology catalog** | Maintain models, providers and harnesses independently; no benchmark launch button. |
+| Experiments | **Test design** | Define Test Cases and benchmark protocols. No result-interpretation workflow mixed into this screen. |
+| Experiments | **Benchmark workspace** | Start/continue qualification processes, create campaigns and runs, review drafts, publish evidence and conclusions. |
+| Experiments | **Results explorer** | Inspect published runs, task-versus-solution matrix and campaign evidence without editing the experimental process. |
+| Experiments | **Recommendations** | Maintain evidence-linked published decisions and guidance. |
+| Knowledge & collaboration | **Guides & charter** | Search, sort, filter and edit existing articles, plus create and publish new ones. |
+| Knowledge & collaboration | **Feedback & discussions** | Triage contributions and respond in separate public and private workgroup threads. |
+| Knowledge & collaboration | **Activity feed** | Continue using the existing activity and revision history. |
+| Reporting | **Management view** | Remains unchanged for this iteration. |
+
 ### Workgroup daily dashboard
 
-Sign in as **Maya Laurent** or **Sofia Ramos**. The default **Overview** becomes a workgroup daily/qualification desk rather than the general engineer discovery dashboard. It includes recent user feedback, new technology-watch signals, a four-stage qualification pipeline (**To qualify → Qualifying → Review → Published**), owner/priority/due-date tracking, and pending publication actions.
+The **Dashboard is observational**, suitable for a daily meeting. It displays the four qualification stages (**To qualify → Qualifying → Review → Published**) as a **read-only board** with ownership, dates and evidence counts, plus recent feedback and watch signals. The four previous KPI cards and **Add to Pipeline** button have been removed. Viewing a card opens a read-only snapshot; modifications and decisions belong to **Benchmark workspace**.
 
-Try the full operational workflow:
+### Technology Watch: collection before qualification
 
-1. From **Latest technology-watch signals** or a user-feedback record, choose **Qualify / Start qualification**; select candidate **model/provider/harness** components (no AI Solution is required yet), an engineering task, owner, priority and due date.
-2. Move the qualification from **To qualify** to **Qualifying**. Create a Test Case if needed, then configure **model + provider + harness + exact settings** in the benchmark form. Saving its first run automatically creates and links the resulting AI Solution.
-3. Advance to **Review**, inspect published runs and draft a reasoned conclusion.
-4. **Publish conclusion** once matching controlled evidence exists. This updates the solution's recommendation and stores a history revision; it does not erase experiments.
-5. Use **Requalify** on a published item to open a new cycle while retaining the published decision and prior evidence.
+Technology Watch is an information-gathering and screening workflow, **not** a start-qualification shortcut:
 
-The pipeline describes **workgroup activities**, distinct from solution accessibility, model maturity or raw catalog publication. Everything is browser-local and shared across simulated accounts within one browser.
+1. Record a new announcement, model, provider, harness, technical publication or market signal using **Watch entry**.
+2. Add or link a **Model / Provider / Harness** item to the independent **Technology catalog** (the item may remain inaccessible or untested).
+3. Register public benchmarks, scientific publications, provider claims or workgroup performance estimates, documenting source, provenance, confidence, assumptions and limitations. These are **not** presented as internally reproduced benchmark runs.
+4. Later, from **Benchmark workspace**, select relevant components and launch controlled tests or formal qualification.
+
+### Benchmark process vs. result exploration vs. test design
+
+**Test design** manages reusable, versioned Test Cases and protocols. **Benchmark workspace** owns qualification planning, configurations, execution records, draft-run review and publication. **Results explorer** owns comparison and analytical reading, including the shared TC evidence matrix. These roles are separated deliberately rather than provided as flat tabs of one `Benchmark lab`.
+
+Try the workgroup journey: **Technology Watch → Technology Catalog → record external evidence → Test design → Benchmark workspace → first run creates an AI Solution → Review → Publish → Results explorer**. Existing run snapshots and revision history remain intact.
+
+### Feedback discussion and article management
+
+Each feedback item supports two **independent chronological threads**: a **public thread** visible to ordinary users and a **workgroup-only internal thread** for analysis and coordination. Replies carry author and timestamp and persist in `localStorage`; the original status/triage information remains available. Internal comments must never be shown to engineers or in their export.
+
+In **Guides & charter**, the workgroup can now search document content, filter by type/publication state, sort by name/date and directly edit existing articles. Article changes remain traceable in Change History.
 
 ### In-place task hierarchy organizer
 
@@ -80,14 +110,15 @@ All changes are persisted in `localStorage`; node IDs remain stable, and prior b
 
 ### Exercise the complete workflow
 
-1. **Engineer:** Task explorer → KSZ8851SNL Driver → inspect the DoD, TCs and solution comparison; open evidence or guidance.
-2. **Engineer:** Feedback & ideas → submit a new use case, gap, or real-world observation.
-3. **Workgroup:** Switch account → triage the feedback → create or fork a Test Case challenging an earlier result.
-4. **Workgroup:** Benchmark lab → create a campaign and a controlled run (prompt, interaction trace, artifacts, rubric, human effort, tokens, cost, autonomy).
-5. **Workgroup:** Workgroup studio → publish the draft run → revise the recommendation for a solution.
-6. **Manager:** Switch account → review consolidated experimental coverage and illustrative cost/value/adoption indicators.
-7. **Workgroup:** Technology catalog → maintain models, providers and harnesses individually → Benchmark lab → assemble a setup and record its first run → inspect the automatically registered AI Solution. Add a protocol revision or create documentation as needed.
-8. **Workgroup:** Mark an outdated solution as superseded or retired, link its successor and verify that historical benchmark evidence remains inspectable. Inspect change history in the activity feed.
+1. **Maya (workgroup):** Open **Dashboard**, observe qualification statuses and read feedback without manipulating the pipeline there.
+2. **Maya:** Open **Technology Watch** to register a signal, add it to **Technology catalog**, and record an independently sourced estimate.
+3. **Maya:** Open **Test design** to create a TC and a versioned protocol.
+4. **Maya:** Open **Benchmark workspace** to create a qualification, select components, record a run and inspect its evidence.
+5. **Maya:** Continue the qualification to **Review** and publish a reasoned conclusion when controlled evidence is available.
+6. **Maya:** Open **Results explorer** to compare published results independently of their workflow status.
+7. **Maya:** In **Feedback & discussions**, post an internal note and then a public response; inspect those conversations after reloading the page.
+8. **Maya:** In **Guides & charter**, filter articles, edit an existing guide and verify its revision in **Activity feed**.
+9. **Nicolas (engineer):** Switch account; verify only the public feedback conversation and published documents are visible. Management view remains a separate, largely unchanged perspective.
 
 Runs retain a **snapshot of their test case, protocol, and solution** as created, so later changes do not rewrite the historical experimental setup. Recommendation and catalog edits are tracked in prototype revision records.
 
