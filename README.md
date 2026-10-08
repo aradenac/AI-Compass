@@ -9,7 +9,7 @@ It connects an evolving hierarchy of engineering tasks with reproducible test ca
 ## What it enables
 
 - **Engineers:** Find and compare solutions for their tasks, access configurations and guidance, and submit feedback or new needs.
-- **AI workgroup:** Catalog candidates, run and challenge benchmarks, preserve evidence, and publish recommendations.
+- **AI workgroup:** Maintain Models, Providers and Harnesses independently; assemble and benchmark configurations; review evidence and publish the resulting AI Solutions.
 - **Management and other business units:** Track evaluation coverage, adoption, cost/value, and progress using a common knowledge base.
 
 Benchmarking works in both directions: **compare solutions on the same task**, or **evaluate one solution across multiple tasks**. New test cases can continuously challenge earlier results.
@@ -45,14 +45,22 @@ The app uses **localStorage** for records and the selected demo account. Changes
 
 No passwords are required. **Identity and permissions are simulated in the browser; this is not an authentication or security implementation.**
 
+### Catalog components → Benchmark → AI Solution
+
+The workgroup **Technology catalog** contains three independent inventories: **Models**, **Providers**, and **Harnesses**, including accessible, inaccessible and unbenchmarked candidates. Manage versions, lifecycle and notes in each inventory; do not preregister a solution merely because its components exist.
+
+In **Benchmark lab → New run**, choose **Assemble a new configuration**, select the three components, specify the complete configuration and record the run. That first run creates an AI Solution with a stable identifier and evidence snapshots. Repeating the same combination/version/settings **reuses** the solution; changing the configuration creates a **distinct** solution. An unsuccessful run still identifies the tested configuration, but does not qualify or recommend it. Alternatively, choose **Repeat / compare an already benchmarked solution**.
+
+An AI Solution is not automatically visible to engineers: its recommendation and publication remain controlled by the workgroup's review process. Legacy seeded benchmark records remain intact.
+
 ### Workgroup daily dashboard
 
 Sign in as **Maya Laurent** or **Sofia Ramos**. The default **Overview** becomes a workgroup daily/qualification desk rather than the general engineer discovery dashboard. It includes recent user feedback, new technology-watch signals, a four-stage qualification pipeline (**To qualify → Qualifying → Review → Published**), owner/priority/due-date tracking, and pending publication actions.
 
 Try the full operational workflow:
 
-1. From **Latest technology-watch signals** or a user-feedback record, choose **Qualify / Start qualification**; link an AI solution and engineering task, then assign an owner, priority, and due date.
-2. Move the qualification from **To qualify** to **Qualifying**. Create a new Test Case if needed and record controlled benchmark runs.
+1. From **Latest technology-watch signals** or a user-feedback record, choose **Qualify / Start qualification**; select candidate **model/provider/harness** components (no AI Solution is required yet), an engineering task, owner, priority and due date.
+2. Move the qualification from **To qualify** to **Qualifying**. Create a Test Case if needed, then configure **model + provider + harness + exact settings** in the benchmark form. Saving its first run automatically creates and links the resulting AI Solution.
 3. Advance to **Review**, inspect published runs and draft a reasoned conclusion.
 4. **Publish conclusion** once matching controlled evidence exists. This updates the solution's recommendation and stores a history revision; it does not erase experiments.
 5. Use **Requalify** on a published item to open a new cycle while retaining the published decision and prior evidence.
@@ -78,7 +86,7 @@ All changes are persisted in `localStorage`; node IDs remain stable, and prior b
 4. **Workgroup:** Benchmark lab → create a campaign and a controlled run (prompt, interaction trace, artifacts, rubric, human effort, tokens, cost, autonomy).
 5. **Workgroup:** Workgroup studio → publish the draft run → revise the recommendation for a solution.
 6. **Manager:** Switch account → review consolidated experimental coverage and illustrative cost/value/adoption indicators.
-7. **Workgroup:** Catalog components → create models/providers/harnesses → register a configured solution → stage and publish it. Add a protocol revision or create documentation from the corresponding pages.
+7. **Workgroup:** Technology catalog → maintain models, providers and harnesses individually → Benchmark lab → assemble a setup and record its first run → inspect the automatically registered AI Solution. Add a protocol revision or create documentation as needed.
 8. **Workgroup:** Mark an outdated solution as superseded or retired, link its successor and verify that historical benchmark evidence remains inspectable. Inspect change history in the activity feed.
 
 Runs retain a **snapshot of their test case, protocol, and solution** as created, so later changes do not rewrite the historical experimental setup. Recommendation and catalog edits are tracked in prototype revision records.
