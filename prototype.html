@@ -21,6 +21,24 @@
 table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;border-bottom:1px solid var(--line);padding:11px 10px;vertical-align:top}th{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.7px;font-weight:750;background:#fafbfe}tr:last-child td{border:0}.table-wrap{overflow:auto;max-width:100%}td .btn{margin-right:4px}.score{font-weight:850;font-variant-numeric:tabular-nums;color:#236e6d}.score.low{color:var(--red)}.score.mid{color:var(--yellow)}.metric{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:11px 0 5px;font-size:12px}.bar{width:100%;height:7px;border-radius:10px;background:#e8edf5;overflow:hidden}.bar i{display:block;height:100%;background:linear-gradient(90deg,#38b8bb,#4b6ad4);border-radius:10px}.bar.warn i{background:#eab16f}.pill-tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:17px}.tab{border:0;background:transparent;padding:10px 13px;color:var(--muted);border-bottom:2px solid transparent;font-weight:650}.tab.active{color:var(--blue);border-color:var(--blue)}.solution-card{display:flex;flex-direction:column;gap:11px;height:100%}.solution-title{display:flex;gap:10px;justify-content:space-between;align-items:start}.solution-icon{width:42px;height:42px;flex-shrink:0;display:grid;place-items:center;border-radius:11px;background:#eef2ff;color:#405aba;font-size:18px;font-weight:850}.solution-foot{border-top:1px solid var(--line);padding-top:12px;margin-top:auto;display:flex;justify-content:space-between;align-items:center;gap:7px}.text-block{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.65}.code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;background:#f5f7fc;border:1px solid var(--line);padding:13px;border-radius:8px;white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px}.timeline{border-left:2px solid #dde7f2;padding-left:19px}.event{position:relative;padding-bottom:19px}.event:before{content:"";position:absolute;left:-25px;top:3px;width:10px;height:10px;border:2px solid #fff;background:#58b3b6;border-radius:50%}.event:last-child{padding-bottom:0}.event-meta{font-size:11px;color:var(--muted);margin-top:4px}
 .modal-backdrop{position:fixed;inset:0;background:#0d1a2c98;z-index:20;display:flex;align-items:center;justify-content:center;padding:18px}.modal{width:min(740px,100%);max-height:92vh;overflow:auto;background:#fff;border-radius:17px;box-shadow:0 26px 90px #0d203c65}.modal-header{display:flex;justify-content:space-between;align-items:center;padding:23px 26px 18px;border-bottom:1px solid var(--line)}.modal-body{padding:24px 26px}.modal-footer{display:flex;justify-content:flex-end;gap:9px;padding:16px 26px;border-top:1px solid var(--line)}.x{background:none;border:0;font-size:24px;color:#64748b;line-height:1}.toast{position:fixed;bottom:22px;right:25px;z-index:30;background:#16344e;color:white;padding:13px 18px;border-radius:10px;box-shadow:0 8px 28px #11223e40;max-width:420px;animation:appear .17s ease-out}@keyframes appear{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}.login-wall{min-height:100vh;display:grid;place-items:center;background:linear-gradient(135deg,#111e35,#1b3556)}.login-box{background:#fff;border-radius:20px;width:min(680px,92vw);padding:36px;box-shadow:0 35px 100px #06112260}.login-users{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-top:20px}.login-user{border:1px solid var(--line);background:#fff;border-radius:12px;padding:14px;text-align:left;display:flex;align-items:center;gap:12px}.login-user:hover{border-color:#6681d7;background:#f4f7ff}.helper{font-size:11px;color:var(--muted);margin-top:5px}.row{display:flex;gap:9px;align-items:center;flex-wrap:wrap}.row-between{display:flex;align-items:center;justify-content:space-between;gap:12px}.right{text-align:right}.full{width:100%}.pointer{cursor:pointer}.short{max-width:620px}.subtle{border:1px dashed #d4ddeb;border-radius:10px;padding:12px;background:#fafcff}.callout{border-left:3px solid #3b8b93;padding:10px 14px;background:#f0f8f8;font-size:12px}.mono{font-family:ui-monospace,monospace}.progress-ring{font-size:24px;color:var(--blue);font-weight:800}.sep{margin:0 7px;color:#cbd5e1}
 @media(max-width:1150px){.g4{grid-template-columns:repeat(2,minmax(0,1fr))}.g3{grid-template-columns:repeat(2,minmax(0,1fr))}.split{grid-template-columns:1fr}}@media(max-width:780px){.app{grid-template-columns:1fr}.sidebar{position:relative;height:auto;padding:15px;gap:10px}.sidebar .nav-area{display:flex;overflow:auto;gap:4px}.nav-group{display:flex;gap:2px;margin:0}.nav-label,.side-foot{display:none}.nav-link{width:auto;white-space:nowrap;padding:9px}.nav-link .nav-icon{display:none}.topbar{height:auto;min-height:62px;padding:10px 18px}.content{padding:22px 16px 45px}.g2,.g3,.g4{grid-template-columns:1fr}.page-head{display:block}.head-actions{margin-top:16px}.form-grid{grid-template-columns:1fr}.span2{grid-column:auto}.login-users{grid-template-columns:1fr}}@media(prefers-reduced-motion:reduce){*{animation:none!important;scroll-behavior:auto!important}}
+
+/* Workgroup daily — pipeline remains independent of the published solution lifecycle. */
+.daily-kicker{display:flex;align-items:center;gap:9px;color:#0b777e;font-size:12px;font-weight:700}
+.daily-board{display:grid;grid-template-columns:repeat(4,minmax(230px,1fr));gap:13px;overflow-x:auto;padding-bottom:7px}
+.daily-lane{min-width:0;background:#f7f9fd;border:1px solid #e4eaf4;border-radius:12px;padding:12px}
+.daily-lane-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:3px 2px 11px}
+.daily-lane-head h3{font-size:12px;text-transform:uppercase;letter-spacing:.65px}
+.daily-lane-head .lane-num{background:#e8edf6;color:#465b79;min-width:25px;text-align:center;border-radius:20px;font-size:11px;padding:2px 6px;font-weight:700}
+.daily-card{background:white;border:1px solid #e3e9f3;border-left:3px solid #c7d4e7;border-radius:9px;padding:13px;margin-bottom:10px;box-shadow:0 2px 10px #142f4b06}
+.daily-card[data-stage="to_qualify"]{border-left-color:#7e96b5}.daily-card[data-stage="qualifying"]{border-left-color:#4d70d8}.daily-card[data-stage="review"]{border-left-color:#e5a754}.daily-card[data-stage="published"]{border-left-color:#3fa68f}
+.daily-card h4{font-size:13px;margin:7px 0 4px}.daily-card .small{line-height:1.5}
+.daily-card .inline-actions{margin-top:12px;gap:5px}
+.daily-card .btn{white-space:normal}.daily-lane.empty-lane{min-height:140px}
+.daily-scroll{max-height:390px;overflow:auto;padding-right:5px}
+.daily-compact .list-row{padding:13px 0;align-items:flex-start}
+.daily-compact .list-row .btn{flex-shrink:0}
+.daily-info{background:#f5f8fc;border-radius:9px;padding:12px;font-size:12px;color:#496078}
+@media(max-width:1250px){.daily-board{grid-template-columns:repeat(4,minmax(245px,1fr));}}
 </style>
 </head>
 <body>
@@ -140,6 +158,19 @@ if(!db.components){
    db.components.push({id:type+"_"+db.components.length,type:type,name:name,version:"",details:"Catalog item derived from seeded AI solutions."});
  });});
 }
+
+if(!Array.isArray(db.qualifications)){
+ db.qualifications=[
+  {id:"q1",title:"Assess NextCoder Preview",solution:"s5",task:"t13",stage:"to_qualify",owner:"u1",priority:"high",due:"2026-10-15",updatedAt:"2026-10-07",sourceWatch:"w1",notes:"Confirm access, tooling support and test methodology before running controlled cases.",conclusion:""},
+  {id:"q2",title:"Gemini CLI hardware workflow",solution:"s6",task:"t6",stage:"to_qualify",owner:"u5",priority:"medium",due:"2026-10-19",updatedAt:"2026-10-06",sourceWatch:"",notes:"Expand coverage with native_sim and HIL-oriented cases.",conclusion:""},
+  {id:"q3",title:"GLM-5.2 coding qualification",solution:"s2",task:"t5",stage:"qualifying",owner:"u1",priority:"high",due:"2026-10-11",updatedAt:"2026-10-07",sourceWatch:"w2",notes:"Challenge context stability and verify autonomy against the driver DoD.",conclusion:""},
+  {id:"q4",title:"OpenCode engineering review",solution:"s3",task:"t7",stage:"review",owner:"u5",priority:"high",due:"2026-10-10",updatedAt:"2026-10-07",sourceWatch:"",notes:"Review C refactoring evidence, test coverage and total engineer effort.",conclusion:"Alternative for focused implementation and script development."},
+  {id:"q5",title:"Claude Code complex-repo baseline",solution:"s1",task:"t5",stage:"published",owner:"u1",priority:"medium",due:"",updatedAt:"2026-10-02",sourceWatch:"",notes:"Published baseline; adversarial TC3 now motivates future requalification.",conclusion:"Recommended for complex embedded features and broad repository analysis."},
+  {id:"q6",title:"Document-analysis qualification",solution:"s4",task:"t10",stage:"published",owner:"u5",priority:"medium",due:"",updatedAt:"2026-10-06",sourceWatch:"",notes:"Published from requirements and summarization evidence.",conclusion:"Recommended for requirements and document analysis."}
+ ];
+}
+db.qualifications.forEach(function(q){if(!q.updatedAt)q.updatedAt="2026-10-08";if(!q.priority)q.priority="medium";if(!q.notes)q.notes="";if(!q.conclusion)q.conclusion="";});
+
 if(!db.revisions)db.revisions=[];
 db.solutions.forEach(function(x,i){if(!x.lastReviewed)x.lastReviewed=i===5?"2026-07-20":"2026-09-28";if(!x.supersededBy)x.supersededBy="";});
 db.runs.forEach(function(r,i){
@@ -212,7 +243,57 @@ function openModal(title,body,footer){ui.modal="shown";ui.modalTitle=title;ui.mo
 function closeModal(){ui.modal="";render();}
 
 
+
+function qualificationStages(){return [
+ {id:"to_qualify",name:"To qualify",hint:"Candidates & upcoming work"},
+ {id:"qualifying",name:"Qualifying",hint:"Evidence gathering"},
+ {id:"review",name:"Review",hint:"Validate conclusions"},
+ {id:"published",name:"Published",hint:"Decision shared"}
+];}
+function qualificationStage(id){return qualificationStages().find(function(s){return s.id===id;})||qualificationStages()[0];}
+function qualificationRuns(q){return db.runs.filter(function(r){var c=caseOf(r);return r.solution===q.solution&&r.status==="published"&&(!q.task||(c&&descendants(q.task).includes(c.task)));});}
+function qualificationNext(q){var stages=qualificationStages(),index=stages.findIndex(function(s){return s.id===q.stage;});return stages[Math.min(index+1,stages.length-1)]||stages[0];}
+function qualCard(q){
+var s=rec("solutions",q.solution),t=rec("tasks",q.task),runs=qualificationRuns(q),next=qualificationNext(q);
+return '<article class="daily-card" data-stage="'+E(q.stage)+'"><div class="row-between">'+badge(q.priority+" priority")+'<span class="muted small">'+E(q.due||"No due date")+'</span></div>'+
+'<h4>'+linkAction(q.title,"qualDetail",q.id)+'</h4><div class="small">'+(s?linkAction(s.name,"solution",s.id):'<span class="muted">Unlinked solution</span>')+'</div>'+
+'<div class="muted small" style="margin-top:7px">'+E(t?.name||"Cross-task qualification")+'</div>'+
+'<div class="muted small">Owner: '+E(actor(q.owner))+' · '+runs.length+' published run(s)</div>'+
+'<div class="inline-actions">'+btn("Details","qualDetail",q.id,"sm")+(q.stage!=="published"?btn(q.stage==="review"?"Publish →":"Move → "+next.name,"qualAdvance",q.id,"sm primary"):btn("Requalify","qualReopen",q.id,"sm"))+'</div></article>';
+}
+function qualificationBoard(){
+return '<div class="daily-board">'+qualificationStages().map(function(stage){
+var cards=db.qualifications.filter(function(q){return q.stage===stage.id;}).sort(function(a,b){var importance={high:0,medium:1,low:2};return (importance[a.priority]??1)-(importance[b.priority]??1)||String(b.updatedAt).localeCompare(String(a.updatedAt));});
+return '<section class="daily-lane" aria-label="'+E(stage.name)+'"><div class="daily-lane-head"><div><h3>'+E(stage.name)+'</h3><span class="muted small">'+E(stage.hint)+'</span></div><span class="lane-num">'+cards.length+'</span></div>'+ (cards.map(qualCard).join("")||'<div class="empty" style="padding:17px 9px;font-size:12px">No qualification cards</div>')+'</section>';
+}).join("")+'</div>';
+}
+function workgroupOverviewPage(){
+var pending=db.feedback.filter(function(x){return x.status==="new"||x.status==="triage";}).sort(function(a,b){return String(b.date).localeCompare(String(a.date));}),
+signals=db.watch.filter(function(w){return w.status==="watching"||w.status==="pending";}).sort(function(a,b){return String(b.date).localeCompare(String(a.date));}),
+active=db.qualifications.filter(function(q){return q.stage==="qualifying";}),review=db.qualifications.filter(function(q){return q.stage==="review";}),
+draftRuns=db.runs.filter(function(r){return r.status==="draft";}),
+due=db.qualifications.filter(function(q){return q.due&&q.stage!=="published"&&q.due<new Date().toISOString().slice(0,10);});
+var kpis='<div class="grid g4">'+stat("Feedback to triage",pending.length,"New & under review")+stat("Watch signals",signals.length,"Monitoring or pending")+stat("Qualifications active",active.length,"Experiments in progress")+stat("Awaiting review",review.length,review.filter(function(q){return qualificationRuns(q).length>0;}).length+" with published evidence")+'</div>';
+var feedbackPanel=section("Latest user feedback",'<div class="daily-scroll daily-compact list">'+(db.feedback.slice().sort(function(a,b){return String(b.date).localeCompare(String(a.date));}).slice(0,5).map(function(f){
+return '<div class="list-row"><div class="short"><div class="row">'+badge(f.type)+' '+badge(f.status)+'</div><div style="margin-top:6px">'+linkAction(f.title,"feedbackDetail",f.id)+'</div><div class="muted small">'+E(actor(f.author))+' · '+E(f.date)+'</div><p class="muted small">'+E(f.body.slice(0,120))+'</p></div>'+btn(f.status==="closed"?"Read":"Triage","feedbackDetail",f.id,"sm")+'</div>';
+}).join("")||'<div class="empty">No feedback yet</div>')+'</div>',btn("All feedback","nav","feedback","sm"));
+var watchPanel=section("Latest technology-watch signals",'<div class="daily-scroll daily-compact list">'+(db.watch.slice().sort(function(a,b){return String(b.date).localeCompare(String(a.date));}).slice(0,5).map(function(w){
+var linked=db.qualifications.some(function(q){return q.sourceWatch===w.id&&q.stage!=="published";});
+return '<div class="list-row"><div class="short"><div class="row">'+badge(w.kind)+' '+badge(w.status)+'</div><div style="margin-top:6px">'+linkAction(w.title,"watchDetail",w.id)+'</div><div class="muted small">'+E(w.date)+' · '+E(w.source)+'</div><p class="muted small">'+E(w.summary.slice(0,130))+'</p></div><div class="inline-actions">'+(linked?badge("In pipeline"):btn("Qualify","qualFromWatch",w.id,"sm"))+'</div></div>';
+}).join("")||'<div class="empty">No watch signals yet</div>')+'</div>',btn("All signals","nav","watch","sm"));
+var followups=section("Daily follow-ups",'<div class="list">'+
+'<div class="list-row"><div><strong>'+draftRuns.length+' staged experiment(s)</strong><div class="muted small">Check evidence before publication</div></div>'+btn("Review","nav","workgroup","sm")+'</div>'+
+'<div class="list-row"><div><strong>'+due.length+' overdue qualification(s)</strong><div class="muted small">Compared with browser-local date</div></div>'+badge(due.length?"Action needed":"On track")+'</div>'+
+'<div class="list-row"><div><strong>'+review.length+' qualification(s) in review</strong><div class="muted small">Inspect the evidence and recommendation text</div></div>'+btn("Open board","nav","dashboard","sm")+'</div>'+
+'</div><div class="daily-info" style="margin-top:10px">Pipeline stages track workgroup qualification work, independently of solution accessibility and catalog publication. Publishing a conclusion requires existing controlled evidence.</div>');
+return heading("Workgroup daily","Qualification & decision desk","Triage incoming needs, assess new technologies, advance experiments, review evidence and publish defensible conclusions.",btn("+ Qualification","newQualification","","primary")+btn("+ Tech watch","newWatch","","")+btn("+ Benchmark run","newRun","",""))+
+'<div class="daily-kicker" style="margin-bottom:12px"><span>●</span> Daily operational pulse <span class="muted">· '+E(new Date().toLocaleDateString("en-GB",{year:"numeric",month:"long",day:"numeric"}))+'</span></div>'+
+kpis+'<section class="card" style="margin-top:18px"><div class="card-head"><div><h2>Qualification pipeline</h2><p class="muted small" style="margin-top:4px">Select a card to inspect its owner, task, evidence and next decision.</p></div>'+btn("+ Add to pipeline","newQualification","","sm")+'</div>'+qualificationBoard()+'</section>'+
+'<div class="grid g2" style="margin-top:18px">'+feedbackPanel+watchPanel+'</div>'+
+'<div style="margin-top:18px">'+followups+'</div>';
+}
 function dashboardPage(){
+if(canEdit())return workgroupOverviewPage();
 var published=db.runs.filter(function(r){return r.status==="published";}),passed=published.filter(function(r){return r.accepted;}),unique=new Set(published.map(function(r){return r.solution;}));
 var overview='<div class="grid g4">'+stat("Benchmark runs",published.length+"","Published, auditable evidence")+stat("AI solutions",db.solutions.filter(visibleSolution).length,db.solutions.filter(function(s){return visibleSolution(s)&&s.accessible;}).length+" accessible to engineers")+stat("Test cases",db.cases.length,"Across "+new Set(db.cases.map(function(c){return c.task;})).size+" tested tasks")+stat("Acceptance rate",Math.round(100*passed.length/(published.length||1))+"%","Mock controlled runs")+'</div>';
 var quickest=section("Start with an engineering task",'<p class="muted small" style="margin-bottom:13px">Select a representative task, inspect evidence and compare solutions directly.</p><div class="list">'+db.tasks.filter(function(t){return t.baseline>0;}).slice(0,6).map(function(t){return '<div class="list-row"><div><div>'+linkAction(t.name,"task",t.id)+'</div><span class="muted small">'+E(t.phase)+' · '+runsForTask(t.id,true).length+' published runs</span></div>'+btn("Explore →","task",t.id,"sm")+'</div>';}).join("")+'</div>');
