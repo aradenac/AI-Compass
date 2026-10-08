@@ -78,6 +78,8 @@ The **Dashboard is observational**, suitable for a daily meeting. It displays th
 
 ### Technology Watch: evidence-backed forecasts
 
+Workflow: watch hypothesis → theoretical forecast → staged review → comparison with empirical results.
+
 Technology Watch now has an **evidence-first workflow**, separate from controlled benchmarks.
 
 1. **Create Watch Entry:** document the intuition, reasoning, assumptions and expected benefit; attach one or more public sources, each with a citation, claim, confidence and limitations **in the same creation form**. A Watch Entry is not a catalog component.
