@@ -49,7 +49,7 @@ No passwords are required. **Identity and permissions are simulated in the brows
 
 The workgroup **Technology catalog** contains three independent inventories: **Models**, **Providers**, and **Harnesses**, including accessible, inaccessible and unbenchmarked candidates. Manage versions, lifecycle and notes in each inventory; do not preregister a solution merely because its components exist.
 
-In **Benchmark workspace → Record benchmark run**, choose **Assemble a new configuration**, select the three components, specify the complete configuration and record the run. That first run creates an AI Solution with a stable identifier and evidence snapshots. Repeating the same combination/version/settings **reuses** the solution; changing the configuration creates a **distinct** solution. An unsuccessful run still identifies the tested configuration, but does not qualify or recommend it. Alternatively, choose **Repeat / compare an already benchmarked solution**.
+In **Benchmark workspace → Record benchmark run**, choose **Assemble a new configuration**, select the three components, specify the complete configuration and record the run. That first run creates a **measured AI Solution** with a stable identifier and evidence snapshots. Theoretical configurations may exist earlier as **Forecasts**, but have no observed runs. Repeating the same combination/version/settings **reuses** the solution; changing the configuration creates a **distinct** solution. An unsuccessful run still identifies the tested configuration, but does not qualify or recommend it. Alternatively, choose **Repeat / compare an already benchmarked solution**.
 
 An AI Solution is not automatically visible to engineers: its recommendation and publication remain controlled by the workgroup's review process. Legacy seeded benchmark records remain intact.
 
@@ -61,11 +61,11 @@ Sign in as **Maya Laurent** or **Sofia Ramos**. The workgroup has its own sideba
 | --- | --- | --- |
 | Workspace | **Dashboard** | Daily read-only qualification pipeline; latest user feedback and technology-watch signals. No KPIs or transition/add buttons. |
 | Workspace | **Task management** | Edit/reparent/reorder the taxonomy in-place, and inspect its engineer-facing view. |
-| Technology intelligence | **Technology watch** | Capture and review signals, create/link independent catalog components, record external literature and estimates. |
+| Technology intelligence | **Technology watch** | Create evidence-backed watch hypotheses and task-linked theoretical forecasts with staging and review. |
 | Technology intelligence | **Technology catalog** | Maintain models, providers and harnesses independently; no benchmark launch button. |
 | Experiments | **Test design** | Define Test Cases and benchmark protocols. No result-interpretation workflow mixed into this screen. |
 | Experiments | **Benchmark workspace** | Start/continue qualification processes, create campaigns and runs, review drafts, publish evidence and conclusions. |
-| Experiments | **Results explorer** | Inspect published runs, task-versus-solution matrix and campaign evidence without editing the experimental process. |
+| Experiments | **Results explorer** | Compare theoretical predictions against measured runs with separate evidence labels, plus inspect benchmark matrices. |
 | Experiments | **Recommendations** | Maintain evidence-linked published decisions and guidance. |
 | Knowledge & collaboration | **Guides & charter** | Search, sort, filter and edit existing articles, plus create and publish new ones. |
 | Knowledge & collaboration | **Feedback & discussions** | Triage contributions and respond in separate public and private workgroup threads. |
@@ -95,7 +95,7 @@ The Technology Catalog stays independent; creating a Watch Entry does not redire
 
 **Test design** manages reusable, versioned Test Cases and protocols. **Benchmark workspace** owns qualification planning, configurations, execution records, draft-run review and publication. **Results explorer** owns comparison and analytical reading, including the shared TC evidence matrix. These roles are separated deliberately rather than provided as flat tabs of one `Benchmark lab`.
 
-Try the workgroup journey: **Technology Watch → Technology Catalog → record external evidence → Test design → Benchmark workspace → first run creates an AI Solution → Review → Publish → Results explorer**. Existing run snapshots and revision history remain intact.
+Try the evidence-first path **Technology Watch → sources → theoretical forecast → stage/review → Results explorer**, or the controlled path **Test design → Benchmark workspace → benchmark run → measured AI Solution**. Existing run snapshots and revision history remain intact.
 
 ### Feedback discussion and article management
 
@@ -117,11 +117,11 @@ All changes are persisted in `localStorage`; node IDs remain stable, and prior b
 ### Exercise the complete workflow
 
 1. **Maya (workgroup):** Open **Dashboard**, observe qualification statuses and read feedback without manipulating the pipeline there.
-2. **Maya:** Open **Technology Watch** to register a signal, add it to **Technology catalog**, and record an independently sourced estimate.
+2. **Maya:** Open **Technology Watch**, create a Watch Entry with literature sources directly in the form, then derive a task-linked theoretical forecast.
 3. **Maya:** Open **Test design** to create a TC and a versioned protocol.
 4. **Maya:** Open **Benchmark workspace** to create a qualification, select components, record a run and inspect its evidence.
 5. **Maya:** Continue the qualification to **Review** and publish a reasoned conclusion when controlled evidence is available.
-6. **Maya:** Open **Results explorer** to compare published results independently of their workflow status.
+6. **Maya:** Open **Results explorer → Measured vs theoretical** to compare staged theoretical forecasts and benchmarked configurations with explicit provenance.
 7. **Maya:** In **Feedback & discussions**, post an internal note and then a public response; inspect those conversations after reloading the page.
 8. **Maya:** In **Guides & charter**, filter articles, edit an existing guide and verify its revision in **Activity feed**.
 9. **Nicolas (engineer):** Switch account; verify only the public feedback conversation and published documents are visible. Management view remains a separate, largely unchanged perspective.
