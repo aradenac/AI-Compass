@@ -34,7 +34,7 @@ The platform connects engineering needs, evolving task definitions, reproducible
 | Audience | Primary needs |
 | --- | --- |
 | Engineer | Explore the catalog; browse the task hierarchy; search, filter, sort, and compare AI solutions; find recommended configurations; read guides, FAQ, training material and the Impulse/AI usage charter; submit feedback, ideas, and unmet needs; consult news and newly published results. |
-| AI workgroup | Define tasks, solutions, protocols and test cases; maintain technology-watch candidates; stage and compare unpublished evaluations; execute and challenge benchmarks; preserve evidence; publish results, recommendations, guides, and updates; handle feedback; re-evaluate obsolete advice. |
+| AI workgroup | Maintain independent model/provider/harness catalogs, manage engineering tasks and test designs, organize and review qualification experiments, preserve evidence, publish results, recommendations and guides, discuss feedback in public and internal threads, and re-evaluate obsolete decisions. |
 | Management / Group | Track engineering/V-cycle coverage, progress, adoption, operational outcomes, cost/value, and workgroup activity; identify uncovered needs and investment priorities. |
 | Other BUs | Access the same published knowledge and contribute experimental evidence and feedback, subject to publication permissions. |
 
@@ -294,7 +294,7 @@ The workgroup must be able to:
 
 1. Enter and maintain an interesting **individual model, provider or harness** from technology watch, even before access or qualification, without preregistering an AI Solution.
 2. Enrich the candidate's metadata and capabilities as information arrives.
-3. Start a qualification from component candidates, assemble their configuration in the benchmark workflow, then automatically link the resulting AI Solution to the qualification and its runs.
+3. **Within Benchmark workspace**, start a qualification from selected catalog candidates, assemble a concrete configuration, and automatically link the resulting AI Solution after its first controlled run. Neither a watch signal nor the component catalog should initiate the qualification directly.
 4. Compare staged candidates with already known solutions.
 5. Publish findings, recommendations, documentation, and corrections.
 6. Re-evaluate existing recommendations when new TCs, models, versions, evidence, prices, or retirements make them questionable.
