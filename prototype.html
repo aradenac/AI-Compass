@@ -367,6 +367,7 @@ db.campaigns.forEach(function(c,i){
  if(!c.owner)c.owner="u1";
   if(!c.frameworkId)c.frameworkId="";
   if(!Array.isArray(c.frameworkInstances))c.frameworkInstances=[];
+  if(!c.frameworkWorkflow)c.frameworkWorkflow="";
   if(!c.setupGuideId)c.setupGuideId="";
 
   if(!Array.isArray(c.watchIds))c.watchIds=c.watchId?[c.watchId]:rec("proposals",c.forecastId)?.watchIds?.slice()||[];
@@ -1511,7 +1512,8 @@ selectField("frameworkId","Orchestration framework (optional)",comboComponentOpt
 '<div class="span2" data-framework-panel'+(c?.frameworkId?'':' style="display:none"')+'>'+
 '<div class="note">Define one or more independently configured <strong>Model + Provider + Harness</strong> participants. The Framework coordinates them; each tested trio is measured as an individual AI Solution.</div>'+
 '<div data-framework-participants>'+(c?.frameworkInstances?.length?c.frameworkInstances.map(function(v,i){return frameworkParticipantRow(i,v);}).join(""):frameworkParticipantRow(0,null))+'</div>'+
-'<button type="button" class="btn sm" data-act="addFrameworkParticipant">+ Add AI participant</button></div>'+
+'<button type="button" class="btn sm" data-act="addFrameworkParticipant">+ Add AI participant</button>'+
+field("frameworkWorkflow","Framework workflow wiring and role handoffs (optional)",c?.frameworkWorkflow||"","textarea","full")+'</div>'+
 selectField("mode","Experiment strategy",[["solution_scope","Solution-centred · one AI configuration, multiple tasks and Test Cases"],["task_compare","Task-centred · one task, compare different AI configurations"]],c?.mode||(sourceSolution?"solution_scope":"task_compare"),true)+
 '<div class="span2 campaign-mode-panel" data-mode-panel="task_compare"'+((c?.mode||(sourceSolution?"solution_scope":"task_compare"))==="task_compare"?"":' style="display:none"')+'>'+
 selectField("task","Fixed task for all comparisons",db.tasks.filter(function(t){return t.baseline>0;}).map(function(t){return[t.id,t.name];}),c?.task||projection?.task||sourceCase?.task||"t5",true)+'</div>'+
@@ -1887,7 +1889,7 @@ function detailsCampaign(id){
 var c=rec("campaigns",id);if(!c||c.archived||(!canEdit()&&c.stage!=="published"))return;
 var trials=db.campaignTrials.filter(function(t){return t.campaign===id;}),runs=campaignRuns(c),
  setup=c.solutionSetup||{};
-var head='<div class="row-between"><div class="tags">'+badge(campaignStatusLabel(c))+' '+badge(c.mode==="solution_scope"?"One fixed AI setup":"Fixed task / multiple solutions")+'</div><span class="muted small">Owner: '+E(actor(c.owner))+'</span></div>'+
+var head='<div class="row-between"><div class="tags">'+badge(campaignStatusLabel(c))+' '+badge(c.frameworkId?"Framework / multiple participants":c.mode==="solution_scope"?"One fixed AI setup":"Fixed task / multiple solutions")+'</div><span class="muted small">Owner: '+E(actor(c.owner))+'</span></div>'+
 '<h3 style="margin:13px 0 7px">'+E(c.title)+'</h3><p class="text-block">'+E(c.purpose)+'</p>'+
 '<p class="muted small" style="margin-top:8px">'+E(c.notes||"")+'</p>'+
 (c.setupGuideId&&rec("guides",c.setupGuideId)&&(canEdit()||rec("guides",c.setupGuideId).status==="published")?
@@ -1904,6 +1906,7 @@ head+='<h3 style="margin:13px 0 6px">Linked technology signals</h3>'+
 if(c.frameworkId){
  var fw=rec("components",c.frameworkId);
  head+='<h3 style="margin:14px 0 6px">Framework · '+E(fw?.name||"Unknown")+'</h3>'+
+ (c.frameworkWorkflow?'<p class="text-block small">'+E(c.frameworkWorkflow)+'</p>':"")+
  '<div class="list">'+(c.frameworkInstances||[]).map(function(p){return '<div class="list-row"><div><strong>'+E(p.label)+'</strong>'+
  '<p class="small">'+["model","provider","harness"].map(function(k){return E(rec("components",p[k])?.name||"?");}).join(" / ")+'</p>'+
  '<p class="muted small">'+E(p.version)+' · '+E(p.configuration)+'</p></div></div>';}).join("")+'</div>';
@@ -2047,7 +2050,7 @@ var r={id:next("r"),campaignId:c.id,sessionId:t.id,case:tc.id,solution:sol?.id||
  additionalNotes:d.additionalNotes||"",outputDocuments:d.outputDocuments||"",finishedAt:campaignLocalTime()},
  campaignSnapshot:JSON.parse(JSON.stringify({id:c.id,title:c.title,mode:c.mode,purpose:c.purpose,task:c.task,
   watchIds:(c.watchIds||[]).slice(),watchSnapshots:(c.watchIds||[]).map(function(id){return rec("watch",id);}).filter(Boolean),
-  frameworkId:c.frameworkId||"",frameworkInstances:(c.frameworkInstances||[]).map(function(x){return Object.assign({},x);}),notes:c.notes})),
+  frameworkId:c.frameworkId||"",frameworkInstances:(c.frameworkInstances||[]).map(function(x){return Object.assign({},x);}),frameworkWorkflow:c.frameworkWorkflow||"",notes:c.notes})),
  frameworkId:t.frameworkId||"",frameworkInstanceId:t.frameworkInstanceId||"",
   frameworkSnapshot:t.frameworkSnapshot||null,participantSnapshot:t.participantSnapshot||null,
   caseSnapshot:JSON.parse(JSON.stringify(tc)),solutionSnapshot:sol?JSON.parse(JSON.stringify(sol)):null,
@@ -2097,8 +2100,8 @@ if(kind==="campaignReview"){
  var desiredTask=mode==="task_compare"?d.task:"";
  if(existing&&campaignTrialsExistingOrCases(campaign)&&existing.mode!==mode){toast("Campaign mode cannot change after cases or sessions exist.");return;}
  Object.assign(campaign,{forecastId:d.forecastId||existing?.forecastId||"",title:req(d.title,"Campaign title"),purpose:req(d.purpose,"Objective"),
-  mode:mode,task:desiredTask,solutionSetup:setup,frameworkId:fw?.id||"",frameworkInstances:participants.instances,setupGuideId:selectedGuide?.id||"",watchIds:watchIds,notes:d.notes||"",owner:d.owner||currentUser,updated:TODAY});
- if(existing&&before.stage==="review"&&["title","purpose","mode","task","solutionSetup","frameworkId","frameworkInstances","setupGuideId","watchIds"].some(function(k){return JSON.stringify(before[k])!==JSON.stringify(campaign[k]);})){
+  mode:mode,task:desiredTask,solutionSetup:setup,frameworkId:fw?.id||"",frameworkInstances:participants.instances,frameworkWorkflow:fw?d.frameworkWorkflow||"":"",setupGuideId:selectedGuide?.id||"",watchIds:watchIds,notes:d.notes||"",owner:d.owner||currentUser,updated:TODAY});
+ if(existing&&before.stage==="review"&&["title","purpose","mode","task","solutionSetup","frameworkId","frameworkInstances","frameworkWorkflow","setupGuideId","watchIds"].some(function(k){return JSON.stringify(before[k])!==JSON.stringify(campaign[k]);})){
  campaign.stage="active";campaign.status="active";campaign.reviewer="";campaign.reviewNotes="";
 }
  if(!existing)db.campaigns.push(campaign);else revision("Campaign",campaign.id,before,campaign);
