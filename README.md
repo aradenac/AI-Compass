@@ -59,12 +59,12 @@ Sign in as **Maya Laurent** or **Sofia Ramos**. The workgroup has its own sideba
 
 | Group | Screen | Purpose |
 | --- | --- | --- |
-| Workspace | **Dashboard** | Daily read-only qualification pipeline; latest user feedback and technology-watch signals. No KPIs or transition/add buttons. |
+| Workspace | **Dashboard** | Daily read-only **campaign pipeline** (Planned, In progress, Under review, Published), recent user feedback and watch signals. |
 | Workspace | **Task management** | Edit/reparent/reorder the taxonomy in-place, and inspect its engineer-facing view. |
 | Technology intelligence | **Technology watch** | Create evidence-backed watch hypotheses and task-linked theoretical forecasts with staging and review. |
 | Technology intelligence | **Technology catalog** | Maintain models, providers and harnesses independently; no benchmark launch button. |
 | Experiments | **Test design** | Define Test Cases and benchmark protocols. No result-interpretation workflow mixed into this screen. |
-| Experiments | **Benchmark workspace** | Start/continue qualification processes, create campaigns and runs, review drafts, publish evidence and conclusions. |
+| Experiments | **Benchmark workspace** | **Campaign-centric** guided process: create/edit a campaign, choose a comparison mode, add Test Cases, record timed iterations and outcomes, close for peer review, publish or reopen. |
 | Experiments | **Results explorer** | Compare theoretical predictions against measured runs with separate evidence labels, plus inspect benchmark matrices. |
 | Experiments | **Recommendations** | Maintain evidence-linked published decisions and guidance. |
 | Knowledge & collaboration | **Guides & charter** | Search, sort, filter and edit existing articles, plus create and publish new ones. |
@@ -74,7 +74,26 @@ Sign in as **Maya Laurent** or **Sofia Ramos**. The workgroup has its own sideba
 
 ### Workgroup daily dashboard
 
-The **Dashboard is observational**, suitable for a daily meeting. It displays the four qualification stages (**To qualify → Qualifying → Review → Published**) as a **read-only board** with ownership, dates and evidence counts, plus recent feedback and watch signals. The four previous KPI cards and **Add to Pipeline** button have been removed. Viewing a card opens a read-only snapshot; modifications and decisions belong to **Benchmark workspace**.
+The **Dashboard** now shows the four **campaign states**: **Planned → In progress → Under review → Published**. The board is read-only and intended for a daily workgroup meeting. Every card summarizes the campaign objective, mode, owner, included Test Cases and completed runs. Changes happen only in **Benchmark workspace**. Recent user feedback and technology-watch signals remain visible below.
+
+### Guided benchmark campaign workflow
+
+The **campaign is the workgroup's primary unit of experimental work and review**. A controlled run remains the atomic unit of evidence, and Test Cases remain reusable independent challenges.
+
+1. **Create campaign:** specify name, qualification goal, owner, comments and experimental strategy. Choose **Solution-centred** (one fixed model + provider + harness + configuration across Test Cases and potentially multiple tasks) or **Task-centred** (one fixed engineering task, multiple AI configurations compared on the task's Test Cases).
+2. **Open the campaign:** a new campaign starts in **Planned**. Open it to begin execution. The campaign can later be closed, reopened or edited. A configuration is defined using already declared catalog components; a newly measured AI Solution is registered after its first run.
+3. **Add challenges:** create Test Cases directly inside the campaign (task, protocol, inputs, DoD) or attach existing reusable Test Cases. Task-centred campaigns restrict cases to the fixed task; solution-centred campaigns accept tasks across the taxonomy.
+4. **Execute each Test Case via guided forms:**
+   - **Initial configuration:** dated start, initial prompt, input documents/versions, provided skills, agent configuration, preparation notes and estimated human setup duration.
+   - **Timed interactions:** repeatable entries with calendar date/time, human intervention duration, agent/runtime duration, interaction kind, review or corrective action, prompt modifications and intermediate artifacts. Add as many as needed.
+   - **Conclusion & metrics:** accepted or failed DoD, scored quality and useful information density, input/output tokens, AI expense, additional machine runtime, final review/correction effort, produced files, outcomes and reasoning.
+   - **Close Test Case:** save an auditable benchmark run linked to this campaign, task, Test Case, protocol, component/version snapshots and all recorded interactions. Failures remain evidence. A new Test Case or new solution may be tested next.
+5. **Close campaign → Under review:** stages the campaign and its collected runs for other members' review. A different workgroup member (e.g. **Sofia Ramos** for Maya's campaign) documents a review decision. **Publish** shares completed run evidence or **Rework** reopens the campaign.
+6. **Reopen when needed:** even a published or under-review campaign can return to **In progress** for additional Test Cases and runs. Previously published run evidence is preserved. Edit campaign goals/notes, archive an evidence-bearing campaign without deleting its audit history, or remove an empty campaign.
+
+An uncompleted Test Case session can be **resumed from the campaign**. Sessions and campaign states persist in browser `localStorage`; no live AI agent, timer daemon, upload endpoint or real benchmarking service is executed. Timestamps/durations and file paths are manually declared, and all starting values are simulated.
+
+**Test this with Maya Laurent (campaign author) and Sofia Ramos (independent reviewer):** Create → Open → Add a Test Case → Save setup → Add two interactions at different times → Record a failed or accepted result → Close → Switch workgroup account → Review & publish → Reopen and inspect preserved runs.
 
 ### Technology Watch: evidence-backed forecasts
 
@@ -127,8 +146,8 @@ All changes are persisted in `localStorage`; node IDs remain stable, and prior b
 1. **Maya (workgroup):** Open **Dashboard**, observe qualification statuses and read feedback without manipulating the pipeline there.
 2. **Maya:** Open **Technology Watch**, create a Watch Entry with literature sources directly in the form, then derive a task-linked theoretical forecast.
 3. **Maya:** Open **Test design** to create a TC and a versioned protocol.
-4. **Maya:** Open **Benchmark workspace** to create a qualification, select components, record a run and inspect its evidence.
-5. **Maya:** Continue the qualification to **Review** and publish a reasoned conclusion when controlled evidence is available.
+4. **Maya:** Open **Benchmark workspace**, create a campaign in one of the two modes, open it, define Test Cases, and follow guided setup → interactions → result steps.
+5. **Maya:** Close the campaign for independent peer review, then switch to Sofia Ramos to approve publication or request rework.
 6. **Maya:** Open **Results explorer → Measured vs theoretical** to compare staged theoretical forecasts and benchmarked configurations with explicit provenance.
 7. **Maya:** In **Feedback & discussions**, post an internal note and then a public response; inspect those conversations after reloading the page.
 8. **Maya:** In **Guides & charter**, filter articles, edit an existing guide and verify its revision in **Activity feed**.
