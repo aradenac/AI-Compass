@@ -314,13 +314,47 @@ A candidate can be inaccessible and qualified, while an accessible solution can 
 
 The system should retain dates and provenance such as **created, published, last verified/reviewed, validity, and supersession relationship**. It should highlight advice potentially due for review or rendered obsolete, and maintain history rather than silently replacing previous conclusions.
 
-### Technology-watch evidence and screening
+### Technology-watch hypotheses and evidence-first screening
 
-The intended progression is **Technology Watch signal → Model/Provider/Harness catalog item → public evidence and screening → optional controlled benchmark/qualification**, not a direct `Start qualification` action on the watch record.
+The intended first flow is now:
 
-The workgroup must be able to maintain sourced **independent benchmarks, publications, vendor claims and expert estimates**, with attribution, evaluated component, observed or estimated performance, methodological scope, assumptions, uncertainty and confidence. These may suggest which combinations are worth benchmarking, but must be distinguished from reproducible internal runs and **must not automatically count as observed quality scores or official recommendations**. Component catalog entries can remain speculative or inaccessible without an AI Solution.
+**Watch Entry → explicit rationale and sources → task-linked theoretical configuration → Draft → Staged → Reviewed → Published (THEORETICAL)**
 
-Feedback and controlled benchmark evidence must be distinguished, though both can motivate an update.
+A Watch Entry is an investigative **hypothesis**, not a pending catalog component. It records the question or intuition, expected opportunity, assumptions, scope and multiple public sources (papers, published benchmarks, vendor statements, expert estimates) **during creation**, not only after submission. Each source stores citation, claim, limitations, confidence and origin. Later sources can be appended without erasing the original hypothesis. Several Watch Entries may support one forecast; a Watch Entry may support several forecasts.
+
+An individual Model, Provider or Harness catalog item can be created independently when concrete technical inventory is useful, but must **not** be generated automatically or presented as a mandatory step from a Watch Entry. Technology Watch should not expose redundant navigation buttons to Technology Catalog or unexplained lists of "unqualified components."
+
+### Theoretical configuration and projected value
+
+The workgroup may compose a **theoretical candidate configuration** using selected model/provider/harness components, a versioned set of assumptions/configuration, and one **stable engineering task reference**. Its expected metrics may include:
+
+- **Estimated** quality and acceptance probability against the task's DoD.
+- **Estimated** degree of agent autonomy and engineer preparation/steering/review/correction effort.
+- **Estimated** AI/tooling cost and labor-value potential relative to an explicit task baseline, labor-rate assumption and expected acceptance probability.
+- Confidence/uncertainty, assumptions, supporting literature and the reasoning used to infer each metric.
+- Explicit immutable provenance links to the Watch Entries and underlying sources.
+
+Estimated scores may be entered manually or, in later increments, derived through documented AI-assisted synthesis. The system must **not fabricate precision or silently equate a literature benchmark with an internal task-specific observation**. If necessary assumptions are missing, an economic metric should be marked unavailable rather than treated as zero.
+
+A theoretical candidate has an independent lifecycle:
+
+**Draft → Staged → Reviewed → Published (THEORETICAL)**
+
+Draft is editable. Staging makes it available in **internal comparisons** without publication. Review documents the reasoning and evidence. Publication is an explicit workgroup decision, **not a claim of experimental qualification**; published forecasts must remain clearly labeled theoretical. Material changes invalidate the previous review and require a new staging/review cycle. Published forecasts must retain versioned history.
+
+### Parallel, comparable but non-equivalent evidence
+
+The second input path is still:
+
+**Task → Test Case + Protocol → Controlled benchmark run → Measured AI Solution → qualification/recommendation**
+
+Task-centric discovery and the Results Explorer must support **side-by-side comparisons of forecasts and experimentally tested solutions**. The presentation must distinguish estimated versus observed metrics and display source type, evidence coverage/sample count, confidence and comparable task scope. In particular, expected quality/acceptance/cost/time must never be rendered as observed benchmark means, even if the forecast has been published.
+
+A staged theoretical configuration can later be taken into the Benchmark Workspace as the initial experiment setup. The resulting run pins a **snapshot of the original forecast** and creates or reuses the measured solution identity; the source forecast remains intact. Any difference between predicted and observed results can then be audited instead of rewriting the past prediction.
+
+The Technology Watch screen owns evidence collection and forecast staging/review. The Benchmark Workspace owns controlled experiment planning and execution, and qualification decisions for measured solutions. The daily dashboard remains a read-only progress overview.
+
+Feedback and controlled benchmark evidence must be distinguished, though both can motivate updates.
 
 ## 13. Engineer experience and feedback loop
 
@@ -386,6 +420,9 @@ These are functional entities/relationships, **not a mandated physical database 
 | Benchmark Campaign | Optional grouping of runs for an experimental objective. |
 | Evidence | Inputs, traces, reviews, artifacts, provenance, test results, and cost records from controlled runs. |
 | External Research Evidence | Sourced publications, public benchmarks, vendor claims, and workgroup performance estimates with confidence, scope, and limitations; distinct from internal runs. |
+| Watch Hypothesis | Independent evidence-backed intuition or opportunity with assumptions, reasoning and one-to-many supporting sources. |
+| Theoretical Forecast | Task-specific candidate model/provider/harness/configuration, expected (not observed) metrics, risk, economic assumptions, linked watch hypotheses and distinct staging/review/publication state. |
+| Forecast Validation Link | Reference from a controlled run to the immutable forecast snapshot whose configuration motivated the experiment. |
 | Qualification | Workgroup-owned operational process with assigned owner, stage, task/candidate selection, experiments, review and publication decision. |
 | Feedback Message | Timestamped, attributed message linked to a feedback record in an explicitly public or workgroup-internal discussion channel. |
 | Evaluation | Interpreted results, metrics, aggregation, and versioned scoring method. |
@@ -396,7 +433,11 @@ These are functional entities/relationships, **not a mandated physical database 
 
 Core relationship:
 
-**Component catalogs (Model / Provider / Harness) → Configured benchmark setup → First Run → AI Solution → Evaluation → Recommendation**
+**Technology Watch hypotheses + literature → Theoretical Forecast (task + components + assumptions) → Staging → Review → Optional theoretical publication**
+
+**Component catalogs (Model / Provider / Harness) → Configured benchmark setup → First Run → Measured AI Solution → Evaluation → Recommendation**
+
+**Theoretical forecast ↔ Controlled benchmark run (optional validation, immutable original prediction)**
 
 **Task hierarchy → Task ↔ Test Cases ↔ Benchmark Runs ↔ AI Solutions**
 
