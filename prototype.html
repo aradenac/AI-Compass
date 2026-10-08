@@ -69,6 +69,8 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;b
 .organizing-drag .organizer-drop.drop-active{height:36px;border:2px dashed #4a79db;background:#e9f1ff;color:#3159d7}
 .organizing-drag .organizer-node-row{border:1px dashed #dae4f4}
 @media(max-width:780px){.organizer-grid{grid-template-columns:1fr}.organizer-node-row{flex-wrap:nowrap}.organizer-mini{min-width:21px}.organizer-intro{font-size:12px}}
+
+.component-lane .list{max-height:620px;overflow:auto}.component-lane .list-row{align-items:flex-start}.component-lane .list-row p{margin-top:7px}.component-lane .card-head h2{font-size:19px}
 </style>
 </head>
 <body>
@@ -498,21 +500,30 @@ function solutionCard(s){
 var stats=solutionStats(s.id),checked=ui.selectedCompare.includes(s.id);
 return '<article class="card solution-card"><div class="solution-title"><div class="row"><div class="solution-icon">'+E(s.name[0])+'</div><div><h3>'+E(s.name)+'</h3><span class="muted small">'+E(s.provider)+' · '+E(s.harness)+'</span></div></div>'+badge(s.accessible?"Accessible":"Not accessible")+'</div><p class="muted small">'+E(s.description)+'</p><div class="tags">'+badge(s.maturity)+badge(s.publication)+s.tags.map(badge).join("")+'</div><div class="grid g2"><div><div class="stat-label">Published runs</div><strong>'+stats.count+'</strong></div><div><div class="stat-label">Observed mean score</div><strong class="score">'+(stats.count?stats.score+"/100":"Not tested")+'</strong></div></div><div class="solution-foot"><label class="small row"><input type="checkbox" data-compare="'+E(s.id)+'"'+(checked?' checked':'')+'> Compare</label>'+btn("Inspect solution →","solution",s.id,"sm")+'</div></article>';
 }
+
+function componentCatalogueType(type){
+var title={model:"Models",provider:"Providers",harness:"Harnesses"}[type];
+var list=db.components.filter(function(c){return c.type===type;}).sort(function(a,b){return a.name.localeCompare(b.name);});
+return '<section class="card component-lane"><div class="card-head"><div><div class="eyebrow">'+E(type)+'</div><h2>'+E(title)+'</h2></div>'+btn("+ Add","newComponentType",type,"sm")+'</div>'+
+'<p class="muted small" style="margin-bottom:14px">'+E(type==="model"?"Versioned AI engines and capabilities":type==="provider"?"Hosting, endpoints, access and pricing context":"CLI, web, IDE, tools and agent integrations")+'</p>'+
+'<div class="list">'+list.map(function(c){
+var related=db.solutions.filter(function(s){return s.componentRefs&&s.componentRefs[type]===c.id&&db.runs.some(function(r){return r.solution===s.id;});});
+return '<div class="list-row"><div class="short"><strong>'+E(c.name)+'</strong><div class="muted small">'+E(c.version||"Version not set")+' · '+related.length+' bench-tested combination(s)</div><div class="tags" style="margin-top:5px">'+badge(c.publication||"published")+badge(c.status||"active")+badge(c.accessible?"Accessible":"Not accessible")+'</div><p class="muted small">'+E((c.details||"").slice(0,112))+'</p></div>'+btn("Edit","editComponent",c.id,"sm")+'</div>';
+}).join("")+'</div></section>';
+}
 function componentCatalog(){
-var kind=ui.filters.componentKind||"all";
-var comps=db.components.filter(function(c){return (canEdit()||c.publication==="published"||!c.publication)&&(kind==="all"||c.type===kind);});
-return '<div class="filters"><select data-filter="componentKind">'+[["all","All components"],["model","Models"],["provider","Providers"],["harness","Harnesses"]].map(function(x){return opt(x[0],x[1],kind);}).join("")+'</select>'+badge(comps.length+" records")+'</div>'+simpleTable(["Type","Catalog component","Version / capabilities","Status",""],comps.map(function(c){return '<tr>'+td(badge(c.type))+td('<strong>'+E(c.name)+'</strong>')+td(E(c.version||"—")+'<div class="muted small">'+E(c.details||"")+'</div>')+td(badge(c.publication||"published"))+td(canEdit()?btn("Edit","editComponent",c.id,"sm"):"")+'</tr>';}))+'<div class="note" style="margin-top:17px">Catalog components are managed independently. AI solutions reference a model, provider and harness, then add configuration, tools and versions.</div>';
+var count=db.components.length;
+return '<div class="note" style="margin-bottom:17px"><strong>Workgroup operating model:</strong> maintain Models, Providers and Harnesses independently. Build a configuration inside <strong>Benchmark lab → New run</strong>; its first recorded run registers the tested combination as an AI Solution. Drafts and catalog candidates are not automatically recommendations.</div>'+
+'<div class="grid g3">'+["model","provider","harness"].map(componentCatalogueType).join("")+'</div>'+
+'<div class="row-between" style="margin-top:16px"><span class="muted small">'+count+' catalog components · '+db.solutions.filter(function(s){return db.runs.some(function(r){return r.solution===s.id;});}).length+' combinations with experimental evidence</span>'+btn("Configure & benchmark →","newRun","","primary")+'</div>';
 }
 function solutionsPage(){
-var catalogue=ui.solutionView==="components";
-var tabs='<div class="pill-tabs"><button class="tab'+(!catalogue?' active':'')+'" data-act="solutionTab" data-id="solutions">Complete AI solutions</button><button class="tab'+(catalogue?' active':'')+'" data-act="solutionTab" data-id="components">Models, providers & harnesses</button></div>';
-var headingActions=canEdit()?btn(catalogue?"+ New component":"+ Register solution",catalogue?"newComponent":"newSolution","","primary"):"";
-if(catalogue)return heading("Explore","Technology catalog","The building blocks of AI solutions: individually identifiable and editable models, providers and harnesses.",headingActions)+'<div class="card">'+tabs+componentCatalog()+'</div>';
+if(canEdit())return heading("Workgroup catalog","Models, Providers & Harnesses","Manage the reusable building blocks independently. AI Solutions are the outputs of benchmark experiments.",btn("+ Model","newComponentType","model","primary")+btn("+ Provider","newComponentType","provider")+btn("+ Harness","newComponentType","harness"))+componentCatalog();
 var q=String(ui.filters.solutionSearch||"").toLowerCase(),availability=ui.filters.access||"all",maturity=ui.filters.maturity||"all";
 var solutions=db.solutions.filter(function(s){return visibleSolution(s)&&(s.name+" "+s.model+" "+s.harness+" "+s.provider+" "+s.tags.join(" ")).toLowerCase().includes(q)&&(availability==="all"||(availability==="yes"?s.accessible:!s.accessible))&&(maturity==="all"||s.maturity===maturity);});
 var filters='<div class="filters"><input class="input" data-filter="solutionSearch" placeholder="Search model, harness, provider or capability…" value="'+E(ui.filters.solutionSearch||"")+'"><select data-filter="access">'+[["all","Any access"],["yes","Accessible"],["no","Not accessible"]].map(function(x){return opt(x[0],x[1],availability);}).join("")+'</select><select data-filter="maturity">'+[["all","Any maturity"],["candidate","Candidate"],["experimental","Experimental"],["evaluated","Evaluated"],["qualified","Qualified"]].map(function(x){return opt(x[0],x[1],maturity);}).join("")+'</select></div>';
 var compare=ui.selectedCompare.length>=2?section("Selected solution comparison",solutionComparison(ui.selectedCompare)):'<div class="note" style="margin-top:18px">Select two or more solution cards to compare configurations, accessibility, evidence, outcomes, cost and effort side by side.</div>';
-return heading("Explore","AI solution catalog","A solution is a versioned combination of model, provider, harness, configuration and capabilities. Accessible and inaccessible candidates coexist.",headingActions)+'<div class="card" style="margin-bottom:17px">'+tabs+'</div>'+filters+'<div class="grid g3">'+(solutions.length?solutions.map(solutionCard).join(""):'<div class="empty">No solutions match these filters.</div>')+'</div><div style="margin-top:20px">'+compare+'</div>';
+return heading("Explore","Benchmarked AI solutions","Each listed solution is a model + provider + harness + configuration that has been used in a recorded benchmark run.",btn("Explore engineering tasks","nav","tasks"))+filters+'<div class="grid g3">'+(solutions.length?solutions.map(solutionCard).join(""):'<div class="empty">No solutions match these filters.</div>')+'</div><div style="margin-top:20px">'+compare+'</div>';
 }
 function solutionComparison(ids){
 var ss=ids.map(function(id){return rec("solutions",id);}).filter(function(s){return s&&visibleSolution(s);});
