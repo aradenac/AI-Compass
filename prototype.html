@@ -1445,6 +1445,7 @@ function campaignTrialStart(campaignId,caseId){
 var c=rec("campaigns",campaignId),tc=rec("cases",caseId);
 if(!c||!tc||c.stage!=="active"||!canEdit()||!c.caseIds.includes(caseId))return;
 var fixed=c.mode==="solution_scope",setup=c.solutionSetup||{},sourceForecast=rec("proposals",c.forecastId),predicted=sourceForecast?.componentRefs||{};
+var matchingFixedSolution=fixed?db.solutions.find(function(sol){return sol.componentRefs&&["model","provider","harness"].every(function(k){return sol.componentRefs[k]===setup[k];});}):null;
 var fields='<div class="span2 note">Step 3 — <strong>Initial installation / deployment</strong>: record which installation guide was used, actual environment, setup time and start timestamp. Prompts, documents supplied to the agent, skills activated and options changed belong to the subsequent timed interactions, including the first one.</div>'+
 '<input type="hidden" name="case" value="'+E(tc.id)+'"><div class="span2"><strong>'+E(tc.title)+'</strong><p class="muted small">'+E(rec("tasks",tc.task)?.name||"")+' · DoD: '+E(tc.dod)+'</p></div>'+
 (fixed?'<div class="span2 note"><strong>Fixed campaign AI setup:</strong> '+["model","provider","harness"].map(function(k){return E(rec("components",setup[k])?.name||"Not set");}).join(" · ")+'</div>':
@@ -1458,7 +1459,7 @@ guidedField("capabilities","Available tools / integrations (deployed)","","texta
 guidedField("startedAt","Installation start date and time",campaignLocalTime(),"datetime-local",null,"Local wall-clock start of the installation/setup activity. Subsequent interactions cannot be earlier than this timestamp.")+
 durationField("setupMinutes","Human installation / preparation time (minutes)",0,"Active human time preparing/installing the environment and verifying readiness. Do not include prompting, agent runtime or later review. 0–10,080 minutes (7 days).")+
 '<div class="span2"><h3>Installation guide</h3><p class="muted small">Guides are reusable knowledge-base documents, optionally associated with an AI Solution; selecting a guide does not mean the guide itself was authored during this run.</p></div>'+
-selectField("installationGuide","Guide used for setup",installationGuideOptions(""),"","true")+
+selectField("installationGuide","Guide used for setup",installationGuideOptions(matchingFixedSolution?.id||""),"",true)+
 '<details class="span2"><summary class="pointer"><strong>+ Create a new installation guide</strong></summary><div class="form-grid" style="margin-top:9px">'+
 guidedField("newGuideTitle","New guide title","","text","full","Name the reusable installation/deployment procedure, e.g. Ubuntu + agent CLI setup.")+
 guidedField("newGuideBody","Installation steps, prerequisites and verification","","textarea","full","List actual prerequisites and deployment steps; this document is added to Guides & Charter for reuse.")+
@@ -2120,6 +2121,18 @@ document.addEventListener("change",function(ev){
 var el=ev.target;
 if(updateMetricControl(el))return;
 if(el?.name==="tokenScale"){tokenPreview(el.closest("form"));return;}
+if(el?.name==="existingSolution"&&el.closest("form")?.dataset.form==="campaignTrialSetup"){
+ var guideSelect=el.closest("form").querySelector('[name="installationGuide"]');
+ if(guideSelect){
+  var target=el.value;
+  Array.from(guideSelect.options).forEach(function(option){
+   var item=rec("guides",option.value);
+   option.hidden=!!(target&&item?.solution&&item.solution!==target);
+  });
+  if(guideSelect.selectedOptions[0]?.hidden)guideSelect.value="";
+ }
+ return;
+}
 if(el?.name==="costMode"){
  var area=el.closest("form")?.querySelector("[data-metered-cost]");
  if(area)area.style.display=el.value==="amount"?"":"none";
