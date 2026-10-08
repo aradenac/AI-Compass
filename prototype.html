@@ -254,6 +254,11 @@ if(!Array.isArray(db.researchEvidence))db.researchEvidence=[
  {id:"research1",title:"Agent coding benchmark — illustrative public result",type:"Independent benchmark",component:"",signal:"w1",source:"Mock external benchmark (no real URL)",date:"2026-10-03",confidence:"low",assessment:"Potential coding strength; tested configuration and methodology require verification.",limitations:"Illustrative observation; not a controlled internal run.",author:"u1"},
  {id:"research2",title:"Provider pricing note — illustrative estimate",type:"Vendor claim",component:"",signal:"w2",source:"Mock provider bulletin",date:"2026-10-06",confidence:"low",assessment:"Potential value improvement, subject to benchmarking.",limitations:"Unverified promotional claim.",author:"u5"}
 ];
+if(!Array.isArray(db.watchSourceLinks))db.watchSourceLinks=[];
+db.researchEvidence.forEach(function(e){
+ if(e.signal&&!db.watchSourceLinks.some(function(l){return l.watch===e.signal&&l.source===e.id;}))
+  db.watchSourceLinks.push({watch:e.signal,source:e.id,linkedAt:e.date||TODAY,by:e.author||"u1"});
+});
 if(!Array.isArray(db.feedbackMessages))db.feedbackMessages=[
  {id:"msg1",feedback:"f1",visibility:"public",author:"u1",date:"2026-10-06T09:15:00",body:"Thanks for reporting this; we are investigating context limits."},
  {id:"msg2",feedback:"f1",visibility:"internal",author:"u5",date:"2026-10-06T11:40:00",body:"Reproduce with a large-repo Test Case and capture the exact router configuration."},
@@ -848,7 +853,16 @@ tools+'<div class="grid g2">'+(docs.map(function(g){return '<div class="card"><d
 }
 function watchVisible(w){return !!w&&(canEdit()||w.publication==="published");}
 function researchVisible(e){return !!e&&(canEdit()||(e.publication==="published"&&(!e.signal||watchVisible(rec("watch",e.signal)))));}
-function watchEvidence(id){return db.researchEvidence.filter(function(e){return e.signal===id&&researchVisible(e);});}
+function sourceIdsForWatch(id){return db.watchSourceLinks.filter(function(x){return x.watch===id;}).map(function(x){return x.source;});}
+function watchEvidence(id){var ids=new Set(sourceIdsForWatch(id));return db.researchEvidence.filter(function(e){return ids.has(e.id)&&researchVisible(e);});}
+function sourceKey(x){return String(x.source||x.title||"").trim().toLowerCase().replace(/\/$/,"");}
+function librarySourcePicker(selected){
+ var ids=new Set(selected||[]);
+ return '<div class="watch-source-library"><input class="input" type="search" data-source-search="1" placeholder="Search existing sources by title, URL or type…">'+
+ '<div class="watch-library-options">'+db.researchEvidence.map(function(e){
+ return '<label class="watch-link-row watch-library-option" data-source-title="'+E((e.title+" "+e.source+" "+e.type).toLowerCase())+'"><input type="checkbox" name="librarySource_'+E(e.id)+'" value="yes"'+(ids.has(e.id)?' checked':'')+'><span><strong>'+E(e.title)+'</strong><span class="muted small" style="display:block">'+E(e.type)+' · '+E(e.source)+' · '+E(e.confidence||"low")+' confidence</span></span></label>';
+ }).join("")+'</div></div>';
+}
 function forecastVisible(p){return canEdit()||p.status==="published";}
 function forecastNetSavings(p){
 var baseline=rec("tasks",p.task)?.baseline||0;
@@ -1168,9 +1182,8 @@ openModal("Theoretical configuration · "+p.name,html,footer);
 }
 function dialogWatch(id){
 if(!canEdit())return;
-var w=rec("watch",id),evidence=w?watchEvidence(w.id):[];
-var sources=evidence.length?evidence:[null];
-var body='<div class="span2 note">A watch entry is an evidence-backed <strong>hypothesis</strong>, not a catalog component and not a qualification. Register the literature now; you can later link several watch entries to a task-specific forecast.</div>'+
+var w=rec("watch",id),linked=w?sourceIdsForWatch(w.id):[];
+var body='<div class="span2 note">A Watch Entry records a reasoned hypothesis. Reuse sources from the shared evidence library or create new citations here; one source can support several hypotheses.</div>'+
 field("title","Signal or hypothesis title",w?.title||"","text","full")+
 selectField("kind","Technology theme",[["Model","Model"],["Provider","Provider"],["Harness","Harness"],["Configuration","Configuration / combination"],["Tool","Tools and integrations"],["Research","Research finding"]],w?.kind||"Configuration")+
 selectField("status","Evidence collection status",[["watching","Under review"],["pending","Collecting evidence"],["reviewed","Documented"]],w?.status||"watching")+
@@ -1178,8 +1191,13 @@ selectField("publication","Watch evidence visibility",[["draft","Workgroup only 
 field("hypothesis","Reasoned hypothesis / intuition",w?.hypothesis||w?.summary||"","textarea","full")+
 field("assumptions","Assumptions and conditions for engineering use",w?.assumptions||"","textarea","full")+
 field("potential","Expected benefit / engineering activities to investigate",w?.potential||"","textarea","full")+
-'<div class="span2"><div class="row-between"><strong>Literature, public benchmarks & supporting evidence</strong><button type="button" class="btn sm" data-act="addWatchSource">+ Add source</button></div><p class="muted small" style="margin:8px 0 11px">Every source retains its citation, confidence, claim, and limits. These are NOT controlled internal benchmark results.</p><div id="watch-source-list">'+sources.map(function(e,i){return watchSourceRow(i,e);}).join("")+'</div></div>';
-openForm(w?"Edit hypothesis and evidence":"Create watch entry with evidence",w?"watchEdit":"watch",body,id||"",w?"Save watch entry":"Save watch entry");
+'<div class="span2"><div class="row-between"><strong>Supporting evidence library</strong>'+badge(db.researchEvidence.length+" reusable sources")+'</div>'+
+'<p class="muted small" style="margin:8px 0">Search and select existing citations. Every reference is stored once and can be linked to multiple Watch Entries.</p>'+librarySourcePicker(linked)+
+'<details class="watch-new-source" style="margin-top:12px"><summary class="pointer small"><strong>+ Register a new source</strong></summary>'+
+'<p class="muted small" style="margin:9px 0">New sources become reusable. An existing citation is linked instead of duplicated.</p>'+
+'<div id="watch-source-list">'+watchSourceRow(0,null)+'</div>'+
+'<button type="button" class="btn sm" data-act="addWatchSource">+ Another new citation</button></details></div>';
+openForm(w?"Edit hypothesis and sources":"Create Watch Entry","watch",body,id||"",w?"Save Watch Entry":"Create Watch Entry");
 }
 function collectWatchSources(d,signalId){
 var indexes=Object.keys(d).filter(function(k){return /^sourceTitle_\d+$/.test(k);}).map(function(k){return Number(k.split("_")[1]);});
@@ -1753,15 +1771,29 @@ if(kind==="task"||kind==="taskEdit"){
 }else if(kind==="watch"||kind==="watchEdit"){
  var w=kind==="watchEdit"?rec("watch",id):{id:next("w")};if(!w)return;
  var collected=collectWatchSources(d,w.id);if(collected.error){toast(collected.error);return;}
- var original=kind==="watchEdit"?JSON.parse(JSON.stringify(w)):null;
- Object.assign(w,{title:req(d.title,"Hypothesis title"),kind:d.kind,status:d.status,publication:d.publication||"draft",hypothesis:req(d.hypothesis,"Hypothesis"),assumptions:d.assumptions||"",potential:d.potential||"",summary:d.hypothesis,component:w.component||"",date:new Date().toISOString().slice(0,10)});
- if(kind==="watch")db.watch.push(w);else revision("Watch hypothesis",w.id,original,w);
- collected.sources.forEach(function(src){
-  var existing=rec("researchEvidence",src.id),before=existing?JSON.parse(JSON.stringify(existing)):null;
-  if(existing){Object.assign(existing,src,{date:new Date().toISOString().slice(0,10)});revision("Watch source",existing.id,before,existing);}
-  else db.researchEvidence.push(Object.assign(src,{id:next("research"),date:new Date().toISOString().slice(0,10),publication:"published",author:currentUser}));
+ var title=req(d.title,"Hypothesis title"),hypothesis=req(d.hypothesis,"Hypothesis");
+ var selected=new Set(db.researchEvidence.filter(function(e){return d["librarySource_"+e.id]==="yes";}).map(function(e){return e.id;}));
+ var plannedNew=[],deduplicated=[];
+ for(var src of collected.sources){
+  var match=db.researchEvidence.find(function(e){return sourceKey(e)===sourceKey(src)||
+    (src.title.trim().toLowerCase()===e.title.trim().toLowerCase()&&String(e.source||"").trim().toLowerCase()===src.source.trim().toLowerCase());});
+  if(match){selected.add(match.id);deduplicated.push(match.title);}
+  else if(!plannedNew.some(function(other){return sourceKey(other)===sourceKey(src);}))plannedNew.push(src);
+ }
+ var old=kind==="watchEdit"?JSON.parse(JSON.stringify(w)):null;
+ Object.assign(w,{title:title,kind:d.kind,status:d.status,publication:d.publication||"draft",
+  hypothesis:hypothesis,assumptions:d.assumptions||"",potential:d.potential||"",summary:hypothesis,
+  component:w.component||"",date:new Date().toISOString().slice(0,10)});
+ if(kind==="watch")db.watch.push(w);else revision("Watch hypothesis",w.id,old,w);
+ plannedNew.forEach(function(src){
+  var item=Object.assign({},src,{id:next("research"),signal:"",date:new Date().toISOString().slice(0,10),
+   publication:"published",author:currentUser});
+  db.researchEvidence.push(item);selected.add(item.id);
  });
- ui.page="watch";event("Watch",(kind==="watchEdit"?"Updated":"Created")+" evidence-backed hypothesis: "+w.title,true);
+ db.watchSourceLinks=db.watchSourceLinks.filter(function(x){return x.watch!==w.id;});
+ selected.forEach(function(source){db.watchSourceLinks.push({watch:w.id,source:source,linkedAt:new Date().toISOString(),by:currentUser});});
+ ui.page="watch";event("Watch",(kind==="watchEdit"?"Updated":"Created")+" evidence-backed hypothesis: "+w.title,true,
+ {objectType:"Watch Entry",objectId:w.id,sourceIds:Array.from(selected),newSources:plannedNew.length,reusedSources:deduplicated,visibility:w.publication});
 }else if(kind==="forecast"){
  var watchIds=db.watch.filter(function(w){return d["watch_"+w.id]==="yes";}).map(function(w){return w.id;});
  var refs={model:d.modelComponent,provider:d.providerComponent,harness:d.harnessComponent};
@@ -1812,10 +1844,21 @@ ui.modal="";persist();render();toast("Changes saved in this browser.");
 }catch(ex){if(ex.message!=="form validation")throw ex;}
 }
 document.addEventListener("submit",function(ev){if(ev.target.matches(".feedback-reply-form")){ev.preventDefault();handleFeedbackReply(ev.target);return;}if(ev.target.matches(".inline-task-form")){ev.preventDefault();saveInlineTask(ev.target);return;}if(ev.target.matches("#modalForm")){ev.preventDefault();handleForm(ev.target);}});
+document.addEventListener("input",function(ev){
+ var field=ev.target;if(field?.matches?.("[data-source-search]")){
+  var q=String(field.value||"").toLowerCase().trim();
+  document.querySelectorAll(".watch-library-option").forEach(function(option){option.style.display=(option.dataset.sourceTitle||"").includes(q)?"":"none";});
+ }
+});
 document.addEventListener("change",function(ev){
 var el=ev.target;
 if(el&&el.name==="mode"&&el.closest&&el.closest("#modalForm")?.dataset.form==="campaign"){
  document.querySelectorAll(".campaign-mode-panel").forEach(function(panel){panel.style.display=panel.dataset.modePanel===el.value?"":"none";});
+ return;
+}
+if(el?.matches?.("[data-source-search]")){
+ var q=String(el.value||"").toLowerCase().trim();
+ document.querySelectorAll(".watch-library-option").forEach(function(option){option.style.display=(option.dataset.sourceTitle||"").includes(q)?"":"none";});
  return;
 }
 if(el&&el.name==="solutionMode"){
