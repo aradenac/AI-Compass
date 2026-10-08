@@ -384,8 +384,8 @@ db.runs.forEach(function(r,i){
  if(r.reprompts==null)r.reprompts=(i%4);
  if(r.duration==null)r.duration=18+(i*7)%93;
  if(!r.caseSnapshot)r.caseSnapshot=JSON.parse(JSON.stringify(db.cases.find(function(c){return c.id===r.case;})||{}));
- if(!r.solutionSnapshot)r.solutionSnapshot=JSON.parse(JSON.stringify(db.solutions.find(function(x){return x.id===r.solution;})||{}));
- if(!r.componentSnapshots)r.componentSnapshots=JSON.parse(JSON.stringify(r.solutionSnapshot.componentSnapshots||{}));
+ if(!r.solutionSnapshot&&!r.frameworkAggregate)r.solutionSnapshot=JSON.parse(JSON.stringify(db.solutions.find(function(x){return x.id===r.solution;})||{}));
+ if(!r.componentSnapshots)r.componentSnapshots=JSON.parse(JSON.stringify(r.solutionSnapshot?.componentSnapshots||{}));
  if(!r.protocolSnapshot)r.protocolSnapshot=JSON.parse(JSON.stringify(db.protocols.find(function(x){return x.id===r.protocol;})||{}));
  if(!r.taskContextSnapshot){var tc=db.cases.find(function(x){return x.id===r.case;});r.taskContextSnapshot=tc?ancestors(tc.task).map(function(t){return {id:t.id,name:t.name,phase:t.phase,criteria:t.criteria,baseline:t.baseline};}):[];}
 
@@ -868,7 +868,7 @@ function componentCatalogueType(type){
    '<div class="muted small">'+E(c.version||"Version not set")+' · '+count+(type==="framework"?" linked campaigns":" tested combinations")+'</div>'+
    '<div class="tags" style="margin-top:5px">'+badge(c.publication||"published")+badge(c.status||"active")+badge(c.accessible?"Accessible":"Not accessible")+'</div>'+
    '<p class="muted small">'+E((c.details||"").slice(0,180))+'</p>'+
-   (c.url?'<p class="small"><a href="'+E(c.url)+'" target="_blank" rel="noopener noreferrer">Documentation ↗</a></p>':"")+
+   (c.url&&validSetupUrl(c.url)?'<p class="small"><a href="'+E(c.url)+'" target="_blank" rel="noopener noreferrer">Documentation ↗</a></p>':"")+
    '</div>'+btn("Edit","editComponent",c.id,"sm")+'</div>';
  }).join("")+'</div></section>';
 }
@@ -2175,7 +2175,7 @@ if(!guide||guide.type!=="Installation"){toast("Select an installation guide.");r
   participantSnapshot:participant?JSON.parse(JSON.stringify(participant)):null,
   startedAt:d.startedAt,setupMinutes:Number(d.setupMinutes),
   installationGuideId:guide.id,installationGuideSnapshot:JSON.parse(JSON.stringify(guide)),
-  setupNotes:d.setupNotes||"",solutionSetup:cfg,forecastSnapshot:home.forecastId?JSON.parse(JSON.stringify(rec("proposals",home.forecastId)||null)):null,interactions:[],runId:"",createdBy:currentUser};
+  setupNotes:d.setupNotes||"",solutionSetup:cfg,forecastSnapshot:home.forecastId&&!collaborative?JSON.parse(JSON.stringify(rec("proposals",home.forecastId)||null)):null,interactions:[],runId:"",createdBy:currentUser};
  db.campaignTrials.push(session);event("Trial","Started "+chosenCase.title+" in "+home.title,true);
  persist();campaignTrialInteraction(session.id);return;
 }else if(kind==="campaignInteraction"){
@@ -2375,6 +2375,7 @@ if(kind==="task"||kind==="taskEdit"){
  ui.page="watch";event("Research",(kind==="research"?"Registered":"Updated")+" external evidence: "+item.title,true);
 }else if(kind==="component"||kind==="componentEdit"){
  var comp=id?rec("components",id):{id:next("component")},prevComp=id?JSON.parse(JSON.stringify(comp)):null;
+ if(!validSetupUrl(d.url)){toast("Catalog URL must be HTTP or HTTPS.");return;}
  if(prevComp&&prevComp.type!==d.type&&(
  db.solutions.some(function(sol){return sol.componentRefs?.[prevComp.type]===comp.id;})||
  db.campaigns.some(function(c){return c.frameworkId===comp.id||
