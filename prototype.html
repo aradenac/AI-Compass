@@ -82,6 +82,14 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;b
 .cross-pick input{margin-top:5px;flex-shrink:0}.watch-link-list{max-height:220px;overflow:auto;border:1px solid var(--line);border-radius:9px}
 .watch-link-row{display:flex;align-items:center;gap:11px;padding:10px 13px;border-bottom:1px solid var(--line);cursor:pointer}
 .watch-link-row:last-child{border-bottom:0}.watch-link-row:hover{background:#f4f8ff}.watch-link-row input{flex-shrink:0}
+.case-tree-task{margin:16px 0 10px;padding:11px 13px;background:#f3f7fe;border:1px solid #dfe7f4;border-radius:9px}
+.case-branch{margin-left:19px;padding-left:13px;border-left:2px solid #d9e3f1}
+.case-tree-item{display:flex;justify-content:space-between;gap:12px;padding:11px 0}
+.case-tree-item .case-main{min-width:0;flex:1}
+.case-tree-item .case-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.case-version{font:11px ui-monospace,monospace;color:#425775;background:#edf2fa;padding:2px 6px;border-radius:5px}
+.case-subtitle{font-size:12px;color:#64748b;margin-top:4px}
+@media(max-width:780px){.case-branch{margin-left:11px;padding-left:8px}}
 .watch-source-row{margin:9px 0}.watch-source-row textarea{min-height:65px}
 .watch-library-options{max-height:240px;overflow-y:auto;border:1px solid var(--line);border-radius:9px;margin-top:9px}
 .watch-new-source summary{padding:8px 0}
@@ -293,6 +301,7 @@ if(!db.guides.some(function(g){return g.type==="Installation";})){
  body:"Illustrative only: document OS prerequisites, installation commands, environment setup and how to verify the agent is ready. Replace with validated instructions.",owner:"u1",date:"2026-10-08",solution:""});
 }
 if(!Array.isArray(db.campaignTrials))db.campaignTrials=[];
+db.cases.forEach(function(tc){if(!tc.parentCaseId)tc.parentCaseId=null;});
 if(!db.campaigns.some(function(c){return c.id==="demo_campaign_planned";})){
  db.campaigns.push({id:"demo_campaign_planned",title:"Plan: agent autonomy for intermittent driver bugs",
   purpose:"Design common test challenges for agent reliability and autonomy in embedded failure diagnosis.",
@@ -963,9 +972,34 @@ var filters='<div class="filters"><select data-filter="runTask">'+[opt("all","Al
 var table=simpleTable(["Date / run","Test Case","Solution","Score / DoD","Human work","AI cost","Status",""],filtered.map(function(r){return '<tr>'+td('<strong>'+E(r.date)+'</strong><div class="muted small mono">'+E(r.id)+'</div>')+td(E(caseOf(r)?.title||r.case))+td(E(rec("solutions",r.solution)?.name||r.solution))+td('<span class="score'+(r.score<75?' low':'')+'">'+r.score+'/100</span><div>'+badge(r.accepted?"Accepted":"Failed")+'</div>')+td(effort(r)+" min")+td(money(r.cost))+td(badge(r.status))+td(btn("Evidence","runDetail",r.id,"sm"))+'</tr>';}));
 return filters+table;
 }
+function nextForkVersion(parent){
+ var used=new Set(db.cases.filter(function(c){return c.task===parent.task;}).map(function(c){return String(c.version||"");}));
+ var prefix=String(parent.version||"1.0")+".",suffix=1;
+ while(used.has(prefix+suffix))suffix++;
+ return prefix+suffix;
+}
+function caseBranchTree(tc,visible,visited){
+ if(visited.has(tc.id))return "";
+ visited.add(tc.id);
+ var rs=db.runs.filter(function(r){return r.case===tc.id&&r.status==="published";});
+ var children=visible.filter(function(x){return x.parentCaseId===tc.id&&x.id!==tc.id;}).sort(function(a,b){return String(a.version).localeCompare(String(b.version),undefined,{numeric:true});});
+ return '<div class="case-tree-item"><div class="case-main"><div class="case-meta">'+linkAction(tc.title,"caseDetail",tc.id)+
+ '<span class="case-version">v'+E(tc.version)+'</span>'+(tc.parentCaseId?'<span class="muted small">Fork</span>':'')+'</div>'+
+ '<div class="case-subtitle">'+E(tc.objective)+' · '+rs.length+' published run(s)</div></div>'+btn("Inspect","caseDetail",tc.id,"sm")+'</div>'+
+ (children.length?'<div class="case-branch">'+children.map(function(c){return caseBranchTree(c,visible,visited);}).join("")+'</div>':"");
+}
 function caseRegistry(){
-var rows=db.cases.filter(function(c){return canEdit()||c.status==="published";}).map(function(c){var t=rec("tasks",c.task),rs=db.runs.filter(function(r){return r.case===c.id&&r.status==="published";});return '<tr>'+td(linkAction(c.title,"caseDetail",c.id)+'<div class="muted small">'+E(c.objective)+'</div>')+td(t?linkAction(t.name,"task",t.id):"Unknown")+td(E(c.version))+td(rs.length+" / "+new Set(rs.map(function(r){return r.solution;})).size+" solutions")+td(btn("Inspect","caseDetail",c.id,"sm"))+'</tr>';});
-return '<p class="muted small" style="margin-bottom:14px">New Test Cases challenge old conclusions. A repeated run of an existing TC measures variance; it does not create a new category.</p>'+simpleTable(["Experimental challenge","Engineering task","Version","Published runs",""],rows);
+ var visible=db.cases.filter(function(c){return canEdit()||c.status==="published";}),visited=new Set();
+ var groups=Array.from(new Set(visible.map(function(c){return c.task;}))).map(function(taskId){
+  var task=rec("tasks",taskId),items=visible.filter(function(c){return c.task===taskId;});
+  var roots=items.filter(function(c){return !c.parentCaseId||!items.some(function(p){return p.id===c.parentCaseId;})||c.parentCaseId===c.id;});
+  var tree=roots.map(function(c){return caseBranchTree(c,items,visited);}).join("");
+  tree+=items.filter(function(c){return !visited.has(c.id);}).map(function(c){return caseBranchTree(c,items,visited);}).join("");
+  return '<section><div class="case-tree-task"><strong>'+E(task?.name||"Unknown task")+'</strong>'+
+   '<span class="muted small"> · '+items.length+' Test Case(s)</span></div>'+tree+'</section>';
+ }).join("");
+ return '<p class="muted small" style="margin-bottom:14px">Test Cases are grouped by engineering task and fork lineage. Each fork inherits its task and receives a new version without rewriting the source or its evidence.</p>'+
+ (groups||'<div class="empty">No Test Cases defined.</div>');
 }
 function comparisonMatrix(){
 var mode=ui.matrix||"task",target=ui.matrixTarget;if(mode==="task"&&!rec("tasks",target))target="t5";if(mode==="solution"&&!rec("solutions",target))target="s1";
@@ -1157,8 +1191,19 @@ field("description","Invariants, inputs and controlled setup",p?.description||""
 field("criteria","Scoring rubric / mandatory acceptance / measurement",p?.criteria||"","textarea","full"),"","Create protocol revision");
 }
 function dialogCase(task,fromCase){
-var from=rec("cases",fromCase),t=rec("tasks",from?.task)||rec("tasks",task)||rec("tasks",ui.task)||db.tasks[4];
-openForm("Define reproducible Test Case","case",selectField("task","Associated engineering task",optionsFrom("tasks",function(x){return x.name;}),t.id,"full")+field("title","Test Case title",from?from.title+" · new challenge":"TC · New challenge","","full")+field("version","Case version",from?from.version+".1":"1.0")+selectField("protocol","Evaluation protocol",optionsFrom("protocols",function(x){return x.name+" · "+x.version;}),from?.protocol||"p1")+field("objective","What does this case challenge?",from?.objective||"","textarea","full")+field("inputs","Initial state / input files / environment",from?.inputs||"","textarea","full")+field("dod","Specific acceptance conditions (DoD)",from?.dod||"","textarea","full"),"","Create Test Case");
+ var from=rec("cases",fromCase),t=rec("tasks",from?.task)||rec("tasks",task)||rec("tasks",ui.task)||db.tasks[4];
+ var taskField=from?'<div class="span2"><strong>Inherited engineering task:</strong> '+E(t.name)+
+  '<input type="hidden" name="task" value="'+E(t.id)+'"></div>':
+  selectField("task","Associated engineering task",optionsFrom("tasks",function(x){return x.name;}),t.id,true);
+ var versionField=from?'<div class="field"><label>Next fork version (assigned on save)</label><div class="input">'+E(nextForkVersion(from))+'</div></div>':
+  field("version","Root case version","1.0");
+ openForm(from?"Fork Test Case":"Define reproducible Test Case","case",taskField+
+ '<input type="hidden" name="parentCaseId" value="'+E(from?.id||"")+'">'+
+ (from?'<div class="span2 note">Forked from '+E(from.title)+' (v'+E(from.version)+'). Its parent remains unchanged.</div>':"")+
+ field("title","Test Case title",from?from.title+" · new challenge":"TC · New challenge","","full")+
+ versionField+field("objective","What does this case challenge?",from?.objective||"","textarea","full")+
+ field("inputs","Initial state / input files / environment",from?.inputs||"","textarea","full")+
+ field("dod","Specific acceptance conditions (DoD)",from?.dod||"","textarea","full"),"","Create Test Case");
 }
 function comboComponentOptions(type,chosen){
 return [["","Select "+type]].concat(db.components.filter(function(c){return c.type===type&&c.status!=="retired";}).map(function(c){return[c.id,c.name+(c.version?" · "+c.version:"")+(c.accessible?"":" (not accessible)")];}));
@@ -1976,8 +2021,17 @@ if(kind==="task"||kind==="taskEdit"){
  if(!oldTask)db.tasks.push(node);else revision("Task",node.id,before,node);
  ui.task=node.id;ui.page="tasks";event("Task",(oldTask?"Updated":"Created")+" task node: "+node.name);
 }else if(kind==="case"){
- var c={id:next("c"),task:d.task,title:req(d.title,"Title"),version:req(d.version,"Version"),protocol:d.protocol,objective:req(d.objective,"Objective"),inputs:d.inputs,dod:req(d.dod,"Definition of Done"),status:"published"};
- db.cases.push(c);ui.page="testdesign";ui.testTab="cases";event("Test Case","Added challenging test case: "+c.title);
+ var parentCase=rec("cases",d.parentCaseId);
+ if(d.parentCaseId&&!parentCase){toast("The source Test Case no longer exists.");return;}
+ if(parentCase&&d.task!==parentCase.task){toast("Forks must retain the source engineering task.");return;}
+ if(!rec("tasks",d.task)){toast("Choose an existing engineering task.");return;}
+ var chosenVersion=parentCase?nextForkVersion(parentCase):req(d.version,"Version");
+ var c={id:next("c"),task:d.task,parentCaseId:parentCase?.id||null,
+  title:req(d.title,"Title"),version:chosenVersion,objective:req(d.objective,"Objective"),
+  inputs:d.inputs,dod:req(d.dod,"Definition of Done"),status:"published"};
+ db.cases.push(c);ui.page="testdesign";ui.testTab="cases";
+ event("Test Case",(parentCase?"Forked ":"Added ")+c.title+" v"+c.version);
+
 }else if(kind==="run"){
  if(toNum(d.score)>100||toNum(d.score)<0||toNum(d.utility)>100||toNum(d.utility)<0){toast("Rubric scores must be within 0–100.");return;}
  if(!rec("cases",d.case)||!rec("protocols",d.protocol)){toast("Select a valid Test Case and benchmark protocol.");return;}
