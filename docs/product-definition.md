@@ -40,6 +40,26 @@ The platform connects engineering needs, evolving task definitions, reproducible
 
 The platform serves both **operational discovery** (the engineer needs an answer) and **experimental inquiry** (the workgroup needs defensible evidence).
 
+### Workgroup-specific navigation and workflow ownership
+
+The workgroup requires a distinct information architecture, not the end-user `Discover / Evaluate / Collaborate` navigation:
+
+| Workgroup screen | Primary responsibility |
+| --- | --- |
+| Dashboard | **Read-only daily overview**: qualification pipeline status, recent user feedback, technology-watch signals. It must not contain qualification creation, stage transitions or redundant KPI cards. |
+| Task management | Maintain the task tree in place while still inspecting the engineer-facing navigation and task evidence. |
+| Technology watch | Record and examine external signals, publications, potential providers/harnesses/models and attributed estimates; bring relevant components into the catalog. |
+| Technology catalog | Maintain individual models, providers and harnesses; it is **not** a benchmark launch point. |
+| Test design | Create, update and inspect reusable Test Cases and versioned benchmark protocols. |
+| Benchmark workspace | **The operational entry point** for qualification planning, benchmark configuration/execution records, campaign management, review and publication. |
+| Results explorer | **The analytical entry point** for published run evidence, coverage and task- or solution-centric comparison; distinct from the operational workbench. |
+| Recommendations | Inspect and maintain evidence-linked decisions and their publication state. |
+| Guides & charter | Maintain, filter, search, sort, edit and publish knowledge articles. |
+| Feedback & discussions | Triage contributions and converse using private and public threads with separate histories. |
+| Activity feed & management view | Retain the established provenance and reporting views until separately reconsidered. |
+
+The **qualification pipeline** remains an important daily dashboard visualization, with the stages **To qualify → Qualifying → Review → Published**. The dashboard is strictly a status view (a read-only card can open a read-only detail). **Transitions, experimental work, review and publication take place in Benchmark workspace** rather than on the dashboard, a Technology Watch signal or the component catalog. Avoid reintroducing a separate, redundant Workgroup Studio.
+
 ## 3. Access, publication, and organizational scope
 
 These are agreed decisions:
@@ -266,6 +286,8 @@ Published content can include benchmark results, setup and usage guides, compari
 
 A recommendation must remain explainable: **what was concluded, on what evidence, when, and by whom**.
 
+Knowledge articles must support editing existing content, filtering by document type and publication status, searching title/content and sorting by recency or title. Revisions retain editor identity and history; creating a new article must not be the only authoring path.
+
 ## 12. Technology watch, staging, publishing, and obsolescence
 
 The workgroup must be able to:
@@ -291,6 +313,12 @@ A candidate can be inaccessible and qualified, while an accessible solution can 
 
 The system should retain dates and provenance such as **created, published, last verified/reviewed, validity, and supersession relationship**. It should highlight advice potentially due for review or rendered obsolete, and maintain history rather than silently replacing previous conclusions.
 
+### Technology-watch evidence and screening
+
+The intended progression is **Technology Watch signal → Model/Provider/Harness catalog item → public evidence and screening → optional controlled benchmark/qualification**, not a direct `Start qualification` action on the watch record.
+
+The workgroup must be able to maintain sourced **independent benchmarks, publications, vendor claims and expert estimates**, with attribution, evaluated component, observed or estimated performance, methodological scope, assumptions, uncertainty and confidence. These may suggest which combinations are worth benchmarking, but must be distinguished from reproducible internal runs and **must not automatically count as observed quality scores or official recommendations**. Component catalog entries can remain speculative or inaccessible without an AI Solution.
+
 Feedback and controlled benchmark evidence must be distinguished, though both can motivate an update.
 
 ## 13. Engineer experience and feedback loop
@@ -307,6 +335,15 @@ Engineers should be able to:
 - Suggest tasks, tools, new needs, missing documentation, or further evaluation.
 
 **Centralized feedback and ideas register:** submissions should be available to the workgroup in one place, with enough structured context to identify the referenced task/solution, classify and search themes, review and triage contributions, track their disposition or follow-up, and link them to resulting experiments, documentation changes, or new test cases. This is a workflow for managing contributions, **not** a requirement to capture ordinary user conversations. Contribution visibility, moderation, and detailed status names remain design choices.
+
+### Public and internal feedback conversations
+
+Each feedback/idea should have **two separate chronological discussion threads**:
+
+- A **public discussion** visible to the original contributor and other authorized readers, in which workgroup members can provide clarifications, answers and status updates.
+- A **workgroup-internal discussion** visible only to authorized workgroup members, for private notes, analysis, hypotheses, triage and coordination.
+
+Replies retain author, timestamp, channel and history; internal content must not leak into public views or public exports. Both threads are linked to the same feedback record and disposition, without being combined into a single unqualified message stream. The feedback register is managed in its own collaboration area, not duplicated as a queue in a benchmark studio.
 
 Feedback contributes to a **continuous improvement loop**:
 
@@ -346,7 +383,10 @@ These are functional entities/relationships, **not a mandated physical database 
 | AI Solution | Versioned and uniquely identifiable combination of model, provider, harness, configuration and capabilities, registered from its **first benchmark run**; never merely an untested candidate. |
 | Benchmark Run | One solution × one TC × one protocol execution, with conditions and observations. |
 | Benchmark Campaign | Optional grouping of runs for an experimental objective. |
-| Evidence | Inputs, traces, reviews, artifacts, provenance, test results, and cost records. |
+| Evidence | Inputs, traces, reviews, artifacts, provenance, test results, and cost records from controlled runs. |
+| External Research Evidence | Sourced publications, public benchmarks, vendor claims, and workgroup performance estimates with confidence, scope, and limitations; distinct from internal runs. |
+| Qualification | Workgroup-owned operational process with assigned owner, stage, task/candidate selection, experiments, review and publication decision. |
+| Feedback Message | Timestamped, attributed message linked to a feedback record in an explicitly public or workgroup-internal discussion channel. |
 | Evaluation | Interpreted results, metrics, aggregation, and versioned scoring method. |
 | Recommendation | Published, attributable, evidence-linked conclusion and guidance on a solution. |
 | Charter / Guide | Cross-cutting usage policy, training, FAQ, setup, or instructional content. |
@@ -389,7 +429,10 @@ Prioritize the **correct knowledge and experimental model** before advanced dash
 - Solution-centric and task-centric exploration/comparison.
 - Traceable evaluations and published recommendations.
 - Simple drafting/publication controls and user-facing documentation.
-- Ability to receive engineer feedback.
+- Ability to receive engineer feedback with **separate public and internal discussion histories**.
+- Role-specific workgroup navigation with a read-only daily dashboard and clearly separated **Technology watch, Technology catalog, Test design, Benchmark workspace and Results explorer**.
+- Search/filter/sort and update existing knowledge articles.
+- Sourced, clearly labeled external research and performance estimates in technology watch (separate from benchmark outcomes).
 
 ### Subsequent increments
 
