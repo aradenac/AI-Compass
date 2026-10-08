@@ -55,11 +55,10 @@ No passwords are required. **Identity and permissions are simulated in the brows
 
 The workgroup **Technology catalog** contains four independent inventories: **Models**, **Providers**, **Harnesses**, and **Frameworks**, including accessible, inaccessible and unbenchmarked candidates. Manage versions, lifecycle and notes in each inventory; do not preregister a solution merely because its components exist.
 
-In **Benchmark workspace → Record benchmark run**, choose **Assemble a new configuration**, select the three components, specify the complete configuration and record the run. That first run creates a **measured AI Solution** with a stable identifier and evidence snapshots. Theoretical configurations may exist earlier as **Forecasts**, but have no observed runs. Repeating the same combination/version/settings **reuses** the solution; changing the configuration creates a **distinct** solution. An unsuccessful run still identifies the tested configuration, but does not qualify or recommend it. Alternatively, choose **Repeat / compare an already benchmarked solution**.
+In **Benchmark workspace**, create a campaign, choose the fixed setup (or the Framework participants), then open the campaign and execute a Test Case. Without a Framework, choose a model/provider/harness combination for the run. That first run creates a **measured AI Solution** with a stable identifier and evidence snapshots. Theoretical configurations may exist earlier as **Forecasts**, but have no observed runs. Repeating the same combination/version/settings **reuses** the solution; changing the configuration creates a **distinct** solution. An unsuccessful run still identifies the tested configuration, but does not qualify or recommend it. Alternatively, choose **Repeat / compare an already benchmarked solution**.
 
 An AI Solution is not automatically visible to engineers: its recommendation and publication remain controlled by the workgroup's review process. Legacy seeded benchmark records remain intact.
 
-#
 ### Framework participants and setup references
 
 A **Framework** organizes a workflow; it does not substitute for any of the three components that define a measured AI Solution. During campaign creation, select a Framework and add as many labeled participant trios as required. Participants retain independent roles, exact model/provider/harness references, versioned configuration and capability notes. Each guided Test Case execution currently **selects one participant to measure**, and the resulting run pins that participant plus its Framework provenance. Joint multi-agent orchestration and composite run scoring are not yet represented as a single empirical result in this prototype; do not attribute one participant's score to the entire ensemble.
@@ -75,7 +74,7 @@ Sign in as **Maya Laurent** or **Sofia Ramos**. The workgroup has its own sideba
 | Workspace | **Dashboard** | Daily read-only **campaign pipeline** (Planned, In progress, Under review, Published), recent user feedback and watch signals. |
 | Workspace | **Task management** | Edit/reparent/reorder the taxonomy in-place, and inspect its engineer-facing view. |
 | Technology intelligence | **Technology watch** | Create evidence-backed watch hypotheses and task-linked theoretical forecasts with staging and review. |
-| Technology intelligence | **Technology catalog** | Maintain models, providers and harnesses independently; no benchmark launch button. |
+| Technology intelligence | **Technology catalog** | Maintain models, providers, harnesses and frameworks independently; no benchmark launch button. |
 | Experiments | **Test design** | Define Test Cases and navigate task-grouped parent/fork trees. Forking assigns collision-free child versions. No protocol tab or protocol selector. |
 | Experiments | **Benchmark workspace** | **Campaign-centric** guided process: create/edit a campaign, link any number of technology-watch signals, choose a comparison mode, add Test Cases, record timed iterations and outcomes, close for review, publish or reopen. |
 | Experiments | **Results explorer** | Compare theoretical predictions against measured runs with separate evidence labels, plus inspect benchmark matrices. |
