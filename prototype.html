@@ -1602,6 +1602,9 @@ if(kind==="campaignReview"){
  if(existing&&campaignTrialsExistingOrCases(campaign)&&existing.mode!==mode){toast("Campaign mode cannot change after cases or sessions exist.");return;}
  Object.assign(campaign,{forecastId:d.forecastId||existing?.forecastId||"",title:req(d.title,"Campaign title"),purpose:req(d.purpose,"Objective"),
   mode:mode,task:desiredTask,solutionSetup:setup,notes:d.notes||"",owner:d.owner||currentUser,updated:TODAY});
+ if(existing&&before.stage==="review"&&["title","purpose","mode","task","solutionSetup"].some(function(k){return JSON.stringify(before[k])!==JSON.stringify(campaign[k]);})){
+ campaign.stage="active";campaign.status="active";campaign.reviewer="";campaign.reviewNotes="";
+}
  if(!existing)db.campaigns.push(campaign);else revision("Campaign",campaign.id,before,campaign);
  event("Campaign",(existing?"Edited ":"Created ")+campaign.title,true);persist();detailsCampaign(campaign.id);return;
 }else if(kind==="campaignCase"){
@@ -1630,6 +1633,13 @@ if(kind==="campaignReview"){
     configuration:d.configuration,version:d.version||"1.0",capabilities:d.capabilities||"",accessible:false};
  }
  if(["model","provider","harness"].some(function(k){return !rec("components",cfg[k]);})||!String(cfg.configuration||"").trim()){toast("Choose a complete AI setup and configuration.");return;}
+ if(home.forecastId){
+  var projection=rec("proposals",home.forecastId);
+  if(projection){
+   var changedSetup=String(projection.config||"").trim()!==String(cfg.configuration||"").trim()||["model","provider","harness"].some(function(k){return projection.componentRefs?.[k]!==cfg[k];});
+   if(changedSetup&&!String(d.setupNotes||"").trim()){toast("Describe any deviations from the linked theoretical forecast in experimental setup notes.");return;}
+  }
+ }
  if(!String(d.startedAt||"").trim()||!String(d.initialPrompt||"").trim()||!String(d.inputDocuments||"").trim()){toast("Record start time, initial prompt and input references.");return;}
  if(!Number.isFinite(Number(d.setupMinutes))||String(d.setupMinutes).trim()===""||Number(d.setupMinutes)<0){toast("Specify the human setup duration.");return;}
  var session={id:next("trial"),campaign:id,case:chosenCase.id,step:2,status:"in_progress",
