@@ -2098,13 +2098,14 @@ if(kind==="campaignReview"){
   if(selectedGuide&&selectedGuide.solution&&mode==="solution_scope"&&!d.frameworkId&&selectedGuide.solution!==findBenchSolutionForSetup(setup)?.id){toast("Guide belongs to another AI configuration.");return;}
  var campaign=existing||{id:next("b"),stage:"planned",caseIds:d.seedCaseId?[d.seedCaseId]:[],solutionIds:[],reviewNotes:"",reviewer:"",archived:false};
  var before=existing?JSON.parse(JSON.stringify(existing)):null;
+  var desiredTask=mode==="task_compare"?d.task:"";
+  if(existing&&campaignTrialsExistingOrCases(campaign)&&existing.mode!==mode){toast("Campaign mode cannot change after cases or sessions exist.");return;}
+  var validTitle=req(d.title,"Campaign title"),validPurpose=req(d.purpose,"Objective");
   if(guideTitle&&(guideBody||guideUrl)){
    var fixedSol=mode==="solution_scope"&&!fw?findBenchSolutionForSetup(setup):null;
    selectedGuide=createSetupGuide(guideTitle,guideBody,guideUrl,fw?.id||"",fixedSol?.id||"");
   }
- var desiredTask=mode==="task_compare"?d.task:"";
- if(existing&&campaignTrialsExistingOrCases(campaign)&&existing.mode!==mode){toast("Campaign mode cannot change after cases or sessions exist.");return;}
- Object.assign(campaign,{forecastId:d.forecastId||existing?.forecastId||"",title:req(d.title,"Campaign title"),purpose:req(d.purpose,"Objective"),
+ Object.assign(campaign,{forecastId:d.forecastId||existing?.forecastId||"",title:validTitle,purpose:validPurpose,
   mode:mode,task:desiredTask,solutionSetup:setup,frameworkId:fw?.id||"",frameworkInstances:participants.instances,frameworkWorkflow:fw?d.frameworkWorkflow||"":"",setupGuideId:selectedGuide?.id||"",watchIds:watchIds,notes:d.notes||"",owner:d.owner||currentUser,updated:TODAY});
  if(existing&&before.stage==="review"&&["title","purpose","mode","task","solutionSetup","frameworkId","frameworkInstances","frameworkWorkflow","setupGuideId","watchIds"].some(function(k){return JSON.stringify(before[k])!==JSON.stringify(campaign[k]);})){
  campaign.stage="active";campaign.status="active";campaign.reviewer="";campaign.reviewNotes="";
