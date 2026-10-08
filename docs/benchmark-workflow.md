@@ -22,9 +22,9 @@ A new AI Solution is registered from its **first measured benchmark run**, not f
 
 **Step 2 — Test Cases:** define or reuse an engineering challenge with task reference, inputs, protocol, expected outputs and DoD. In task-centred mode, Test Cases are restricted to the fixed task. Start a separate execution session for each trial; multiple attempts are allowed.
 
-**Step 3 — Installation and setup:** select a reusable **Installation guide** from Guides & Charter or create one from the execution form. Guides may be linked to an existing AI Solution, or remain reusable/unassigned. Record actual installation timestamp, configured environment, human installation/preparation duration and deviations from the guide. **Do not capture the initial prompt here**; changing runtime options and supplying documents to the agent are interactions.
+**Step 3 — Installation and setup:** select a reusable **Installation guide** from Guides & Charter or create one from the execution form. Guides may be linked to an existing AI Solution, or remain reusable/unassigned. The selector offers generic guides and guides linked to the **exact selected AI Solution configuration** (including model/provider/harness, versions and settings), never guides associated only by superficially matching component names. As the setup changes, the guide choices refresh; a newly created guide can remain unassigned if the configuration has not yet produced a measured AI Solution. Record actual installation timestamp, configured environment, human installation/preparation duration and deviations from the guide. **Do not capture the initial prompt here**; changing runtime options and supplying documents to the agent are interactions.
 
-**Step 4 — Timed interactions:** record the first prompt (or first action) as the first interaction, followed by any number of timestamped follow-ups, supplied documents, skills/options activated, reviews, corrective prompts and intermediate outputs. Every entry has separate **human duration** and **agent duration**, in minutes. The **total agent runtime is the sum** of all iteration agent durations, without a second manually entered total.
+**Step 4 — Timed interactions:** record the first prompt (or first action) as the first interaction, followed by any number of timestamped follow-ups, supplied documents, skills/options activated, reviews, corrective prompts and intermediate outputs. Every entry has separate **human duration** and **agent duration**, in minutes. Documents introduced and skills/options activated during a trial are stored with their respective interactions, not misclassified as installation evidence. The **total agent runtime is the sum** of all iteration agent durations, without a second manually entered total.
 
 **Step 5 — Results, artifacts and metrics:**
 - **DoD**: accepted / failed, with failure preserved as evidence.
@@ -34,7 +34,7 @@ A new AI Solution is registered from its **first measured benchmark run**, not f
 - **Human time**: final review and correction times, separate from installation or per-iteration human effort; all times stored in minutes.
 - **Produced outputs**: one required field listing final documents, code, reports, paths and references, followed by **Additional notes (optional)**. No duplicate output-description field.
 
-Measurement labels expose guidance on hover/focus. Time sliders use a **nonlinear 0–7-day range**, paired with exact minute fields and dynamic minutes/hours/days displays. Scores use 0–100 sliders. See [Non-Functional Requirements](non-functional-requirements.md) for acceptance criteria.
+Measurement labels expose guidance on mouse hover or keyboard focus, and the full explanation is available to assistive technology. Time sliders use a **nonlinear 0–7-day range**, paired with exact minute fields and dynamic minutes/hours/days displays. Scores use 0–100 sliders. See [Non-Functional Requirements](non-functional-requirements.md) for acceptance criteria.
 
 Closing the execution produces an independent **Benchmark Run** and preserves the full timeline and snapshots of the original task, Test Case, protocol, AI configuration, components and campaign. **Failed results remain auditable evidence.** Closing an execution does not close the campaign.
 
@@ -69,8 +69,8 @@ When comparing AI configurations, disclose Test Case/protocol coverage and sampl
 Run `python3 -m http.server 8080`, open `http://localhost:8080/prototype.html`, sign in as **Maya Laurent** and follow:
 
 1. Create a task-centred campaign, choose a task, add a Test Case, then open the campaign.
-2. Start the Test Case; select or create an installation guide and record installation start time and human setup duration.
-3. Record the first prompt and a correction as two interactions with different timestamps, types and durations. Confirm both remain after page reload.
+2. Start the Test Case; select or create an installation guide and record installation start time and human setup duration. Confirm generic guides are available, guides from a different AI configuration are excluded, and switching between existing configurations refreshes the options.
+3. Record the first prompt and a correction as two interactions with different timestamps, types and durations; introduce an input file and a skill at a chosen interaction. Confirm they remain in the interaction timeline (not the installation record) after page reload. Focus an ⓘ help icon with the keyboard and verify its explanation appears.
 4. Close the execution as **Failed**, with unknown tokens and a flat-rate cost, then repeat using scaled token counts and a run-specific EUR amount. Inspect the evidence timeline.
 5. Close the campaign. Review and publish as **Maya Laurent**; optionally switch to **Sofia Ramos** for another review perspective.
 6. Reopen the campaign, add further tests, archive and restore; verify previous run evidence remains intact.
