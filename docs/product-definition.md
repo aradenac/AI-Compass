@@ -209,6 +209,19 @@ A protocol describes **how an evaluation is conducted** and defines comparison i
 
 A common protocol helps compare solutions fairly; variations must be recorded.
 
+### Guided workgroup execution
+
+For each Test Case inside an **open campaign**, the prototype/product must guide the experimenter through a resumable multi-step record:
+
+1. **Initial setup (not installation guidance):** a start timestamp, actual initial prompt/instructions, input documents and their versions or references, tools/skills/context provided, concrete configured AI setup, experiment constraints, and approximate human preparation duration.
+2. **Timed interactions (zero or more):** every iteration has its own date/time, approximate human intervention duration, agent working/waiting duration, kind of interaction (free text), description (review, prompt refinement, corrections, restart, etc.), new prompt or additional instruction, and intermediate artifacts. Interactions build a chronological timeline from which human steering/autonomy patterns can be studied.
+3. **Outcome and closure:** mandatory DoD **accepted or failed**, quality and information-utility scores, separate input/output token counts, AI/tool expense, additional agent runtime, human final review and corrections, produced documents/code/files/references, density/side-effect observations and a justified conclusion.
+4. **Close run:** pin the Test Case, protocol, task and AI configuration snapshots, setup, interactions, outputs, declared timings and measurements as an independent **Benchmark Run** tied to the parent campaign. Failed runs are preserved. The Test Case may be challenged again by another configuration or repeated to measure variance.
+
+Intermediate sessions should be persistently saved to avoid losing an experiment when a user leaves the screen. The campaign may be reopened without changing previously recorded runs. Captured calendar timestamps and stated durations are useful for assessing user interruptions and autonomy; neither a stopwatch nor fully automatic agent integration is required for the first prototype.
+
+The campaign closes separately from individual runs: **closing a Test Case does not close the campaign**. Campaign closure stages all completed runs for workgroup peer review. Reviewed publishing is distinct from initially recording draft experimental evidence.
+
 ### Benchmark Run
 
 A run is one execution of **one fully specified combined setup on one TC**, using a specified protocol/version. For a setup without existing evidence, the run **creates its AI Solution identity** and stores the component references, their versions, the complete configuration, and experimental snapshots. For subsequent runs, the existing exact solution may be reused. Multiple runs of the same pairing are allowed and useful.
@@ -445,7 +458,8 @@ These are functional entities/relationships, **not a mandated physical database 
 | AI Model / Provider / Harness | Versioned catalog components. |
 | AI Solution | Versioned and uniquely identifiable combination of model, provider, harness, configuration and capabilities, registered from its **first benchmark run**; never merely an untested candidate. |
 | Benchmark Run | One solution × one TC × one protocol execution, with conditions and observations. |
-| Benchmark Campaign | Optional grouping of runs for an experimental objective. |
+| Campaign Trial Session | In-progress step-by-step Test Case execution: initial setup, timestamped iterative human/agent interventions, interim artifacts, and eventual accepted/failed outcome. |
+| Benchmark Campaign | **Primary workgroup process**: objective, comparison mode, fixed task or fixed AI setup, owner, lifecycle, Test Case membership, resumable sessions, runs, closure and peer review. |
 | Evidence | Inputs, traces, reviews, artifacts, provenance, test results, and cost records from controlled runs. |
 | External Research Evidence | Sourced publications, public benchmarks, vendor claims, and workgroup performance estimates with confidence, scope, and limitations; distinct from internal runs. |
 | Watch Hypothesis | Independent evidence-backed intuition or opportunity with assumptions, reasoning and one-to-many supporting sources. |
