@@ -56,7 +56,11 @@ Exact identity-provider/SSO implementation and finer-grained access policies rem
 
 ## 4. Catalog and definition of an AI solution
 
-The catalog describes models, providers, harnesses, their capabilities, configurations, and relationships.
+The **workgroup catalog is organized primarily around three independent, reusable component types: AI Models, Providers, and Harnesses**. Members maintain each item's version, capabilities, availability, lifecycle and provenance. These catalog candidates exist **before** they are combined or benchmarked; they are **not** themselves AI Solutions.
+
+**An AI Solution is registered as the outcome of the first benchmark run of a specific assembled setup.** During benchmark preparation, a workgroup member selects one model, one provider, one harness, and the complete versioned configuration (prompts, parameters, tools, skills, etc.). Once that setup has a recorded run — including a failed or unpublished run — it becomes an identifiable AI Solution linked to its evidence. The same exact configuration can be reused across tasks, TCs and runs; materially changed components or configurations produce a distinct solution.
+
+This is a **creation and identity rule**, not a qualification decision: the new AI Solution remains experimental and unpublished until explicitly reviewed and published. Candidates can stay in the catalog or technology-watch pipeline without ever generating an AI Solution.
 
 An **AI Solution** is the concrete, reproducible combination of:
 
@@ -69,9 +73,9 @@ An **AI Solution** is the concrete, reproducible combination of:
 
 The same model under different providers, harnesses, or configurations can constitute distinct AI solutions and yield different results.
 
-Solutions may be **accessible or not accessible** to enterprise users. Both must be cataloged and compared; accessibility is a visible/filterable property, not an exclusion rule.
+Component candidates and resulting AI Solutions may be **accessible or inaccessible** to enterprise users. Accessibility is a visible/filterable property, not an exclusion rule. Untested candidates remain discoverable in the independent component catalogs and technology watch; only recorded benchmark combinations appear in the AI Solution discovery view.
 
-Technology-watch records can describe new or forthcoming candidates before experimental qualification.
+Technology-watch records may refer to individual components without inventing a future combined solution.
 
 ## 5. Flexible engineering task hierarchy
 
@@ -169,7 +173,7 @@ A common protocol helps compare solutions fairly; variations must be recorded.
 
 ### Benchmark Run
 
-A run is one execution of **one specified AI solution on one specified TC**, using a specified protocol/version. Multiple runs of the same pairing are allowed and useful.
+A run is one execution of **one fully specified combined setup on one TC**, using a specified protocol/version. For a setup without existing evidence, the run **creates its AI Solution identity** and stores the component references, their versions, the complete configuration, and experimental snapshots. For subsequent runs, the existing exact solution may be reused. Multiple runs of the same pairing are allowed and useful.
 
 A run records:
 
@@ -266,9 +270,9 @@ A recommendation must remain explainable: **what was concluded, on what evidence
 
 The workgroup must be able to:
 
-1. Enter an interesting model, harness, provider, or tool from technology watch, even before access or qualification.
+1. Enter and maintain an interesting **individual model, provider or harness** from technology watch, even before access or qualification, without preregistering an AI Solution.
 2. Enrich the candidate's metadata and capabilities as information arrives.
-3. Record qualification experiments and stage results before publication.
+3. Start a qualification from component candidates, assemble their configuration in the benchmark workflow, then automatically link the resulting AI Solution to the qualification and its runs.
 4. Compare staged candidates with already known solutions.
 5. Publish findings, recommendations, documentation, and corrections.
 6. Re-evaluate existing recommendations when new TCs, models, versions, evidence, prices, or retirements make them questionable.
@@ -339,7 +343,7 @@ These are functional entities/relationships, **not a mandated physical database 
 | Test Case | A concrete, versioned experimental challenge linked to a task. Not a task-tree level. |
 | Benchmark Protocol | The versioned method, invariants, acceptance criteria, and measurement rules. |
 | AI Model / Provider / Harness | Versioned catalog components. |
-| AI Solution | Versioned combination of model, provider, harness, configuration, and capabilities. |
+| AI Solution | Versioned and uniquely identifiable combination of model, provider, harness, configuration and capabilities, registered from its **first benchmark run**; never merely an untested candidate. |
 | Benchmark Run | One solution × one TC × one protocol execution, with conditions and observations. |
 | Benchmark Campaign | Optional grouping of runs for an experimental objective. |
 | Evidence | Inputs, traces, reviews, artifacts, provenance, test results, and cost records. |
@@ -351,7 +355,11 @@ These are functional entities/relationships, **not a mandated physical database 
 
 Core relationship:
 
-**Task hierarchy → Task ↔ Test Cases ↔ Benchmark Runs ↔ AI Solutions → Evaluations → Recommendations**
+**Component catalogs (Model / Provider / Harness) → Configured benchmark setup → First Run → AI Solution → Evaluation → Recommendation**
+
+**Task hierarchy → Task ↔ Test Cases ↔ Benchmark Runs ↔ AI Solutions**
+
+Qualification may begin from one or more component candidates, before the AI Solution exists; the first run establishes and links the solution identity.
 
 The benchmark results can be explored in either direction: **from task to solutions** or **from solution to tasks**.
 
@@ -374,7 +382,7 @@ The benchmark results can be explored in either direction: **from task to soluti
 
 Prioritize the **correct knowledge and experimental model** before advanced dashboards or large-scale automation:
 
-- Shared catalog of AI solutions, including inaccessible candidates.
+- Independent workgroup catalogs of **models, providers and harnesses**, including inaccessible and as-yet untested candidates; AI Solutions appear after the first recorded benchmark run.
 - Editable engineering task hierarchy and transversal properties.
 - Test-case and benchmark protocol definitions.
 - Manual benchmark runs with measurable results and complete evidence attachments.
