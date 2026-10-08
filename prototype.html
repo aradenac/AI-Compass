@@ -1941,7 +1941,17 @@ if(kind==="task"||kind==="taskEdit"){
 }else if(kind==="research"||kind==="researchEdit"){
  var item=kind==="researchEdit"?rec("researchEvidence",id):{id:next("research")},oldEvidence=kind==="researchEdit"?JSON.parse(JSON.stringify(item)):null;
  Object.assign(item,{title:req(d.title,"Title"),type:d.type,confidence:d.confidence,publication:d.publication||"published",component:d.component||"",signal:d.signal||"",source:req(d.source,"Source reference"),assessment:req(d.assessment,"Assessment"),limitations:req(d.limitations,"Limitations"),date:new Date().toISOString().slice(0,10),author:currentUser});
- if(kind==="research")db.researchEvidence.push(item);else revision("External evidence",id,oldEvidence,item);
+ if(kind==="research"){
+  var duplicate=db.researchEvidence.find(function(e){return sourceKey(e)===sourceKey(item);});
+  if(duplicate){
+   if(item.signal&&!db.watchSourceLinks.some(function(l){return l.watch===item.signal&&l.source===duplicate.id;}))
+    db.watchSourceLinks.push({watch:item.signal,source:duplicate.id,linkedAt:new Date().toISOString(),by:currentUser});
+   ui.page="watch";event("Research","Reused existing literature source: "+duplicate.title,true,
+    {objectType:"External Source",objectId:duplicate.id,reused:true});
+   ui.modal="";persist();render();toast("Source already in the library; reused existing record.");return;
+  }
+  db.researchEvidence.push(item);
+ }else revision("External evidence",id,oldEvidence,item);
  if(item.signal&&!db.watchSourceLinks.some(function(l){return l.watch===item.signal&&l.source===item.id;})){
   db.watchSourceLinks.push({watch:item.signal,source:item.id,linkedAt:new Date().toISOString(),by:currentUser});
  }
