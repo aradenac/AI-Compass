@@ -802,6 +802,7 @@ openForm(e?"Edit external evidence":"Register literature or performance estimate
 field("title","Source / assessment title",e?.title||"","text","full")+
 selectField("type","Evidence category",[["Independent benchmark","Independent benchmark"],["Vendor claim","Provider/vendor claim"],["Research paper","Research paper"],["Expert estimate","Workgroup estimate"],["Other","Other literature"]],e?.type||"Independent benchmark")+
 selectField("confidence","Confidence",[["low","Low / unverified"],["medium","Medium"],["high","High"]],e?.confidence||"low")+
+selectField("publication","Source visibility",[["draft","Workgroup only"],["published","Published / shareable"]],e?.publication||"published")+
 selectField("signal","Related technology watch signal",[["","None"]].concat(db.watch.map(function(x){return[x.id,x.title];})),e?.signal||watchId||"")+
 selectField("component","Related catalog component",[["","Not linked"]].concat(db.components.map(function(x){return[x.id,x.type+": "+x.name];})),e?.component||w?.component||"")+
 field("source","Source URL, publication or citation",e?.source||"","text","full")+
@@ -1242,7 +1243,7 @@ openModal("Campaign · "+b.title,html);
 function detailsWatch(id){
 var w=rec("watch",id);if(!watchVisible(w))return;
 var sources=watchEvidence(id),forecasts=db.proposals.filter(function(p){return p.watchIds.includes(id)&&forecastVisible(p);});
-var html='<div class="tags">'+badge(w.kind)+' '+badge(w.status)+' '+badge(sources.length+" literature sources")+'</div>'+
+var html='<div class="tags">'+badge(w.kind)+' '+badge(w.status)+' '+badge(w.publication)+' '+badge(sources.length+" literature sources")+'</div>'+
 '<h3 style="margin:14px 0 8px">'+E(w.title)+'</h3>'+
 '<h3 style="margin:13px 0 7px">Hypothesis & expected benefit</h3><p class="text-block">'+E(w.hypothesis||w.summary||"")+'</p>'+
 '<p class="muted small">'+E(w.potential||"Expected activities not specified")+'</p>'+
@@ -1351,7 +1352,7 @@ if(kind==="task"||kind==="taskEdit"){
  collected.sources.forEach(function(src){
   var existing=rec("researchEvidence",src.id),before=existing?JSON.parse(JSON.stringify(existing)):null;
   if(existing){Object.assign(existing,src,{date:new Date().toISOString().slice(0,10)});revision("Watch source",existing.id,before,existing);}
-  else db.researchEvidence.push(Object.assign(src,{id:next("research"),date:new Date().toISOString().slice(0,10),author:currentUser}));
+  else db.researchEvidence.push(Object.assign(src,{id:next("research"),date:new Date().toISOString().slice(0,10),publication:"published",author:currentUser}));
  });
  ui.page="watch";event("Watch",(kind==="watchEdit"?"Updated":"Created")+" evidence-backed hypothesis: "+w.title,true);
 }else if(kind==="forecast"){
@@ -1385,7 +1386,7 @@ if(kind==="task"||kind==="taskEdit"){
  ui.page="watch";event("Forecast",(id?"Updated":"Created")+" draft theoretical forecast: "+forecast.name,true);
 }else if(kind==="research"||kind==="researchEdit"){
  var item=kind==="researchEdit"?rec("researchEvidence",id):{id:next("research")},oldEvidence=kind==="researchEdit"?JSON.parse(JSON.stringify(item)):null;
- Object.assign(item,{title:req(d.title,"Title"),type:d.type,confidence:d.confidence,component:d.component||"",signal:d.signal||"",source:req(d.source,"Source reference"),assessment:req(d.assessment,"Assessment"),limitations:req(d.limitations,"Limitations"),date:new Date().toISOString().slice(0,10),author:currentUser});
+ Object.assign(item,{title:req(d.title,"Title"),type:d.type,confidence:d.confidence,publication:d.publication||"published",component:d.component||"",signal:d.signal||"",source:req(d.source,"Source reference"),assessment:req(d.assessment,"Assessment"),limitations:req(d.limitations,"Limitations"),date:new Date().toISOString().slice(0,10),author:currentUser});
  if(kind==="research")db.researchEvidence.push(item);else revision("External evidence",id,oldEvidence,item);
  ui.page="watch";event("Research",(kind==="research"?"Registered":"Updated")+" external evidence: "+item.title,true);
 }else if(kind==="component"||kind==="componentEdit"){
