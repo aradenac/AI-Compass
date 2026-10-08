@@ -71,6 +71,12 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;b
 @media(max-width:780px){.organizer-grid{grid-template-columns:1fr}.organizer-node-row{flex-wrap:nowrap}.organizer-mini{min-width:21px}.organizer-intro{font-size:12px}}
 
 .component-lane .list{max-height:620px;overflow:auto}.component-lane .list-row{align-items:flex-start}.component-lane .list-row p{margin-top:7px}.component-lane .card-head h2{font-size:19px}
+
+.feedback-threads{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,285px),1fr));gap:13px}
+.feedback-thread{border:1px solid var(--line);background:#fbfcff;border-radius:11px;padding:15px;min-width:0}
+.feedback-message{background:#fff;border:1px solid var(--line);border-radius:9px;padding:11px;margin-bottom:8px}
+.feedback-messages{min-height:78px;max-height:330px;overflow-y:auto;margin-bottom:10px}
+.feedback-reply-form textarea{margin-top:8px}
 </style>
 </head>
 <body>
@@ -704,9 +710,19 @@ field("assessment","Findings, claimed performance and/or predictions",e?.assessm
 field("limitations","Methodology, uncertainty and assumptions",e?.limitations||"","textarea","full"),id,e?"Save evidence":"Register source");
 }
 function feedbackPage(){
-var status=ui.filters.feedbackStatus||"all",f=db.feedback.filter(function(x){return status==="all"||x.status===status;}).sort(function(a,b){return b.date.localeCompare(a.date);});
-var rows=f.map(function(x){var target=rec("tasks",x.target)||rec("solutions",x.target);return '<tr>'+td('<strong>'+E(x.title)+'</strong><div class="muted small">'+E(x.body.slice(0,120))+'</div>')+td(badge(x.type))+td(target?E(target.name):"—")+td(E(actor(x.author))+'<div class="muted small">'+E(rec("users",x.author)?.bu||"")+'</div>')+td(badge(x.status))+td(canEdit()?btn("Triage","feedbackDetail",x.id,"sm"):btn("Read","feedbackDetail",x.id,"sm"))+'</tr>';});
-return heading("Continuous improvement","Feedback & new needs","Central register for real-world experiences, ideas and missing capabilities; never a substitute for controlled test-case evidence.",btn("+ Submit feedback","newFeedback","","primary"))+'<div class="card"><div class="filters"><select data-filter="feedbackStatus">'+[["all","All feedback"],["new","New"],["triage","Triage"],["planned","Planned"],["closed","Closed"]].map(function(x){return opt(x[0],x[1],status);}).join("")+'</select>'+badge(f.length+" items")+'</div>'+simpleTable(["Report","Kind","Related object","Contributor / BU","State",""],rows)+'</div>';
+var status=ui.filters.feedbackStatus||"all",search=(ui.filters.feedbackSearch||"").toLowerCase();
+var items=db.feedback.filter(function(x){return (status==="all"||x.status===status)&&(x.title+" "+x.body+" "+x.type).toLowerCase().includes(search);}).sort(function(a,b){return String(b.date).localeCompare(String(a.date));});
+var rows=items.map(function(x){
+var target=rec("tasks",x.target)||rec("solutions",x.target),
+publicReplies=db.feedbackMessages.filter(function(m){return m.feedback===x.id&&m.visibility==="public";}).length,
+internalReplies=db.feedbackMessages.filter(function(m){return m.feedback===x.id&&m.visibility==="internal";}).length;
+return '<tr>'+td(linkAction(x.title,"feedbackDetail",x.id)+'<div class="muted small">'+E(x.body.slice(0,120))+'</div>')+
+td(badge(x.type))+td(target?E(target.name):"—")+td(E(actor(x.author))+'<div class="muted small">'+E(rec("users",x.author)?.bu||"")+'</div>')+
+td('<span>'+publicReplies+' public'+(canEdit()?' · '+internalReplies+' internal':"")+'</span>')+td(badge(x.status))+td(btn("Open threads","feedbackDetail",x.id,"sm"))+'</tr>';
+});
+return heading("Collaboration","Feedback & discussions","Follow up user reports through two separate chronological conversations: public replies and workgroup-only internal discussion.",btn("+ Submit feedback","newFeedback","","primary"))+
+'<div class="card"><div class="filters"><input class="input" data-filter="feedbackSearch" placeholder="Search feedback or needs…" value="'+E(ui.filters.feedbackSearch||"")+'"><select data-filter="feedbackStatus">'+[["all","All states"],["new","New"],["triage","Triage"],["planned","Planned"],["closed","Closed"]].map(function(x){return opt(x[0],x[1],status);}).join("")+'</select>'+badge(items.length+" threads")+'</div>'+
+simpleTable(["Issue / idea","Kind","Related","Contributor","Discussion","State",""],rows)+'</div>';
 }
 function activityPage(){
 var revisions=canEdit()?section("Change history · preserved revisions",db.revisions.length?simpleTable(["Date","Object","Changed by",""],db.revisions.slice().reverse().map(function(rev){return '<tr>'+td(E(rev.date))+td(E(rev.type)+' · '+E(rev.objectId))+td(E(actor(rev.by)))+td(btn("Inspect revision","revisionDetail",rev.id,"sm"))+'</tr>';})):'<div class="empty">No modified records yet. Revise a solution or task to create an auditable change.</div>'):'';
@@ -980,11 +996,27 @@ var g=rec("guides",id);if(!g||(!canEdit()&&g.status!=="published"))return;
 openModal(g.title,'<div class="row-between"><div>'+badge(g.type)+' '+badge(g.status)+'</div><span class="muted small">Last update: '+E(g.date)+' · '+E(actor(g.owner))+'</span></div><pre class="text-block" style="margin-top:18px;white-space:pre-wrap;font-family:inherit">'+E(g.body)+'</pre>',
 btn("Close","close","","")+(canEdit()?btn("Edit document","editGuide",id,"")+(g.status==="draft"?btn("Publish document","publishGuide",id,"primary"):""):""));
 }
+function feedbackThreadMarkup(id,visibility){
+var msgs=db.feedbackMessages.filter(function(x){return x.feedback===id&&x.visibility===visibility;}).sort(function(a,b){return a.date.localeCompare(b.date);});
+var content=msgs.map(function(m){return '<div class="feedback-message"><div class="row-between"><strong>'+E(actor(m.author))+'</strong><span class="muted small">'+E(m.date.replace("T"," ").slice(0,16))+'</span></div><div class="text-block small" style="margin-top:6px">'+E(m.body)+'</div></div>';}).join("")||'<div class="muted small" style="padding:11px">No replies yet.</div>';
+var label=visibility==="public"?"Public discussion":"Workgroup internal discussion",hint=visibility==="public"?"Visible to the contributor and all readers":"Not shared with engineers or general readers";
+return '<section class="feedback-thread"><div class="row-between"><h3>'+label+'</h3>'+badge(msgs.length+" replies")+'</div><p class="muted small" style="margin:5px 0 13px">'+hint+'</p><div class="feedback-messages">'+content+'</div><form class="feedback-reply-form" data-feedback="'+E(id)+'" data-visibility="'+visibility+'"><label class="small" for="reply_'+visibility+'">Reply to '+label.toLowerCase()+'</label><textarea id="reply_'+visibility+'" name="reply" required placeholder="Write a '+visibility+' response…" rows="3"></textarea><div class="right" style="margin-top:8px"><button class="btn sm primary" type="submit">Post '+visibility+' reply</button></div></form></section>';
+}
 function detailsFeedback(id){
 var f=rec("feedback",id);if(!f)return;var tar=rec("solutions",f.target)||rec("tasks",f.target);
-var body='<div class="row-between">'+badge(f.type)+' '+badge(f.status)+'<span class="muted small">'+E(f.date)+' · '+E(actor(f.author))+'</span></div><h3 style="margin:15px 0 8px">'+E(f.title)+'</h3><p class="text-block">'+E(f.body)+'</p><div class="note" style="margin-top:14px">Related: '+E(tar?.name||"General")+(f.linked?' · linked evidence: '+E(f.linked):"")+'</div>';
-if(canEdit())body+='<hr class="divider"><form id="modalForm" data-form="triage" data-id="'+E(f.id)+'"><div class="form-grid">'+selectField("status","Workgroup disposition",[["new","New"],["triage","Triage"],["planned","Planned"],["closed","Closed"]],f.status)+field("linked","Related TC / run / follow-up reference",f.linked||"")+'</div></form>';
-openModal("Contribution record",body,btn("Close","close","","")+(canEdit()?'<button type="submit" form="modalForm" class="btn primary">Save triage</button>'+btn("Start qualification","qualFromFeedback",f.id,"")+btn("Add challenging TC","newCase",f.target,""):""));
+var body='<div class="row-between"><div>'+badge(f.type)+' '+badge(f.status)+'</div><span class="muted small">'+E(f.date)+' · '+E(actor(f.author))+'</span></div>'+
+'<h3 style="margin:15px 0 8px">'+E(f.title)+'</h3><p class="text-block">'+E(f.body)+'</p><div class="note" style="margin-top:14px">Related: '+E(tar?.name||"General")+(f.linked?' · linked evidence: '+E(f.linked):"")+'</div>'+
+'<div class="feedback-threads" style="margin-top:18px">'+feedbackThreadMarkup(f.id,"public")+(canEdit()?feedbackThreadMarkup(f.id,"internal"):"")+'</div>';
+if(canEdit())body+='<hr class="divider"><h3 style="margin-bottom:10px">Workgroup disposition</h3><form id="modalForm" data-form="triage" data-id="'+E(f.id)+'"><div class="form-grid">'+selectField("status","Case status",[["new","New"],["triage","Triage"],["planned","Planned"],["closed","Closed"]],f.status)+field("linked","Linked TC / evidence / action reference",f.linked||"")+'</div></form>';
+openModal("Feedback · "+f.title,body,btn("Close","close","","")+(canEdit()?'<button type="submit" form="modalForm" class="btn primary">Save disposition</button>':""));
+}
+function handleFeedbackReply(form){
+var id=form.dataset.feedback,visibility=form.dataset.visibility;
+if(!rec("feedback",id)||!canContribute()||(visibility==="internal"&&!canEdit())||!["public","internal"].includes(visibility))return;
+var d=formValue(form),message=String(d.reply||"").trim();
+if(!message){toast("Reply cannot be empty.");return;}
+db.feedbackMessages.push({id:next("msg"),feedback:id,visibility:visibility,author:currentUser,date:new Date().toISOString(),body:message});
+event("Feedback",visibility==="internal"?"New internal feedback note":"Public reply posted",visibility==="internal");persist();detailsFeedback(id);toast(visibility==="public"?"Public reply saved.":"Internal note saved.");
 }
 function detailsCampaign(id){
 var b=rec("campaigns",id);if(!b)return;
@@ -1093,7 +1125,7 @@ if(kind==="task"||kind==="taskEdit"){
 ui.modal="";persist();render();toast("Changes saved in this browser.");
 }catch(ex){if(ex.message!=="form validation")throw ex;}
 }
-document.addEventListener("submit",function(ev){if(ev.target.matches(".inline-task-form")){ev.preventDefault();saveInlineTask(ev.target);return;}if(ev.target.matches("#modalForm")){ev.preventDefault();handleForm(ev.target);}});
+document.addEventListener("submit",function(ev){if(ev.target.matches(".feedback-reply-form")){ev.preventDefault();handleFeedbackReply(ev.target);return;}if(ev.target.matches(".inline-task-form")){ev.preventDefault();saveInlineTask(ev.target);return;}if(ev.target.matches("#modalForm")){ev.preventDefault();handleForm(ev.target);}});
 document.addEventListener("change",function(ev){
 var el=ev.target;
 if(el&&el.name==="solutionMode"){
