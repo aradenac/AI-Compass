@@ -1580,6 +1580,19 @@ function installationGuideOptions(solutionId,frameworkId){
     (!!frameworkId&&g.framework===frameworkId)|| (!!solutionId&&g.solution===solutionId));
  }).map(function(g){return[g.id,g.title+(g.framework?" · framework":g.solution?" · solution":" · reusable")];}));
 }
+function refreshCampaignSetupGuides(form){
+ if(form?.dataset.form!=="campaign")return;
+ var selector=form.querySelector('[name="setupGuideId"]');
+ if(!selector)return;
+ var selected=selector.value,fw=form.querySelector('[name="frameworkId"]')?.value||"",
+ mode=form.querySelector('[name="mode"]')?.value,
+ config={model:form.querySelector('[name="modelComponent"]')?.value,provider:form.querySelector('[name="providerComponent"]')?.value,
+ harness:form.querySelector('[name="harnessComponent"]')?.value,version:form.querySelector('[name="version"]')?.value,
+ configuration:form.querySelector('[name="configuration"]')?.value,capabilities:form.querySelector('[name="capabilities"]')?.value};
+ var measured=!fw&&mode==="solution_scope"?findBenchSolutionForSetup(config):null;
+ selector.innerHTML=installationGuideOptions(measured?.id||"",fw).map(function(x){return opt(x[0],x[1],selected);}).join("");
+ if(!Array.from(selector.options).some(function(x){return x.value===selected;}))selector.value="";
+}
 function refreshCampaignInstallationGuides(form){
  if(!form||form.dataset.form!=="campaignTrialSetup")return;
  var selector=form.querySelector('[name="installationGuide"]'),campaign=rec("campaigns",form.dataset.id);
@@ -2315,7 +2328,13 @@ if(kind==="task"||kind==="taskEdit"){
  ui.page="watch";event("Research",(kind==="research"?"Registered":"Updated")+" external evidence: "+item.title,true);
 }else if(kind==="component"||kind==="componentEdit"){
  var comp=id?rec("components",id):{id:next("component")},prevComp=id?JSON.parse(JSON.stringify(comp)):null;
- if(prevComp&&prevComp.type!==d.type&&db.solutions.some(function(sol){return sol.componentRefs?.[prevComp.type]===comp.id;})){toast("A referenced component cannot change type; create a new component instead.");return;}
+ if(prevComp&&prevComp.type!==d.type&&(
+ db.solutions.some(function(sol){return sol.componentRefs?.[prevComp.type]===comp.id;})||
+ db.campaigns.some(function(c){return c.frameworkId===comp.id||
+  (c.frameworkInstances||[]).some(function(p){return ["model","provider","harness"].some(function(k){return p[k]===comp.id;});});})||
+ db.guides.some(function(g){return g.framework===comp.id;}))){
+  toast("Referenced components cannot change type; create a new catalog component.");return;
+ }
  Object.assign(comp,{type:d.type,name:req(d.name,"Component name"),version:d.version,url:d.url||"",details:d.details,publication:d.publication,accessible:d.accessible==="yes",status:d.status||"active"});
  if(!id)db.components.push(comp);else revision("Component",id,prevComp,comp);
  if(form.dataset.watch){var signal=rec("watch",form.dataset.watch);if(signal){signal.component=comp.id;signal.status="reviewed";}}
@@ -2328,7 +2347,10 @@ document.addEventListener("submit",function(ev){if(ev.target.matches(".feedback-
 document.addEventListener("input",function(ev){
  if(updateMetricControl(ev.target))return;
  if(ev.target?.name==="tokenCount")tokenPreview(ev.target.closest("form"));
-  if(["modelComponent","providerComponent","harnessComponent","version","configuration","capabilities"].includes(ev.target?.name))refreshCampaignInstallationGuides(ev.target.closest("form"));
+  if(["modelComponent","providerComponent","harnessComponent","version","configuration","capabilities"].includes(ev.target?.name)){
+   refreshCampaignInstallationGuides(ev.target.closest("form"));
+   refreshCampaignSetupGuides(ev.target.closest("form"));
+  }
  var field=ev.target;if(field?.matches?.("[data-source-search]")){
   var q=String(field.value||"").toLowerCase().trim();
   document.querySelectorAll(".watch-library-option").forEach(function(option){option.style.display=(option.dataset.sourceTitle||"").includes(q)?"":"none";});
@@ -2339,7 +2361,7 @@ var el=ev.target;
 if(updateMetricControl(el))return;
 if(el?.name==="tokenScale"){tokenPreview(el.closest("form"));return;}
 if(["frameworkInstanceId","existingSolution","modelComponent","providerComponent","harnessComponent","version","configuration","capabilities"].includes(el?.name)){
-  refreshCampaignInstallationGuides(el.closest("form"));return;
+  refreshCampaignInstallationGuides(el.closest("form"));refreshCampaignSetupGuides(el.closest("form"));return;
  }
 if(el?.name==="costMode"){
  var area=el.closest("form")?.querySelector("[data-metered-cost]");
@@ -2350,6 +2372,7 @@ if(el?.closest?.("#modalForm")?.dataset.form==="campaign"&&["mode","frameworkId"
  var form=el.closest("form"),mode=form.querySelector('[name="mode"]')?.value,fw=form.querySelector('[name="frameworkId"]')?.value;
  form.querySelectorAll(".campaign-mode-panel").forEach(function(panel){panel.style.display=panel.dataset.modePanel===mode&&(panel.dataset.modePanel!=="solution_scope"||!fw)?"":"none";});
  var fp=form.querySelector("[data-framework-panel]");if(fp)fp.style.display=fw?"":"none";
+ refreshCampaignSetupGuides(form);
  return;
 }
 if(el?.matches?.("[data-source-search]")){
