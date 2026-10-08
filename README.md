@@ -16,6 +16,8 @@ Benchmarking works in both directions: **compare solutions on the same task**, o
 
 ## Product definition
 
+Cross-cutting interaction, slider and tooltip rules: **[Non-Functional Requirements](docs/non-functional-requirements.md)**. Guided benchmark procedure: **[Benchmark Workflow](docs/benchmark-workflow.md)**.
+
 See **[Product Definition](docs/product-definition.md)** for the agreed product scope, roles, task hierarchy, benchmarking model, evidence and scoring principles, publishing workflow, and evolution roadmap.
 
 See **[Non-Functional Requirements](docs/non-functional-requirements.md)** for system-wide interaction and quality rules, including the modal form dismissal policy (**NFR-UX-001**). Forms can only be dismissed through explicit controls, while read-only modals retain backdrop/Escape dismissal.
@@ -88,16 +90,16 @@ The **campaign is the workgroup's primary unit of experimental work and review**
 2. **Open the campaign:** a new campaign starts in **Planned**. Open it to begin execution. The campaign can later be closed, reopened or edited. A configuration is defined using already declared catalog components; a newly measured AI Solution is registered after its first run.
 3. **Add challenges:** create Test Cases directly inside the campaign (task, protocol, inputs, DoD) or attach existing reusable Test Cases. Task-centred campaigns restrict cases to the fixed task; solution-centred campaigns accept tasks across the taxonomy.
 4. **Execute each Test Case via guided forms:**
-   - **Initial configuration:** dated start, initial prompt, input documents/versions, provided skills, agent configuration, preparation notes and estimated human setup duration.
-   - **Timed interactions:** repeatable entries with calendar date/time, human intervention duration, agent/runtime duration, interaction kind, review or corrective action, prompt modifications and intermediate artifacts. Add as many as needed.
-   - **Conclusion & metrics:** accepted or failed DoD, scored quality and useful information density, input/output tokens, AI expense, additional machine runtime, final review/correction effort, produced files, outcomes and reasoning.
-   - **Close Test Case:** save an auditable benchmark run linked to this campaign, task, Test Case, protocol, component/version snapshots and all recorded interactions. Failures remain evidence. A new Test Case or new solution may be tested next.
-5. **Close campaign → Under review:** stages the campaign and its collected runs for other members' review. A different workgroup member (e.g. **Sofia Ramos** for Maya's campaign) documents a review decision. **Publish** shares completed run evidence or **Rework** reopens the campaign.
+   - **Installation & setup (Step 3):** select an existing **Installation guide** from Guides & Charter or create a reusable guide inline, optionally linked to the AI Solution. Record environment, install/start timestamp and **human installation duration** (0–7 days). Prompts are not part of installation.
+   - **Timed interactions (Step 4):** the **first prompt** is logged as the first interaction. Subsequent prompts, input documents, skills/options, reviews, corrections and intermediate artifacts have their own timestamps, human duration and agent duration. Agent runtime is summed automatically.
+   - **Results, artifacts & metrics (Step 5):** DoD accepted/failed; **Quality** and **Information Utility** sliders with numeric entry and narrative evaluation; **optional total tokens**, with 1/10/100/1,000/1,000,000 multiplier; cost mode **EUR amount / flat subscription / unknown**; final review/correction durations; one list of final **Produced outputs**, then **Additional notes (optional)**. Unknown values are not recorded as zero.
+   - **Close Test Case:** store referenced guide snapshot, all timed interactions, calculated runtime, known/unknown metrics and output evidence; accepted and failed runs remain auditable.
+5. **Close campaign → Under review:** the **campaign author or another workgroup member** may review and publish or request rework. A published campaign may be **unpublished to review**, or reopened for further experiments; historical evidence remains retained.
 6. **Reopen when needed:** even a published or under-review campaign can return to **In progress** for additional Test Cases and runs. Previously published run evidence is preserved. Edit campaign goals/notes, archive an evidence-bearing campaign without deleting its audit history, or remove an empty campaign.
 
 An uncompleted Test Case session can be **resumed from the campaign**. Sessions and campaign states persist in browser `localStorage`; no live AI agent, timer daemon, upload endpoint or real benchmarking service is executed. Timestamps/durations and file paths are manually declared, and all starting values are simulated.
 
-**Test this with Maya Laurent (campaign author) and Sofia Ramos (independent reviewer):** Create → Open → Add a Test Case → Save setup → Add two interactions at different times → Record a failed or accepted result → Close → Switch workgroup account → Review & publish → Reopen and inspect preserved runs.
+**Test with Maya Laurent (campaign author/reviewer) or Sofia Ramos (another reviewer):** Create → Open → Add a Test Case → Save setup → Add two interactions at different times → Record a failed or accepted result → Close → Switch workgroup account → Review & publish → Reopen and inspect preserved runs.
 
 ### Technology Watch: evidence-backed forecasts
 
