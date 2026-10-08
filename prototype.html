@@ -771,7 +771,7 @@ return '<p class="muted small" style="margin-bottom:13px">Protocols describe con
 function campaignRegistry(){
 var groups=["planned","active","review","published"];
 return '<div class="card"><div class="filters">'+badge(db.campaigns.filter(function(x){return !x.archived;}).length+" campaigns")+' '+groups.map(function(k){return badge(db.campaigns.filter(function(x){return x.stage===k;}).length+" "+k);}).join(" ")+'</div>'+
-'<div class="list">'+db.campaigns.filter(function(c){return !c.archived;}).sort(function(a,b){return String(b.updated||"").localeCompare(String(a.updated||""));}).map(function(c){
+'<div class="list">'+db.campaigns.filter(function(c){return !c.archived&&(canEdit()||c.stage==="published");}).sort(function(a,b){return String(b.updated||"").localeCompare(String(a.updated||""));}).map(function(c){
 var runs=campaignRuns(c),sessions=db.campaignTrials.filter(function(x){return x.campaign===c.id;});
 return '<div class="list-row"><div class="short"><div class="row">'+badge(campaignStatusLabel(c))+' '+badge(c.mode==="task_compare"?"Task comparison":"Solution coverage")+'</div>'+
 '<div style="margin:7px 0 4px">'+linkAction(c.title,"campaignDetail",c.id)+'</div><div class="muted small">'+E(c.purpose||"")+'</div><div class="muted small">'+c.caseIds.length+' Test Cases · '+runs.length+' completed runs · '+sessions.filter(function(t){return t.status!=="completed";}).length+' ongoing sessions · '+E(actor(c.owner))+'</div></div>'+
@@ -1348,7 +1348,18 @@ var html='<div class="row-between"><div>'+badge(r.status)+" "+badge(r.accepted?"
 '<div class="card tight" style="margin-top:14px">'+bar("Preparation",baseline?100*r.prep/baseline:0,r.prep+" min")+bar("Steering",baseline?100*r.steer/baseline:0,r.steer+" min")+bar("Review",baseline?100*r.review/baseline:0,r.review+" min")+bar("Corrections",baseline?100*r.correction/baseline:0,r.correction+" min")+'</div>'+
 '<h3 style="margin:16px 0 7px">Original task taxonomy / inherited context</h3><div class="tags">'+(r.taskContextSnapshot||[]).map(function(x){return badge(x.name);}).join("")+'</div><h3 style="margin:16px 0 7px">Test context & acceptance</h3><p class="text-block">'+E(c?.objective||"")+'</p><div class="callout" style="margin:10px 0">Inputs: '+E(c?.inputs||"")+'<hr class="divider">Definition of Done: '+E(c?.dod||"")+'</div>'+
 '<div class="grid g2" style="margin-top:12px">'+stat("Information utility / density",r.utility+"/100","Declared rubric · relative to output volume")+stat("Agent runtime",r.duration+" min",r.interruptions+" interruptions · "+r.reprompts+" reprompts")+'</div><h3 style="margin:16px 0 7px">Observed side effects</h3><pre class="code">'+E(r.sideEffects||"None recorded")+'</pre><h3 style="margin:16px 0 7px">Pinned configuration / version at run time</h3><pre class="code">'+E(s?.config||"")+'</pre>'+
-forecastPanel+'<h3 style="margin:16px 0 7px">Initial prompt</h3><pre class="code">'+E(r.prompt)+'</pre>'+
+forecastPanel+(r.initialSetup?'<h3 style="margin:17px 0 8px">Step-by-step experiment timeline</h3>'+
+'<div class="note"><strong>Initial configuration:</strong> '+E(r.initialSetup.startedAt)+' · '+E(r.initialSetup.setupMinutes)+' min human setup'+
+'<p class="small" style="margin-top:8px"><strong>Input documents:</strong> '+E(r.initialSetup.inputDocuments)+'</p>'+
+'<p class="small"><strong>Skills and context provided:</strong> '+E(r.initialSetup.providedSkills)+'</p>'+
+'<p class="small"><strong>Setup notes:</strong> '+E(r.initialSetup.setupNotes)+'</p></div>'+
+simpleTable(["Iteration / date-time","Human effort","Agent runtime","Action & observations"],(r.interactions||[]).map(function(v,i){
+ return '<tr>'+td('Iteration '+(i+1)+'<div class="muted small">'+E(v.at)+'</div>')+td(v.humanMinutes+' min')+
+ td(v.agentMinutes+' min')+td('<strong>'+E(v.kind)+'</strong><p class="small">'+E(v.description)+'</p><p class="muted small">Prompt change: '+E(v.promptUpdate||"None")+'</p><p class="muted small">Artifacts: '+E(v.artifacts||"—")+'</p>')+'</tr>';
+ }))+ '<div class="note" style="margin-top:10px"><strong>Produced deliverables:</strong> '+E(r.resultDetails?.deliverableNotes||"Not recorded")+
+ '<p class="small">Output files: '+E(r.resultDetails?.outputDocuments||"Not recorded")+'</p>'+
+ '<p class="small">Information density / relevance notes: '+E(r.resultDetails?.densityNotes||"Not recorded")+'</p></div>':"")+
+'<h3 style="margin:16px 0 7px">Initial prompt</h3><pre class="code">'+E(r.prompt)+'</pre>'+
 '<h3 style="margin:16px 0 7px">Interaction trace</h3><pre class="code">'+E(r.transcript)+'</pre>'+
 '<h3 style="margin:16px 0 7px">Artifacts / evidence references</h3><pre class="code">'+E(r.artifacts)+'</pre>'+
 '<h3 style="margin:16px 0 7px">Review and conclusions</h3><p class="text-block">'+E(r.notes)+'</p>'+
@@ -1389,7 +1400,7 @@ db.feedbackMessages.push({id:next("msg"),feedback:id,visibility:visibility,autho
 event("Feedback",visibility==="internal"?"New internal feedback note":"Public reply posted",visibility==="internal");persist();detailsFeedback(id);toast(visibility==="public"?"Public reply saved.":"Internal note saved.");
 }
 function detailsCampaign(id){
-var c=rec("campaigns",id);if(!c||c.archived)return;
+var c=rec("campaigns",id);if(!c||c.archived||(!canEdit()&&c.stage!=="published"))return;
 var trials=db.campaignTrials.filter(function(t){return t.campaign===id;}),runs=campaignRuns(c),
  setup=c.solutionSetup||{};
 var head='<div class="row-between"><div class="tags">'+badge(campaignStatusLabel(c))+' '+badge(c.mode==="solution_scope"?"One fixed AI setup":"Fixed task / multiple solutions")+'</div><span class="muted small">Owner: '+E(actor(c.owner))+'</span></div>'+
@@ -1844,7 +1855,7 @@ if(act==="editResearch"){dialogResearch(id);return;}
 if(act==="newCampaign"){dialogCampaign();return;}
 if(act==="publishRun"){if(!editable())return;var r=rec("runs",id);if(r){r.status="published";ui.modal="";saveEvent("Run","Published benchmark run "+id);}return;}
 if(act==="publishGuide"){if(!editable())return;var g=rec("guides",id);if(g){g.status="published";g.date=new Date().toISOString().slice(0,10);ui.modal="";saveEvent("Guide","Published document: "+g.title);}return;}
-if(act==="export"){var out=canEdit()?db:Object.assign({},db,{solutions:db.solutions.filter(visibleSolution),components:db.components.filter(function(c){return !c.publication||c.publication==="published";}),runs:db.runs.filter(visibleRun),guides:db.guides.filter(function(g){return g.status==="published";}),events:db.events.filter(function(e){return !e.internal;}),watch:db.watch.filter(watchVisible),researchEvidence:db.researchEvidence.filter(researchVisible),feedbackMessages:db.feedbackMessages.filter(function(m){return m.visibility==="public";}),proposals:db.proposals.filter(function(p){return p.status==="published";}),qualifications:[],revisions:[]});var blob=new Blob([JSON.stringify(out,null,2)],{type:"application/json"});var link=document.createElement("a");link.href=URL.createObjectURL(blob);link.download="ai-compass-demo-data.json";link.click();setTimeout(function(){URL.revokeObjectURL(link.href);},2000);toast(canEdit()?"Exported full mock dataset.":"Exported published mock records.");return;}
+if(act==="export"){var out=canEdit()?db:Object.assign({},db,{solutions:db.solutions.filter(visibleSolution),components:db.components.filter(function(c){return !c.publication||c.publication==="published";}),runs:db.runs.filter(visibleRun),guides:db.guides.filter(function(g){return g.status==="published";}),events:db.events.filter(function(e){return !e.internal;}),watch:db.watch.filter(watchVisible),researchEvidence:db.researchEvidence.filter(researchVisible),feedbackMessages:db.feedbackMessages.filter(function(m){return m.visibility==="public";}),proposals:db.proposals.filter(function(p){return p.status==="published";}),campaigns:db.campaigns.filter(function(c){return !c.archived&&c.stage==="published";}),campaignTrials:[],qualifications:[],revisions:[]});var blob=new Blob([JSON.stringify(out,null,2)],{type:"application/json"});var link=document.createElement("a");link.href=URL.createObjectURL(blob);link.download="ai-compass-demo-data.json";link.click();setTimeout(function(){URL.revokeObjectURL(link.href);},2000);toast(canEdit()?"Exported full mock dataset.":"Exported published mock records.");return;}
 if(act==="reset"){if(confirm("Replace all browser-saved prototype data with the initial mock dataset? This cannot be undone.")){db=seed();ensureDefaults();persist();ui.modal="";ui.filters={};ui.page="dashboard";render();toast("Mock dataset restored.");}return;}
 });
 document.addEventListener("click",function(ev){if(ev.target&&ev.target.id==="backdrop")closeModal();});
