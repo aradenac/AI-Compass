@@ -59,6 +59,17 @@ Try the full operational workflow:
 
 The pipeline describes **workgroup activities**, distinct from solution accessibility, model maturity or raw catalog publication. Everything is browser-local and shared across simulated accounts within one browser.
 
+### In-place task hierarchy organizer
+
+Sign in as **Maya Laurent** or **Sofia Ramos** (workgroup), open **Task explorer** and select **Organize tree**. The existing task taxonomy becomes an editable multi-section board:
+
+- **Drag the ⠿ handle** onto another node to make it a child, or onto the separators to insert it before a sibling. The same action works across root sections; the target areas expand while dragging.
+- Use **✎** or select a node to edit its name, engineering phase, domain, description, acceptance criteria, baseline and parent **inline** without leaving Task Explorer.
+- Use **＋** to create a child, **+ Root section** to add a main section, and **↑ / ↓** to reorder siblings without dragging.
+- Choose **Done organizing** to return to the usual read-only browsing and evidence comparison view.
+
+All changes are persisted in `localStorage`; node IDs remain stable, and prior benchmark snapshots are not rewritten when a node is moved. Moving a node underneath itself or any descendant is forbidden. Changes are tracked in the workgroup's revision history. Other roles can browse the tree but cannot reorganize it.
+
 ### Exercise the complete workflow
 
 1. **Engineer:** Task explorer → KSZ8851SNL Driver → inspect the DoD, TCs and solution comparison; open evidence or guidance.
