@@ -76,14 +76,20 @@ Sign in as **Maya Laurent** or **Sofia Ramos**. The workgroup has its own sideba
 
 The **Dashboard is observational**, suitable for a daily meeting. It displays the four qualification stages (**To qualify → Qualifying → Review → Published**) as a **read-only board** with ownership, dates and evidence counts, plus recent feedback and watch signals. The four previous KPI cards and **Add to Pipeline** button have been removed. Viewing a card opens a read-only snapshot; modifications and decisions belong to **Benchmark workspace**.
 
-### Technology Watch: collection before qualification
+### Technology Watch: evidence-backed forecasts
 
-Technology Watch is an information-gathering and screening workflow, **not** a start-qualification shortcut:
+Technology Watch now has an **evidence-first workflow**, separate from controlled benchmarks.
 
-1. Record a new announcement, model, provider, harness, technical publication or market signal using **Watch entry**.
-2. Add or link a **Model / Provider / Harness** item to the independent **Technology catalog** (the item may remain inaccessible or untested).
-3. Register public benchmarks, scientific publications, provider claims or workgroup performance estimates, documenting source, provenance, confidence, assumptions and limitations. These are **not** presented as internally reproduced benchmark runs.
-4. Later, from **Benchmark workspace**, select relevant components and launch controlled tests or formal qualification.
+1. **Create Watch Entry:** document the intuition, reasoning, assumptions and expected benefit; attach one or more public sources, each with a citation, claim, confidence and limitations **in the same creation form**. A Watch Entry is not a catalog component.
+2. **Build theoretical forecast:** choose an engineering task and a hypothetical model/provider/harness/configuration. Link multiple watch signals. Enter predicted quality, acceptance, autonomy, human effort, AI cost, hourly labor assumption, rationale and uncertainty.
+3. **Stage → Reviewed → Published:** forecasts are drafts until explicitly staged. Staged forecasts are available for internal review and comparison. A documented review is required before publication. Publication never turns projected metrics into observed benchmarks.
+4. **Task management:** task nodes display linked forecasts separately from their Test Cases and empirical benchmark evidence.
+5. **Results explorer → Measured vs theoretical:** compare literature-based projections to published controlled runs. Estimated and observed metrics occupy distinct rows with confidence and evidence counts.
+6. **Benchmark workspace:** a staged forecast can be validated by a controlled run, retaining a frozen copy of its original assumptions and linking the empirically tested AI Solution.
+
+A forecast may cite several Watch Entries, and one Watch Entry can underpin several configurations. Material edits return a forecast to Draft for re-review. Published projections remain marked **THEORETICAL** and are immutable in the prototype. Nonpublished proposals are visible only to workgroup accounts.
+
+The Technology Catalog stays independent; creating a Watch Entry does not redirect to component management. Source-supported predictions and internal measurements remain distinct evidence classes.
 
 ### Benchmark process vs. result exploration vs. test design
 
