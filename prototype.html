@@ -1437,10 +1437,117 @@ function detailsRevision(id){
 if(!canEdit())return;var rev=db.revisions.find(function(x){return x.id===id;});if(!rev)return;
 openModal("Audit revision · "+rev.type,'<div class="row-between">'+badge(rev.type)+'<span class="muted small">'+E(rev.date)+' · '+E(actor(rev.by))+'</span></div><h3 style="margin:15px 0 7px">Previous record</h3><pre class="code">'+E(JSON.stringify(rev.before,null,2))+'</pre><h3 style="margin:15px 0 7px">Updated record</h3><pre class="code">'+E(JSON.stringify(rev.after,null,2))+'</pre>');
 }
+function campaignTrialsExistingOrCases(c){return c.caseIds.length>0||db.campaignTrials.some(function(x){return x.campaign===c.id;});}
+function campaignRecordRun(t,d){
+var c=rec("campaigns",t.campaign),tc=rec("cases",t.case),setup=t.solutionSetup;
+if(!c||!tc||!setup)return {error:"Invalid trial setup."};
+var configured={
+ modelComponent:setup.model,providerComponent:setup.provider,harnessComponent:setup.harness,
+ configuration:setup.configuration,solutionVersion:setup.version||"1.0",
+ capabilities:setup.capabilities||"",comboAccessible:setup.accessible?"yes":"no"
+};
+var result=findOrCreateBenchSolution(configured);
+if(result.error)return result;
+var sol=result.solution,interactions=t.interactions||[];
+var steering=interactions.reduce(function(n,v){return n+Number(v.humanMinutes||0);},0);
+var time=interactions.reduce(function(n,v){return n+Number(v.agentMinutes||0);},0)+Number(d.finalRuntime||0);
+var tokensInput=Number(d.tokensInput||0),tokensOutput=Number(d.tokensOutput||0),day=new Date().toISOString().slice(0,10);
+var trace=interactions.map(function(v,i){return "Iteration "+(i+1)+" @ "+v.at+" | "+v.kind+" | human "+v.humanMinutes+" min | agent "+v.agentMinutes+" min\n"+v.description+"\nPrompt update: "+(v.promptUpdate||"None")+"\nArtifacts: "+(v.artifacts||"None");}).join("\n\n");
+var r={id:next("r"),campaignId:c.id,sessionId:t.id,case:tc.id,solution:sol.id,
+ protocol:tc.protocol,date:day,score:Number(d.score),accepted:d.accepted==="yes",status:"draft",
+ prep:Number(t.setupMinutes),steer:steering,review:Number(d.reviewMinutes||0),
+ correction:Number(d.correctionMinutes||0),cost:Number(d.cost),tokens:tokensInput+tokensOutput,
+ tokensInput:tokensInput,tokensOutput:tokensOutput,duration:time,interruptions:interactions.length,
+ reprompts:interactions.filter(function(v){return String(v.kind+" "+v.description).toLowerCase().includes("prompt");}).length,
+ utility:Number(d.utility),sideEffects:d.densityNotes||"",prompt:t.initialPrompt,transcript:trace,
+ artifacts:d.outputDocuments||"",notes:d.conclusion||"",owner:currentUser,
+ initialSetup:JSON.parse(JSON.stringify({startedAt:t.startedAt,setupMinutes:t.setupMinutes,inputDocuments:t.inputDocuments,providedSkills:t.providedSkills,setupNotes:t.setupNotes,initialPrompt:t.initialPrompt,configuration:setup.configuration})),
+ interactions:JSON.parse(JSON.stringify(interactions)),
+ resultDetails:{deliverableNotes:d.deliverableNotes||"",densityNotes:d.densityNotes||"",outputDocuments:d.outputDocuments||"",finishedAt:campaignLocalTime()},
+ campaignSnapshot:JSON.parse(JSON.stringify({id:c.id,title:c.title,mode:c.mode,purpose:c.purpose,task:c.task,notes:c.notes})),
+ caseSnapshot:JSON.parse(JSON.stringify(tc)),solutionSnapshot:JSON.parse(JSON.stringify(sol)),
+ componentSnapshots:JSON.parse(JSON.stringify(sol.componentSnapshots||{})),
+ protocolSnapshot:JSON.parse(JSON.stringify(rec("protocols",tc.protocol)||{})),
+ taskContextSnapshot:ancestors(tc.task).map(function(x){return{id:x.id,name:x.name,phase:x.phase,criteria:x.criteria,baseline:x.baseline};})
+};
+db.runs.push(r);
+if(result.created)event("Solution","New measured AI solution from campaign "+c.title,true);
+return {run:r};
+}
 function handleForm(form){
 var kind=form.dataset.form,id=form.dataset.id,d=formValue(form);if(kind!=="feedback"&&kind!=="triage"&&!canEdit()){toast("Insufficient permissions.");return;}
 var req=function(v,label){if(!String(v||"").trim()){toast(label+" is required.");throw Error("form validation");}return String(v).trim();};
 try{
+if(kind==="campaign"){
+ var existing=id?rec("campaigns",id):null,mode=d.mode==="solution_scope"?"solution_scope":"task_compare";
+ var setup={model:d.modelComponent||"",provider:d.providerComponent||"",harness:d.harnessComponent||"",
+  configuration:d.configuration||"",version:d.version||"1.0",capabilities:d.capabilities||"",accessible:d.accessible==="yes"};
+ if(mode==="task_compare"&&!rec("tasks",d.task)){toast("Choose the comparison task.");return;}
+ if(mode==="solution_scope"&&(["model","provider","harness"].some(function(k){return !rec("components",setup[k]);})||!setup.configuration.trim())){toast("Choose model, provider, harness and fixed configuration.");return;}
+ if(existing&&existing.stage==="published"){toast("Reopen a published campaign before editing.");return;}
+ var campaign=existing||{id:next("b"),stage:"planned",caseIds:[],solutionIds:[],reviewNotes:"",reviewer:"",archived:false};
+ var before=existing?JSON.parse(JSON.stringify(existing)):null;
+ var desiredTask=mode==="task_compare"?d.task:"";
+ if(existing&&campaignTrialsExistingOrCases(campaign)&&existing.mode!==mode){toast("Campaign mode cannot change after cases or sessions exist.");return;}
+ Object.assign(campaign,{title:req(d.title,"Campaign title"),purpose:req(d.purpose,"Objective"),
+  mode:mode,task:desiredTask,solutionSetup:setup,notes:d.notes||"",owner:d.owner||currentUser,updated:TODAY});
+ if(!existing)db.campaigns.push(campaign);else revision("Campaign",campaign.id,before,campaign);
+ event("Campaign",(existing?"Edited ":"Created ")+campaign.title,true);persist();detailsCampaign(campaign.id);return;
+}else if(kind==="campaignCase"){
+ var parentCampaign=rec("campaigns",id);
+ if(!parentCampaign||parentCampaign.stage!=="active"||!rec("tasks",d.task)){toast("Open campaign and choose a task.");return;}
+ if(parentCampaign.mode==="task_compare"&&parentCampaign.task!==d.task){toast("A comparison campaign must use its fixed task.");return;}
+ var tc={id:next("c"),task:d.task,title:req(d.title,"Test Case title"),version:d.version||"1.0",
+  protocol:d.protocol,objective:req(d.objective,"Challenge objective"),inputs:d.inputs||"",dod:req(d.dod,"DoD"),status:"published"};
+ if(!rec("protocols",tc.protocol)){toast("Select a benchmark protocol.");return;}
+ db.cases.push(tc);parentCampaign.caseIds.push(tc.id);parentCampaign.updated=TODAY;
+ event("Campaign","New Test Case "+tc.title+" added to "+parentCampaign.title,true);persist();detailsCampaign(parentCampaign.id);return;
+}else if(kind==="campaignAttachCase"){
+ var targetCampaign=rec("campaigns",id),selected=rec("cases",d.case);
+ if(!targetCampaign||targetCampaign.stage!=="active"||!selected||targetCampaign.caseIds.includes(selected.id)||(targetCampaign.mode==="task_compare"&&selected.task!==targetCampaign.task)){toast("Choose a compatible Test Case.");return;}
+ targetCampaign.caseIds.push(selected.id);targetCampaign.updated=TODAY;
+ event("Campaign","Attached "+selected.title+" to "+targetCampaign.title,true);persist();detailsCampaign(id);return;
+}else if(kind==="campaignTrialSetup"){
+ var home=rec("campaigns",id),chosenCase=rec("cases",d.case);
+ if(!home||home.stage!=="active"||!chosenCase||!home.caseIds.includes(chosenCase.id)){toast("Campaign is not open or Test Case is not included.");return;}
+ var cfg=home.mode==="solution_scope"?Object.assign({},home.solutionSetup):null;
+ if(home.mode==="task_compare"){
+  var incumbent=rec("solutions",d.existingSolution);
+  cfg=incumbent?{model:incumbent.componentRefs?.model,provider:incumbent.componentRefs?.provider,harness:incumbent.componentRefs?.harness,
+   configuration:incumbent.config,version:incumbent.version,capabilities:incumbent.skills,accessible:incumbent.accessible}:
+   {model:d.modelComponent,provider:d.providerComponent,harness:d.harnessComponent,
+    configuration:d.configuration,version:d.version||"1.0",capabilities:d.capabilities||"",accessible:false};
+ }
+ if(["model","provider","harness"].some(function(k){return !rec("components",cfg[k]);})||!String(cfg.configuration||"").trim()){toast("Choose a complete AI setup and configuration.");return;}
+ if(!String(d.startedAt||"").trim()||!String(d.initialPrompt||"").trim()||!String(d.inputDocuments||"").trim()){toast("Record start time, initial prompt and input references.");return;}
+ if(!Number.isFinite(Number(d.setupMinutes))||String(d.setupMinutes).trim()===""||Number(d.setupMinutes)<0){toast("Specify the human setup duration.");return;}
+ var session={id:next("trial"),campaign:id,case:chosenCase.id,step:2,status:"in_progress",
+  startedAt:d.startedAt,setupMinutes:Number(d.setupMinutes),initialPrompt:d.initialPrompt,inputDocuments:d.inputDocuments,
+  providedSkills:d.providedSkills||"",setupNotes:d.setupNotes||"",solutionSetup:cfg,interactions:[],runId:"",createdBy:currentUser};
+ db.campaignTrials.push(session);event("Trial","Started "+chosenCase.title+" in "+home.title,true);
+ persist();campaignTrialInteraction(session.id);return;
+}else if(kind==="campaignInteraction"){
+ var session=rec("campaignTrials",id),ownerCampaign=session&&rec("campaigns",session.campaign);
+ if(!session||!ownerCampaign||ownerCampaign.stage!=="active"||session.status==="completed"){toast("This execution cannot be changed.");return;}
+ if(!d.at||!String(d.description||"").trim()){toast("Provide the interaction time and description.");return;}
+ if(["humanMinutes","agentMinutes"].some(function(k){return String(d[k]??"").trim()===""||!Number.isFinite(Number(d[k]))||Number(d[k])<0;})){toast("Provide both human and agent duration (0 allowed).");return;}
+ if(Date.parse(d.at)<Date.parse(session.startedAt)){toast("An iteration cannot predate initial setup.");return;}
+ session.interactions.push({at:d.at,kind:d.kind||"Interaction",humanMinutes:Number(d.humanMinutes),agentMinutes:Number(d.agentMinutes),
+  description:d.description,promptUpdate:d.promptUpdate||"",artifacts:d.artifacts||""});
+ session.step=2;event("Trial","Logged interaction for "+rec("cases",session.case)?.title,true);
+ persist();campaignTrialInteraction(id);return;
+}else if(kind==="campaignTrialOutcome"){
+ var session=rec("campaignTrials",id),campaign=session&&rec("campaigns",session.campaign);
+ if(!session||!campaign||campaign.stage!=="active"||session.status==="completed"){toast("This session is no longer open.");return;}
+ if(["score","utility"].some(function(k){return !String(d[k]??"").trim()||!Number.isFinite(Number(d[k]))||Number(d[k])<0||Number(d[k])>100;})){toast("Enter outcome metrics (quality and utility 0–100).");return;}
+ if(["tokensInput","tokensOutput","cost","finalRuntime","reviewMinutes","correctionMinutes"].some(function(k){return String(d[k]??"").trim()===""||!Number.isFinite(Number(d[k]))||Number(d[k])<0;})){toast("Enter nonnegative usage and effort measures (0 allowed).");return;}
+ if(!String(d.conclusion||"").trim()||!String(d.deliverableNotes||"").trim()||!String(d.outputDocuments||"").trim()){toast("Document the conclusion, produced outputs and their references.");return;}
+ var finished=campaignRecordRun(session,d);
+ if(finished.error){toast(finished.error);return;}
+ session.status="completed";session.step=3;session.runId=finished.run.id;session.finishedAt=campaignLocalTime();
+ campaign.updated=TODAY;event("Trial","Closed "+rec("cases",session.case)?.title+" — "+(finished.run.accepted?"Accepted":"Failed"),true);
+ persist();detailsCampaign(campaign.id);return;
+}
 if(kind==="task"||kind==="taskEdit"){
  var oldTask=kind==="taskEdit"?rec("tasks",id):null;
  if(oldTask&&d.parent&&descendants(oldTask.id).includes(d.parent)){toast("A task cannot be its own ancestor.");return;}
@@ -1576,9 +1683,7 @@ if(kind==="task"||kind==="taskEdit"){
 }else if(kind==="protocol"){
  var protocol={id:next("p"),name:req(d.name,"Protocol name"),version:req(d.version,"Revision"),autonomy:d.autonomy,description:req(d.description,"Setup"),criteria:req(d.criteria,"Criteria")};
  db.protocols.push(protocol);ui.page="testdesign";ui.testTab="protocols";event("Protocol","Created protocol revision: "+protocol.name+" v"+protocol.version);
-}else if(kind==="campaign"){
- var ca={id:next("b"),title:req(d.title,"Campaign title"),purpose:req(d.purpose,"Campaign purpose"),caseIds:Array.from(form.querySelectorAll('[name="caseIds"]:checked')).map(function(el){return el.value;}),solutionIds:Array.from(form.querySelectorAll('[name="solutionIds"]:checked')).map(function(el){return el.value;}),status:"active",owner:currentUser};
- if(!ca.caseIds.length||!ca.solutionIds.length){toast("Select at least one case and one solution.");return;}db.campaigns.push(ca);ui.page="benchmark";event("Campaign","Created campaign: "+ca.title);
+
 }
 ui.modal="";persist();render();toast("Changes saved in this browser.");
 }catch(ex){if(ex.message!=="form validation")throw ex;}
