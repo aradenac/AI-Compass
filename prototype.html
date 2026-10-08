@@ -265,7 +265,12 @@ if(!Array.isArray(db.proposals))db.proposals=[
 ];
 db.watch.forEach(function(w){if(!w.publication)w.publication="published";if(w.hypothesis===undefined)w.hypothesis=w.summary||"";if(w.assumptions===undefined)w.assumptions="Not yet documented";if(w.potential===undefined)w.potential="";});
 db.researchEvidence.forEach(function(e){if(!e.publication)e.publication="published";});
-db.proposals.forEach(function(p){if(!Array.isArray(p.watchIds))p.watchIds=p.watchId?[p.watchId]:[];if(!p.status)p.status="draft";if(!p.componentRefs)p.componentRefs={model:"",provider:"",harness:""};});
+db.proposals.forEach(function(p){
+ if(!Array.isArray(p.watchIds))p.watchIds=p.watchId?[p.watchId]:[];
+ if(!p.status)p.status="draft";
+ if(!p.componentRefs)p.componentRefs={model:"",provider:"",harness:""};
+ if(!p.componentSnapshots)p.componentSnapshots=Object.fromEntries(["model","provider","harness"].map(function(k){return[k,JSON.parse(JSON.stringify(db.components.find(function(c){return c.id===p.componentRefs[k];})||{}))];}));
+});
 if(!db.revisions)db.revisions=[];
 db.tasks.forEach(function(t,i){if(!Number.isFinite(t.order))t.order=i;});
 db.solutions.forEach(function(x,i){if(!x.lastReviewed)x.lastReviewed=i===5?"2026-07-20":"2026-09-28";if(!x.supersededBy)x.supersededBy="";});
@@ -697,6 +702,7 @@ function observed(x,field,suffix){if(!x.solution)return '<span class="muted">Not
 var lines=[
 tableRow("Evidence class",function(x){return x.forecast?badge("THEORETICAL · "+x.forecast.status):badge("MEASURED");}),
 tableRow("Task / scope",function(x){return E(x.forecast?rec("tasks",x.forecast.task)?.name||"Unknown":task==="all"?"Mixed tasks":rec("tasks",task)?.name||"Unknown");}),
+tableRow("Model / provider / harness",function(x){if(x.forecast)return ["model","provider","harness"].map(function(k){var c=x.forecast.componentSnapshots?.[k];return E((c?.name||"?")+(c?.version?" v"+c.version:""));}).join(" · ");return E(x.solution.model+" · "+x.solution.provider+" · "+x.solution.harness);}),
 tableRow("Quality — observed",function(x){return observed(x,"score","/100");}),
 tableRow("Quality — projected",function(x){return estimated(x,"quality","/100");}),
 tableRow("DoD acceptance — observed",function(x){return observed(x,"accept","%");}),
@@ -1052,7 +1058,7 @@ var sources=theoreticalSources(p),saved=forecastNetSavings(p),task=rec("tasks",p
 var html='<div class="tags">'+badge(evidenceKind(p))+' '+badge(p.confidence+" confidence")+'</div>'+
 '<p class="muted small" style="margin-top:12px">Task: '+E(task?.name||"Unknown")+' · Last update: '+E(p.updated)+'</p>'+
 '<h3 style="margin:16px 0 6px">Hypothetical setup</h3>'+
-'<p>'+["model","provider","harness"].map(function(type){return E(rec("components",p.componentRefs[type])?.name||"?");}).join(" · ")+'</p>'+
+'<p>'+["model","provider","harness"].map(function(type){return E(p.componentSnapshots?.[type]?.name||rec("components",p.componentRefs[type])?.name||"?");}).join(" · ")+'</p>'+
 '<pre class="code">'+E(p.config)+'</pre>'+
 '<div class="grid g3">'+stat("Expected quality",p.quality+"/100","PREDICTED, not observed")+stat("Expected acceptance",p.acceptance+"%","PREDICTED, not observed")+stat("Expected AI cost",money(p.aiCost),"PREDICTED, not incurred")+'</div>'+
 '<div class="grid g3" style="margin-top:9px">'+stat("Expected autonomy",p.autonomy+"/100","Subjective forecast")+stat("Human involvement",p.humanMinutes+" min","Expected, not recorded")+stat("Scenario net saving",saved===null?"Not estimable":money(saved),"Projected, acceptance-adjusted · "+money(p.hourlyRate)+"/hour")+'</div>'+
@@ -1375,7 +1381,7 @@ if(kind==="task"||kind==="taskEdit"){
   var component={id:next("component"),type:kind,name:name,version:version,status:"watching",publication:"draft",accessible:false,details:"Proposed from literature-based forecast; unverified and not yet benchmarked."};
   db.components.push(component);refs[kind]=component.id;event("Catalog","Registered unverified "+kind+": "+name,true);
  });
- Object.assign(forecast,{name:forecastName,task:d.task,watchIds:watchIds,componentRefs:refs,config:configText,quality:toNum(d.quality),acceptance:toNum(d.acceptance),autonomy:toNum(d.autonomy),humanMinutes:toNum(d.humanMinutes),aiCost:toNum(d.aiCost),hourlyRate:toNum(d.hourlyRate),confidence:d.confidence,revision:d.revision||"1.0",rationale:justification,uncertainty:unknowns,reviewNotes:d.reviewNotes||"",updated:new Date().toISOString().slice(0,10)});
+ Object.assign(forecast,{name:forecastName,task:d.task,watchIds:watchIds,componentRefs:refs,componentSnapshots:Object.fromEntries(["model","provider","harness"].map(function(k){return[k,JSON.parse(JSON.stringify(rec("components",refs[k])||{}))];})),config:configText,quality:toNum(d.quality),acceptance:toNum(d.acceptance),autonomy:toNum(d.autonomy),humanMinutes:toNum(d.humanMinutes),aiCost:toNum(d.aiCost),hourlyRate:toNum(d.hourlyRate),confidence:d.confidence,revision:d.revision||"1.0",rationale:justification,uncertainty:unknowns,reviewNotes:d.reviewNotes||"",updated:new Date().toISOString().slice(0,10)});
  if(id){
   var keyFields=["name","task","watchIds","componentRefs","config","quality","acceptance","autonomy","humanMinutes","aiCost","hourlyRate","confidence","rationale","uncertainty"];
   var materiallyChanged=keyFields.some(function(k){return JSON.stringify(previous[k])!==JSON.stringify(forecast[k]);});
