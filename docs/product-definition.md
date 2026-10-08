@@ -325,8 +325,8 @@ The workgroup must be able to:
 
 1. Enter and maintain an interesting **individual model, provider or harness** from technology watch, even before access or qualification, without preregistering an AI Solution.
 2. Enrich the candidate's metadata and capabilities as information arrives.
-3. **Within Benchmark workspace**, start a qualification from selected catalog candidates, assemble a concrete configuration, and automatically link the resulting AI Solution after its first controlled run. Neither a watch signal nor the component catalog should initiate the qualification directly.
-4. Compare staged candidates with already known solutions.
+3. **Within Benchmark Workspace**, start a Campaign, select a solution-centred or task-centred experimental scope, add Test Cases, and record controlled runs. The first completed run of a new configuration automatically registers and links the measured AI Solution. Neither a Watch Entry nor the component catalog should launch an experimental campaign directly.
+4. Compare staged theoretical forecasts and published controlled experiments in clearly separated evidence categories.
 5. Publish findings, recommendations, documentation, and corrections.
 6. Re-evaluate existing recommendations when new TCs, models, versions, evidence, prices, or retirements make them questionable.
 
