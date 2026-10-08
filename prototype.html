@@ -367,6 +367,7 @@ db.campaigns.forEach(function(c,i){
  if(!c.owner)c.owner="u1";
   if(!c.frameworkId)c.frameworkId="";
   if(!Array.isArray(c.frameworkInstances))c.frameworkInstances=[];
+  if(!c.setupGuideId)c.setupGuideId="";
 
   if(!Array.isArray(c.watchIds))c.watchIds=c.watchId?[c.watchId]:rec("proposals",c.forecastId)?.watchIds?.slice()||[];
   c.watchIds=Array.from(new Set(c.watchIds.filter(function(id){return !!rec("watch",id);})));
@@ -1317,7 +1318,9 @@ selectField("type","Document type",[["Charter","Charter"],["Guide","User guide"]
 selectField("status","Publication",[["draft","Draft"],["published","Published"]],g?.status||"draft")+
 field("title","Title",g?.title||"","text","full")+
 selectField("solution","Related measured AI Solution (optional)",[["","Reusable / unassigned"]].concat(db.solutions.map(function(x){return[x.id,x.name];})),g?.solution||"")+
-field("body","Installation / deployment procedure, prerequisites and verification",g?.body||"","textarea","full"),id,g?"Save document":"Create document");
+field("body","Installation instructions (optional with URL)",g?.body||"","textarea","full")+
+field("url","Setup/reference URL (optional with text)",g?.url||"","url","full")+
+selectField("framework","Related Framework (optional)",[["","Reusable / no Framework"]].concat(db.components.filter(function(x){return x.type==="framework";}).map(function(x){return[x.id,x.name];})),g?.framework||"",true),id,g?"Save document":"Create document");
 }
 function watchSourceRow(i,e){
 return '<div class="watch-source-row muted-panel" data-source-index="'+i+'"><div class="row-between"><strong class="small">Source '+(i+1)+'</strong>'+badge(e?.confidence||"unverified")+'</div>'+
@@ -1553,10 +1556,21 @@ function findBenchSolutionForSetup(setup){
  var signature=comboSignature({model:setup.model,provider:setup.provider,harness:setup.harness},setup.configuration,setup.version||"1.0",setup.capabilities||"");
  return db.solutions.find(function(sol){return sol.signature===signature;})||null;
 }
-function installationGuideOptions(solutionId){
- return [["","Select a referenced installation guide"]].concat(db.guides.filter(function(g){
-  return g.type==="Installation"&&(!g.solution||(solutionId&&g.solution===solutionId));
- }).map(function(g){return[g.id,g.title+(g.solution?" · linked to solution":" · reusable")];}));
+function validSetupUrl(value){
+ if(!String(value||"").trim())return true;
+ try{var u=new URL(String(value).trim());return ["http:","https:"].includes(u.protocol)&&!!u.hostname;}catch(e){return false;}
+}
+function createSetupGuide(title,body,url,frameworkId,solutionId){
+ var item={id:next("g"),title:String(title).trim(),type:"Installation",status:"draft",
+  body:String(body||"").trim(),url:String(url||"").trim(),framework:frameworkId||"",
+  solution:frameworkId?"":solutionId||"",owner:currentUser,date:new Date().toISOString().slice(0,10)};
+ db.guides.push(item);event("Guide","Registered reusable setup guide: "+item.title,true);return item;
+}
+function installationGuideOptions(solutionId,frameworkId){
+ return [["","Select a referenced setup guide"]].concat(db.guides.filter(function(g){
+  return g.type==="Installation"&&((!g.solution&&!g.framework)||
+    (!!frameworkId&&g.framework===frameworkId)|| (!!solutionId&&g.solution===solutionId));
+ }).map(function(g){return[g.id,g.title+(g.framework?" · framework":g.solution?" · solution":" · reusable")];}));
 }
 function refreshCampaignInstallationGuides(form){
  if(!form||form.dataset.form!=="campaignTrialSetup")return;
@@ -1570,7 +1584,7 @@ function refreshCampaignInstallationGuides(form){
   harness:form.querySelector('[name="harnessComponent"]')?.value,configuration:form.querySelector('[name="configuration"]')?.value,
   version:form.querySelector('[name="version"]')?.value,capabilities:form.querySelector('[name="capabilities"]')?.value
  });
- selector.innerHTML=installationGuideOptions(chosen?.id||"").map(function(o){return opt(o[0],o[1],selected);}).join("");
+ selector.innerHTML=installationGuideOptions(chosen?.id||"",campaign.frameworkId||"").map(function(o){return opt(o[0],o[1],selected);}).join("");
  if(!Array.from(selector.options).some(function(o){return o.value===selected;}))selector.value="";
 }
 function campaignTrialStart(campaignId,caseId){
@@ -1595,10 +1609,11 @@ guidedField("capabilities","Available tools / integrations (deployed)","","texta
 guidedField("startedAt","Installation start date and time",campaignLocalTime(),"datetime-local",null,"Local wall-clock start of the installation/setup activity. Subsequent interactions cannot be earlier than this timestamp.")+
 durationField("setupMinutes","Human installation / preparation time (minutes)",0,"Active human time preparing/installing the environment and verifying readiness. Do not include prompting, agent runtime or later review. 0–10,080 minutes (7 days).")+
 '<div class="span2"><h3>Installation guide</h3><p class="muted small">Guides are reusable knowledge-base documents, optionally associated with an AI Solution; selecting a guide does not mean the guide itself was authored during this run.</p></div>'+
-selectField("installationGuide","Guide used for setup",installationGuideOptions(matchingFixedSolution?.id||""),"",true)+
+selectField("installationGuide","Guide used for setup",installationGuideOptions(matchingFixedSolution?.id||"",c.frameworkId||""),c.setupGuideId||"",true)+
 '<details class="span2"><summary class="pointer"><strong>+ Create a new installation guide</strong></summary><div class="form-grid" style="margin-top:9px">'+
 guidedField("newGuideTitle","New guide title","","text","full","Name the reusable installation/deployment procedure, e.g. Ubuntu + agent CLI setup.")+
-guidedField("newGuideBody","Installation steps, prerequisites and verification","","textarea","full","List actual prerequisites and deployment steps; this document is added to Guides & Charter for reuse.")+
+guidedField("newGuideBody","Installation steps (optional when URL provided)","","textarea","full","Use guide text, URL or both.")+
+ guidedField("newGuideUrl","Setup guide URL (optional when text provided)","","url","full","HTTP or HTTPS link to reusable instructions.")+
 '</div></details>'+
 guidedField("setupNotes","Installation deviations / deployment environment (optional)","","textarea","full","Record OS, machine, deviations from the selected guide and environment constraints. If validating a Technology Watch forecast, document deviations from its proposed configuration here.");
 openForm("Step 3 · Installation & setup","campaignTrialSetup",fields,campaignId,"Save setup → interactions");
@@ -2054,22 +2069,19 @@ if(kind==="campaignReview"){
  }
  if(!String(d.startedAt||"").trim()||!Number.isFinite(Date.parse(d.startedAt))){toast("Record a valid installation start time.");return;}
  var guide=rec("guides",d.installationGuide),newGuideTitle=String(d.newGuideTitle||"").trim(),
-  newGuideBody=String(d.newGuideBody||"").trim();
- if(!guide&&(!newGuideTitle||!newGuideBody)){toast("Select an existing installation guide or create a new one with title and steps.");return;}
- if((newGuideTitle&&!newGuideBody)||(!newGuideTitle&&newGuideBody)){toast("Complete both new guide title and installation instructions.");return;}
- if(!Number.isFinite(Number(d.setupMinutes))||String(d.setupMinutes).trim()===""||Number(d.setupMinutes)<0||Number(d.setupMinutes)>10080){toast("Specify installation duration in minutes (0–10080).");return;}
- if(newGuideTitle&&newGuideBody){
+  newGuideBody=String(d.newGuideBody||"").trim(),newGuideUrl=String(d.newGuideUrl||"").trim();
+ if(!guide&&(!newGuideTitle||(!newGuideBody&&!newGuideUrl))){toast("Select a setup guide or provide a new guide title with text and/or URL.");return;}
+ if((newGuideTitle&&!newGuideBody&&!newGuideUrl)||(!newGuideTitle&&(newGuideBody||newGuideUrl))){toast("A new guide requires a title and text or URL.");return;}
+ if(!validSetupUrl(newGuideUrl)){toast("Setup guide URL must use HTTP or HTTPS.");return;}
+if(!Number.isFinite(Number(d.setupMinutes))||String(d.setupMinutes).trim()===""||Number(d.setupMinutes)<0||Number(d.setupMinutes)>10080){toast("Specify installation duration in minutes (0–10080).");return;}
+ if(newGuideTitle&&(newGuideBody||newGuideUrl)){
   var associated=String(d.existingSolution||"");
-  if(!associated){
-   var found=findBenchSolutionForSetup(cfg);
-   if(found)associated=found.id;
-  }
-  guide={id:next("g"),title:newGuideTitle,type:"Installation",status:"draft",body:newGuideBody,
-   solution:associated,owner:currentUser,date:new Date().toISOString().slice(0,10)};
-  db.guides.push(guide);event("Guide","Registered installation guide: "+guide.title,true);
- }
- if(!guide||guide.type!=="Installation"){toast("Select an installation guide.");return;}
+  if(!associated){var found=findBenchSolutionForSetup(cfg);if(found)associated=found.id;}
+  guide=createSetupGuide(newGuideTitle,newGuideBody,newGuideUrl,home.frameworkId||"",associated);
+}
+if(!guide||guide.type!=="Installation"){toast("Select an installation guide.");return;}
  var applicableSolution=rec("solutions",d.existingSolution)||findBenchSolutionForSetup(cfg);
+ if(guide.framework&&guide.framework!==home.frameworkId){toast("This setup guide belongs to another Framework.");return;}
  if(guide.solution&&guide.solution!==applicableSolution?.id){toast("This guide belongs to a different AI configuration. Choose a reusable or matching guide.");return;}
  var session={id:next("trial"),campaign:id,case:chosenCase.id,step:2,status:"in_progress",
   frameworkId:framework?.id||"",frameworkInstanceId:participant?.id||"",
@@ -2185,7 +2197,13 @@ if(kind==="task"||kind==="taskEdit"){
  var f={id:next("f"),author:currentUser,type:d.type,target:d.target,title:req(d.title,"Title"),body:req(d.body,"Description"),status:"new",linked:"",date:new Date().toISOString().slice(0,10)};
  db.feedback.push(f);ui.page="feedback";event("Feedback","New "+f.type.toLowerCase()+": "+f.title);
 }else if(kind==="guide"){
- var g=id?rec("guides",id):{id:next("g")},prevGuide=id?JSON.parse(JSON.stringify(g)):null;Object.assign(g,{title:req(d.title,"Title"),type:d.type,status:d.status,solution:d.solution||"",body:req(d.body,"Document"),owner:currentUser,date:new Date().toISOString().slice(0,10)});
+ var g=id?rec("guides",id):{id:next("g")},prevGuide=id?JSON.parse(JSON.stringify(g)):null;
+ if(!String(d.body||"").trim()&&!String(d.url||"").trim()){toast("Provide guide text and/or a URL.");return;}
+ if(!validSetupUrl(d.url)){toast("Guide URL must use HTTP or HTTPS.");return;}
+ if(d.framework&&rec("components",d.framework)?.type!=="framework"){toast("Select a valid Framework.");return;}
+ Object.assign(g,{title:req(d.title,"Title"),type:d.type,status:d.status,
+  framework:d.type==="Installation"?d.framework||"":"",solution:d.type==="Installation"&&d.framework?"":d.solution||"",
+  body:d.body||"",url:d.url||"",owner:currentUser,date:new Date().toISOString().slice(0,10)});
  if(!id)db.guides.push(g);else revision("Guide",id,prevGuide,g);ui.page="knowledge";event("Guide",(id?"Updated":"Created")+" "+g.type.toLowerCase()+": "+g.title,g.status!=="published");
 }else if(kind==="qualification"||kind==="qualificationEdit"){
  if(d.solution&&!db.runs.some(function(r){return r.solution===d.solution;})){toast("Choose an already benchmarked solution or leave it blank.");return;}
