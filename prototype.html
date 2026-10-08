@@ -1519,7 +1519,7 @@ openForm("Step 5 · Results, artifacts & metrics","campaignTrialOutcome",fields,
 function campaignReviewForm(id){
 var c=rec("campaigns",id);if(!canEdit()||!c||c.stage!=="review")return;
 openForm("Peer review · "+c.title,"campaignReview",
-'<div class="span2 note">A workgroup member other than the campaign owner should review the closed campaign. The original runs and their timelines remain auditable. You may request revisions or publish reviewed results.</div>'+
+'<div class="span2 note">Any workgroup member, including the campaign creator, can review the staged evidence and publish it or request rework. These decisions are reversible; the activity history and experimental records are retained.</div>'+
 selectField("decision","Review decision",[["publish","Accept and publish campaign"],["rework","Reopen for corrections"]],"publish",true)+
 field("reviewNotes","Review findings / evidence gaps / publication rationale",c.reviewNotes||"","textarea","full"),
 id,"Save review decision");
@@ -1711,7 +1711,7 @@ var body=head+'<h3 style="margin:18px 0 10px">Test Cases in campaign</h3>'+
 '<h3 style="margin:19px 0 8px">Experiment sessions</h3><div class="list">'+(trialList||'<div class="empty">No sessions recorded</div>')+'</div>'+review;
 var actions=btn("Close","close","","")+(canEdit()&&ui.page==="benchmark"?btn("Edit campaign","editCampaign",id,"")+
 (c.stage==="planned"?btn("Open campaign","campaignActivate",id,"primary"):c.stage==="active"?btn("Close → staging","campaignClose",id,"primary"):c.stage==="review"?btn("Record review","campaignReview",id,"primary"):"")+
-(c.stage!=="active"?btn("Reopen","campaignReopen",id,""):"")+btn("Delete / archive","campaignDelete",id,""):"");
+(c.stage==="published"?btn("Unpublish → review","campaignUnpublish",id,""):"")+(c.stage!=="active"?btn("Reopen","campaignReopen",id,""):"")+btn("Delete / archive","campaignDelete",id,""):"");
 openModal("Benchmark campaign",body,actions);
 }
 function detailsWatch(id){
@@ -1754,11 +1754,20 @@ if(hasEvidence){c.archived=true;c.updated=TODAY;event("Campaign","Archived campa
 else{db.campaigns=db.campaigns.filter(function(x){return x.id!==id;});event("Campaign","Deleted empty campaign "+c.title,true);}
 persist();ui.modal="";render();
 }
+function unpublishCampaign(id){
+ if(!canEdit())return;
+ var c=rec("campaigns",id);if(!c||c.stage!=="published")return;
+ var before=JSON.parse(JSON.stringify(c));
+ c.stage="review";c.status="closed";c.updated=TODAY;
+ campaignRuns(c).forEach(function(r){r.status="draft";});
+ revision("Campaign publication withdrawn",id,before,c);
+ event("Campaign","Unpublished campaign: "+c.title,true,{campaignId:id,priorReviewer:c.reviewer});
+ persist();detailsCampaign(id);
+}
 function campaignDecision(id,d){
 if(!canEdit())return;var c=rec("campaigns",id);if(!c||c.stage!=="review")return;
 if(!String(d.reviewNotes||"").trim()){toast("Enter the peer review conclusion.");return;}
-if(d.decision==="publish"&&c.owner===currentUser){toast("A different workgroup member must approve publication. Sofia or Maya can act as the reviewer.");return;}
- if(d.decision==="publish"&&!campaignRuns(c).length){toast("Record at least one completed Test Case before publishing the campaign.");return;}
+if(d.decision==="publish"&&!campaignRuns(c).length){toast("Record at least one completed Test Case before publishing the campaign.");return;}
 var before=JSON.parse(JSON.stringify(c));c.reviewNotes=d.reviewNotes;c.reviewer=currentUser;
 if(d.decision==="publish"){
  c.stage="published";c.status="published";
@@ -2171,6 +2180,7 @@ if(act==="campaignReopen"){setCampaignStage(id,"active");return;}
 if(act==="campaignDelete"){campaignRemove(id);return;}
 if(act==="campaignRestore"){restoreCampaign(id);return;}
 if(act==="campaignReview"){campaignReviewForm(id);return;}
+if(act==="campaignUnpublish"){unpublishCampaign(id);return;}
 if(act==="campaignNewCase"){campaignNewCase(id);return;}
 if(act==="campaignAttachCase"){campaignAttachCase(id);return;}
 if(act==="campaignStartTrial"){var parts=id.split("|");campaignTrialStart(parts[0],parts[1]);return;}
