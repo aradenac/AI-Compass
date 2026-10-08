@@ -770,7 +770,7 @@ var baseline=rec("tasks",p.task)?.baseline||0;
 var acceptance=Number(p.acceptance||0)/100,hourly=Number(p.hourlyRate||0);
 return baseline>0&&acceptance>0?baseline*hourly/60-(Number(p.humanMinutes||0)*hourly/60+Number(p.aiCost||0))/acceptance:null;
 }
-function evidenceKind(p){return p.status==="published"?"Theoretical · published":"Theoretical · "+p.status;}
+function evidenceKind(p){return "THEORETICAL · "+p.status;}
 function watchPage(){
 var status=ui.filters.watchStatus||"all",filtered=db.watch.filter(function(w){return watchVisible(w)&&(status==="all"||w.status===status);})
  .sort(function(a,b){return String(b.date).localeCompare(String(a.date));});
