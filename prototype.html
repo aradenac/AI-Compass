@@ -580,7 +580,7 @@ td(badge("THEORETICAL")+' '+badge(p.status))+
 td('<span class="score">'+p.quality+'/100</span> <span class="muted small">estimated</span>')+
 td(money(p.aiCost)+' <span class="muted small">estimated</span>')+
 td(badge(p.confidence+' confidence'))+
-td(p.watchIds.length+' watch · '+theoreticalSources(p).length+' sources')+
+td(p.watchIds.length+' watch · '+forecastCitations(p).length+' sources')+
 td(btn("Inspect","forecastDetail",p.id,"sm"))+'</tr>';
 });
 return '<div class="row-between"><h3>Technology-watch forecasts ('+items.length+')</h3>'+(items.length?btn("Compare with benchmarks","compareTaskEvidence",taskId,"sm"):canEdit()?btn("+ Hypothesis","newForecastForTask",taskId,"sm"):"")+'</div>'+
@@ -662,7 +662,7 @@ var qualifications='<div class="list">'+review.concat(active).map(function(q){
 }).join("")+'</div>';
 var stagedForecasts=db.proposals.filter(function(p){return ["staged","reviewed","published"].includes(p.status);});
 var forecastPipeline='<div class="list">'+stagedForecasts.map(function(p){
- return '<div class="list-row"><div><div class="tags">'+badge("THEORETICAL")+" "+badge(p.status)+'</div><div style="margin:7px 0">'+linkAction(p.name,"forecastDetail",p.id)+'</div><div class="muted small">'+E(rec("tasks",p.task)?.name||"Unknown")+' · '+p.quality+'/100 estimated · '+theoreticalSources(p).length+' sources</div></div><div class="inline-actions">'+btn("Compare","forecastCompare",p.id,"sm")+btn("Validate experimentally","validateForecast",p.id,"sm primary")+'</div></div>';
+ return '<div class="list-row"><div><div class="tags">'+badge("THEORETICAL")+" "+badge(p.status)+'</div><div style="margin:7px 0">'+linkAction(p.name,"forecastDetail",p.id)+'</div><div class="muted small">'+E(rec("tasks",p.task)?.name||"Unknown")+' · '+p.quality+'/100 estimated · '+forecastCitations(p).length+' sources</div></div><div class="inline-actions">'+btn("Compare","forecastCompare",p.id,"sm")+btn("Validate experimentally","validateForecast",p.id,"sm primary")+'</div></div>';
 }).join("")+'</div>';
 var staging='<div class="list">'+(drafts.map(function(r){
 return '<div class="list-row"><div><strong>'+E(caseOf(r)?.title||r.case)+'</strong><div class="muted small">'+E(rec("solutions",r.solution)?.name||r.solution)+' · '+E(actor(r.owner))+' · '+E(r.date)+'</div></div><div class="inline-actions">'+btn("Inspect","runDetail",r.id,"sm")+btn("Publish run","publishRun",r.id,"sm primary")+'</div></div>';
@@ -692,7 +692,7 @@ badge(measured.length+" measured")+' '+badge(forecasts.length+" projected")+'</d
 var cards='<div class="grid g2">'+items.map(function(x){
 var p=x.forecast;
 return '<label class="cross-pick"><input type="checkbox" data-compare="'+E(x.id)+'"'+(ui.selectedCompare.includes(x.id)?' checked':'')+'><div><strong>'+E(x.label)+'</strong><div class="tags" style="margin-top:4px">'+badge(x.type==="forecast"?"THEORETICAL · "+p.status:"MEASURED · controlled run")+ (p?badge(p.confidence+" confidence"):badge("Empirical evidence"))+'</div>'+
-'<div class="muted small" style="margin-top:5px">'+(p?E(rec("tasks",p.task)?.name||"Unknown task")+' · '+theoreticalSources(p).length+' external source(s)':runs.filter(function(r){return r.solution===x.id;}).length+' observed run(s)')+'</div></div></label>';
+'<div class="muted small" style="margin-top:5px">'+(p?E(rec("tasks",p.task)?.name||"Unknown task")+' · '+forecastCitations(p).length+' external source(s)':runs.filter(function(r){return r.solution===x.id;}).length+' observed run(s)')+'</div></div></label>';
 }).join("")+'</div>';
 if(!chosen.length)return '<div class="note">Select a measured AI Solution and/or a theoretical forecast below. Only staged, reviewed or published forecasts enter this analytical comparison.</div>'+filters+cards;
 function tableRow(label,metric){return '<tr>'+td('<strong>'+label+'</strong>')+chosen.map(function(x){return td(metric(x));}).join("")+'</tr>';}
@@ -990,6 +990,9 @@ field("sourceLimits_"+i,"Assumptions / limitations",e?.limitations||"","textarea
 function theoreticalSources(p){
 return db.researchEvidence.filter(function(e){return p.watchIds.includes(e.signal);});
 }
+function forecastCitations(p){
+return p.status!=="draft"&&Array.isArray(p.evidenceSnapshots)?p.evidenceSnapshots:theoreticalSources(p);
+}
 function forecastReferenceRows(ids,checked){
 return ids.map(function(w){var selected=checked.includes(w.id),sources=watchEvidence(w.id);
 return '<label class="watch-link-row"><input type="checkbox" name="watch_'+E(w.id)+'" value="yes"'+(selected?' checked':'')+'><span><strong>'+E(w.title)+'</strong><span class="muted small" style="display:block">'+sources.length+' linked source(s) · '+E(w.kind)+' · '+E((w.hypothesis||w.summary||"").slice(0,85))+'</span></span></label>';
@@ -1029,7 +1032,7 @@ openForm(p?"Edit theoretical forecast":"Draft theoretical configuration","foreca
 }
 function watchVisibleForPublication(id){var w=rec("watch",id);return !!w&&w.publication==="published"&&watchEvidence(id).some(function(e){return e.publication==="published";});}
 function forecastValidity(p){
-var sourceCount=theoreticalSources(p).length;
+var sourceCount=forecastCitations(p).length;
 if(!p.watchIds.length)return "Link one or more Technology Watch hypotheses.";
 if(!sourceCount)return "The watch hypotheses need at least one cited literature or public source.";
 if(!rec("tasks",p.task))return "Assign an engineering task.";
@@ -1048,13 +1051,17 @@ var error=forecastValidity(p);
 if(error){toast(error);return;}
 var before=JSON.parse(JSON.stringify(p));
 p.status=nextStage;p.updated=new Date().toISOString().slice(0,10);
+if(nextStage==="staged"){
+ p.evidenceSnapshots=JSON.parse(JSON.stringify(theoreticalSources(p)));
+ p.watchSnapshots=JSON.parse(JSON.stringify(p.watchIds.map(function(id){return rec("watch",id)||{};})));
+}
 if(nextStage==="reviewed")p.reviewer=currentUser;
 revision("Theoretical forecast",p.id,before,p);event("Forecast",p.name+" → "+nextStage,nextStage!=="published");
 persist();render();detailsForecast(id);toast("Forecast "+nextStage+". Its metrics remain theoretical.");
 }
 function detailsForecast(id){
 var p=rec("proposals",id);if(!p||!forecastVisible(p))return;
-var sources=theoreticalSources(p),saved=forecastNetSavings(p),task=rec("tasks",p.task),validationRuns=db.runs.filter(function(r){return r.forecastSnapshot?.id===p.id&&visibleRun(r);});
+var sources=forecastCitations(p),saved=forecastNetSavings(p),task=rec("tasks",p.task),validationRuns=db.runs.filter(function(r){return r.forecastSnapshot?.id===p.id&&visibleRun(r);});
 var html='<div class="tags">'+badge(evidenceKind(p))+' '+badge(p.confidence+" confidence")+'</div>'+
 '<p class="muted small" style="margin-top:12px">Task: '+E(task?.name||"Unknown")+' · Last update: '+E(p.updated)+'</p>'+
 '<h3 style="margin:16px 0 6px">Hypothetical setup</h3>'+
@@ -1385,7 +1392,7 @@ if(kind==="task"||kind==="taskEdit"){
  if(id){
   var keyFields=["name","task","watchIds","componentRefs","config","quality","acceptance","autonomy","humanMinutes","aiCost","hourlyRate","confidence","rationale","uncertainty"];
   var materiallyChanged=keyFields.some(function(k){return JSON.stringify(previous[k])!==JSON.stringify(forecast[k]);});
-  if(materiallyChanged&&previous.status!=="draft"){forecast.status="draft";forecast.reviewer="";forecast.reviewNotes="";toast("Material forecast changes require a new staging and review cycle.");}
+  if(materiallyChanged&&previous.status!=="draft"){forecast.status="draft";forecast.reviewer="";forecast.reviewNotes="";forecast.evidenceSnapshots=null;forecast.watchSnapshots=null;toast("Material forecast changes require a new staging and review cycle.");}
   revision("Theoretical forecast",id,previous,forecast);
  }
  else db.proposals.push(forecast);
@@ -1497,6 +1504,7 @@ if(act==="publishForecast"){changeForecastStatus(id,"published");return;}
 if(act==="forkForecast"){
  if(!canEdit())return;var published=rec("proposals",id);if(!published||published.status!=="published")return;
  var prior=JSON.parse(JSON.stringify(published));
+ prior.evidenceSnapshots=null;prior.watchSnapshots=null;
  prior.id=next("forecast");prior.status="draft";prior.reviewer="";prior.reviewNotes="";prior.linkedSolution="";prior.author=currentUser;
  prior.revision=published.revision+"-rev";prior.created=new Date().toISOString().slice(0,10);prior.updated=prior.created;prior.name=published.name+" (new revision)";
  db.proposals.push(prior);event("Forecast","Created draft revision from published forecast "+published.name,true);persist();dialogForecast(prior.id);return;
