@@ -48,15 +48,15 @@ The workgroup requires a distinct information architecture, not the end-user `Di
 | --- | --- |
 | Dashboard | **Read-only daily campaign pipeline**: Planned, In progress, Under review, Published; latest feedback and technology-watch signals. No campaign editing or state-changing controls. |
 | Task management | Maintain the task tree in place while still inspecting the engineer-facing navigation and task evidence. |
-| Technology watch | Record and examine external signals, publications, potential providers/harnesses/models and attributed estimates; bring relevant components into the catalog. |
+| Technology watch | Create evidence-backed hypotheses, select previously registered citations or add new ones, derive theoretical forecasts and manage their publication state. |
 | Technology catalog | Maintain individual models, providers and harnesses; it is **not** a benchmark launch point. |
 | Test design | Create, update and inspect reusable Test Cases and versioned benchmark protocols. |
 | Benchmark workspace | **Campaign-centred operational entry point**: create/edit campaigns, select task/solution comparison mode, attach Test Cases, log execution steps and outcomes, close, review/publish and reopen campaigns. |
 | Results explorer | **The analytical entry point** for published run evidence, coverage and task- or solution-centric comparison; distinct from the operational workbench. |
 | Recommendations | Inspect and maintain evidence-linked decisions and their publication state. |
 | Guides & charter | Maintain, filter, search, sort, edit and publish knowledge articles. |
-| Feedback & discussions | Triage contributions and converse using private and public threads with separate histories. |
-| Activity feed & management view | Retain the established provenance and reporting views until separately reconsidered. |
+| Feedback & discussions | Read end-user contributions and reply through one chronological thread with public/internal visibility per message; no corrective-action management. |
+| Activity feed & management view | Activity feed records enriched attributable events, opens per-event details, and exports structured JSON/CSV for workgroup reporting; management views remain separately scoped. |
 
 The **campaign pipeline** is the workgroup's daily dashboard: **Planned → In progress → Under review → Published**. It is a strictly read-only summary; campaigns are created, opened, edited, closed, reviewed, published, reopened or archived in **Benchmark workspace**. The campaign replaces separate qualification queues as the central work object. A measured AI Solution is still identified by its first controlled run, not by creating a campaign.
 
@@ -352,6 +352,8 @@ The intended first flow is now:
 
 A Watch Entry is an investigative **hypothesis**, not a pending catalog component. It records the question or intuition, expected opportunity, assumptions, scope and multiple public sources (papers, published benchmarks, vendor statements, expert estimates) **during creation**, not only after submission. Each source stores citation, claim, limitations, confidence and origin. Later sources can be appended without erasing the original hypothesis. Several Watch Entries may support one forecast; a Watch Entry may support several forecasts.
 
+**Reusable source library:** external publications, public benchmark reports, vendor claims and expert estimates are independently registered source records. Watch Entry creation and editing must support **search/select existing references** or **register new ones inline**, without forcing repeated multi-field forms for already cataloged literature. Source identity and citations are shared through a **many-to-many Watch Entry ↔ Source relationship**, including author, citation, publication status, confidence and limitations. Creation deduplicates equivalent references (at least normalized source URL or equivalent title/reference) and reuses identifiers. Unlinking a source from one Watch Entry must not delete it from the library, remove its links to other Watch Entries, or silently change frozen forecast evidence snapshots. Existing single-watch source records must migrate without evidence loss.
+
 An individual Model, Provider or Harness catalog item can be created independently when concrete technical inventory is useful, but must **not** be generated automatically or presented as a mandatory step from a Watch Entry. Technology Watch should not expose redundant navigation buttons to Technology Catalog or unexplained lists of "unqualified components."
 
 ### Theoretical configuration and projected value
@@ -410,16 +412,13 @@ Engineers should be able to:
 - Submit qualitative feedback on real usage.
 - Suggest tasks, tools, new needs, missing documentation, or further evaluation.
 
-**Centralized feedback and ideas register:** submissions should be available to the workgroup in one place, with enough structured context to identify the referenced task/solution, classify and search themes, review and triage contributions, track their disposition or follow-up, and link them to resulting experiments, documentation changes, or new test cases. This is a workflow for managing contributions, **not** a requirement to capture ordinary user conversations. Contribution visibility, moderation, and detailed status names remain design choices.
+**Centralized user feedback and ideas register:** this is a library of experiences, problems, suggestions and needs **submitted by ordinary user accounts**, not a support ticketing or corrective-action tracking system. Workgroup accounts review and discuss those contributions but do not originate end-user feedback. If a workgroup member also needs a separate ordinary-user perspective, that is a distinct user role/account.
 
-### Public and internal feedback conversations
+### Unified chronological feedback discussion
 
-Each feedback/idea should have **two separate chronological discussion threads**:
+Every feedback record has **one chronological conversation**. Each attributed, timestamped message declares **visibility = Public or Internal**, and the two classes are displayed together in actual sequence for the workgroup. Public replies are visible to eligible readers; internal workgroup notes are strictly excluded from reader views and exports. A workgroup member chooses the visibility of each response, not a separate discussion tab.
 
-- A **public discussion** visible to the original contributor and other authorized readers, in which workgroup members can provide clarifications, answers and status updates.
-- A **workgroup-internal discussion** visible only to authorized workgroup members, for private notes, analysis, hypotheses, triage and coordination.
-
-Replies retain author, timestamp, channel and history; internal content must not leak into public views or public exports. Both threads are linked to the same feedback record and disposition, without being combined into a single unqualified message stream. The feedback register is managed in its own collaboration area, not duplicated as a queue in a benchmark studio.
+The feedback detail should **not** include a support-ticket disposition, triage status editor, corrective-action fields or evidence attachment management. Feedback remains a source of user insight; any actual corrective actions, experimental plans or engineering tasks are managed in their dedicated workspaces. Historic status attributes can remain for migration but should not drive the feedback interface.
 
 Feedback contributes to a **continuous improvement loop**:
 
@@ -444,6 +443,12 @@ Desired indicators include:
 
 **Activity metrics are not outcome metrics:** benchmark volume alone does not demonstrate effectiveness or return on investment.
 
+### Auditable Activity Feed and reporting exports
+
+The Activity Feed is an **automatically generated event log**, not a manually updated dashboard. Each newly recorded workgroup activity should preserve exact date/time, actor identity and role, business unit, activity type, originating workspace, a concise description, linked object IDs, and relevant object/revision snapshots or structured context where available. Longer metadata may remain hidden in the default timeline but must be accessible by opening an **Activity Detail** panel for any event.
+
+Support filtering/searching, retain historical revision-before/after data for auditing, and allow exports usable for cross-team reporting (**structured JSON and flat CSV with serialized nested metadata**). Exports must differentiate events from experimental outcome metrics. Internal comments, private watch drafts, restricted records and internal audit snapshots must never be leaked into reader-level exports. Legacy events without enriched fields should remain readable; the prototype is browser-local rather than a tamper-proof centralized audit service.
+
 Adoption analytics should use appropriate aggregate activity/feedback data and **must not require storing engineers' normal AI conversations**.
 
 ## 15. Conceptual information model
@@ -461,12 +466,14 @@ These are functional entities/relationships, **not a mandated physical database 
 | Campaign Trial Session | In-progress step-by-step Test Case execution: initial setup, timestamped iterative human/agent interventions, interim artifacts, and eventual accepted/failed outcome. |
 | Benchmark Campaign | **Primary workgroup process**: objective, comparison mode, fixed task or fixed AI setup, owner, lifecycle, Test Case membership, resumable sessions, runs, closure and peer review. |
 | Evidence | Inputs, traces, reviews, artifacts, provenance, test results, and cost records from controlled runs. |
-| External Research Evidence | Sourced publications, public benchmarks, vendor claims, and workgroup performance estimates with confidence, scope, and limitations; distinct from internal runs. |
+| External Research Evidence | Reusable canonical literature/source records with citation, type, confidence, scope and limitations, distinct from internal runs; not owned by just one Watch Entry. |
+| Watch-Source Link | Many-to-many references linking shared external sources to Watch Entries without copying their content. |
 | Watch Hypothesis | Independent evidence-backed intuition or opportunity with assumptions, reasoning and one-to-many supporting sources. |
 | Theoretical Forecast | Task-specific candidate model/provider/harness/configuration, expected (not observed) metrics, risk, economic assumptions, linked watch hypotheses and distinct staging/review/publication state. |
 | Forecast Validation Link | Reference from a controlled run to the immutable forecast snapshot whose configuration motivated the experiment. |
 | Qualification | Workgroup-owned operational process with assigned owner, stage, task/candidate selection, experiments, review and publication decision. |
-| Feedback Message | Timestamped, attributed message linked to a feedback record in an explicitly public or workgroup-internal discussion channel. |
+| Feedback Message | Timestamped, attributed entry within one chronological feedback conversation, labeled Public or Internal on each message. |
+| Activity Event | Automatically generated, attributed workgroup event with exact timestamp, BU, role, workspace, object references, structured details and linked change revisions for reporting. |
 | Evaluation | Interpreted results, metrics, aggregation, and versioned scoring method. |
 | Recommendation | Published, attributable, evidence-linked conclusion and guidance on a solution. |
 | Charter / Guide | Cross-cutting usage policy, training, FAQ, setup, or instructional content. |
@@ -513,10 +520,11 @@ Prioritize the **correct knowledge and experimental model** before advanced dash
 - Solution-centric and task-centric exploration/comparison.
 - Traceable evaluations and published recommendations.
 - Simple drafting/publication controls and user-facing documentation.
-- Ability to receive engineer feedback with **separate public and internal discussion histories**.
+- Ability to receive engineer feedback in **one chronological thread**, with public/internal visibility per message and workgroup-only reply permissions.
 - Role-specific workgroup navigation with a read-only daily dashboard and clearly separated **Technology watch, Technology catalog, Test design, Benchmark workspace and Results explorer**.
 - Search/filter/sort and update existing knowledge articles.
-- Sourced, clearly labeled external research and performance estimates in technology watch (separate from benchmark outcomes).
+- Sourced, clearly labeled external research and performance estimates in technology watch, with **searchable reusable citations and many-to-many evidence links**.
+- Detailed automatically generated Activity Feed with inspectable per-event metadata and structured JSON/CSV exports.
 
 ### Subsequent increments
 
