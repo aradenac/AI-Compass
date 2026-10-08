@@ -189,7 +189,7 @@ A campaign defines its experimental objective, strategy, fixed task or fixed AI 
 - **Reopen:** move an under-review or published campaign back to In progress, preserving all earlier evidence and audit events. A review can also reject the submission and reopen it for corrections.
 - **Edit/delete:** campaign metadata is editable, with guards preserving comparison scope once trials exist. Empty campaigns can be deleted; evidence-bearing campaigns are archived so underlying runs never disappear. Archived campaigns can be restored.
 
-Any workgroup member, **including the campaign creator**, may document and approve the campaign review. Publication, explicit unpublication back to review and reopening are reversible transitions recorded in the history; no mandatory independent second reviewer is required in the prototype.
+Any workgroup member, **including the campaign creator**, may document and approve the campaign review. Publication, explicit unpublication back to review and reopening are reversible transitions recorded in the history; no mandatory independent second reviewer is required in the prototype. Unpublishing a campaign retracts its published runs. A benchmark-generated AI Solution is returned to Draft when it no longer has any published run, but retains its publication when another campaign still supplies published evidence; trial records and reviews remain auditable.
 
 The daily Dashboard shows the four campaign columns and progress/ownership **read-only**, while the Benchmark Workspace is the actual control surface.
 
