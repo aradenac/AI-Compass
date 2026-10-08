@@ -649,7 +649,7 @@ return '<div class="list-row"><div class="short"><div class="row">'+badge(w.kind
 }).join("")||'<div class="empty">No watch signals yet</div>')+'</div>',btn("Watch register","nav","watch","sm"));
 var followups=section("Daily notes & handoffs",'<div class="list">'+
 '<div class="list-row"><div><strong>Benchmark work in progress</strong><div class="muted small">Experiments, reviews and publication decisions are handled in the workbench</div></div>'+btn("Open workspace","nav","benchmark","sm")+'</div>'+
-'<div class="list-row"><div><strong>Test design & coverage</strong><div class="muted small">Prepare test cases and protocols independently of the results explorer</div></div>'+btn("Open test design","nav","testdesign","sm")+'</div></div>');
+'<div class="list-row"><div><strong>Test design & coverage</strong><div class="muted small">Prepare Test Cases and review fork lineage independently of benchmark results</div></div>'+btn("Open test design","nav","testdesign","sm")+'</div></div>');
 return heading("Workgroup daily","Dashboard","Daily read-only campaign pipeline, recent feedback and technology-watch signals. Campaign state changes take place in Benchmark Workspace.")+
 '<div class="daily-kicker" style="margin-bottom:12px">Daily overview <span class="muted">· '+E(new Date().toLocaleDateString("en-GB",{year:"numeric",month:"long",day:"numeric"}))+'</span></div>'+
 '<section class="card"><div class="card-head"><div><h2>Benchmark campaign pipeline</h2><p class="muted small" style="margin-top:4px">Planned → In progress → Under review → Published. Open a campaign in Benchmark Workspace to take action.</p></div></div>'+campaignBoard()+'</section>'+
@@ -948,7 +948,7 @@ tableRow("Net saving scenario (acceptance-adjusted)",function(x){if(!x.forecast)
 tableRow("Evidence & confidence",function(x){return x.forecast?badge(x.forecast.confidence+" confidence")+' · '+theoreticalSources(x.forecast).length+' cited source(s)':runstats(x).count+' controlled published run(s)';}),
 tableRow("Traceable detail",function(x){return x.forecast?btn("Watch sources & rationale","forecastDetail",x.id,"sm"):btn("Measured evidence","solution",x.id,"sm");})
 ];
-var intro='<div class="note warn" style="margin-bottom:13px">Projections are <strong>not</strong> empirical observations. They have no controlled acceptance count or observed runtime. Comparing different tasks, protocols or cost assumptions is indicative only; do not infer ranking superiority from this table.</div>';
+var intro='<div class="note warn" style="margin-bottom:13px">Projections are <strong>not</strong> empirical observations. They have no controlled acceptance count or observed runtime. Comparing different tasks, experimental conditions or cost assumptions is indicative only; do not infer ranking superiority from this table.</div>';
 return intro+filters+simpleTable(["Evidence / metric"].concat(chosen.map(function(x){return x.label;})),lines)+'<h3 style="margin:19px 0 12px">Change compared configurations</h3>'+cards;
 }
 function publishedCampaignRegistry(){
