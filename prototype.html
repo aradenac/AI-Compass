@@ -555,6 +555,77 @@ var checkCases=db.cases.map(function(c){return '<label class="small" style="disp
 var checkSolutions=db.solutions.map(function(s){return '<label class="small" style="display:block;margin:5px 0"><input type="checkbox" name="solutionIds" value="'+E(s.id)+'"> '+E(s.name)+'</label>';}).join("");
 openForm("Create benchmark campaign","campaign",field("title","Campaign name","","text","full")+field("purpose","Hypothesis / qualification objective","","textarea","full")+'<div class="field"><label>Selected test cases</label><div class="muted-panel" style="max-height:200px;overflow:auto">'+checkCases+'</div></div><div class="field"><label>Selected solutions</label><div class="muted-panel" style="max-height:200px;overflow:auto">'+checkSolutions+'</div></div>',"","Create campaign");
 }
+
+function dialogQualification(id,watchId,feedbackId){
+if(!canEdit())return;
+var q=rec("qualifications",id),w=rec("watch",watchId),f=rec("feedback",feedbackId),connected=f&&(rec("solutions",f.target)||rec("tasks",f.target));
+var suggestedSolution=q?.solution||w?.solution||(rec("solutions",f?.target)?f.target:"");
+var suggestedTask=q?.task||(rec("tasks",f?.target)?f.target:"");
+var body='<div class="span2 note">This represents a <strong>workgroup qualification effort</strong>, distinct from model accessibility, evidence maturity and publication of the solution record. Advance its status from the pipeline.</div>'+
+field("title","Qualification objective",q?.title||(w?"Qualify: "+w.title:f?"Investigate: "+f.title:""),"text","full")+
+selectField("solution","AI solution to evaluate",[["","Select AI solution"]].concat(db.solutions.map(function(s){return[s.id,s.name];})),suggestedSolution,true)+
+selectField("task","Associated engineering task",[["","Across multiple tasks"]].concat(db.tasks.filter(function(t){return t.baseline>0;}).map(function(t){return[t.id,t.name];})),suggestedTask,true)+
+selectField("owner","Workgroup owner",db.users.filter(function(u){return u.role==="workgroup";}).map(function(u){return[u.id,u.name+" · "+u.bu];}),q?.owner||currentUser)+
+selectField("priority","Priority",[["high","High"],["medium","Medium"],["low","Low"]],q?.priority||"medium")+
+field("due","Target review date",q?.due||"","date")+
+field("notes","Plan, known risks and next experimental step",q?.notes||w?.summary||f?.body||"","textarea","full")+
+field("conclusion","Draft conclusion (required before publication)",q?.conclusion||"","textarea","full");
+openForm(q?"Edit qualification":"Start a qualification",q?"qualificationEdit":"qualification",body,id||"",q?"Save qualification":"Add to pipeline");
+if(!q&&ui.modal){var form=document.querySelector("#modalForm");if(form){form.dataset.watch=watchId||"";form.dataset.feedback=feedbackId||"";}}
+}
+function detailsQualification(id){
+if(!canEdit())return;
+var q=rec("qualifications",id);if(!q)return;
+var s=rec("solutions",q.solution),t=rec("tasks",q.task),rs=qualificationRuns(q),w=rec("watch",q.sourceWatch),f=rec("feedback",q.sourceFeedback),next=qualificationNext(q);
+var evidence=rs.length?simpleTable(["Test case","Score","DoD",""],rs.map(function(r){
+return '<tr>'+td(E(caseOf(r)?.title||r.case))+td('<span class="score">'+r.score+'/100</span>')+td(badge(r.accepted?"Accepted":"Failed"))+td(btn("Evidence","runDetail",r.id,"sm"))+'</tr>';
+})):'<div class="note warn">No published run matches this solution and task. The qualification can progress through investigation, but its conclusion cannot be published before controlled evidence is available.</div>';
+var html='<div class="row-between"><div class="tags">'+badge(qualificationStage(q.stage).name)+badge(q.priority+" priority")+'</div><span class="muted small">Last updated '+E(q.updatedAt)+'</span></div>'+
+'<p class="muted small" style="margin-top:12px">Owner: '+E(actor(q.owner))+' · Target: '+E(q.due||"Not scheduled")+'</p>'+
+'<h3 style="margin:18px 0 7px">AI solution</h3>'+(s?linkAction(s.name,"solution",s.id):'<span class="muted">Unlinked</span>')+
+'<p class="muted small">'+E(t?.name||"Multi-task evaluation")+' · '+rs.length+' published run(s) matching this scope</p>'+
+'<h3 style="margin:16px 0 7px">Qualification plan / blockers</h3><p class="text-block">'+E(q.notes||"No plan recorded.")+'</p>'+
+'<h3 style="margin:16px 0 7px">Evidence reviewed</h3>'+evidence+
+'<h3 style="margin:16px 0 7px">Proposed conclusion</h3><pre class="code">'+E(q.conclusion||"No draft conclusion yet.")+'</pre>'+
+(w?'<div class="callout" style="margin-top:12px">Technology-watch origin: '+linkAction(w.title,"watchDetail",w.id)+'</div>':"")+
+(f?'<div class="callout" style="margin-top:12px">User feedback origin: '+linkAction(f.title,"feedbackDetail",f.id)+'</div>':"")+
+'<p class="helper">Publication makes the conclusion available on the solution recommendation and records a revision. Historic benchmark evidence is never overwritten.</p>';
+var footer=btn("Close","close","","")+btn("Edit scope / notes","editQualification",id,"")+
+(s?btn("Record run","qualNewRun",id,""):"")+
+(q.stage==="published"?btn("Start requalification","qualReopen",id,"primary"):(q.stage!=="to_qualify"?btn("← Previous stage","qualRetreat",id,""):"")+btn(q.stage==="review"?"Publish conclusion":"Advance → "+next.name,"qualAdvance",id,"primary"));
+openModal("Qualification · "+q.title,html,footer);
+}
+function transitionQualification(id,direction){
+if(!canEdit())return;
+var q=rec("qualifications",id);if(!q)return;
+var stages=qualificationStages(),idx=stages.findIndex(function(s){return s.id===q.stage;});
+if(direction==="back"&&idx>0){
+ if(q.stage==="published"){toast("Published conclusions remain historical; use Requalify to open a new cycle.");return;}
+ q.stage=stages[idx-1].id;
+}else if(direction==="next"&&idx>=0&&idx<stages.length-1){
+ if(q.stage==="review"){
+  var s=rec("solutions",q.solution),rs=qualificationRuns(q);
+  if(!s){toast("Link a solution before publishing.");return;}
+  if(!rs.length){toast("Publication requires at least one matching published benchmark run.");return;}
+  if(!q.conclusion.trim()){toast("Add a reviewed conclusion before publication.");dialogQualification(id);return;}
+  var before=JSON.parse(JSON.stringify(s));
+  s.maturity="qualified";s.publication="published";s.recommendation=q.conclusion;s.lastReviewed=new Date().toISOString().slice(0,10);
+  revision("Recommendation",s.id,before,s);
+  if(q.sourceWatch){var watch=rec("watch",q.sourceWatch);if(watch)watch.status="reviewed";}
+ }else if(q.stage==="to_qualify"&&!q.solution){toast("Select an AI solution before qualifying.");return;}
+ q.stage=stages[idx+1].id;
+}else return;
+q.updatedAt=new Date().toISOString().slice(0,10);
+ui.modal="";
+event("Qualification",(q.stage==="published"?"Published conclusion for ":"Moved qualification to "+qualificationStage(q.stage).name+": ")+q.title,q.stage!=="published");
+persist();render();toast("Qualification moved to "+qualificationStage(q.stage).name+".");
+}
+function requalify(id){
+if(!canEdit())return;
+var q=rec("qualifications",id);if(!q||q.stage!=="published")return;
+var newCycle=Object.assign({},q,{id:next("q"),title:"Requalify: "+q.title,stage:"to_qualify",sourceWatch:"",sourceFeedback:"",updatedAt:new Date().toISOString().slice(0,10),due:"",notes:"Reassessment of "+q.id+" following new evidence, model versions or additional Test Cases.\n"+(q.notes||""),conclusion:"",previousQualification:q.id});
+db.qualifications.push(newCycle);ui.modal="";event("Qualification","Reopened assessment: "+newCycle.title,true);persist();render();detailsQualification(newCycle.id);
+}
 function detailsRun(id){
 var r=rec("runs",id),c=r&&rec("cases",r.case),s=r&&rec("solutions",r.solution);if(!r||!visibleRun(r))return;c=r.caseSnapshot||c;s=r.solutionSnapshot||s;
 var p=r.protocolSnapshot||rec("protocols",r.protocol),t=rec("tasks",c?.task),baseline=r.taskContextSnapshot?.at(-1)?.baseline??t?.baseline??0;
@@ -586,7 +657,7 @@ function detailsFeedback(id){
 var f=rec("feedback",id);if(!f)return;var tar=rec("solutions",f.target)||rec("tasks",f.target);
 var body='<div class="row-between">'+badge(f.type)+' '+badge(f.status)+'<span class="muted small">'+E(f.date)+' · '+E(actor(f.author))+'</span></div><h3 style="margin:15px 0 8px">'+E(f.title)+'</h3><p class="text-block">'+E(f.body)+'</p><div class="note" style="margin-top:14px">Related: '+E(tar?.name||"General")+(f.linked?' · linked evidence: '+E(f.linked):"")+'</div>';
 if(canEdit())body+='<hr class="divider"><form id="modalForm" data-form="triage" data-id="'+E(f.id)+'"><div class="form-grid">'+selectField("status","Workgroup disposition",[["new","New"],["triage","Triage"],["planned","Planned"],["closed","Closed"]],f.status)+field("linked","Related TC / run / follow-up reference",f.linked||"")+'</div></form>';
-openModal("Contribution record",body,btn("Close","close","","")+(canEdit()?'<button type="submit" form="modalForm" class="btn primary">Save triage</button>'+btn("Add challenging TC","newCase",f.target,""):""));
+openModal("Contribution record",body,btn("Close","close","","")+(canEdit()?'<button type="submit" form="modalForm" class="btn primary">Save triage</button>'+btn("Start qualification","qualFromFeedback",f.id,"")+btn("Add challenging TC","newCase",f.target,""):""));
 }
 function detailsCampaign(id){
 var b=rec("campaigns",id);if(!b)return;
@@ -595,7 +666,7 @@ openModal("Campaign · "+b.title,html);
 }
 function detailsWatch(id){
 var w=rec("watch",id);if(!w)return;
-openModal("Watch signal",'<div class="tags">'+badge(w.kind)+badge(w.status)+'</div><h3 style="margin:14px 0 8px">'+E(w.title)+'</h3><p>'+E(w.summary)+'</p><p class="muted small" style="margin-top:10px">Source: '+E(w.source)+' · '+E(w.date)+'</p>',btn("Close","close","","")+(canEdit()?btn("Edit signal","editWatch",id,"primary"):""));
+openModal("Watch signal",'<div class="tags">'+badge(w.kind)+badge(w.status)+'</div><h3 style="margin:14px 0 8px">'+E(w.title)+'</h3><p>'+E(w.summary)+'</p><p class="muted small" style="margin-top:10px">Source: '+E(w.source)+' · '+E(w.date)+'</p>',btn("Close","close","","")+(canEdit()?btn("Create qualification","qualFromWatch",id,"")+btn("Edit signal","editWatch",id,"primary"):""));
 }
 function detailsRevision(id){
 if(!canEdit())return;var rev=db.revisions.find(function(x){return x.id===id;});if(!rev)return;
@@ -640,6 +711,14 @@ if(kind==="task"||kind==="taskEdit"){
 }else if(kind==="guide"){
  var g=id?rec("guides",id):{id:next("g")},prevGuide=id?JSON.parse(JSON.stringify(g)):null;Object.assign(g,{title:req(d.title,"Title"),type:d.type,status:d.status,body:req(d.body,"Document"),owner:currentUser,date:new Date().toISOString().slice(0,10)});
  if(!id)db.guides.push(g);else revision("Guide",id,prevGuide,g);ui.page="knowledge";event("Guide",(id?"Updated":"Created")+" "+g.type.toLowerCase()+": "+g.title,g.status!=="published");
+}else if(kind==="qualification"||kind==="qualificationEdit"){
+ if(!d.solution||!rec("solutions",d.solution)){toast("Select a registered AI solution.");return;}
+ var oldQ=kind==="qualificationEdit"?rec("qualifications",id):null,prior=oldQ?JSON.parse(JSON.stringify(oldQ)):null;
+ var qualification=oldQ||{id:next("q"),stage:"to_qualify",sourceWatch:form.dataset.watch||"",sourceFeedback:form.dataset.feedback||""};
+ Object.assign(qualification,{title:req(d.title,"Qualification objective"),solution:d.solution,task:d.task||"",owner:d.owner||currentUser,priority:d.priority||"medium",due:d.due||"",notes:d.notes||"",conclusion:d.conclusion||"",updatedAt:new Date().toISOString().slice(0,10)});
+ if(!oldQ)db.qualifications.push(qualification);else revision("Qualification",qualification.id,prior,qualification);
+ if(qualification.sourceWatch){var watch=rec("watch",qualification.sourceWatch);if(watch&&watch.status==="watching")watch.status="pending";}
+ ui.page="dashboard";event("Qualification",(oldQ?"Updated":"Created")+" qualification: "+qualification.title,true);
 }else if(kind==="watch"){
  var w=id?rec("watch",id):{id:next("w")};Object.assign(w,{title:req(d.title,"Title"),kind:d.kind,status:d.status,solution:d.solution,summary:req(d.summary,"Summary"),source:d.source,date:new Date().toISOString().slice(0,10)});
  if(!id)db.watch.push(w);ui.page="watch";event("Watch",(id?"Updated":"Added")+" technology signal: "+w.title);
@@ -682,6 +761,16 @@ if(act==="runDetail"){detailsRun(id);return;}
 if(act==="caseDetail"){detailsCase(id);return;}
 if(act==="guideDetail"){detailsGuide(id);return;}
 if(act==="feedbackDetail"){detailsFeedback(id);return;}
+if(act==="qualDetail"){detailsQualification(id);return;}
+if(act==="newQualification"){dialogQualification();return;}
+if(act==="editQualification"){dialogQualification(id);return;}
+if(act==="qualFromWatch"){dialogQualification("",id,"");return;}
+if(act==="qualFromFeedback"){dialogQualification("","",id);return;}
+if(act==="qualAdvance"){transitionQualification(id,"next");return;}
+if(act==="qualRetreat"){transitionQualification(id,"back");return;}
+if(act==="qualReopen"){requalify(id);return;}
+if(act==="qualNewRun"){var q=rec("qualifications",id),tc=q&&db.cases.find(function(c){return !q.task||descendants(q.task).includes(c.task);});if(q)dialogRun(tc?.id||"",q.solution);return;}
+
 if(act==="campaignDetail"){detailsCampaign(id);return;}
 if(act==="watchDetail"){detailsWatch(id);return;}
 if(act==="revisionDetail"){detailsRevision(id);return;}
