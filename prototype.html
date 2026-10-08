@@ -914,12 +914,34 @@ if(kind==="task"||kind==="taskEdit"){
  db.cases.push(c);ui.page="benchmark";ui.bench="cases";event("Test Case","Added challenging test case: "+c.title);
 }else if(kind==="run"){
  if(toNum(d.score)>100||toNum(d.score)<0||toNum(d.utility)>100||toNum(d.utility)<0){toast("Rubric scores must be within 0–100.");return;}
- var r={id:next("r"),case:d.case,solution:d.solution,protocol:d.protocol,date:new Date().toISOString().slice(0,10),score:toNum(d.score),accepted:d.accepted==="yes",status:d.status,prep:toNum(d.prep),steer:toNum(d.steer),review:toNum(d.review),correction:toNum(d.correction),cost:toNum(d.cost),tokens:toNum(d.tokens),duration:toNum(d.duration),interruptions:toNum(d.interruptions),reprompts:toNum(d.reprompts),utility:toNum(d.utility),sideEffects:d.sideEffects,prompt:req(d.prompt,"Prompt"),transcript:req(d.transcript,"Interaction trace"),artifacts:d.artifacts,notes:d.notes,owner:currentUser,
-  caseSnapshot:JSON.parse(JSON.stringify(rec("cases",d.case)||{})),
-  solutionSnapshot:JSON.parse(JSON.stringify(rec("solutions",d.solution)||{})),
-  protocolSnapshot:JSON.parse(JSON.stringify(rec("protocols",d.protocol)||{})),
-  taskContextSnapshot:ancestors(rec("cases",d.case)?.task).map(function(t){return {id:t.id,name:t.name,phase:t.phase,criteria:t.criteria,baseline:t.baseline};})};
- db.runs.push(r);ui.page="benchmark";ui.bench="runs";ui.filters.runStatus="all";event("Run",(r.status==="published"?"Published":"Staged")+" benchmark run: "+r.id,r.status!=="published");
+ if(!rec("cases",d.case)||!rec("protocols",d.protocol)){toast("Select a valid Test Case and benchmark protocol.");return;}
+ // Validate the experimental record before creating the derived solution.
+ var fullPrompt=req(d.prompt,"Initial prompt"),fullTrace=req(d.transcript,"Interaction trace");
+ var mode=d.solutionMode||"existing",setup;
+ if(mode==="new"){
+  setup=findOrCreateBenchSolution(d);
+  if(setup.error){toast(setup.error);return;}
+ }else{
+  setup={solution:rec("solutions",d.solution),created:false};
+  if(!setup.solution||!db.runs.some(function(r){return r.solution===setup.solution.id;})){toast("Select an already benchmarked AI Solution.");return;}
+ }
+ var tested=setup.solution,linkedQ=rec("qualifications",d.qualification);
+ var r={id:next("r"),case:d.case,solution:tested.id,protocol:d.protocol,date:new Date().toISOString().slice(0,10),score:toNum(d.score),accepted:d.accepted==="yes",status:d.status,prep:toNum(d.prep),steer:toNum(d.steer),review:toNum(d.review),correction:toNum(d.correction),cost:toNum(d.cost),tokens:toNum(d.tokens),duration:toNum(d.duration),interruptions:toNum(d.interruptions),reprompts:toNum(d.reprompts),utility:toNum(d.utility),sideEffects:d.sideEffects,prompt:fullPrompt,transcript:fullTrace,artifacts:d.artifacts,notes:d.notes,owner:currentUser,
+  caseSnapshot:JSON.parse(JSON.stringify(rec("cases",d.case))),
+  solutionSnapshot:JSON.parse(JSON.stringify(tested)),
+  componentSnapshots:{"model":JSON.parse(JSON.stringify(rec("components",tested.componentRefs?.model)||{})),"provider":JSON.parse(JSON.stringify(rec("components",tested.componentRefs?.provider)||{})),"harness":JSON.parse(JSON.stringify(rec("components",tested.componentRefs?.harness)||{}))},
+  protocolSnapshot:JSON.parse(JSON.stringify(rec("protocols",d.protocol))),
+  taskContextSnapshot:ancestors(rec("cases",d.case).task).map(function(t){return {id:t.id,name:t.name,phase:t.phase,criteria:t.criteria,baseline:t.baseline};})};
+ db.runs.push(r);
+ if(linkedQ&&canEdit()){
+  var beforeQ=JSON.parse(JSON.stringify(linkedQ));
+  linkedQ.solution=tested.id;linkedQ.candidate=Object.assign({},tested.componentRefs);
+  if(linkedQ.stage==="to_qualify")linkedQ.stage="qualifying";
+  linkedQ.updatedAt=r.date;
+  revision("Qualification",linkedQ.id,beforeQ,linkedQ);
+ }
+ if(setup.created)event("Solution","Registered evaluated configuration from benchmark: "+tested.name,true);
+ ui.page="benchmark";ui.bench="runs";ui.filters.runStatus="all";event("Run",(r.status==="published"?"Published":"Staged")+" benchmark run: "+r.id,r.status!=="published");
 }else if(kind==="solution"||kind==="solutionEdit"){
  var s=kind==="solutionEdit"?rec("solutions",id):{id:next("s"),recommendation:"Not yet qualified; no official usage guidance.",rate:0};
  var previous=kind==="solutionEdit"?JSON.parse(JSON.stringify(s)):null;
@@ -966,6 +988,10 @@ ui.modal="";persist();render();toast("Changes saved in this browser.");
 document.addEventListener("submit",function(ev){if(ev.target.matches(".inline-task-form")){ev.preventDefault();saveInlineTask(ev.target);return;}if(ev.target.matches("#modalForm")){ev.preventDefault();handleForm(ev.target);}});
 document.addEventListener("change",function(ev){
 var el=ev.target;
+if(el&&el.name==="solutionMode"){
+ document.querySelectorAll(".run-mode-panel").forEach(function(panel){panel.style.display=panel.dataset.modePanel===el.value?"":"none";});
+ return;
+}
 if(el.hasAttribute("data-compare")){var id=el.getAttribute("data-compare");if(el.checked&&!ui.selectedCompare.includes(id))ui.selectedCompare.push(id);if(!el.checked)ui.selectedCompare=ui.selectedCompare.filter(function(x){return x!==id;});render();return;}
 if(el.hasAttribute("data-filter")){var name=el.dataset.filter;var val=el.value;if(name==="matrixMode"){ui.matrix=val;ui.matrixTarget=val==="task"?"t5":"s1";}else if(name==="matrixTarget"){ui.matrixTarget=val;}else ui.filters[name]=val;render();}
 });
