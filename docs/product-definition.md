@@ -189,7 +189,7 @@ A campaign defines its experimental objective, strategy, fixed task or fixed AI 
 - **Reopen:** move an under-review or published campaign back to In progress, preserving all earlier evidence and audit events. A review can also reject the submission and reopen it for corrections.
 - **Edit/delete:** campaign metadata is editable, with guards preserving comparison scope once trials exist. Empty campaigns can be deleted; evidence-bearing campaigns are archived so underlying runs never disappear. Archived campaigns can be restored.
 
-The owner and the publishing reviewer should be different workgroup members; a single creator must not bypass the prototype's independent campaign review. This does not impose a mandatory two-reviewer quorum for general product recommendations outside the campaign workflow.
+Any workgroup member, **including the campaign creator**, may document and approve the campaign review. Publication, explicit unpublication back to review and reopening are reversible transitions recorded in the history; no mandatory independent second reviewer is required in the prototype.
 
 The daily Dashboard shows the four campaign columns and progress/ownership **read-only**, while the Benchmark Workspace is the actual control surface.
 
@@ -211,16 +211,14 @@ A common protocol helps compare solutions fairly; variations must be recorded.
 
 ### Guided workgroup execution
 
-For each Test Case inside an **open campaign**, the prototype/product must guide the experimenter through a resumable multi-step record:
+A Test Case in an **open campaign** follows a guided, resumable sequence.
 
-1. **Initial setup (not installation guidance):** a start timestamp, actual initial prompt/instructions, input documents and their versions or references, tools/skills/context provided, concrete configured AI setup, experiment constraints, and approximate human preparation duration.
-2. **Timed interactions (zero or more):** every iteration has its own date/time, approximate human intervention duration, agent working/waiting duration, kind of interaction (free text), description (review, prompt refinement, corrections, restart, etc.), new prompt or additional instruction, and intermediate artifacts. Interactions build a chronological timeline from which human steering/autonomy patterns can be studied.
-3. **Outcome and closure:** mandatory DoD **accepted or failed**, quality and information-utility scores, separate input/output token counts, AI/tool expense, additional agent runtime, human final review and corrections, produced documents/code/files/references, density/side-effect observations and a justified conclusion.
-4. **Close run:** pin the Test Case, protocol, task and AI configuration snapshots, setup, interactions, outputs, declared timings and measurements as an independent **Benchmark Run** tied to the parent campaign. Failed runs are preserved. The Test Case may be challenged again by another configuration or repeated to measure variance.
+1. **Installation and setup:** select a reusable **Installation guide** from Guides & Charter or register one inline. A guide may optionally be associated with an AI Solution; its version/snapshot is retained in the run. Record actual model/provider/harness setup, local installation start, environment/deployment notes and human setup duration. Prompting the agent, submitting inputs or activating runtime skills/options is **not installation**.
+2. **Timed interactions (at least one):** initial prompt/instructions are logged as the first interaction. Subsequent prompts, input documents, enabled skills/options, reviews and corrections are timestamped with independent human intervention and agent runtime/waiting durations plus intermediate evidence. **Total agent runtime is derived by summing those iteration durations**, not independently entered in Step 5.
+3. **Results, artifacts and metrics:** record accepted/failed DoD, Quality and Information Utility scores (0–100, supported by free-form evaluation), **optional total tokens** with explicit multiplier, and one cost classification: run-specific numeric EUR amount, flat-rate/subscription (cost unallocated), or unknown. Flat-rate/unknown must not be treated as €0. Record final human review and correction durations, one canonical set of produced output references, and optional additional notes. No redundant separate input/output token fields, additional runtime input, duplicated deliverable descriptions or utility-related loose text fields.
+4. **Close run:** pin Test Case, protocol, solution configuration, installation guide, interaction timeline, outputs and known/unknown metrics. Failed runs remain auditable. Closing a run does not close the campaign.
 
-Intermediate sessions should be persistently saved to avoid losing an experiment when a user leaves the screen. The campaign may be reopened without changing previously recorded runs. Captured calendar timestamps and stated durations are useful for assessing user interruptions and autonomy; neither a stopwatch nor fully automatic agent integration is required for the first prototype.
-
-The campaign closes separately from individual runs: **closing a Test Case does not close the campaign**. Campaign closure stages all completed runs for workgroup peer review. Reviewed publishing is distinct from initially recording draft experimental evidence.
+Installation guides are knowledge-base items separate from benchmark protocols, and may be shared across AI Solutions. In this prototype they are text procedures and references, not binary uploaded packages.
 
 ### Benchmark Run
 
