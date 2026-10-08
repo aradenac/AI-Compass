@@ -83,7 +83,9 @@ Example navigation path:
 
 The system must support:
 
-- Adding, renaming, moving, grouping, and retiring nodes without a fixed number of levels.
+- Adding, renaming, moving, grouping, ordering, and retiring nodes without a fixed number of levels.
+- **In-place taxonomy authoring for workgroup members:** directly edit a node and reorganize the hierarchy through drag-and-drop between sections, as children of other nodes, or before/after siblings. Provide an alternative parent selector and up/down controls for keyboard or touch use, and prevent cycles or self-parenting.
+- **Section-level organization:** top-level branches act as editable sections; adding, moving, and reordering complete branches must preserve all descendant relationships and stable task identities.
 - Browsing and searching from any node; finding solutions without requiring the user to reach a leaf.
 - Metadata and transversal filters independent of the tree (e.g., domain, specialty, project phase, V-cycle activity, complexity, confidentiality).
 - Contextual information or properties associated with tasks and their branches.
