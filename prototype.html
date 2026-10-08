@@ -1562,9 +1562,10 @@ function refreshCampaignInstallationGuides(form){
  if(!form||form.dataset.form!=="campaignTrialSetup")return;
  var selector=form.querySelector('[name="installationGuide"]'),campaign=rec("campaigns",form.dataset.id);
  if(!selector||!campaign)return;
- var selected=selector.value,chosen=rec("solutions",form.querySelector('[name="existingSolution"]')?.value);
- if(!chosen&&campaign.mode==="solution_scope")chosen=findBenchSolutionForSetup(campaign.solutionSetup);
- if(!chosen&&campaign.mode==="task_compare")chosen=findBenchSolutionForSetup({
+ var selected=selector.value,participant=(campaign.frameworkInstances||[]).find(function(x){return x.id===form.querySelector('[name="frameworkInstanceId"]')?.value;}),
+ chosen=participant?findBenchSolutionForSetup(participant):rec("solutions",form.querySelector('[name="existingSolution"]')?.value);
+ if(!chosen&&!campaign.frameworkId&&campaign.mode==="solution_scope")chosen=findBenchSolutionForSetup(campaign.solutionSetup);
+ if(!chosen&&!campaign.frameworkId&&campaign.mode==="task_compare")chosen=findBenchSolutionForSetup({
   model:form.querySelector('[name="modelComponent"]')?.value,provider:form.querySelector('[name="providerComponent"]')?.value,
   harness:form.querySelector('[name="harnessComponent"]')?.value,configuration:form.querySelector('[name="configuration"]')?.value,
   version:form.querySelector('[name="version"]')?.value,capabilities:form.querySelector('[name="capabilities"]')?.value
@@ -1575,11 +1576,15 @@ function refreshCampaignInstallationGuides(form){
 function campaignTrialStart(campaignId,caseId){
 var c=rec("campaigns",campaignId),tc=rec("cases",caseId);
 if(!c||!tc||c.stage!=="active"||!canEdit()||!c.caseIds.includes(caseId))return;
-var fixed=c.mode==="solution_scope",setup=c.solutionSetup||{},sourceForecast=rec("proposals",c.forecastId),predicted=sourceForecast?.componentRefs||{};
-var matchingFixedSolution=fixed?findBenchSolutionForSetup(setup):null;
+var framework=rec("components",c.frameworkId),participants=framework?(c.frameworkInstances||[]):[];
+var fixed=c.mode==="solution_scope"&&!framework,setup=c.solutionSetup||{},sourceForecast=rec("proposals",c.forecastId),predicted=sourceForecast?.componentRefs||{};
+if(framework&&!participants.length){toast("Configure at least one Framework participant.");return;}
+var matchingFixedSolution=framework?findBenchSolutionForSetup(participants[0]):fixed?findBenchSolutionForSetup(setup):null;
 var fields='<div class="span2 note">Step 3 — <strong>Initial installation / deployment</strong>: record which installation guide was used, actual environment, setup time and start timestamp. Prompts, documents supplied to the agent, skills activated and options changed belong to the subsequent timed interactions, including the first one.</div>'+
 '<input type="hidden" name="case" value="'+E(tc.id)+'"><div class="span2"><strong>'+E(tc.title)+'</strong><p class="muted small">'+E(rec("tasks",tc.task)?.name||"")+' · DoD: '+E(tc.dod)+'</p></div>'+
-(fixed?'<div class="span2 note"><strong>Fixed campaign AI setup:</strong> '+["model","provider","harness"].map(function(k){return E(rec("components",setup[k])?.name||"Not set");}).join(" · ")+'</div>':
+(framework?'<div class="span2 note"><strong>Framework:</strong> '+E(framework.name)+' · choose the exact registered participant used in this execution.</div>'+
+ selectField("frameworkInstanceId","AI participant",participants.map(function(p){return[p.id,p.label+" · "+["model","provider","harness"].map(function(k){return rec("components",p[k])?.name||"?";}).join(" / ")];}),participants[0]?.id,true):
+ fixed?'<div class="span2 note"><strong>Fixed campaign AI setup:</strong> '+["model","provider","harness"].map(function(k){return E(rec("components",setup[k])?.name||"Not set");}).join(" · ")+'</div>':
 selectField("existingSolution","Optional already benchmarked AI Solution",[["","New configuration for this Test Case"]].concat(db.solutions.filter(function(x){return db.runs.some(function(r){return r.solution===x.id;});}).map(function(x){return[x.id,x.name+" · "+x.version];})),"",true)+
 selectField("modelComponent","Model",comboComponentOptions("model"),predicted.model||"")+
 selectField("providerComponent","Provider",comboComponentOptions("provider"),predicted.provider||"")+
@@ -1967,8 +1972,11 @@ var r={id:next("r"),campaignId:c.id,sessionId:t.id,case:tc.id,solution:sol.id,
  resultDetails:{qualityAssessment:d.qualityAssessment||"",utilityAssessment:d.utilityAssessment||"",
  additionalNotes:d.additionalNotes||"",outputDocuments:d.outputDocuments||"",finishedAt:campaignLocalTime()},
  campaignSnapshot:JSON.parse(JSON.stringify({id:c.id,title:c.title,mode:c.mode,purpose:c.purpose,task:c.task,
-  watchIds:(c.watchIds||[]).slice(),watchSnapshots:(c.watchIds||[]).map(function(id){return rec("watch",id);}).filter(Boolean),notes:c.notes})),
- caseSnapshot:JSON.parse(JSON.stringify(tc)),solutionSnapshot:JSON.parse(JSON.stringify(sol)),
+  watchIds:(c.watchIds||[]).slice(),watchSnapshots:(c.watchIds||[]).map(function(id){return rec("watch",id);}).filter(Boolean),
+  frameworkId:c.frameworkId||"",frameworkInstances:(c.frameworkInstances||[]).map(function(x){return Object.assign({},x);}),notes:c.notes})),
+ frameworkId:t.frameworkId||"",frameworkInstanceId:t.frameworkInstanceId||"",
+  frameworkSnapshot:t.frameworkSnapshot||null,participantSnapshot:t.participantSnapshot||null,
+  caseSnapshot:JSON.parse(JSON.stringify(tc)),solutionSnapshot:JSON.parse(JSON.stringify(sol)),
  componentSnapshots:JSON.parse(JSON.stringify(sol.componentSnapshots||{})),
  forecastSnapshot:t.forecastSnapshot?JSON.parse(JSON.stringify(t.forecastSnapshot)):null,forecastDeviation:t.forecastSnapshot?String(t.setupNotes||""):"",
 
@@ -2025,8 +2033,11 @@ if(kind==="campaignReview"){
 }else if(kind==="campaignTrialSetup"){
  var home=rec("campaigns",id),chosenCase=rec("cases",d.case);
  if(!home||home.stage!=="active"||!chosenCase||!home.caseIds.includes(chosenCase.id)){toast("Campaign is not open or Test Case is not included.");return;}
- var cfg=home.mode==="solution_scope"?Object.assign({},home.solutionSetup):null;
- if(home.mode==="task_compare"){
+ var framework=rec("components",home.frameworkId),
+ participant=framework?(home.frameworkInstances||[]).find(function(p){return p.id===d.frameworkInstanceId;}):null;
+ if(framework&&!participant){toast("Select a registered participant.");return;}
+ var cfg=participant?Object.assign({},participant):home.mode==="solution_scope"?Object.assign({},home.solutionSetup):null;
+ if(!framework&&home.mode==="task_compare"){
   var incumbent=rec("solutions",d.existingSolution);
   cfg=incumbent?{model:incumbent.componentRefs?.model,provider:incumbent.componentRefs?.provider,harness:incumbent.componentRefs?.harness,
    configuration:incumbent.config,version:incumbent.version,capabilities:incumbent.skills,accessible:incumbent.accessible}:
@@ -2061,6 +2072,9 @@ if(kind==="campaignReview"){
  var applicableSolution=rec("solutions",d.existingSolution)||findBenchSolutionForSetup(cfg);
  if(guide.solution&&guide.solution!==applicableSolution?.id){toast("This guide belongs to a different AI configuration. Choose a reusable or matching guide.");return;}
  var session={id:next("trial"),campaign:id,case:chosenCase.id,step:2,status:"in_progress",
+  frameworkId:framework?.id||"",frameworkInstanceId:participant?.id||"",
+  frameworkSnapshot:framework?JSON.parse(JSON.stringify(framework)):null,
+  participantSnapshot:participant?JSON.parse(JSON.stringify(participant)):null,
   startedAt:d.startedAt,setupMinutes:Number(d.setupMinutes),
   installationGuideId:guide.id,installationGuideSnapshot:JSON.parse(JSON.stringify(guide)),
   setupNotes:d.setupNotes||"",solutionSetup:cfg,forecastSnapshot:home.forecastId?JSON.parse(JSON.stringify(rec("proposals",home.forecastId)||null)):null,interactions:[],runId:"",createdBy:currentUser};
@@ -2279,7 +2293,7 @@ document.addEventListener("change",function(ev){
 var el=ev.target;
 if(updateMetricControl(el))return;
 if(el?.name==="tokenScale"){tokenPreview(el.closest("form"));return;}
-if(["existingSolution","modelComponent","providerComponent","harnessComponent","version","configuration","capabilities"].includes(el?.name)){
+if(["frameworkInstanceId","existingSolution","modelComponent","providerComponent","harnessComponent","version","configuration","capabilities"].includes(el?.name)){
   refreshCampaignInstallationGuides(el.closest("form"));return;
  }
 if(el?.name==="costMode"){
