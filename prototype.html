@@ -87,7 +87,7 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;b
 .watch-new-source summary{padding:8px 0}
 
 .metric-help{font-size:12px;font-weight:700;color:#1a699b;display:inline-grid;place-items:center;margin-left:5px;cursor:help;border:1px solid #8eafc8;border-radius:50%;width:17px;height:17px;line-height:1}
-.metric-help:focus{outline:2px solid #2784bd;outline-offset:2px}
+.metric-help{position:relative}.metric-help:focus{outline:2px solid #2784bd;outline-offset:2px}.metric-tooltip{display:none;position:absolute;top:calc(100% + 9px);left:0;z-index:45;width:min(320px,75vw);padding:10px 12px;background:#172c46;color:#fff;font-size:12px;font-weight:450;line-height:1.5;text-align:left;border-radius:8px;box-shadow:0 6px 20px #0c224044;white-space:normal;pointer-events:none}.metric-help:is(:hover,:focus) .metric-tooltip{display:block}
 .metric-range-pair{display:grid;grid-template-columns:minmax(85px,1fr) 105px;gap:12px;align-items:center;margin-top:7px}
 .metric-range-pair input[type="range"]{width:100%;accent-color:#276fac}
 .metric-range-pair input[type="number"]{min-width:0;width:100%;box-sizing:border-box}
@@ -499,7 +499,7 @@ function saveEvent(type,text){event(type,text);persist();render();toast("Saved l
 function toast(message){var el=document.getElementById("toast");if(!el)return;el.innerHTML='<div class="toast">'+E(message)+'</div>';clearTimeout(window.toastTimer);window.toastTimer=setTimeout(function(){el.innerHTML="";},3300);}
 function field(name,label,value,type,extra){return '<div class="field'+(extra==="full"?' span2':'')+'"><label for="f_'+E(name)+'">'+E(label)+'</label>'+(type==="textarea"?'<textarea name="'+E(name)+'" id="f_'+E(name)+'">'+E(value)+'</textarea>':'<input class="input" id="f_'+E(name)+'" type="'+E(type||"text")+'" name="'+E(name)+'" value="'+E(value)+'"'+(type==="number"?' step="any" min="0"':'')+'>')+'</div>';}
 function metricHelp(message){
-return ' <span class="metric-help" tabindex="0" role="note" aria-label="Metric guidance" title="'+E(message)+'">ⓘ</span>';
+return ' <span class="metric-help" tabindex="0" role="note" aria-label="'+E(message)+'">ⓘ<span class="metric-tooltip" aria-hidden="true">'+E(message)+'</span></span>';
 }
 function guidedField(name,label,value,type,extra,help){
 return field(name,label,value,type,extra).replace('</label>',metricHelp(help)+'</label>');
@@ -1437,15 +1437,35 @@ selectField("case","Reusable Test Case",available.map(function(x){return[x.id,x.
 '<div class="span2 note">Attaching does not duplicate a Test Case, alter the original, or change its existing experimental evidence.</div>',
 id,"Attach to campaign");
 }
+function findBenchSolutionForSetup(setup){
+ if(!setup||!String(setup.configuration||"").trim()||["model","provider","harness"].some(function(k){return !rec("components",setup[k]);}))return null;
+ var signature=comboSignature({model:setup.model,provider:setup.provider,harness:setup.harness},setup.configuration,setup.version||"1.0",setup.capabilities||"");
+ return db.solutions.find(function(sol){return sol.signature===signature;})||null;
+}
 function installationGuideOptions(solutionId){
-return [["","Select a referenced installation guide"]].concat(db.guides.filter(function(g){return g.type==="Installation"&&(!g.solution||!solutionId||g.solution===solutionId);})
- .map(function(g){return[g.id,g.title+(g.solution?" · linked to solution":" · reusable")];}));
+ return [["","Select a referenced installation guide"]].concat(db.guides.filter(function(g){
+  return g.type==="Installation"&&(!g.solution||(solutionId&&g.solution===solutionId));
+ }).map(function(g){return[g.id,g.title+(g.solution?" · linked to solution":" · reusable")];}));
+}
+function refreshCampaignInstallationGuides(form){
+ if(!form||form.dataset.form!=="campaignTrialSetup")return;
+ var selector=form.querySelector('[name="installationGuide"]'),campaign=rec("campaigns",form.dataset.id);
+ if(!selector||!campaign)return;
+ var selected=selector.value,chosen=rec("solutions",form.querySelector('[name="existingSolution"]')?.value);
+ if(!chosen&&campaign.mode==="solution_scope")chosen=findBenchSolutionForSetup(campaign.solutionSetup);
+ if(!chosen&&campaign.mode==="task_compare")chosen=findBenchSolutionForSetup({
+  model:form.querySelector('[name="modelComponent"]')?.value,provider:form.querySelector('[name="providerComponent"]')?.value,
+  harness:form.querySelector('[name="harnessComponent"]')?.value,configuration:form.querySelector('[name="configuration"]')?.value,
+  version:form.querySelector('[name="version"]')?.value,capabilities:form.querySelector('[name="capabilities"]')?.value
+ });
+ selector.innerHTML=installationGuideOptions(chosen?.id||"").map(function(o){return opt(o[0],o[1],selected);}).join("");
+ if(!Array.from(selector.options).some(function(o){return o.value===selected;}))selector.value="";
 }
 function campaignTrialStart(campaignId,caseId){
 var c=rec("campaigns",campaignId),tc=rec("cases",caseId);
 if(!c||!tc||c.stage!=="active"||!canEdit()||!c.caseIds.includes(caseId))return;
 var fixed=c.mode==="solution_scope",setup=c.solutionSetup||{},sourceForecast=rec("proposals",c.forecastId),predicted=sourceForecast?.componentRefs||{};
-var matchingFixedSolution=fixed?db.solutions.find(function(sol){return sol.componentRefs&&["model","provider","harness"].every(function(k){return sol.componentRefs[k]===setup[k];});}):null;
+var matchingFixedSolution=fixed?findBenchSolutionForSetup(setup):null;
 var fields='<div class="span2 note">Step 3 — <strong>Initial installation / deployment</strong>: record which installation guide was used, actual environment, setup time and start timestamp. Prompts, documents supplied to the agent, skills activated and options changed belong to the subsequent timed interactions, including the first one.</div>'+
 '<input type="hidden" name="case" value="'+E(tc.id)+'"><div class="span2"><strong>'+E(tc.title)+'</strong><p class="muted small">'+E(rec("tasks",tc.task)?.name||"")+' · DoD: '+E(tc.dod)+'</p></div>'+
 (fixed?'<div class="span2 note"><strong>Fixed campaign AI setup:</strong> '+["model","provider","harness"].map(function(k){return E(rec("components",setup[k])?.name||"Not set");}).join(" · ")+'</div>':
@@ -1624,9 +1644,8 @@ r.tokens===null||r.tokens===undefined?"Tokens unknown":fmt(r.tokens)+" total tok
 forecastPanel+(r.initialSetup?'<h3 style="margin:17px 0 8px">Step-by-step experiment timeline</h3>'+
 '<div class="note"><strong>Installation/setup:</strong> '+E(r.initialSetup.startedAt)+' · '+displayMinutes(r.initialSetup.setupMinutes)+' human setup'+
 '<p class="small"><strong>Installation guide:</strong> '+E(r.initialSetup.installationGuideSnapshot?.title||"Not recorded for this legacy run")+'</p>'+
-'<p class="small" style="margin-top:8px"><strong>Input documents:</strong> '+E(r.initialSetup.inputDocuments)+'</p>'+
-'<p class="small"><strong>Skills and context provided:</strong> '+E(r.initialSetup.providedSkills)+'</p>'+
-'<p class="small"><strong>Setup notes:</strong> '+E(r.initialSetup.setupNotes)+'</p></div>'+
+'<p class="small" style="margin-top:8px"><strong>Setup notes:</strong> '+E(r.initialSetup.setupNotes)+'</p></div>'+
+((r.initialSetup.inputDocuments||r.initialSetup.providedSkills)?'<div class="note" style="margin-top:7px"><strong>Legacy interaction input summary (not installation):</strong><p class="small">Documents: '+E(r.initialSetup.inputDocuments||"—")+'</p><p class="small">Skills/options: '+E(r.initialSetup.providedSkills||"—")+'</p></div>':"")+
 simpleTable(["Iteration / date-time","Human effort","Agent runtime","Action & observations"],(r.interactions||[]).map(function(v,i){
  return '<tr>'+td('Iteration '+(i+1)+'<div class="muted small">'+E(v.at)+'</div>')+td(v.humanMinutes+' min')+
  td(v.agentMinutes+' min')+td('<strong>'+E(v.kind)+'</strong><p class="small">'+E(v.description)+'</p><p class="muted small">Prompt/instructions: '+E(v.promptUpdate||"None")+'</p><p class="muted small">Documents: '+E(v.inputDocuments||"—")+', skills/options: '+E(v.providedSkills||"—")+'. Artifacts: '+E(v.artifacts||"—")+'</p>')+'</tr>';
@@ -1802,8 +1821,6 @@ var tokensKnown=String(d.tokenCount??"").trim()!=="",
  costMode=d.costMode||"unknown",estimatedCost=costMode==="amount"?Number(d.cost):null,
  day=new Date().toISOString().slice(0,10);
 var initialPrompt=interactions.find(function(v){return String(v.promptUpdate||"").trim();})?.promptUpdate||"";
-var documents=interactions.map(function(v){return v.inputDocuments||"";}).filter(Boolean).join("\n");
-var skills=interactions.map(function(v){return v.providedSkills||"";}).filter(Boolean).join("\n");
 var trace=interactions.map(function(v,i){return "Iteration "+(i+1)+" @ "+v.at+" | "+v.kind+" | human "+v.humanMinutes+" min | agent "+v.agentMinutes+" min\n"+v.description+"\nPrompt update: "+(v.promptUpdate||"None")+"\nArtifacts: "+(v.artifacts||"None");}).join("\n\n");
 var r={id:next("r"),campaignId:c.id,sessionId:t.id,case:tc.id,solution:sol.id,
  protocol:tc.protocol,date:day,score:Number(d.score),accepted:d.accepted==="yes",status:"draft",
@@ -1817,8 +1834,7 @@ var r={id:next("r"),campaignId:c.id,sessionId:t.id,case:tc.id,solution:sol.id,
  artifacts:d.outputDocuments||"",notes:d.qualityAssessment||d.additionalNotes||"",owner:currentUser,
  initialSetup:JSON.parse(JSON.stringify({startedAt:t.startedAt,setupMinutes:t.setupMinutes,
  installationGuideId:t.installationGuideId||"",installationGuideSnapshot:t.installationGuideSnapshot||null,
- inputDocuments:documents,providedSkills:skills,setupNotes:t.setupNotes,
- initialPrompt:initialPrompt,configuration:setup.configuration})),
+ setupNotes:t.setupNotes,configuration:setup.configuration})),
  interactions:JSON.parse(JSON.stringify(interactions)),
  resultDetails:{qualityAssessment:d.qualityAssessment||"",utilityAssessment:d.utilityAssessment||"",
  additionalNotes:d.additionalNotes||"",outputDocuments:d.outputDocuments||"",finishedAt:campaignLocalTime()},
@@ -1900,7 +1916,7 @@ if(kind==="campaignReview"){
  if(newGuideTitle&&newGuideBody){
   var associated=String(d.existingSolution||"");
   if(!associated){
-   var found=db.solutions.find(function(sol){return sol.componentRefs&&["model","provider","harness"].every(function(k){return sol.componentRefs[k]===cfg[k];});});
+   var found=findBenchSolutionForSetup(cfg);
    if(found)associated=found.id;
   }
   guide={id:next("g"),title:newGuideTitle,type:"Installation",status:"draft",body:newGuideBody,
@@ -1908,8 +1924,10 @@ if(kind==="campaignReview"){
   db.guides.push(guide);event("Guide","Registered installation guide: "+guide.title,true);
  }
  if(!guide||guide.type!=="Installation"){toast("Select an installation guide.");return;}
+ var applicableSolution=rec("solutions",d.existingSolution)||findBenchSolutionForSetup(cfg);
+ if(guide.solution&&guide.solution!==applicableSolution?.id){toast("This guide belongs to a different AI configuration. Choose a reusable or matching guide.");return;}
  var session={id:next("trial"),campaign:id,case:chosenCase.id,step:2,status:"in_progress",
-  startedAt:d.startedAt,setupMinutes:Number(d.setupMinutes),initialPrompt:"",inputDocuments:"",providedSkills:"",
+  startedAt:d.startedAt,setupMinutes:Number(d.setupMinutes),
   installationGuideId:guide.id,installationGuideSnapshot:JSON.parse(JSON.stringify(guide)),
   setupNotes:d.setupNotes||"",solutionSetup:cfg,forecastSnapshot:home.forecastId?JSON.parse(JSON.stringify(rec("proposals",home.forecastId)||null)):null,interactions:[],runId:"",createdBy:currentUser};
  db.campaignTrials.push(session);event("Trial","Started "+chosenCase.title+" in "+home.title,true);
@@ -2112,6 +2130,7 @@ document.addEventListener("submit",function(ev){if(ev.target.matches(".feedback-
 document.addEventListener("input",function(ev){
  if(updateMetricControl(ev.target))return;
  if(ev.target?.name==="tokenCount")tokenPreview(ev.target.closest("form"));
+  if(["modelComponent","providerComponent","harnessComponent","version","configuration","capabilities"].includes(ev.target?.name))refreshCampaignInstallationGuides(ev.target.closest("form"));
  var field=ev.target;if(field?.matches?.("[data-source-search]")){
   var q=String(field.value||"").toLowerCase().trim();
   document.querySelectorAll(".watch-library-option").forEach(function(option){option.style.display=(option.dataset.sourceTitle||"").includes(q)?"":"none";});
@@ -2121,18 +2140,9 @@ document.addEventListener("change",function(ev){
 var el=ev.target;
 if(updateMetricControl(el))return;
 if(el?.name==="tokenScale"){tokenPreview(el.closest("form"));return;}
-if(el?.name==="existingSolution"&&el.closest("form")?.dataset.form==="campaignTrialSetup"){
- var guideSelect=el.closest("form").querySelector('[name="installationGuide"]');
- if(guideSelect){
-  var target=el.value;
-  Array.from(guideSelect.options).forEach(function(option){
-   var item=rec("guides",option.value);
-   option.hidden=!!(target&&item?.solution&&item.solution!==target);
-  });
-  if(guideSelect.selectedOptions[0]?.hidden)guideSelect.value="";
+if(["existingSolution","modelComponent","providerComponent","harnessComponent","version","configuration","capabilities"].includes(el?.name)){
+  refreshCampaignInstallationGuides(el.closest("form"));return;
  }
- return;
-}
 if(el?.name==="costMode"){
  var area=el.closest("form")?.querySelector("[data-metered-cost]");
  if(area)area.style.display=el.value==="amount"?"":"none";
