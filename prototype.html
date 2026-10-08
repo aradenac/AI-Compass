@@ -1058,7 +1058,7 @@ btn("Open campaign","campaignDetail",c.id,"sm primary")+'</div>';
 }
 function knowledgePage(){
 var type=ui.filters.guideType||"all",status=ui.filters.guideStatus||"all",sort=ui.filters.guideSort||"newest",query=(ui.filters.guideSearch||"").toLowerCase();
-var docs=db.guides.filter(function(g){return (canEdit()||g.status==="published")&&(type==="all"||g.type===type)&&(status==="all"||g.status===status)&&(g.title+" "+g.body).toLowerCase().includes(query);})
+var docs=db.guides.filter(function(g){return (canEdit()||g.status==="published")&&(type==="all"||g.type===type)&&(status==="all"||g.status===status)&&(g.title+" "+(g.body||"")+" "+(g.url||"")).toLowerCase().includes(query);})
  .sort(function(a,b){return sort==="alpha"?a.title.localeCompare(b.title):sort==="oldest"?String(a.date).localeCompare(String(b.date)):String(b.date).localeCompare(String(a.date));});
 var tools='<div class="filters"><input class="input" data-filter="guideSearch" value="'+E(ui.filters.guideSearch||"")+'" placeholder="Search article text / title…">'+
 '<select data-filter="guideType">'+[["all","All article types"],["Charter","Charter"],["Guide","Guide"],["Installation","Installation guide"],["FAQ","FAQ"],["Training","Training"]].map(function(x){return opt(x[0],x[1],type);}).join("")+'</select>'+
@@ -1807,9 +1807,13 @@ if(parent)html='<div class="note" style="margin-bottom:12px"><strong>Forked from
 openModal(c.title,html,btn("Close","close","","")+(canEdit()?btn("Fork new challenge","forkCase",c.id,"")+(ui.page==="benchmark"?btn("Run this TC","newRunForCase",c.id,"primary"):""):""));
 }
 function detailsGuide(id){
-var g=rec("guides",id);if(!g||(!canEdit()&&g.status!=="published"))return;
-openModal(g.title,'<div class="row-between"><div>'+badge(g.type)+' '+badge(g.status)+'</div><span class="muted small">Last update: '+E(g.date)+' · '+E(actor(g.owner))+'</span></div><pre class="text-block" style="margin-top:18px;white-space:pre-wrap;font-family:inherit">'+E(g.body)+'</pre>',
-btn("Close","close","","")+(canEdit()?btn("Edit document","editGuide",id,"")+(g.status==="draft"?btn("Publish document","publishGuide",id,"primary"):""):""));
+ var g=rec("guides",id);if(!g||(!canEdit()&&g.status!=="published"))return;
+ var source=String(g.url||"").trim(),safeUrl=validSetupUrl(source);
+ var body='<div class="row-between"><div>'+badge(g.type)+' '+badge(g.status)+'</div><span class="muted small">Last update: '+E(g.date)+' · '+E(actor(g.owner))+'</span></div>'+
+ (g.body?'<pre class="text-block" style="margin-top:18px;white-space:pre-wrap;font-family:inherit">'+E(g.body)+'</pre>':'<p class="muted small" style="margin-top:16px">Instructions supplied as an external reference.</p>')+
+ (source&&safeUrl?'<p style="margin-top:14px"><strong>Setup reference: </strong><a href="'+E(source)+'" target="_blank" rel="noopener noreferrer">'+E(source)+'</a></p>':"")+
+ (g.framework?'<p class="small"><strong>Framework:</strong> '+E(rec("components",g.framework)?.name||"Unknown")+'</p>':"");
+ openModal(g.title,body,btn("Close","close","","")+(canEdit()?btn("Edit document","editGuide",id,"")+(g.status==="draft"?btn("Publish document","publishGuide",id,"primary"):""):""));
 }
 function feedbackThreadMarkup(id){
 var msgs=db.feedbackMessages.filter(function(m){return m.feedback===id&&(canEdit()||m.visibility==="public");})
@@ -1853,6 +1857,9 @@ var trials=db.campaignTrials.filter(function(t){return t.campaign===id;}),runs=c
 var head='<div class="row-between"><div class="tags">'+badge(campaignStatusLabel(c))+' '+badge(c.mode==="solution_scope"?"One fixed AI setup":"Fixed task / multiple solutions")+'</div><span class="muted small">Owner: '+E(actor(c.owner))+'</span></div>'+
 '<h3 style="margin:13px 0 7px">'+E(c.title)+'</h3><p class="text-block">'+E(c.purpose)+'</p>'+
 '<p class="muted small" style="margin-top:8px">'+E(c.notes||"")+'</p>'+
+(c.setupGuideId&&rec("guides",c.setupGuideId)&&(canEdit()||rec("guides",c.setupGuideId).status==="published")?
+ '<p class="small" style="margin-top:9px"><strong>Setup guide:</strong> '+linkAction(rec("guides",c.setupGuideId).title,"guideDetail",c.setupGuideId)+'</p>':
+ '<p class="muted small" style="margin-top:9px">Setup guide: '+(c.setupGuideId?"Not publicly available":"Not linked yet")+'</p>')+
 '<div class="note" style="margin-top:12px">Step 1: Campaign scope and goal → Step 2: Test Cases → Step 3: Setup → Step 4: Timed interactions → Step 5: Outcome & metrics → Close for review.</div>'+
 '<div class="tags" style="margin-top:12px">'+badge((c.watchIds||[]).length+" technology signals")+' '+badge(c.caseIds.length+" Test Cases")+' '+badge(runs.length+" runs")+' '+badge(trials.filter(function(t){return t.status!=="completed";}).length+" active sessions")+'</div>';
 head+='<h3 style="margin:13px 0 6px">Linked technology signals</h3>'+
