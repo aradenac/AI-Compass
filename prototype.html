@@ -704,7 +704,7 @@ tableRow("Engineer time — observed",function(x){return observed(x,"effort"," m
 tableRow("Engineer time — projected",function(x){return estimated(x,"humanMinutes"," min");}),
 tableRow("AI/tool cost — observed",function(x){return x.solution&&runstats(x).count?'<span class="tag green">Observed</span> '+money(runstats(x).cost):"Not measured";}),
 tableRow("AI/tool cost — projected",function(x){return x.forecast?'<span class="tag amber">Estimated</span> '+money(x.forecast.aiCost):"Not estimated";}),
-tableRow("Net labor value scenario",function(x){if(!x.forecast)return "Not estimated";var net=forecastNetSavings(x.forecast);return net==null?"No task baseline":'<span class="tag amber">Scenario</span> '+money(net);}),
+tableRow("Net saving scenario (acceptance-adjusted)",function(x){if(!x.forecast)return "Not estimated";var net=forecastNetSavings(x.forecast);return net==null?"No task baseline":'<span class="tag amber">Scenario</span> '+money(net);}),
 tableRow("Evidence & confidence",function(x){return x.forecast?badge(x.forecast.confidence+" confidence")+' · '+theoreticalSources(x.forecast).length+' cited source(s)':runstats(x).count+' controlled published run(s)';}),
 tableRow("Traceable detail",function(x){return x.forecast?btn("Watch sources & rationale","forecastDetail",x.id,"sm"):btn("Measured evidence","solution",x.id,"sm");})
 ];
@@ -758,7 +758,8 @@ function watchEvidence(id){return db.researchEvidence.filter(function(e){return 
 function forecastVisible(p){return canEdit()||p.status==="published";}
 function forecastNetSavings(p){
 var baseline=rec("tasks",p.task)?.baseline||0;
-return baseline>0?((baseline-Number(p.humanMinutes||0))*Number(p.hourlyRate||0)/60-Number(p.aiCost||0)):null;
+var acceptance=Number(p.acceptance||0)/100,hourly=Number(p.hourlyRate||0);
+return baseline>0&&acceptance>0?baseline*hourly/60-(Number(p.humanMinutes||0)*hourly/60+Number(p.aiCost||0))/acceptance:null;
 }
 function evidenceKind(p){return p.status==="published"?"Theoretical · published":"Theoretical · "+p.status;}
 function watchPage(){
@@ -995,11 +996,11 @@ selectField("providerComponent","Provider (theoretical)",comboComponentOptions("
 selectField("harnessComponent","Harness (theoretical)",comboComponentOptions("harness"),refs.harness||"",true)+
 field("config","Assumed configuration, tools, versions and constraints",p?.config||"","textarea","full")+
 '<div class="span2"><h3>Predicted outcomes — NOT benchmark results</h3><p class="muted small">Scores are workgroup estimates (0–100); AI cost and engineer time refer to a hypothetical accepted-result attempt, not an observed run.</p></div>'+
-field("quality","Estimated quality /100",p?.quality??75,"number")+
-field("acceptance","Estimated DoD acceptance (%)",p?.acceptance??65,"number")+
-field("autonomy","Estimated agent autonomy /100",p?.autonomy??55,"number")+
-field("humanMinutes","Estimated human involvement (minutes)",p?.humanMinutes??90,"number")+
-field("aiCost","Expected model & tooling cost (€)",p?.aiCost??1.5,"number")+
+field("quality","Estimated quality /100",p?.quality??"","number")+
+field("acceptance","Estimated DoD acceptance (%)",p?.acceptance??"","number")+
+field("autonomy","Estimated agent autonomy /100",p?.autonomy??"","number")+
+field("humanMinutes","Estimated human involvement (minutes)",p?.humanMinutes??"","number")+
+field("aiCost","Expected model & tooling cost (€)",p?.aiCost??"","number")+
 field("hourlyRate","Assumed engineer hourly cost (€)",p?.hourlyRate??60,"number")+
 selectField("confidence","Confidence level",[["low","Low"],["medium","Medium"],["high","High"]],p?.confidence||"low")+
 field("revision","Projection revision",p?.revision||"1.0")+
@@ -1014,7 +1015,7 @@ if(!p.watchIds.length)return "Link one or more Technology Watch hypotheses.";
 if(!sourceCount)return "The watch hypotheses need at least one cited literature or public source.";
 if(!rec("tasks",p.task))return "Assign an engineering task.";
 if(["model","provider","harness"].some(function(k){return !rec("components",p.componentRefs[k]);}))return "Select model, provider and harness.";
-if(!p.config.trim()||!p.rationale.trim()||!p.uncertainty.trim())return "Document the configuration, assumptions and uncertainty.";
+if(!String(p.config||"").trim()||!String(p.rationale||"").trim()||!String(p.uncertainty||"").trim())return "Document the configuration, assumptions and uncertainty.";
 return "";
 }
 function changeForecastStatus(id,nextStage){
@@ -1040,15 +1041,15 @@ var html='<div class="tags">'+badge(evidenceKind(p))+' '+badge(p.confidence+" co
 '<p>'+["model","provider","harness"].map(function(type){return E(rec("components",p.componentRefs[type])?.name||"?");}).join(" · ")+'</p>'+
 '<pre class="code">'+E(p.config)+'</pre>'+
 '<div class="grid g3">'+stat("Expected quality",p.quality+"/100","PREDICTED, not observed")+stat("Expected acceptance",p.acceptance+"%","PREDICTED, not observed")+stat("Expected AI cost",money(p.aiCost),"PREDICTED, not incurred")+'</div>'+
-'<div class="grid g3" style="margin-top:9px">'+stat("Expected autonomy",p.autonomy+"/100","Subjective forecast")+stat("Human involvement",p.humanMinutes+" min","Expected, not recorded")+stat("Net labor value",saved===null?"Not estimable":money(saved),"Scenario only · "+money(p.hourlyRate)+"/hour")+'</div>'+
+'<div class="grid g3" style="margin-top:9px">'+stat("Expected autonomy",p.autonomy+"/100","Subjective forecast")+stat("Human involvement",p.humanMinutes+" min","Expected, not recorded")+stat("Scenario net saving",saved===null?"Not estimable":money(saved),"Projected, acceptance-adjusted · "+money(p.hourlyRate)+"/hour")+'</div>'+
 '<h3 style="margin:16px 0 6px">Rationale and uncertainty</h3><p class="text-block">'+E(p.rationale)+'</p><div class="note warn" style="margin:12px 0">'+E(p.uncertainty)+'</div>'+
 '<h3 style="margin:15px 0 6px">Supporting watch evidence ('+sources.length+')</h3>'+
 sources.map(function(e){return '<div class="list-row"><div><strong>'+E(e.title)+'</strong><div class="muted small">'+E(e.type)+' · '+E(e.source)+' · confidence: '+E(e.confidence)+'</div><div class="small">'+E(e.assessment)+'</div></div></div>';}).join("")+
 '<h3 style="margin:15px 0 6px">Review</h3><p class="muted small">'+E(p.reviewNotes||"Not reviewed yet")+'</p>'+
 (p.linkedSolution?'<div class="note">A measured AI solution was later created from this hypothesis: '+linkAction(rec("solutions",p.linkedSolution)?.name||p.linkedSolution,"solution",p.linkedSolution)+'</div>':"")+
 '<div class="note" style="margin-top:12px">Publishing a theoretical forecast never turns its estimated scores into measured benchmark results.</div>';
-var footer=btn("Close","close","","")+(canEdit()?btn("Compare evidence","forecastCompare",id,"")+btn("Edit","editForecast",id,"")+
-(p.status==="draft"?btn("Stage forecast","stageForecast",id,"primary"):p.status==="staged"?btn("Mark reviewed","reviewForecast",id,"primary"):p.status==="reviewed"?btn("Publish as theoretical","publishForecast",id,"primary"):""):"");
+var footer=btn("Close","close","","")+(canEdit()?btn("Compare evidence","forecastCompare",id,"")+(p.status!=="published"?btn("Edit","editForecast",id,""):"")+
+(p.status==="draft"?btn("Stage forecast","stageForecast",id,"primary"):p.status==="staged"?btn("Mark reviewed","reviewForecast",id,"primary"):p.status==="reviewed"?btn("Publish as theoretical","publishForecast",id,"primary"):btn("Create new revision","forkForecast",id,"primary")):"");
 openModal("Theoretical configuration · "+p.name,html,footer);
 }
 function dialogWatch(id){
@@ -1326,7 +1327,7 @@ if(kind==="task"||kind==="taskEdit"){
  var refs={model:d.modelComponent,provider:d.providerComponent,harness:d.harnessComponent};
  if(!watchIds.length){toast("Select at least one supporting watch hypothesis.");return;}
  if(!rec("tasks",d.task)||["model","provider","harness"].some(function(k){return !rec("components",refs[k]);})){toast("Select a task, model, provider and harness.");return;}
- if([d.quality,d.acceptance,d.autonomy].some(function(v){return !Number.isFinite(Number(v))||Number(v)<0||Number(v)>100;})){toast("Expected scores must be within 0–100.");return;}
+ if([d.quality,d.acceptance,d.autonomy,d.humanMinutes,d.aiCost,d.hourlyRate].some(function(v){return String(v??"").trim()===""||!Number.isFinite(Number(v))||Number(v)<0;})||[d.quality,d.acceptance,d.autonomy].some(function(v){return Number(v)>100;})){toast("Enter explicitly justified nonnegative estimates (scores 0–100).");return;}
  var forecast=id?rec("proposals",id):{id:next("forecast"),status:"draft",author:currentUser,reviewer:"",linkedSolution:"",created:new Date().toISOString().slice(0,10)};
  if(!forecast)return;
  var previous=id?JSON.parse(JSON.stringify(forecast)):null;
@@ -1444,6 +1445,13 @@ if(act==="forecastDetail"){detailsForecast(id);return;}
 if(act==="stageForecast"){changeForecastStatus(id,"staged");return;}
 if(act==="reviewForecast"){changeForecastStatus(id,"reviewed");return;}
 if(act==="publishForecast"){changeForecastStatus(id,"published");return;}
+if(act==="forkForecast"){
+ if(!canEdit())return;var published=rec("proposals",id);if(!published||published.status!=="published")return;
+ var prior=JSON.parse(JSON.stringify(published));
+ prior.id=next("forecast");prior.status="draft";prior.reviewer="";prior.reviewNotes="";prior.linkedSolution="";prior.author=currentUser;
+ prior.revision=published.revision+"-rev";prior.created=new Date().toISOString().slice(0,10);prior.updated=prior.created;prior.name=published.name+" (new revision)";
+ db.proposals.push(prior);event("Forecast","Created draft revision from published forecast "+published.name,true);persist();dialogForecast(prior.id);return;
+}
 if(act==="forecastCompare"){if(!ui.selectedCompare.includes(id))ui.selectedCompare.push(id);ui.page="results";ui.resultsTab="cross";ui.modal="";render();return;}
 if(act==="newForecastForTask"){dialogForecast("","",id);return;}
 if(act==="compareTaskEvidence"){ui.filters.crossTask=id;ui.resultsTab="cross";ui.page="results";ui.modal="";render();return;}
