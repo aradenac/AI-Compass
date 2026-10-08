@@ -22,17 +22,19 @@ A new AI Solution is registered from its **first measured benchmark run**, not f
 
 **Step 2 — Test Cases:** define or reuse an engineering challenge with task reference, inputs, protocol, expected outputs and DoD. In task-centred mode, Test Cases are restricted to the fixed task. Start a separate execution session for each trial; multiple attempts are allowed.
 
-**Step 3 — Initial setup:** manually enter the experiment start date/time, approximate human preparation duration, initial prompts/instructions, input document names and references, supplied skills/tools/context and actual configuration. This is *experimental evidence*, not an installation tutorial.
+**Step 3 — Installation and setup:** select a reusable **Installation guide** from Guides & Charter or create one from the execution form. Guides may be linked to an existing AI Solution, or remain reusable/unassigned. Record actual installation timestamp, configured environment, human installation/preparation duration and deviations from the guide. **Do not capture the initial prompt here**; changing runtime options and supplying documents to the agent are interactions.
 
-**Step 4 — Timed interactions:** add any number of chronological entries, each recording:
-- Date and time of the intervention
-- Nature of the action (review, re-prompt, adjustment, restart, verification, etc.) and free-text explanation
-- Approximate human active-work duration, separately from agent runtime/waiting duration
-- Additional/changed prompts and intermediate artifacts
+**Step 4 — Timed interactions:** record the first prompt (or first action) as the first interaction, followed by any number of timestamped follow-ups, supplied documents, skills/options activated, reviews, corrective prompts and intermediate outputs. Every entry has separate **human duration** and **agent duration**, in minutes. The **total agent runtime is the sum** of all iteration agent durations, without a second manually entered total.
 
-Save each entry to preserve the session. You can navigate back to the campaign and resume it. No automatic stopwatch or external harness integration is assumed.
+**Step 5 — Results, artifacts and metrics:**
+- **DoD**: accepted / failed, with failure preserved as evidence.
+- **Quality (0–100)** and **Information Utility (0–100)**: sliders paired with exact numeric inputs and their adjacent free-text evaluation. Utility reflects relevance, novelty, correctness and actionability relative to noise/output volume.
+- **Total tokens consumed (optional, if known)**: one numeric value multiplied by units/tens/hundreds/thousands/millions. A blank means unknown, not zero. Separate input/output counts are not required.
+- **Cost**: choose **amount (EUR for this run)**, **flat-rate / subscription** (no allocated marginal cost), or **unknown**. A flat-rate or unknown amount must not be silently converted to zero.
+- **Human time**: final review and correction times, separate from installation or per-iteration human effort; all times stored in minutes.
+- **Produced outputs**: one required field listing final documents, code, reports, paths and references, followed by **Additional notes (optional)**. No duplicate output-description field.
 
-**Step 5 — Outcome and closure:** record acceptance or failure against the DoD, quality and useful-information score (0–100), separate input/output tokens, AI/tooling cost, final runtime, human review and correction effort, final output documents/code/report references, produced deliverables, relevance/density observations and a conclusion.
+Measurement labels expose guidance on hover/focus. Time sliders use a **nonlinear 0–7-day range**, paired with exact minute fields and dynamic minutes/hours/days displays. Scores use 0–100 sliders. See [Non-Functional Requirements](non-functional-requirements.md) for acceptance criteria.
 
 Closing the execution produces an independent **Benchmark Run** and preserves the full timeline and snapshots of the original task, Test Case, protocol, AI configuration, components and campaign. **Failed results remain auditable evidence.** Closing an execution does not close the campaign.
 
@@ -49,9 +51,9 @@ flowchart LR
 
 - **In progress:** add Test Cases and execute or resume sessions.
 - **Close → Under review:** stage the collected draft runs; no automatic public release.
-- **Peer review:** a different workgroup member records the rationale and can approve publication or return the campaign to In progress. The prototype requires at least one completed run before publication.
+- **Review:** the campaign owner or another workgroup member can record the rationale and approve publication or request rework. At least one completed run is required before publication.
 - **Published:** controlled evidence becomes available for analytical results exploration. Publishing a failed run makes the failure visible; it does not constitute recommending the AI Solution.
-- **Reopen:** allows more experiments even after publication. Historical runs remain unchanged.
+- **Unpublish / Reopen:** a published campaign can return to Under review via Unpublish, or In progress via Reopen. Previous decisions and run evidence are retained.
 - **Delete / archive:** truly empty campaigns can be deleted. Campaigns with sessions/runs are archived instead, preserving provenance and allowing restoration.
 
 The **Dashboard is read-only** with columns Planned / In progress / Under review / Published. The **Benchmark Workspace** owns all actions; **Results Explorer** owns comparison and published-campaign evidence reading.
@@ -67,10 +69,10 @@ When comparing AI configurations, disclose Test Case/protocol coverage and sampl
 Run `python3 -m http.server 8080`, open `http://localhost:8080/prototype.html`, sign in as **Maya Laurent** and follow:
 
 1. Create a task-centred campaign, choose a task, add a Test Case, then open the campaign.
-2. Start the Test Case; record configuration start time and input references.
-3. Add two interventions with different timestamps, types and durations. Confirm both remain after page reload.
-4. Close the execution as **Failed**, with token counts, cost and output references. Inspect the evidence timeline.
-5. Close the campaign. Switch to **Sofia Ramos**, review, and publish it.
+2. Start the Test Case; select or create an installation guide and record installation start time and human setup duration.
+3. Record the first prompt and a correction as two interactions with different timestamps, types and durations. Confirm both remain after page reload.
+4. Close the execution as **Failed**, with unknown tokens and a flat-rate cost, then repeat using scaled token counts and a run-specific EUR amount. Inspect the evidence timeline.
+5. Close the campaign. Review and publish as **Maya Laurent**; optionally switch to **Sofia Ramos** for another review perspective.
 6. Reopen the campaign, add further tests, archive and restore; verify previous run evidence remains intact.
 7. Repeat with **Solution-centred**, using a fixed setup across Test Cases belonging to different tasks.
 
