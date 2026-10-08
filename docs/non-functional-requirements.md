@@ -40,7 +40,7 @@ All modal dialogs, including forms, shall expose an identifiable, keyboard-opera
 
 ### NFR-UX-003 — Guided metric input and interpretation
 
-- Each benchmark metric entry shall have a concise **hover/focus information affordance**, documenting accepted units, scope, measurement/estimation basis and interpretation.
+- Each benchmark metric entry shall have a concise **hover/focus information affordance**, documenting accepted units, scope, measurement/estimation basis and interpretation. Its help content shall be visible on hover **and keyboard focus**, and its actual explanatory text (not merely an uninformative label) shall be available to screen-reader users.
 - **Quality** and **Information Utility** shall have synchronized **0–100 sliders and editable numeric inputs**. Their own supporting free-text evaluations shall be adjacent to each metric.
 - Human preparation, human intervention, agent duration and final human review/correction shall use synchronized **nonlinear duration sliders**, from **0 to 10,080 minutes (7 days)**. Retain exact editable minutes; labels shall adapt to **minutes, hours and days**. Fine resolution near zero and progressively coarser movement at longer durations are expected.
 - Optional total token consumption shall support a multiplier (×1, ×10, ×100, ×1,000 or ×1,000,000) and show the calculated total. Blank means unknown, **not zero**.
@@ -51,9 +51,11 @@ All modal dialogs, including forms, shall expose an identifiable, keyboard-opera
 
 ### NFR-UX-004 — Concise, resumable benchmark forms
 
-The experimental installation step shall reference reusable **installation guides**, distinct from the first prompt or subsequent input exchanges. Those exchanges belong to the timed interactions. The workgroup's guided Test Case session shall remain resumable with previously saved installation-guide and interaction snapshots.
+The experimental installation step shall reference reusable **installation guides**, distinct from the first prompt or subsequent input exchanges. Those exchanges belong to the timed interactions. Generic/unassigned installation guides shall always be selectable; guides linked to a measured AI Solution shall only appear for the **exact matching versioned configuration**, not any configuration that merely shares its component names. Changing a selected solution or configuration shall refresh applicable guide options; submission shall reject an incompatible linked guide even if controls are bypassed. The workgroup's guided Test Case session shall remain resumable with previously saved installation-guide and interaction snapshots.
 
 The final result form shall avoid duplicated deliverable narrative fields: one canonical **Produced outputs** entry shall be followed by only one free-form **Additional notes (optional)** field, aside from explicitly metric-linked evaluations.
+
+**Acceptance:** create two differently configured solutions sharing the same model/provider/harness; a guide linked to the first shall be unavailable and rejected under the second. Generic guides remain selectable. Documents and skills supplied in interactions shall not be stored as setup inputs in new run records, and previously saved run records remain readable.
 
 All form modals remain protected from accidental outside-click dismissal under **NFR-UX-001**.
 
