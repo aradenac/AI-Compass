@@ -769,7 +769,14 @@ function protocolRegistry(){
 return '<p class="muted small" style="margin-bottom:13px">Protocols describe controlled setup, autonomy, acceptance and scoring invariants. Each run pins a protocol version.</p>'+simpleTable(["Protocol","Version","Autonomy","Measurement rules",""],db.protocols.map(function(p){return '<tr>'+td('<strong>'+E(p.name)+'</strong><div class="muted small">'+E(p.description)+'</div>')+td(E(p.version))+td(badge(p.autonomy))+td(E(p.criteria))+td(canEdit()?btn("Create revision","reviseProtocol",p.id,"sm"):"")+'</tr>';}));
 }
 function campaignRegistry(){
-return '<p class="muted small" style="margin-bottom:14px">A campaign organizes multiple cases and solutions; its results remain individual benchmark runs.</p><div class="grid g2">'+db.campaigns.map(function(b){return '<article class="card tight"><div class="row-between"><h3>'+E(b.title)+'</h3>'+badge(b.status)+'</div><p class="muted small" style="margin:8px 0">'+E(b.purpose)+'</p><div class="tags">'+badge(b.caseIds.length+" TCs")+badge(b.solutionIds.length+" solutions")+'</div><div style="margin-top:13px">'+btn("Inspect campaign","campaignDetail",b.id,"sm")+'</div></article>';}).join("")+'</div>';
+var groups=["planned","active","review","published"];
+return '<div class="card"><div class="filters">'+badge(db.campaigns.length+" campaigns")+' '+groups.map(function(k){return badge(db.campaigns.filter(function(x){return x.stage===k;}).length+" "+k);}).join(" ")+'</div>'+
+'<div class="list">'+db.campaigns.slice().sort(function(a,b){return String(b.updated||"").localeCompare(String(a.updated||""));}).map(function(c){
+var runs=campaignRuns(c),sessions=db.campaignTrials.filter(function(x){return x.campaign===c.id;});
+return '<div class="list-row"><div class="short"><div class="row">'+badge(campaignStatusLabel(c))+' '+badge(c.mode==="task_compare"?"Task comparison":"Solution coverage")+'</div>'+
+'<div style="margin:7px 0 4px">'+linkAction(c.title,"campaignDetail",c.id)+'</div><div class="muted small">'+E(c.purpose||"")+'</div><div class="muted small">'+c.caseIds.length+' Test Cases · '+runs.length+' completed runs · '+sessions.filter(function(t){return t.status!=="completed";}).length+' ongoing sessions · '+E(actor(c.owner))+'</div></div>'+
+btn("Open campaign","campaignDetail",c.id,"sm primary")+'</div>';
+}).join("")+'</div></div>';
 }
 function knowledgePage(){
 var type=ui.filters.guideType||"all",status=ui.filters.guideStatus||"all",sort=ui.filters.guideSort||"newest",query=(ui.filters.guideSearch||"").toLowerCase();
@@ -1129,12 +1136,26 @@ for(var index of indexes){
 }
 return {sources:changes};
 }
-function dialogCampaign(){
-var checkCases=db.cases.map(function(c){return '<label class="small" style="display:block;margin:5px 0"><input type="checkbox" name="caseIds" value="'+E(c.id)+'"> '+E(c.title)+' <span class="muted">('+E(rec("tasks",c.task)?.name||"")+')</span></label>';}).join("");
-var checkSolutions=db.solutions.map(function(s){return '<label class="small" style="display:block;margin:5px 0"><input type="checkbox" name="solutionIds" value="'+E(s.id)+'"> '+E(s.name)+'</label>';}).join("");
-openForm("Create benchmark campaign","campaign",field("title","Campaign name","","text","full")+field("purpose","Hypothesis / qualification objective","","textarea","full")+'<div class="field"><label>Selected test cases</label><div class="muted-panel" style="max-height:200px;overflow:auto">'+checkCases+'</div></div><div class="field"><label>Selected solutions</label><div class="muted-panel" style="max-height:200px;overflow:auto">'+checkSolutions+'</div></div>',"","Create campaign");
+function dialogCampaign(id){
+if(!canEdit())return;
+var c=rec("campaigns",id),setup=c?.solutionSetup||{};
+var body='<div class="span2 note">Step 1 — Define the experimental campaign. Test Cases, execution sessions and interaction timelines are added <strong>after</strong> creation. You can edit, close, review or reopen a campaign later.</div>'+
+field("title","Campaign title",c?.title||"","text","full")+
+field("purpose","Campaign objective / hypothesis",c?.purpose||"","textarea","full")+
+selectField("mode","Experiment strategy",[["solution_scope","Solution-centred · one AI configuration, multiple tasks and Test Cases"],["task_compare","Task-centred · one task, compare different AI configurations"]],c?.mode||"task_compare",true)+
+selectField("task","Fixed comparison task (task-centred mode)",[["","Not fixed / choose task per Test Case"]].concat(db.tasks.map(function(t){return[t.id,t.name];})),c?.task||"t5",true)+
+'<div class="span2 note">For <strong>solution-centred</strong> campaigns, choose the fixed model, provider and harness here. In task-centred campaigns, the AI setup will be chosen independently for every experiment.</div>'+
+selectField("modelComponent","Fixed model",comboComponentOptions("model"),setup.model||"")+
+selectField("providerComponent","Fixed provider",comboComponentOptions("provider"),setup.provider||"")+
+selectField("harnessComponent","Fixed harness",comboComponentOptions("harness"),setup.harness||"")+
+selectField("accessible","Company access",[["yes","Accessible"],["no","Not accessible"]],setup.accessible?"yes":"no")+
+field("version","Fixed combined configuration version",setup.version||"1.0")+
+field("configuration","Combined setup notes / versioned configuration (NOT an installation guide)",setup.configuration||"","textarea","full")+
+field("capabilities","Agent tools / skills planned",setup.capabilities||"","textarea","full")+
+selectField("owner","Campaign owner",db.users.filter(function(u){return u.role==="workgroup";}).map(function(u){return[u.id,u.name];}),c?.owner||currentUser)+
+field("notes","Context, constraints and campaign notes",c?.notes||"","textarea","full");
+openForm(c?"Edit campaign":"Step 1 · Create benchmark campaign","campaign",body,id||"",c?"Save campaign":"Create campaign & continue");
 }
-
 function dialogQualification(id,watchId,feedbackId){
 if(!canEdit())return;
 var q=rec("qualifications",id),w=rec("watch",watchId),f=rec("feedback",feedbackId);
