@@ -672,7 +672,7 @@ function campaignCompleted(c){return db.campaignTrials.filter(function(t){return
 function campaignStatusLabel(c){return campaignStages().find(function(s){return s.id===c.stage;})?.name||c.stage;}
 function campaignBoard(){
 return '<div class="daily-board">'+campaignStages().map(function(stage){
- var items=db.campaigns.filter(function(c){return c.stage===stage.id;});
+ var items=db.campaigns.filter(function(c){return !c.archived&&c.stage===stage.id;});
  return '<section class="daily-lane"><div class="daily-lane-head"><div><h3>'+E(stage.name)+'</h3><span class="muted small">'+E(stage.hint)+'</span></div><span class="lane-num">'+items.length+'</span></div>'+
  (items.map(function(c){return '<article class="daily-card"><div class="row-between">'+badge(c.mode==="task_compare"?"Task comparison":"Solution coverage")+'<span class="muted small">'+E(c.updated||"")+'</span></div><h4>'+E(c.title)+'</h4>'+
  '<div class="muted small">'+E(c.purpose||"")+'</div><div class="muted small" style="margin:8px 0">Owner: '+E(actor(c.owner))+' · '+c.caseIds.length+' TCs · '+campaignRuns(c).length+' runs</div>'+
@@ -770,8 +770,8 @@ return '<p class="muted small" style="margin-bottom:13px">Protocols describe con
 }
 function campaignRegistry(){
 var groups=["planned","active","review","published"];
-return '<div class="card"><div class="filters">'+badge(db.campaigns.length+" campaigns")+' '+groups.map(function(k){return badge(db.campaigns.filter(function(x){return x.stage===k;}).length+" "+k);}).join(" ")+'</div>'+
-'<div class="list">'+db.campaigns.slice().sort(function(a,b){return String(b.updated||"").localeCompare(String(a.updated||""));}).map(function(c){
+return '<div class="card"><div class="filters">'+badge(db.campaigns.filter(function(x){return !x.archived;}).length+" campaigns")+' '+groups.map(function(k){return badge(db.campaigns.filter(function(x){return x.stage===k;}).length+" "+k);}).join(" ")+'</div>'+
+'<div class="list">'+db.campaigns.filter(function(c){return !c.archived||!canEdit();}).filter(function(c){return !c.archived;}).sort(function(a,b){return String(b.updated||"").localeCompare(String(a.updated||""));}).map(function(c){
 var runs=campaignRuns(c),sessions=db.campaignTrials.filter(function(x){return x.campaign===c.id;});
 return '<div class="list-row"><div class="short"><div class="row">'+badge(campaignStatusLabel(c))+' '+badge(c.mode==="task_compare"?"Task comparison":"Solution coverage")+'</div>'+
 '<div style="margin:7px 0 4px">'+linkAction(c.title,"campaignDetail",c.id)+'</div><div class="muted small">'+E(c.purpose||"")+'</div><div class="muted small">'+c.caseIds.length+' Test Cases · '+runs.length+' completed runs · '+sessions.filter(function(t){return t.status!=="completed";}).length+' ongoing sessions · '+E(actor(c.owner))+'</div></div>'+
@@ -1438,6 +1438,37 @@ if(!canEdit())return;var rev=db.revisions.find(function(x){return x.id===id;});i
 openModal("Audit revision · "+rev.type,'<div class="row-between">'+badge(rev.type)+'<span class="muted small">'+E(rev.date)+' · '+E(actor(rev.by))+'</span></div><h3 style="margin:15px 0 7px">Previous record</h3><pre class="code">'+E(JSON.stringify(rev.before,null,2))+'</pre><h3 style="margin:15px 0 7px">Updated record</h3><pre class="code">'+E(JSON.stringify(rev.after,null,2))+'</pre>');
 }
 function campaignTrialsExistingOrCases(c){return c.caseIds.length>0||db.campaignTrials.some(function(x){return x.campaign===c.id;});}
+function setCampaignStage(id,stage){
+if(!canEdit())return;var c=rec("campaigns",id);if(!c||c.archived)return;
+var allowed=stage==="active"?["planned","review","published"].includes(c.stage):
+ stage==="review"?c.stage==="active":false;
+if(!allowed){toast("Use the supported campaign lifecycle actions.");return;}
+var before=JSON.parse(JSON.stringify(c));c.stage=stage;c.status=stage==="active"?"active":stage==="review"?"closed":stage;
+c.updated=TODAY;
+if(stage==="active"&&before.stage==="published"){c.reviewNotes="";c.reviewer="";}
+revision("Campaign lifecycle",id,before,c);
+event("Campaign",c.title+" moved to "+campaignStatusLabel(c),true);persist();detailsCampaign(id);
+}
+function campaignRemove(id){
+if(!canEdit())return;var c=rec("campaigns",id);if(!c)return;
+var hasEvidence=campaignRuns(c).length>0||db.campaignTrials.some(function(t){return t.campaign===id;});
+if(!confirm(hasEvidence?"Archive this campaign? Its Test Case executions and evidence will be retained.":"Delete this empty campaign?"))return;
+if(hasEvidence){c.archived=true;c.updated=TODAY;event("Campaign","Archived campaign "+c.title,true);}
+else{db.campaigns=db.campaigns.filter(function(x){return x.id!==id;});event("Campaign","Deleted empty campaign "+c.title,true);}
+persist();ui.modal="";render();
+}
+function campaignDecision(id,d){
+if(!canEdit())return;var c=rec("campaigns",id);if(!c||c.stage!=="review")return;
+if(!String(d.reviewNotes||"").trim()){toast("Enter the peer review conclusion.");return;}
+if(d.decision==="publish"&&c.owner===currentUser){toast("A different workgroup member must approve publication. Sofia or Maya can act as the reviewer.");return;}
+var before=JSON.parse(JSON.stringify(c));c.reviewNotes=d.reviewNotes;c.reviewer=currentUser;
+if(d.decision==="publish"){
+ c.stage="published";c.status="published";
+ campaignRuns(c).forEach(function(r){r.status="published";var sol=rec("solutions",r.solution);if(sol&&sol.publication==="draft"){sol.publication="published";sol.maturity="evaluated";}});
+}else{c.stage="active";c.status="active";}
+c.updated=TODAY;revision("Campaign review",id,before,c);event("Campaign",c.title+" peer review: "+(d.decision==="publish"?"published":"reopened for work"),false);
+persist();detailsCampaign(id);
+}
 function campaignRecordRun(t,d){
 var c=rec("campaigns",t.campaign),tc=rec("cases",t.case),setup=t.solutionSetup;
 if(!c||!tc||!setup)return {error:"Invalid trial setup."};
@@ -1478,7 +1509,9 @@ function handleForm(form){
 var kind=form.dataset.form,id=form.dataset.id,d=formValue(form);if(kind!=="feedback"&&kind!=="triage"&&!canEdit()){toast("Insufficient permissions.");return;}
 var req=function(v,label){if(!String(v||"").trim()){toast(label+" is required.");throw Error("form validation");}return String(v).trim();};
 try{
-if(kind==="campaign"){
+if(kind==="campaignReview"){
+ campaignDecision(id,d);return;
+}else if(kind==="campaign"){
  var existing=id?rec("campaigns",id):null,mode=d.mode==="solution_scope"?"solution_scope":"task_compare";
  var setup={model:d.modelComponent||"",provider:d.providerComponent||"",harness:d.harnessComponent||"",
   configuration:d.configuration||"",version:d.version||"1.0",capabilities:d.capabilities||"",accessible:d.accessible==="yes"};
@@ -1731,6 +1764,20 @@ if(act==="qualReopen"){requalify(id);return;}
 if(act==="qualNewRun"){var q=rec("qualifications",id),tc=q&&db.cases.find(function(c){return !q.task||descendants(q.task).includes(c.task);});if(q){if(!tc&&q.task){toast("This task has no Test Case yet. Define one before recording a run.");dialogCase(q.task);}else dialogRun(tc?.id||"",q.solution,"",q.id);}return;}
 
 if(act==="campaignDetail"){detailsCampaign(id);return;}
+if(act==="campaignPeek"){campaignSummary(id);return;}
+if(act==="openCampaign"){ui.page="benchmark";ui.modal="";render();detailsCampaign(id);return;}
+if(act==="editCampaign"){dialogCampaign(id);return;}
+if(act==="campaignActivate"){setCampaignStage(id,"active");return;}
+if(act==="campaignClose"){setCampaignStage(id,"review");return;}
+if(act==="campaignReopen"){setCampaignStage(id,"active");return;}
+if(act==="campaignDelete"){campaignRemove(id);return;}
+if(act==="campaignReview"){campaignReviewForm(id);return;}
+if(act==="campaignNewCase"){campaignNewCase(id);return;}
+if(act==="campaignAttachCase"){campaignAttachCase(id);return;}
+if(act==="campaignStartTrial"){var parts=id.split("|");campaignTrialStart(parts[0],parts[1]);return;}
+if(act==="campaignResumeTrial"){var t=rec("campaignTrials",id);if(t&&t.status!=="completed")campaignTrialInteraction(id);return;}
+if(act==="campaignFinishIterations"){campaignTrialOutcome(id);return;}
+
 if(act==="watchDetail"){detailsWatch(id);return;}
 if(act==="revisionDetail"){detailsRevision(id);return;}
 if(act==="import"){if(!editable())return;document.getElementById("importFile").click();return;}
