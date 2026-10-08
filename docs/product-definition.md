@@ -342,6 +342,17 @@ A theoretical candidate has an independent lifecycle:
 
 Draft is editable. Staging makes it available in **internal comparisons** without publication. Review documents the reasoning and evidence. Publication is an explicit workgroup decision, **not a claim of experimental qualification**; published forecasts must remain clearly labeled theoretical. Material changes invalidate the previous review and require a new staging/review cycle. Published forecasts must retain versioned history.
 
+
+#### Visibility, traceability and lightweight authoring
+
+A Watch Entry is initially **internal / Draft** until explicitly published. It is distinct from any Model, Provider or Harness item; the workgroup should not be forced into the catalog after creating a hypothesis. Each entry should accept multiple sources within its initial form.
+
+A forecast may explicitly register an otherwise missing model/provider/harness **inline**, labeling those technical records unverified, without interrupting Technology Watch. Source Watch Entries must be published before the forecast itself can be publicly published.
+
+When a theoretical forecast enters **Staged**, snapshot its linked hypotheses, sources, component identities/versions, numerical assumptions and contextual reasoning. Later changes to a source or component catalog item must not silently alter the historical projected claim. Any material forecast modification returns it to Draft and triggers a fresh review. Published forecasts are immutable; further changes create a new revision.
+
+A forecast's illustrative net financial value may be estimated as **engineer-only baseline labor cost − expected assisted cost per accepted result**, using declared assumptions for hourly labor cost and anticipated acceptance probability. Show the formula's assumptions, and do not compute a net value where baseline or acceptance probability is missing. This is an *economic scenario*, never measured ROI.
+
 ### Parallel, comparable but non-equivalent evidence
 
 The second input path is still:
