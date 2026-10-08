@@ -403,8 +403,71 @@ function findOrCreateBenchSolution(d){
 function solutionStats(s,rs){var runs=rs||sRuns(s);return {count:runs.length,score:Math.round(avg(runs.map(function(r){return r.score;}))),accept:runs.length?Math.round(100*runs.filter(function(r){return r.accepted;}).length/runs.length):null,effort:Math.round(avg(runs.map(effort))),cost:avg(runs.map(function(r){return r.cost;}))};}
 function badge(v){var low=String(v||"").toLowerCase(),kind=/^(published|qualified|accepted|closed|accessible|active)$/.test(low)?"green":/^(draft|experimental|triage|review|watching|planned|evaluated)$/.test(low)?"amber":/^(failed|inaccessible|retired|superseded|rejected)$/.test(low)?"red":/^(candidate|new|pending)$/.test(low)?"blue":"";return '<span class="tag '+kind+'">'+E(v)+'</span>';}
 function actor(id){var u=rec("users",id);return u?u.name:"Unknown";}
-function revision(type,id,before,after){db.revisions.push({id:next("rev"),type:type,objectId:id,by:currentUser,date:new Date().toISOString().slice(0,10),before:JSON.parse(JSON.stringify(before)),after:JSON.parse(JSON.stringify(after))});}
-function event(type,text,internal){db.events.unshift({id:next("e"),date:new Date().toISOString().slice(0,10),actor:currentUser,type:type,internal:!!internal,text:text});db.events=db.events.slice(0,120);}
+var pendingActivityRevisions=[];
+function revision(type,id,before,after){
+ var item={id:next("rev"),type:type,objectId:id,by:currentUser,date:new Date().toISOString().slice(0,10),at:new Date().toISOString(),
+ before:JSON.parse(JSON.stringify(before)),after:JSON.parse(JSON.stringify(after))};
+ db.revisions.push(item);pendingActivityRevisions.push(item.id);
+}
+function activityObjectMatches(message){
+ var pool=[["Campaign","campaigns","title"],["Watch Entry","watch","title"],["Forecast","proposals","name"],
+ ["Test Case","cases","title"],["AI Solution","solutions","name"],["Guide","guides","title"],["Feedback","feedback","title"],
+ ["Task","tasks","name"],["Component","components","name"]];
+ var matches=[];
+ pool.forEach(function(p){(db[p[1]]||[]).forEach(function(o){
+  var name=String(o[p[2]]||"");if(name.length>=5&&message.includes(name)&&matches.length<4){
+   matches.push({type:p[0],id:o.id,title:name,scope:p[1],snapshot:JSON.parse(JSON.stringify(o))});
+  }
+ });});return matches;
+}
+function event(type,message,internal,details){
+ var person=rec("users",currentUser),now=new Date().toISOString();
+ var revisions=pendingActivityRevisions.splice(0);
+ var e={id:next("e"),date:now.slice(0,10),at:now,actor:currentUser,
+  actorName:person?.name||"Unknown",actorRole:person?.role||"",businessUnit:person?.bu||"",
+  type:type,internal:!!internal,text:message,workspace:ui.page||"unknown",
+  references:activityObjectMatches(message),revisionIds:revisions,
+  details:details&&typeof details==="object"?JSON.parse(JSON.stringify(details)):{},
+  generated:"automatic",schemaVersion:2};
+ db.events.unshift(e);db.events=db.events.slice(0,1000);
+}
+function reportableActivity(){
+ return db.events.filter(function(e){return canEdit()||!e.internal;}).map(function(e){
+  var revisionIds=e.revisionIds||[];
+  return Object.assign({},e,{associatedRevisions:revisionIds.map(function(id){return db.revisions.find(function(r){return r.id===id;});}).filter(Boolean)});
+ });
+}
+function exportActivity(format){
+ var records=reportableActivity(),content,file,mime;
+ if(format==="csv"){
+  var columns=["id","at","actorName","actorRole","businessUnit","type","text","workspace","internal","references","details","associatedRevisions"];
+  var cell=function(v){return '"'+String(typeof v==="object"?JSON.stringify(v):v??"").replace(/"/g,'""')+'"';};
+  content=[columns.join(",")].concat(records.map(function(x){return columns.map(function(k){return cell(x[k]);}).join(",");})).join("\n");
+  file="ai-compass-activity-report.csv";mime="text/csv;charset=utf-8";
+ }else{
+  content=JSON.stringify({exportedAt:new Date().toISOString(),schemaVersion:2,count:records.length,
+   events:records},null,2);file="ai-compass-activity-report.json";mime="application/json";
+ }
+ var blob=new Blob([content],{type:mime}),link=document.createElement("a");
+ link.href=URL.createObjectURL(blob);link.download=file;link.click();
+ setTimeout(function(){URL.revokeObjectURL(link.href);},2000);
+ toast("Activity report exported, including detailed metadata.");
+}
+function detailsActivity(id){
+ var e=db.events.find(function(x){return x.id===id});if(!e||(!canEdit()&&e.internal))return;
+ var full=reportableActivity().find(function(x){return x.id===id});
+ var details='<div class="row-between"><div>'+badge(e.type)+' '+(e.internal?badge("INTERNAL"):badge("SHARED"))+'</div><span class="muted small">'+E(e.at||e.date)+'</span></div>'+
+ '<h3 style="margin:15px 0 8px">'+E(e.text)+'</h3>'+
+ '<p class="muted small">Actor: '+E(e.actorName||actor(e.actor))+' · '+E(e.businessUnit||"")+
+ ' · Workspace: '+E(e.workspace||"Unknown")+' · Record: '+E(e.id)+'</p>'+
+ '<h3 style="margin:17px 0 8px">Associated objects and captured context</h3>'+
+ (e.references||[]).map(function(ref){return '<div class="list-row"><strong>'+E(ref.type+': '+ref.title)+'</strong><span class="muted small">'+E(ref.id)+'</span></div>';}).join("")+
+ '<h3 style="margin:17px 0 7px">Complete export metadata</h3>'+
+ '<pre class="code">'+E(JSON.stringify(full,null,2))+'</pre>'+
+ '<p class="muted small">Captured snapshots and revisions are recorded for reporting and audit; ordinary activity cards show only a short summary.</p>';
+ openModal("Activity detail · "+e.type,details,btn("Close","close","",""));
+}
+
 function saveEvent(type,text){event(type,text);persist();render();toast("Saved locally · "+type);}
 function toast(message){var el=document.getElementById("toast");if(!el)return;el.innerHTML='<div class="toast">'+E(message)+'</div>';clearTimeout(window.toastTimer);window.toastTimer=setTimeout(function(){el.innerHTML="";},3300);}
 function field(name,label,value,type,extra){return '<div class="field'+(extra==="full"?' span2':'')+'"><label for="f_'+E(name)+'">'+E(label)+'</label>'+(type==="textarea"?'<textarea name="'+E(name)+'" id="f_'+E(name)+'">'+E(value)+'</textarea>':'<input class="input" id="f_'+E(name)+'" type="'+E(type||"text")+'" name="'+E(name)+'" value="'+E(value)+'"'+(type==="number"?' step="any" min="0"':'')+'>')+'</div>';}
@@ -433,7 +496,11 @@ function btn(text,act,id,cls){return '<button class="btn '+(cls||"")+'" data-act
 function simpleTable(head,rows){return '<div class="table-wrap"><table><thead><tr>'+head.map(function(x){return '<th>'+E(x)+'</th>';}).join("")+'</tr></thead><tbody>'+rows.join("")+'</tbody></table></div>';}
 function td(x){return "<td>"+x+"</td>";}
 function bar(label,v,display){return '<div class="metric"><span>'+E(label)+'</span><strong>'+E(display==null?Math.round(v)+"%":display)+'</strong></div><div class="bar"><i style="width:'+Math.max(0,Math.min(100,Number(v)||0))+'%"></i></div>';}
-function eventList(items){return '<div class="timeline">'+items.filter(function(x){return canEdit()||!x.internal;}).map(function(x){return '<div class="event"><strong>'+E(x.text)+'</strong><div class="event-meta">'+E(x.date)+' · '+E(x.type)+' · '+E(actor(x.actor))+'</div></div>';}).join("")+'</div>';}
+function eventList(items){return '<div class="timeline">'+items.filter(function(x){return canEdit()||!x.internal;}).map(function(x){
+return '<div class="event"><div class="row-between"><strong>'+E(x.text)+'</strong>'+btn("Details","activityDetail",x.id,"sm")+'</div>'+
+'<div class="event-meta">'+E(x.at?x.at.replace("T"," ").slice(0,19):x.date)+' · '+E(x.type)+' · '+E(x.actorName||actor(x.actor))+
+(x.businessUnit?' · '+E(x.businessUnit):"")+(x.revisionIds?.length?' · '+x.revisionIds.length+' revision(s)':"")+'</div></div>';
+}).join("")+'</div>';}
 function render(){var pages={dashboard:dashboardPage,tasks:tasksPage,solutions:solutionsPage,recommendations:recommendationsPage,benchmark:benchmarkPage,results:resultsPage,testdesign:testDesignPage,knowledge:knowledgePage,watch:watchPage,feedback:feedbackPage,activity:activityPage,management:managementPage,workgroup:benchmarkPage};
 var labels={dashboard:canEdit()?"Dashboard":"Overview",tasks:canEdit()?"Task management":"Task explorer",solutions:canEdit()?"Technology catalog":"AI solutions",recommendations:"Recommendations",benchmark:"Benchmark workspace",results:"Results explorer",testdesign:"Test design",knowledge:"Guides & charter",watch:"Technology watch",feedback:"Feedback & discussions",activity:"Activity feed",management:"Management view",workgroup:"Benchmark workspace"};
 if(!user()){login();return;}if(ui.page==="workgroup")ui.page=canEdit()?"benchmark":"dashboard";if((ui.page==="benchmark"||ui.page==="testdesign")&&!canEdit())ui.page="results";if(canEdit()&&ui.page==="solutions")ui.solutionView="components";shell((pages[ui.page]||dashboardPage)(),labels[ui.page]);}
@@ -935,8 +1002,27 @@ return heading("Collaboration","Feedback & discussions",
 simpleTable(["Feedback / idea","Kind","Related context","Contributor","Conversation",""],rows)+'</div>';
 }
 function activityPage(){
-var revisions=canEdit()?section("Change history · preserved revisions",db.revisions.length?simpleTable(["Date","Object","Changed by",""],db.revisions.slice().reverse().map(function(rev){return '<tr>'+td(E(rev.date))+td(E(rev.type)+' · '+E(rev.objectId))+td(E(actor(rev.by)))+td(btn("Inspect revision","revisionDetail",rev.id,"sm"))+'</tr>';})):'<div class="empty">No modified records yet. Revise a solution or task to create an auditable change.</div>'):'';
-return heading("Transparency","Activity feed","Publication history, experiment updates and contributions across the shared workspace.",btn("Export visible data","export","",""))+section("Latest changes",eventList(db.events))+ (canEdit()?'<div style="margin-top:17px">'+revisions+'</div>':"");
+var visible=db.events.filter(function(e){return canEdit()||!e.internal;});
+var type=ui.filters.activityType||"all",search=(ui.filters.activitySearch||"").trim().toLowerCase();
+var types=Array.from(new Set(visible.map(function(e){return e.type;}))).sort();
+var filtered=visible.filter(function(e){return (type==="all"||e.type===type)&&
+(e.text+" "+e.type+" "+(e.actorName||actor(e.actor))+" "+(e.businessUnit||"")).toLowerCase().includes(search);});
+var revisions=canEdit()?section("Change history · record revisions",
+db.revisions.length?simpleTable(["Date","Object","Changed by",""],db.revisions.slice().reverse().map(function(r){
+return '<tr>'+td(E(r.at||r.date))+td(E(r.type)+' · '+E(r.objectId))+td(E(actor(r.by)))+
+td(btn("Inspect revision","revisionDetail",r.id,"sm"))+'</tr>';
+})):'<div class="empty">No revisions yet.</div>'):"";
+return heading("Reporting & provenance","Activity feed",
+"Automatically captured actions, attributed to members and business units. Open an event for complete metadata and audit context.",
+btn("Export detailed JSON","exportActivityJson","","primary")+btn("Export CSV","exportActivityCsv","",""))+
+'<div class="grid g3">'+stat("Activity records",visible.length,"Retained locally")+
+stat("Contributors",new Set(visible.map(function(e){return e.actor;})).size,"Distinct actors")+
+stat("Tracked revisions",canEdit()?db.revisions.length:"—","Inspect below")+'</div>'+
+'<div class="card" style="margin-top:18px"><div class="filters">'+
+'<input class="input" data-filter="activitySearch" placeholder="Search activity, contributor or BU…" value="'+E(ui.filters.activitySearch||"")+'">'+
+'<select data-filter="activityType">'+[opt("all","All activity types",type)].concat(types.map(function(x){return opt(x,x,type);})).join("")+'</select>'+
+badge(filtered.length+" events")+'</div>'+eventList(filtered)+'</div>'+
+(canEdit()?'<div style="margin-top:18px">'+revisions+'</div>':"");
 }
 function managementPage(){
 var published=db.runs.filter(function(r){return r.status==="published";}),tested=new Set(published.map(function(r){return caseOf(r)?.task;})),countTask=db.tasks.filter(function(t){return t.baseline>0;}).length;
@@ -1888,7 +1974,7 @@ if(el&&el.name==="solutionMode"){
 if(el.hasAttribute("data-compare")){var id=el.getAttribute("data-compare");if(el.checked&&!ui.selectedCompare.includes(id))ui.selectedCompare.push(id);if(!el.checked)ui.selectedCompare=ui.selectedCompare.filter(function(x){return x!==id;});render();return;}
 if(el.hasAttribute("data-filter")){var name=el.dataset.filter;var val=el.value;if(name==="matrixMode"){ui.matrix=val;ui.matrixTarget=val==="task"?"t5":"s1";}else if(name==="matrixTarget"){ui.matrixTarget=val;}else ui.filters[name]=val;render();}
 });
-document.addEventListener("input",function(ev){var el=ev.target;if(["solutionSearch","taskSearch","guideSearch","feedbackSearch"].includes(el.dataset.filter)){var fieldName=el.dataset.filter,start=el.selectionStart,end=el.selectionEnd;ui.filters[fieldName]=el.value;render();var nextInput=document.querySelector('[data-filter="'+fieldName+'"]');if(nextInput){nextInput.focus();nextInput.setSelectionRange(start,end);}}});
+document.addEventListener("input",function(ev){var el=ev.target;if(["solutionSearch","taskSearch","guideSearch","feedbackSearch","activitySearch"].includes(el.dataset.filter)){var fieldName=el.dataset.filter,start=el.selectionStart,end=el.selectionEnd;ui.filters[fieldName]=el.value;render();var nextInput=document.querySelector('[data-filter="'+fieldName+'"]');if(nextInput){nextInput.focus();nextInput.setSelectionRange(start,end);}}});
 document.addEventListener("click",function(ev){
 var b=ev.target.closest("[data-act]");if(!b)return;
 var act=b.dataset.act,id=b.dataset.id||"";
@@ -1938,6 +2024,9 @@ if(act==="campaignFinishIterations"){campaignTrialOutcome(id);return;}
 
 if(act==="watchDetail"){detailsWatch(id);return;}
 if(act==="revisionDetail"){detailsRevision(id);return;}
+if(act==="activityDetail"){detailsActivity(id);return;}
+if(act==="exportActivityJson"){exportActivity("json");return;}
+if(act==="exportActivityCsv"){exportActivity("csv");return;}
 if(act==="import"){if(!editable())return;document.getElementById("importFile").click();return;}
 if(act==="newTask"){dialogTask(id);return;}
 if(act==="editTask"){dialogTask("",id);return;}
