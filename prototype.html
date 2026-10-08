@@ -654,12 +654,17 @@ var qualifications='<div class="list">'+review.concat(active).map(function(q){
  var sol=rec("solutions",q.solution),tests=qualificationRuns(q);
  return '<div class="list-row"><div><div class="row">'+badge(qualificationStage(q.stage).name)+' '+badge(q.priority+' priority')+'</div><div style="margin:7px 0 4px">'+linkAction(q.title,"qualDetail",q.id)+'</div><div class="muted small">'+E(sol?.name||rec("components",q.candidate?.model)?.name||"Component candidate")+' · Owner: '+E(actor(q.owner))+' · '+tests.length+' published run(s)</div></div>'+btn(q.stage==="review"?"Review decision":"Continue","qualDetail",q.id,"sm")+'</div>';
 }).join("")+'</div>';
+var stagedForecasts=db.proposals.filter(function(p){return ["staged","reviewed","published"].includes(p.status);});
+var forecastPipeline='<div class="list">'+stagedForecasts.map(function(p){
+ return '<div class="list-row"><div><div class="tags">'+badge("THEORETICAL")+" "+badge(p.status)+'</div><div style="margin:7px 0">'+linkAction(p.name,"forecastDetail",p.id)+'</div><div class="muted small">'+E(rec("tasks",p.task)?.name||"Unknown")+' · '+p.quality+'/100 estimated · '+theoreticalSources(p).length+' sources</div></div><div class="inline-actions">'+btn("Compare","forecastCompare",p.id,"sm")+btn("Validate experimentally","validateForecast",p.id,"sm primary")+'</div></div>';
+}).join("")+'</div>';
 var staging='<div class="list">'+(drafts.map(function(r){
 return '<div class="list-row"><div><strong>'+E(caseOf(r)?.title||r.case)+'</strong><div class="muted small">'+E(rec("solutions",r.solution)?.name||r.solution)+' · '+E(actor(r.owner))+' · '+E(r.date)+'</div></div><div class="inline-actions">'+btn("Inspect","runDetail",r.id,"sm")+btn("Publish run","publishRun",r.id,"sm primary")+'</div></div>';
 }).join("")||'<div class="empty">No staged runs waiting for review.</div>')+'</div>';
 return heading("Benchmark work","Plan, execute & review","Operational workbench: start qualifications here, assemble an AI configuration, collect experimental evidence, and review or publish decisions.",btn("+ New qualification","newQualification","","primary")+btn("+ Record benchmark run","newRun","","")+btn("+ Campaign","newCampaign","",""))+
 '<div class="note" style="margin-bottom:18px">This page owns the <strong>workflow and decisions</strong>. Use <strong>Test design</strong> to define reusable cases and protocols; use <strong>Results explorer</strong> to analyze recorded outcomes.</div>'+
 '<div class="grid g2">'+section("Qualifications requiring work",qualifications,btn("Pipeline overview","nav","dashboard","sm"))+section("Run review & publication",staging,btn("Explore published runs","nav","results","sm"))+'</div>'+
+'<div style="margin-top:18px">'+section("Staged theoretical hypotheses awaiting experiments",forecastPipeline,btn("Measured vs theoretical","nav","results","sm"))+'</div>'+
 '<div style="margin-top:18px">'+section("Benchmark campaigns & planned experiments",campaignRegistry(),btn("+ Create campaign","newCampaign","","sm"))+'</div>';
 }
 function testDesignPage(){
@@ -873,11 +878,11 @@ openForm("Define reproducible Test Case","case",selectField("task","Associated e
 function comboComponentOptions(type,chosen){
 return [["","Select "+type]].concat(db.components.filter(function(c){return c.type===type&&c.status!=="retired";}).map(function(c){return[c.id,c.name+(c.version?" · "+c.version:"")+(c.accessible?"":" (not accessible)")];}));
 }
-function dialogRun(preCase,preSolution,repeat,qualificationId){
-var q=rec("qualifications",qualificationId),orig=rec("runs",repeat),
- c=rec("cases",preCase)||rec("cases",orig?.case)||db.cases.find(function(x){return q&&(!q.task||descendants(q.task).includes(x.task));})||db.cases[0],
+function dialogRun(preCase,preSolution,repeat,qualificationId,forecastId){
+var q=rec("qualifications",qualificationId),projection=rec("proposals",forecastId),orig=rec("runs",repeat),
+ c=rec("cases",preCase)||rec("cases",orig?.case)||db.cases.find(function(x){return (projection&&descendants(projection.task).includes(x.task))||(q&&(!q.task||descendants(q.task).includes(x.task)));})||db.cases[0],
  s=rec("solutions",preSolution)||rec("solutions",orig?.solution),mode=s?"existing":"new",
- candidate=q?.candidate||s?.componentRefs||{},
+ candidate=projection?.componentRefs||q?.candidate||s?.componentRefs||{},
  existing=db.solutions.filter(function(x){return db.runs.some(function(r){return r.solution===x.id;});});
 var setup='<div class="span2 note"><strong>AI Solution is produced by the benchmark.</strong> Choose a model, provider and harness below, then define the exact configuration. Saving the first run registers the combination; the same tested setup is reused on subsequent runs.</div>'+
 selectField("solutionMode","Benchmark setup",[["new","Assemble a new configuration (model + provider + harness)"],["existing","Repeat / compare an already benchmarked solution"]],mode,true)+
@@ -887,13 +892,13 @@ selectField("providerComponent","Provider",comboComponentOptions("provider"),can
 selectField("harnessComponent","Harness",comboComponentOptions("harness"),candidate.harness||"",true)+
 field("solutionVersion","Combined configuration revision",s?.version||"1.0")+
 selectField("comboAccessible","Company-accessible setup?",[["yes","Yes"],["no","No"]],s?.accessible?"yes":"no")+
-field("configuration","Exact parameters / prompts / tools / system instructions",s?.config||"","textarea","full")+
+field("configuration","Exact parameters / prompts / tools / system instructions",projection?.config||s?.config||"","textarea","full")+
 field("capabilities","Agentic tools, skills and supported workflows",s?.skills||"","textarea","full")+
 '</div></div>'+
 '<div class="span2 run-mode-panel" data-mode-panel="existing"'+(mode!=="existing"?' style="display:none"':'')+'><div class="form-grid">'+
 selectField("solution","Already benchmarked AI Solution",existing.map(function(x){return[x.id,x.name+" · "+x.version];}),s?.id||existing[0]?.id,true)+
 '</div><p class="helper">The previous solution/configuration remains pinned. Different parameters, versions, provider or harness should be recorded as a new tested combination.</p></div>'+
-'<input type="hidden" name="qualification" value="'+E(qualificationId||"")+'">';
+'<input type="hidden" name="qualification" value="'+E(qualificationId||"")+'"><input type="hidden" name="forecastId" value="'+E(forecastId||"")+'">';
 var fields=selectField("case","Test Case",optionsFrom("cases",function(x){return x.title+" · "+(rec("tasks",x.task)?.name||"");}),c.id,true)+setup+
 selectField("protocol","Benchmark protocol",optionsFrom("protocols",function(x){return x.name+" · "+x.version;}),c.protocol)+
 selectField("accepted","DoD acceptance",[["yes","Accepted — mandatory DoD met"],["no","Failed / incomplete"]],orig?(orig.accepted?"yes":"no"):"yes")+
@@ -1256,14 +1261,20 @@ if(kind==="task"||kind==="taskEdit"){
   setup={solution:rec("solutions",d.solution),created:false};
   if(!setup.solution||!db.runs.some(function(r){return r.solution===setup.solution.id;})){toast("Select an already benchmarked AI Solution.");return;}
  }
- var tested=setup.solution,linkedQ=rec("qualifications",d.qualification);
+ var tested=setup.solution,linkedQ=rec("qualifications",d.qualification),sourceForecast=rec("proposals",d.forecastId);
  var r={id:next("r"),case:d.case,solution:tested.id,protocol:d.protocol,date:new Date().toISOString().slice(0,10),score:toNum(d.score),accepted:d.accepted==="yes",status:d.status,prep:toNum(d.prep),steer:toNum(d.steer),review:toNum(d.review),correction:toNum(d.correction),cost:toNum(d.cost),tokens:toNum(d.tokens),duration:toNum(d.duration),interruptions:toNum(d.interruptions),reprompts:toNum(d.reprompts),utility:toNum(d.utility),sideEffects:d.sideEffects,prompt:fullPrompt,transcript:fullTrace,artifacts:d.artifacts,notes:d.notes,owner:currentUser,
   caseSnapshot:JSON.parse(JSON.stringify(rec("cases",d.case))),
   solutionSnapshot:JSON.parse(JSON.stringify(tested)),
   componentSnapshots:JSON.parse(JSON.stringify(tested.componentSnapshots||{})),
   protocolSnapshot:JSON.parse(JSON.stringify(rec("protocols",d.protocol))),
-  taskContextSnapshot:ancestors(rec("cases",d.case).task).map(function(t){return {id:t.id,name:t.name,phase:t.phase,criteria:t.criteria,baseline:t.baseline};})};
+  taskContextSnapshot:ancestors(rec("cases",d.case).task).map(function(t){return {id:t.id,name:t.name,phase:t.phase,criteria:t.criteria,baseline:t.baseline};}),forecastSnapshot:sourceForecast?JSON.parse(JSON.stringify(sourceForecast)):null};
  db.runs.push(r);
+ if(sourceForecast){
+  var previousProjection=JSON.parse(JSON.stringify(sourceForecast));
+  sourceForecast.linkedSolution=tested.id;
+  sourceForecast.updated=r.date;
+  revision("Forecast validation link",sourceForecast.id,previousProjection,sourceForecast);
+ }
  if(linkedQ&&canEdit()){
   var beforeQ=JSON.parse(JSON.stringify(linkedQ));
   linkedQ.solution=tested.id;linkedQ.candidate=Object.assign({},tested.componentRefs);
@@ -1415,6 +1426,7 @@ if(act==="reviseProtocol"){dialogProtocol(id);return;}
 if(act==="forkCase"){dialogCase("",id);return;}
 if(act==="newCase"){dialogCase(id);return;}
 if(act==="newRun"){dialogRun();return;}
+if(act==="validateForecast"){var p=rec("proposals",id);if(!p||!["staged","reviewed","published"].includes(p.status))return;ui.page="benchmark";var tc=db.cases.find(function(c){return descendants(p.task).includes(c.task);});if(!tc){ui.task=p.task;render();toast("Create a Test Case for this task before validation.");dialogCase(p.task);}else dialogRun(tc.id,"","","",p.id);return;}
 if(act==="newRunForCase"){dialogRun(id);return;}
 if(act==="newRunForSolution"){dialogRun("",id);return;}
 if(act==="repeatRun"){dialogRun("","",id);return;}
@@ -1443,7 +1455,7 @@ if(act==="editResearch"){dialogResearch(id);return;}
 if(act==="newCampaign"){dialogCampaign();return;}
 if(act==="publishRun"){if(!editable())return;var r=rec("runs",id);if(r){r.status="published";ui.modal="";saveEvent("Run","Published benchmark run "+id);}return;}
 if(act==="publishGuide"){if(!editable())return;var g=rec("guides",id);if(g){g.status="published";g.date=new Date().toISOString().slice(0,10);ui.modal="";saveEvent("Guide","Published document: "+g.title);}return;}
-if(act==="export"){var out=canEdit()?db:Object.assign({},db,{solutions:db.solutions.filter(visibleSolution),components:db.components.filter(function(c){return !c.publication||c.publication==="published";}),runs:db.runs.filter(visibleRun),guides:db.guides.filter(function(g){return g.status==="published";}),events:db.events.filter(function(e){return !e.internal;}),feedbackMessages:db.feedbackMessages.filter(function(m){return m.visibility==="public";}),qualifications:[],revisions:[]});var blob=new Blob([JSON.stringify(out,null,2)],{type:"application/json"});var link=document.createElement("a");link.href=URL.createObjectURL(blob);link.download="ai-compass-demo-data.json";link.click();setTimeout(function(){URL.revokeObjectURL(link.href);},2000);toast(canEdit()?"Exported full mock dataset.":"Exported published mock records.");return;}
+if(act==="export"){var out=canEdit()?db:Object.assign({},db,{solutions:db.solutions.filter(visibleSolution),components:db.components.filter(function(c){return !c.publication||c.publication==="published";}),runs:db.runs.filter(visibleRun),guides:db.guides.filter(function(g){return g.status==="published";}),events:db.events.filter(function(e){return !e.internal;}),feedbackMessages:db.feedbackMessages.filter(function(m){return m.visibility==="public";}),proposals:db.proposals.filter(function(p){return p.status==="published";}),qualifications:[],revisions:[]});var blob=new Blob([JSON.stringify(out,null,2)],{type:"application/json"});var link=document.createElement("a");link.href=URL.createObjectURL(blob);link.download="ai-compass-demo-data.json";link.click();setTimeout(function(){URL.revokeObjectURL(link.href);},2000);toast(canEdit()?"Exported full mock dataset.":"Exported published mock records.");return;}
 if(act==="reset"){if(confirm("Replace all browser-saved prototype data with the initial mock dataset? This cannot be undone.")){db=seed();ensureDefaults();persist();ui.modal="";ui.filters={};ui.page="dashboard";render();toast("Mock dataset restored.");}return;}
 });
 document.addEventListener("click",function(ev){if(ev.target&&ev.target.id==="backdrop")closeModal();});
