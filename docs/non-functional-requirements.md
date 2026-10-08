@@ -59,6 +59,20 @@ The final result form shall avoid duplicated deliverable narrative fields: one c
 
 All form modals remain protected from accidental outside-click dismissal under **NFR-UX-001**.
 
+### NFR-UX-005 — Test Case fork lineage and version allocation
+
+The Test Design screen shall group Test Cases by engineering task and render a navigable parent/child fork hierarchy. A fork shall reference an existing parent Test Case and inherit that parent's engineering task, while retaining a unique immutable technical ID and previous run evidence. The proposed version shall append a numeric child segment to the parent's version, e.g. `1.0 → 1.0.1`, `1.0 → 1.0.2`, and `1.0.1 → 1.0.1.1`. The actual version is computed **at save time**, preventing two forks of the same parent from receiving the same version. Imported cases with no verifiable parent reference remain at root level; do not infer ancestry from a matching title or version alone.
+
+**Acceptance:** create two forks from one parent and a fork of the first child. All three must have noncolliding versions and the correct visible ancestry. Existing runs must still refer to their original Test Case IDs.
+
+### NFR-UX-006 — Technological-signal linkage and streamlined Test Design
+
+Campaign creation and editing shall allow selecting zero, one or multiple Technology Watch entries. Selected links shall persist across form reopen and reload, be visible in campaign details to authorized users, and be included in new run provenance snapshots. Forecast-driven campaigns shall preselect that forecast's signals; published views shall not expose unpublished signals to non-workgroup roles.
+
+Test Design shall not expose a protocol catalog or require a protocol choice to create a Test Case or record a run. Existing legacy protocol references, where present, may remain in stored historical records to preserve auditability but shall not be part of the active user workflow.
+
+**Acceptance:** link two watch signals to a campaign, save, reopen and confirm both remain checked; remove one and verify the other is retained. Create a Test Case and complete a new run without providing protocol fields. Existing data and audit history must remain readable.
+
 ## 2. Cross-cutting system qualities
 
 The following requirements were separated from the Product Definition's original non-functional section. They remain platform-level requirements and **are not claimed as fully implemented by the browser-only prototype**.
@@ -66,7 +80,7 @@ The following requirements were separated from the Product Definition's original
 | ID | Quality attribute | Requirement |
 | --- | --- | --- |
 | NFR-TRC-001 | Traceability | Conclusions must link to source benchmark runs, evidence, reviews and applicable scoring models. |
-| NFR-VRS-001 | Versioning and history | Preserve relevant changes to tasks, Test Cases, protocols, AI solutions, scoring rules and published guidance. |
+| NFR-VRS-001 | Versioning and history | Preserve relevant changes to tasks, Test Cases (including fork lineage), campaign-signal links, AI solutions, scoring rules and published guidance. |
 | NFR-AUD-001 | Auditability | Official published recommendations should be reconstructible from recorded evidence and documented decision rules. |
 | NFR-REP-001 | Reproducibility | Retain benchmark setup, artifact references and inputs needed to replay a benchmark where technically possible. |
 | NFR-SEC-001 | Security | Enforce authentication/authorization for publication, data sensitivity classification and safe handling of code and documents. |
