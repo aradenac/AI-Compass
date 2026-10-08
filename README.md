@@ -9,7 +9,7 @@ It connects an evolving hierarchy of engineering tasks with reproducible test ca
 ## What it enables
 
 - **Engineers:** Find and compare solutions for their tasks, access configurations and guidance, and submit feedback or new needs.
-- **AI workgroup:** Maintain Models, Providers and Harnesses independently; assemble and benchmark configurations; review evidence and publish the resulting AI Solutions.
+- **AI workgroup:** Maintain Models, Providers, Harnesses and Frameworks independently; assemble one or more AI participant trios under a Framework; review results and publish measured AI Solutions.
 - **Management and other business units:** Track evaluation coverage, adoption, cost/value, and progress using a common knowledge base.
 
 Benchmarking works in both directions: **compare solutions on the same task**, or **evaluate one solution across multiple tasks**. New test cases can continuously challenge earlier results.
@@ -53,13 +53,20 @@ No passwords are required. **Identity and permissions are simulated in the brows
 
 ### Catalog components → Benchmark → AI Solution
 
-The workgroup **Technology catalog** contains three independent inventories: **Models**, **Providers**, and **Harnesses**, including accessible, inaccessible and unbenchmarked candidates. Manage versions, lifecycle and notes in each inventory; do not preregister a solution merely because its components exist.
+The workgroup **Technology catalog** contains four independent inventories: **Models**, **Providers**, **Harnesses**, and **Frameworks**, including accessible, inaccessible and unbenchmarked candidates. Manage versions, lifecycle and notes in each inventory; do not preregister a solution merely because its components exist.
 
 In **Benchmark workspace → Record benchmark run**, choose **Assemble a new configuration**, select the three components, specify the complete configuration and record the run. That first run creates a **measured AI Solution** with a stable identifier and evidence snapshots. Theoretical configurations may exist earlier as **Forecasts**, but have no observed runs. Repeating the same combination/version/settings **reuses** the solution; changing the configuration creates a **distinct** solution. An unsuccessful run still identifies the tested configuration, but does not qualify or recommend it. Alternatively, choose **Repeat / compare an already benchmarked solution**.
 
 An AI Solution is not automatically visible to engineers: its recommendation and publication remain controlled by the workgroup's review process. Legacy seeded benchmark records remain intact.
 
-### Workgroup information architecture (current prototype)
+#
+### Framework participants and setup references
+
+A **Framework** organizes a workflow; it does not substitute for any of the three components that define a measured AI Solution. During campaign creation, select a Framework and add as many labeled participant trios as required. Participants retain independent roles, exact model/provider/harness references, versioned configuration and capability notes. Each guided Test Case execution currently **selects one participant to measure**, and the resulting run pins that participant plus its Framework provenance. Joint multi-agent orchestration and composite run scoring are not yet represented as a single empirical result in this prototype; do not attribute one participant's score to the entire ensemble.
+
+A Setup Guide is always a knowledge-base record with its own ID. The user may select an existing guide or create one directly from campaign planning or the installation step, supplying **text only**, **URL only**, or **both**. Guide references are reusable and the selected snapshot is retained in run evidence. Prefer HTTP(S) URLs to maintained instructions.
+
+## Workgroup information architecture (current prototype)
 
 Sign in as **Maya Laurent** or **Sofia Ramos**. The workgroup has its own sidebar, organized by actual responsibilities rather than the standard user-oriented `Discover / Evaluate / Collaborate` categories.
 
@@ -72,7 +79,7 @@ Sign in as **Maya Laurent** or **Sofia Ramos**. The workgroup has its own sideba
 | Experiments | **Test design** | Define Test Cases and navigate task-grouped parent/fork trees. Forking assigns collision-free child versions. No protocol tab or protocol selector. |
 | Experiments | **Benchmark workspace** | **Campaign-centric** guided process: create/edit a campaign, link any number of technology-watch signals, choose a comparison mode, add Test Cases, record timed iterations and outcomes, close for review, publish or reopen. |
 | Experiments | **Results explorer** | Compare theoretical predictions against measured runs with separate evidence labels, plus inspect benchmark matrices. |
-| Experiments | **Recommendations** | Maintain evidence-linked published decisions and guidance. |
+| Knowledge & Collaboration | **Recommendations** | Maintain evidence-linked published decisions and guidance. |
 | Knowledge & collaboration | **Guides & charter** | Search, sort, filter and edit existing articles, plus create and publish new ones. |
 | Knowledge & collaboration | **Feedback & discussions** | Review user-submitted ideas and experiences in a single chronological thread with public/internal visibility per reply; no action-tracking disposition. |
 | Knowledge & collaboration | **Activity feed** | Automatically attributed, searchable activity records with per-event detail, revision provenance and JSON/CSV reporting exports. |
@@ -86,7 +93,7 @@ The **Dashboard** now shows the four **campaign states**: **Planned → In progr
 
 The **campaign is the workgroup's primary unit of experimental work and review**. A controlled run remains the atomic unit of evidence, and Test Cases remain reusable independent challenges.
 
-1. **Create campaign:** specify name, qualification goal, owner, comments and **zero or more linked technological signals**. Choose **Solution-centred** (one fixed model + provider + harness + configuration across Test Cases and potentially multiple tasks) or **Task-centred** (one fixed engineering task, multiple AI configurations compared on the task's Test Cases).
+1. **Create campaign:** specify name, qualification goal, owner, comments, **zero or more linked technological signals**, and an optional catalogued **Setup Guide**. Optionally select a **Framework** (n8n, GitHub Spec Kit, BMAD Method; the PMAD example is unverified) and instantiate one or more separately configured Model/Provider/Harness trios. Choose **Solution-centred** (one fixed model + provider + harness + configuration across Test Cases and potentially multiple tasks) or **Task-centred** (one fixed engineering task, multiple AI configurations compared on the task's Test Cases).
 2. **Open the campaign:** a new campaign starts in **Planned**. Open it to begin execution. The campaign can later be closed, reopened or edited. A configuration is defined using already declared catalog components; a newly measured AI Solution is registered after its first run.
 3. **Add challenges:** create Test Cases directly inside the campaign (task, inputs, constraints, DoD) or attach existing reusable Test Cases. No separate benchmark protocol is required. Task-centred campaigns restrict cases to the fixed task; solution-centred campaigns accept tasks across the taxonomy.
 4. **Execute each Test Case via guided forms:**
@@ -128,7 +135,7 @@ The Technology Catalog stays independent; creating a Watch Entry does not redire
 
 ### Benchmark process vs. result exploration vs. test design
 
-**Test design** manages reusable, versioned Test Cases and a task-grouped parent/fork hierarchy. **Benchmark workspace** owns qualification planning, configurations, execution records, draft-run review and publication. **Results explorer** owns comparison and analytical reading, including the shared TC evidence matrix. These roles are separated deliberately rather than provided as flat tabs of one `Benchmark lab`.
+**Test design** manages reusable, versioned Test Cases and a task-grouped parent/fork hierarchy. **Guides & Charter** registers install/setup references as procedure text, an HTTP(S) URL, or both; a campaign selects an existing reference or creates one inline. **Benchmark workspace** owns qualification planning, configurations, execution records, draft-run review and publication. **Results explorer** owns comparison and analytical reading, including the shared TC evidence matrix. These roles are separated deliberately rather than provided as flat tabs of one `Benchmark lab`.
 
 Try the evidence-first path **Technology Watch → sources → theoretical forecast → stage/review → Results explorer**, or the controlled path **Test design → Benchmark workspace → benchmark run → measured AI Solution**. Existing run snapshots and revision history remain intact.
 
