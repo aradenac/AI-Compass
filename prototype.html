@@ -1292,9 +1292,35 @@ db.feedbackMessages.push({id:next("msg"),feedback:id,visibility:visibility,autho
 event("Feedback",visibility==="internal"?"New internal feedback note":"Public reply posted",visibility==="internal");persist();detailsFeedback(id);toast(visibility==="public"?"Public reply saved.":"Internal note saved.");
 }
 function detailsCampaign(id){
-var b=rec("campaigns",id);if(!b)return;
-var html='<p>'+E(b.purpose)+'</p><div class="tags" style="margin:13px 0">'+badge(b.status)+badge("Owner: "+actor(b.owner))+'</div><h3>Test Cases</h3><div class="list">'+b.caseIds.map(function(id){var c=rec("cases",id);return '<div class="list-row">'+linkAction(c?.title||id,"caseDetail",id)+'</div>';}).join("")+'</div><h3 style="margin:15px 0 7px">Solutions in scope</h3><div class="tags">'+b.solutionIds.map(function(id){return badge(rec("solutions",id)?.name||id);}).join("")+'</div><hr class="divider"><h3>Experimental matrix</h3>'+simpleTable(["Test Case"].concat(b.solutionIds.map(function(id){return rec("solutions",id)?.name||id;})),b.caseIds.map(function(cid){var c=rec("cases",cid);return '<tr>'+td(E(c?.title||cid))+b.solutionIds.map(function(sid){var rs=db.runs.filter(function(r){return r.case===cid&&r.solution===sid&&r.status==="published";});return td(rs.length?'<span class="score">'+Math.round(avg(rs.map(function(r){return r.score;})))+'</span>':'<span class="muted">Not tested</span>');}).join("")+'</tr>';}));
-openModal("Campaign · "+b.title,html);
+var c=rec("campaigns",id);if(!c||c.archived)return;
+var trials=db.campaignTrials.filter(function(t){return t.campaign===id;}),runs=campaignRuns(c),
+ setup=c.solutionSetup||{};
+var head='<div class="row-between"><div class="tags">'+badge(campaignStatusLabel(c))+' '+badge(c.mode==="solution_scope"?"One fixed AI setup":"Fixed task / multiple solutions")+'</div><span class="muted small">Owner: '+E(actor(c.owner))+'</span></div>'+
+'<h3 style="margin:13px 0 7px">'+E(c.title)+'</h3><p class="text-block">'+E(c.purpose)+'</p>'+
+'<p class="muted small" style="margin-top:8px">'+E(c.notes||"")+'</p>'+
+'<div class="note" style="margin-top:12px">Step 1: Campaign scope and goal → Step 2: Test Cases → Step 3: Setup → Step 4: Timed interactions → Step 5: Outcome & metrics → Close for review.</div>'+
+'<div class="tags" style="margin-top:12px">'+badge(c.caseIds.length+" Test Cases")+' '+badge(runs.length+" runs")+' '+badge(trials.filter(function(t){return t.status!=="completed";}).length+" active sessions")+'</div>';
+if(c.mode==="task_compare")head+='<p class="small" style="margin-top:12px"><strong>Fixed task:</strong> '+E(rec("tasks",c.task)?.name||"Not selected")+'. Choose a configuration for every execution.</p>';
+else head+='<p class="small" style="margin-top:12px"><strong>Fixed AI setup:</strong> '+["model","provider","harness"].map(function(k){return E(rec("components",setup[k])?.name||"Not selected");}).join(" / ")+'</p>'+
+'<pre class="code">'+E(setup.configuration||"Configuration not documented")+'</pre>';
+var cases=c.caseIds.map(function(cid){var tc=rec("cases",cid);if(!tc)return "";
+var tcTrials=trials.filter(function(x){return x.case===cid;});
+return '<div class="list-row"><div class="short"><strong>'+E(tc.title)+'</strong><div class="muted small">'+E(rec("tasks",tc.task)?.name||"")+' · '+E(tc.version)+' · '+tcTrials.filter(function(t){return t.status==="completed";}).length+' completed session(s)</div></div>'+
+(c.stage==="active"?btn("+ Execute test","campaignStartTrial",c.id+"|"+cid,"sm primary"):"")+'</div>';
+}).join("");
+var trialList=trials.map(function(t){return '<div class="list-row"><div class="short">'+badge(t.status==="completed"?"Completed":"Step "+t.step+" of 3")+' <strong>'+E(rec("cases",t.case)?.title||"Test Case")+'</strong>'+
+'<div class="muted small">'+t.interactions.length+' logged interactions · '+E(t.startedAt||"Not started")+'</div></div>'+
+(t.status==="completed"?btn("View run","runDetail",t.runId,"sm"):btn("Resume","campaignResumeTrial",t.id,"sm primary"))+'</div>';}).join("");
+var review='<div class="card tight" style="margin-top:14px"><h3>Closure and review</h3><p class="muted small">'+E(c.reviewNotes||"No review notes yet")+'</p>'+
+(c.reviewer?'<p class="muted small">Reviewed by '+E(actor(c.reviewer))+'</p>':"")+'</div>';
+var body=head+'<h3 style="margin:18px 0 10px">Test Cases in campaign</h3>'+
+'<div class="list">'+(cases||'<p class="muted small">No Test Cases yet. Add a new one or attach an existing challenge.</p>')+'</div>'+
+(c.stage==="active"?'<div class="inline-actions" style="margin:11px 0">'+btn("+ New Test Case","campaignNewCase",id,"sm primary")+btn("Attach existing Test Case","campaignAttachCase",id,"sm")+'</div>':"")+
+'<h3 style="margin:19px 0 8px">Experiment sessions</h3><div class="list">'+(trialList||'<div class="empty">No sessions recorded</div>')+'</div>'+review;
+var actions=btn("Close","close","","")+(canEdit()?btn("Edit campaign","editCampaign",id,"")+
+(c.stage==="planned"?btn("Open campaign","campaignActivate",id,"primary"):c.stage==="active"?btn("Close → staging","campaignClose",id,"primary"):c.stage==="review"?btn("Record review","campaignReview",id,"primary"):"")+
+(c.stage!=="active"?btn("Reopen","campaignReopen",id,""):"")+btn("Delete / archive","campaignDelete",id,""):"");
+openModal("Benchmark campaign",body,actions);
 }
 function detailsWatch(id){
 var w=rec("watch",id);if(!watchVisible(w))return;
