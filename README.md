@@ -106,7 +106,7 @@ Technology Watch now has an **evidence-first workflow**, separate from controlle
 3. **Stage → Reviewed → Published:** forecasts are drafts until explicitly staged. Staged forecasts are available for internal review and comparison. A documented review is required before publication. Publication never turns projected metrics into observed benchmarks.
 4. **Task management:** task nodes display linked forecasts separately from their Test Cases and empirical benchmark evidence.
 5. **Results explorer → Measured vs theoretical:** compare literature-based projections to published controlled runs. Estimated and observed metrics occupy distinct rows with confidence and evidence counts.
-6. **Benchmark workspace:** a staged forecast can be validated by a controlled run, retaining a frozen copy of its original assumptions and linking the empirically tested AI Solution.
+6. **Benchmark Workspace:** choose experimental validation of a staged forecast to create a **prepopulated campaign**, then add task-specific Test Cases and follow the guided setup → timed interactions → outcome process. Completed runs pin the original forecast and link the resulting measured AI Solution.
 
 A forecast may cite several Watch Entries, and one Watch Entry can underpin several configurations. Material edits return a forecast to Draft for re-review. Published projections remain marked **THEORETICAL** and are immutable in the prototype. Nonpublished proposals are visible only to workgroup accounts.
 
