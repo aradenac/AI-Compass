@@ -654,7 +654,7 @@ var table=simpleTable(["Date / run","Test Case","Solution","Score / DoD","Human 
 return filters+table;
 }
 function caseRegistry(){
-var rows=db.cases.filter(function(c){return canEdit()||c.status==="published";}).map(function(c){var t=rec("tasks",c.task),rs=db.runs.filter(function(r){return r.case===c.id&&r.status==="published";});return '<tr>'+td(linkAction(c.title,"caseDetail",c.id)+'<div class="muted small">'+E(c.objective)+'</div>')+td(t?linkAction(t.name,"task",t.id):"Unknown")+td(E(c.version))+td(rs.length+" / "+new Set(rs.map(function(r){return r.solution;})).size+" solutions")+td(btn("Inspect","caseDetail",c.id,"sm")+(canEdit()?btn("Run","newRunForCase",c.id,"sm"):""))+'</tr>';});
+var rows=db.cases.filter(function(c){return canEdit()||c.status==="published";}).map(function(c){var t=rec("tasks",c.task),rs=db.runs.filter(function(r){return r.case===c.id&&r.status==="published";});return '<tr>'+td(linkAction(c.title,"caseDetail",c.id)+'<div class="muted small">'+E(c.objective)+'</div>')+td(t?linkAction(t.name,"task",t.id):"Unknown")+td(E(c.version))+td(rs.length+" / "+new Set(rs.map(function(r){return r.solution;})).size+" solutions")+td(btn("Inspect","caseDetail",c.id,"sm"))+'</tr>';});
 return '<p class="muted small" style="margin-bottom:14px">New Test Cases challenge old conclusions. A repeated run of an existing TC measures variance; it does not create a new category.</p>'+simpleTable(["Experimental challenge","Engineering task","Version","Published runs",""],rows);
 }
 function comparisonMatrix(){
