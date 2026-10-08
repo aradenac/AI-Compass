@@ -1462,41 +1462,52 @@ openForm("Step 3 · Installation & setup","campaignTrialSetup",fields,campaignId
 function campaignTrialInteraction(id){
 var t=rec("campaignTrials",id),c=t&&rec("campaigns",t.campaign);
 if(!t||!c||c.stage!=="active"||t.status==="completed"||!canEdit())return;
-var logs=t.interactions.map(function(v,i){return '<div class="list-row"><div><strong>Iteration '+(i+1)+' · '+E(v.kind||"Interaction")+'</strong><div class="muted small">'+E(v.at)+' · human '+v.humanMinutes+' min · agent '+v.agentMinutes+' min</div><p class="small">'+E(v.description)+'</p></div></div>';}).join("");
-var fields='<div class="span2 note">Step 4 — Log each interaction with its calendar time, approximate human effort and agent runtime. A review, prompt correction or restart is an iteration; you can add as many as needed. The timeline supports autonomy analysis.</div>'+
-'<div class="span2"><strong>'+E(rec("cases",t.case)?.title||"Test Case")+'</strong><div class="list">'+(logs||'<div class="muted small">No recorded interactions yet.</div>')+'</div></div>'+
-field("at","When did this interaction happen?",campaignLocalTime(),"datetime-local")+
-field("kind","Interaction nature (free text)","Review and corrective prompt")+
-field("humanMinutes","Human effort (minutes)","","number")+
-field("agentMinutes","Agent runtime / waiting (minutes)","","number")+
-field("description","What happened? Review, prompt changes, observed behavior","","textarea","full")+
-field("promptUpdate","Changed prompt or additional instructions, if any","","textarea","full")+
-field("artifacts","Files, intermediate output and evidence references","","textarea","full");
+var logs=t.interactions.map(function(v,i){return '<div class="list-row"><div><strong>Interaction '+(i+1)+' · '+E(v.kind||"Interaction")+'</strong>'+
+'<div class="muted small">'+E(v.at)+' · human '+displayMinutes(v.humanMinutes)+' · agent '+displayMinutes(v.agentMinutes)+'</div><p class="small">'+E(v.description)+'</p></div></div>';}).join("");
+var fields='<div class="span2 note">Step 4 — The <strong>first prompt is the first interaction</strong>, not part of installation. Log further prompts, document submissions, skills activation, option changes, reviews and corrections in the same chronological sequence. Enter separate human and agent durations.</div>'+
+'<div class="span2"><strong>'+E(rec("cases",t.case)?.title||"Test Case")+'</strong><div class="list">'+(logs||'<div class="muted small">No interactions yet. Start with your first prompt/instruction or first action.</div>')+'</div></div>'+
+guidedField("at","Interaction date and time",campaignLocalTime(),"datetime-local",null,"Local calendar timestamp of the action. Log interruptions and separate sessions accurately; must be at or after installation start.")+
+guidedField("kind","Interaction type","Initial prompt","text",null,"Free description such as first prompt, input documents provided, option activation, review, correction, restart, or follow-up prompt.")+
+durationField("humanMinutes","Human interaction time (minutes)",0,"Estimated active human work for this action, not time while the AI is working autonomously. 0–7 days.")+
+durationField("agentMinutes","Agent execution / waiting time (minutes)",0,"Elapsed agent runtime related to this iteration. The run's total agent runtime is computed as the sum of these durations.")+
+guidedField("description","Action and observations","","textarea","full","Explain what you did, what the agent produced, and why another interaction was needed. This supports autonomy and effort analysis.")+
+guidedField("promptUpdate","Prompt / instructions given during this interaction (optional)","","textarea","full","Enter the initial prompt in the first interaction, and subsequent changed prompts here. Not part of installation.")+
+guidedField("inputDocuments","Documents / inputs supplied at this interaction (optional)","","textarea","full","Include versioned paths or references to actual files introduced or changed at this point, not files merely installed.")+
+guidedField("providedSkills","Skills or options activated at this interaction (optional)","","textarea","full","Record any context or agent skill introduced, tool permission changes or configuration toggles during the experiment.")+
+guidedField("artifacts","Intermediate outputs / evidence references (optional)","","textarea","full","Intermediate files, trace links, screenshots or logs, not final deliverables.");
 openForm("Step 4 · Timed interactions","campaignInteraction",fields,id,"Save interaction & add another");
 ui.modalFooter=btn("Back to campaign","openCampaign",t.campaign,"")+
-btn("Finish iterations → outcome","campaignFinishIterations",id,"primary")+
+btn("Finish interactions → results","campaignFinishIterations",id,"primary")+
 '<button class="btn" type="submit" form="modalForm">+ Save interaction</button>';render();
 }
 function campaignTrialOutcome(id){
 var t=rec("campaignTrials",id),c=t&&rec("campaigns",t.campaign);
 if(!t||!c||c.stage!=="active"||t.status==="completed"||!canEdit())return;
-var logged=t.interactions.reduce(function(n,x){return n+Number(x.humanMinutes||0);},0);
-var fields='<div class="span2 note">Step 5 — Conclude the independent experimental execution. Preserve failed experiments as evidence. Numeric metrics are separate from free-form review notes and linked output artifacts.</div>'+
-'<div class="span2"><strong>'+E(rec("cases",t.case)?.title||t.case)+'</strong><p class="muted small">'+t.interactions.length+' iteration(s) · '+logged+' min logged human interactions</p></div>'+
-selectField("accepted","Definition of Done outcome",[["yes","Accepted — mandatory DoD passed"],["no","Failed / rejected"]],"no",true)+
-field("score","Quality score (0–100)","","number")+
-field("utility","Information utility / density score (0–100)","","number")+
-field("tokensInput","Input tokens consumed","","number")+
-field("tokensOutput","Output tokens consumed","","number")+
-field("cost","Estimated AI/tooling cost (EUR)","","number")+
-field("finalRuntime","Additional or total measured machine runtime (minutes)","","number")+
-field("reviewMinutes","Final human review time (minutes)","","number")+
-field("correctionMinutes","Final corrections after review (minutes)","","number")+
-field("outputDocuments","Produced outputs: documents, code, reports, file paths / links","","textarea","full")+
-field("deliverableNotes","What exactly did the LLM/agent produce?","","textarea","full")+
-field("densityNotes","Information relevance, novelty, correctness, actionability, unnecessary content","","textarea","full")+
-field("conclusion","Acceptance/failure reasons and review notes","","textarea","full");
-openForm("Step 5 · Result, artifacts and metrics","campaignTrialOutcome",fields,id,"Close Test Case execution");
+if(!t.interactions.length){toast("Record at least the first interaction before concluding this Test Case.");campaignTrialInteraction(id);return;}
+var human=t.interactions.reduce(function(n,x){return n+Number(x.humanMinutes||0);},0);
+var agent=t.interactions.reduce(function(n,x){return n+Number(x.agentMinutes||0);},0);
+var fields='<div class="span2 note">Step 5 — Conclude with observed outcomes, estimated cost and referenced artifacts. Total agent runtime is <strong>automatically calculated</strong> from all recorded iterations, so no extra runtime field is required. Unknown usage must not be converted to zero.</div>'+
+'<div class="span2"><strong>'+E(rec("cases",t.case)?.title||t.case)+'</strong>'+
+'<div class="muted small">'+t.interactions.length+' interaction(s) · '+displayMinutes(human)+' recorded human interaction time · '+displayMinutes(agent)+' computed agent runtime · '+displayMinutes(t.setupMinutes)+' installation</div></div>'+
+selectField("accepted","Definition of Done outcome",[["yes","Accepted — mandatory DoD passed"],["no","Failed — acceptance criteria not met"]],"no",true).replace('</label>',metricHelp("Accepted means all mandatory DoD criteria from the Test Case passed; failure must remain recorded as a valid experimental result.")+'</label>')+
+'<div class="span2"><div class="form-grid">'+
+scoreField("score","Quality score (0–100)","Evaluate correctness, completeness, adherence to requirements, stability and expected task-specific outputs against the Test Case DoD. 0=unusable, 100=fully acceptable.",50)+
+guidedField("qualityAssessment","Quality evaluation (explain your score)","","textarea",null,"Describe observed defects, acceptance rationale and test-based evidence supporting the quality score.")+
+scoreField("utility","Information Utility score (0–100)","Subjective usefulness of the result: relevant, novel, correct and actionable information per output volume. 0=no useful information, 100=high density without substantial noise.",50)+
+guidedField("utilityAssessment","Information Utility evaluation","","textarea",null,"Explain relevance, novelty, correctness, actionability and irrelevant/noisy content supporting the slider score.")+'</div></div>'+
+'<div class="span2"><h3>Consumption & estimated cost</h3></div>'+
+'<div class="field"><label for="f_tokenCount">Total tokens consumed (optional, if known)'+metricHelp("Total input + output + reasoning tokens if available from the provider or harness. Do not estimate an unknown token count as zero. Choose the multiplier matching your source reporting units.")+'</label>'+
+'<div class="metric-range-pair"><input class="input" id="f_tokenCount" name="tokenCount" type="number" min="0" step="any" placeholder="Unknown" style="width:100%">'+
+'<select name="tokenScale" aria-label="Token unit multiplier"><option value="1">×1 units</option><option value="10">×10 tens</option><option value="100">×100 hundreds</option><option value="1000">×1,000 thousands</option><option value="1000000">×1,000,000 millions</option></select></div>'+
+'<span class="muted small" data-token-preview>Unknown (optional)</span></div>'+
+selectField("costMode","Estimated total AI/tool cost",[["amount","Amount in EUR for this run"],["flat","Flat-rate / subscription (not allocated per run)"],["unknown","Unknown"]],"amount",true).replace('</label>',metricHelp("Choose Amount only for a run-specific total. Flat-rate means the cost is covered by a subscription and is not allocated to this test; Unknown means no reliable price estimate.")+'</label>')+
+'<div class="span2" data-metered-cost>'+guidedField("cost","Estimated total amount (EUR)","","number","full","Enter the run-specific estimated amount in EUR, inclusive of model/provider and tooling charges where possible; zero only when genuinely free.")+'</div>'+
+durationField("reviewMinutes","Final human review duration (minutes)",0,"Time spent checking deliverables after the interactions, separate from reviews already logged as interactions.")+
+durationField("correctionMinutes","Final human correction duration (minutes)",0,"Time spent manually fixing remaining errors after the final review, not counted in earlier iterations.")+
+'<div class="span2"><h3>Produced outputs</h3></div>'+
+guidedField("outputDocuments","Produced outputs — documents, code, reports, artifacts, paths or links","","textarea","full","List the final deliverables and their references/versions. This is the canonical output-evidence field; do not re-enter the same outputs elsewhere.")+
+guidedField("additionalNotes","Additional notes (optional)","","textarea","full","Only supplementary observations not already captured in the two metric evaluations or the produced outputs.");
+openForm("Step 5 · Results, artifacts & metrics","campaignTrialOutcome",fields,id,"Close Test Case execution");
 }
 function campaignReviewForm(id){
 var c=rec("campaigns",id);if(!canEdit()||!c||c.stage!=="review")return;
