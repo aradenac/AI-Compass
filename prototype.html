@@ -83,6 +83,8 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;b
 .watch-link-row{display:flex;align-items:center;gap:11px;padding:10px 13px;border-bottom:1px solid var(--line);cursor:pointer}
 .watch-link-row:last-child{border-bottom:0}.watch-link-row:hover{background:#f4f8ff}.watch-link-row input{flex-shrink:0}
 .watch-source-row{margin:9px 0}.watch-source-row textarea{min-height:65px}
+.watch-library-options{max-height:240px;overflow-y:auto;border:1px solid var(--line);border-radius:9px;margin-top:9px}
+.watch-new-source summary{padding:8px 0}
 </style>
 </head>
 <body>
@@ -896,8 +898,8 @@ section("Public literature & estimates",'<p class="muted small">Sources belong t
 }
 function researchEvidenceList(items){
 return '<div class="list">'+(items.map(function(x){
-var comp=rec("components",x.component),signal=rec("watch",x.signal);
-return '<div class="list-row"><div><div class="row">'+badge(x.type)+' '+badge("Confidence: "+x.confidence)+'</div><div style="margin-top:7px"><strong>'+E(x.title)+'</strong></div><div class="muted small">'+E(x.source)+' · '+E(x.date)+(comp?' · '+E(comp.name):"")+(signal?' · '+E(signal.title):"")+'</div><p class="muted small" style="margin-top:6px">'+E(x.assessment)+'</p><p class="muted small">Limitations: '+E(x.limitations)+'</p></div>'+(canEdit()?btn("Edit","editResearch",x.id,"sm"):"")+'</div>';
+var comp=rec("components",x.component),linked=db.watchSourceLinks.filter(function(l){return l.source===x.id;}).map(function(l){return rec("watch",l.watch)?.title;}).filter(Boolean);
+return '<div class="list-row"><div><div class="row">'+badge(x.type)+' '+badge("Confidence: "+x.confidence)+'</div><div style="margin-top:7px"><strong>'+E(x.title)+'</strong></div><div class="muted small">'+E(x.source)+' · '+E(x.date)+(comp?' · '+E(comp.name):"")+(linked.length?' · Used by '+linked.length+' Watch Entries':"")+'</div><p class="muted small" style="margin-top:6px">'+E(x.assessment)+'</p><p class="muted small">Limitations: '+E(x.limitations)+'</p></div>'+(canEdit()?btn("Edit","editResearch",x.id,"sm"):"")+'</div>';
 }).join("")||'<div class="empty">No external sources or estimates registered.</div>')+'</div>';
 }
 function dialogResearch(id,watchId){
@@ -1086,8 +1088,8 @@ field("sourceLimits_"+i,"Assumptions / limitations",e?.limitations||"","textarea
 '</div></div>';
 }
 
-function theoreticalSources(p){
-return db.researchEvidence.filter(function(e){return p.watchIds.includes(e.signal);});
+function theoreticalSources(p){var ids=new Set((p.watchIds||[]).flatMap(sourceIdsForWatch));
+ return db.researchEvidence.filter(function(e){return ids.has(e.id)&&researchVisible(e);});
 }
 function forecastCitations(p){
 return p.status!=="draft"&&Array.isArray(p.evidenceSnapshots)?p.evidenceSnapshots:theoreticalSources(p);
@@ -1827,6 +1829,9 @@ if(kind==="task"||kind==="taskEdit"){
  var item=kind==="researchEdit"?rec("researchEvidence",id):{id:next("research")},oldEvidence=kind==="researchEdit"?JSON.parse(JSON.stringify(item)):null;
  Object.assign(item,{title:req(d.title,"Title"),type:d.type,confidence:d.confidence,publication:d.publication||"published",component:d.component||"",signal:d.signal||"",source:req(d.source,"Source reference"),assessment:req(d.assessment,"Assessment"),limitations:req(d.limitations,"Limitations"),date:new Date().toISOString().slice(0,10),author:currentUser});
  if(kind==="research")db.researchEvidence.push(item);else revision("External evidence",id,oldEvidence,item);
+ if(item.signal&&!db.watchSourceLinks.some(function(l){return l.watch===item.signal&&l.source===item.id;})){
+  db.watchSourceLinks.push({watch:item.signal,source:item.id,linkedAt:new Date().toISOString(),by:currentUser});
+ }
  ui.page="watch";event("Research",(kind==="research"?"Registered":"Updated")+" external evidence: "+item.title,true);
 }else if(kind==="component"||kind==="componentEdit"){
  var comp=id?rec("components",id):{id:next("component")},prevComp=id?JSON.parse(JSON.stringify(comp)):null;
@@ -1979,7 +1984,7 @@ if(act==="editResearch"){dialogResearch(id);return;}
 if(act==="newCampaign"){dialogCampaign();return;}
 if(act==="publishRun"){if(!editable())return;var r=rec("runs",id);if(r){r.status="published";ui.modal="";saveEvent("Run","Published benchmark run "+id);}return;}
 if(act==="publishGuide"){if(!editable())return;var g=rec("guides",id);if(g){g.status="published";g.date=new Date().toISOString().slice(0,10);ui.modal="";saveEvent("Guide","Published document: "+g.title);}return;}
-if(act==="export"){var out=canEdit()?db:Object.assign({},db,{solutions:db.solutions.filter(visibleSolution),components:db.components.filter(function(c){return !c.publication||c.publication==="published";}),runs:db.runs.filter(visibleRun),guides:db.guides.filter(function(g){return g.status==="published";}),events:db.events.filter(function(e){return !e.internal;}),watch:db.watch.filter(watchVisible),researchEvidence:db.researchEvidence.filter(researchVisible),feedbackMessages:db.feedbackMessages.filter(function(m){return m.visibility==="public";}),proposals:db.proposals.filter(function(p){return p.status==="published";}),campaigns:db.campaigns.filter(function(c){return !c.archived&&c.stage==="published";}),campaignTrials:[],qualifications:[],revisions:[]});var blob=new Blob([JSON.stringify(out,null,2)],{type:"application/json"});var link=document.createElement("a");link.href=URL.createObjectURL(blob);link.download="ai-compass-demo-data.json";link.click();setTimeout(function(){URL.revokeObjectURL(link.href);},2000);toast(canEdit()?"Exported full mock dataset.":"Exported published mock records.");return;}
+if(act==="export"){var out=canEdit()?db:Object.assign({},db,{solutions:db.solutions.filter(visibleSolution),components:db.components.filter(function(c){return !c.publication||c.publication==="published";}),runs:db.runs.filter(visibleRun),guides:db.guides.filter(function(g){return g.status==="published";}),events:db.events.filter(function(e){return !e.internal;}),watch:db.watch.filter(watchVisible),researchEvidence:db.researchEvidence.filter(researchVisible),watchSourceLinks:db.watchSourceLinks.filter(function(l){return watchVisible(rec("watch",l.watch))&&researchVisible(rec("researchEvidence",l.source));}),feedbackMessages:db.feedbackMessages.filter(function(m){return m.visibility==="public";}),proposals:db.proposals.filter(function(p){return p.status==="published";}),campaigns:db.campaigns.filter(function(c){return !c.archived&&c.stage==="published";}),campaignTrials:[],qualifications:[],revisions:[]});var blob=new Blob([JSON.stringify(out,null,2)],{type:"application/json"});var link=document.createElement("a");link.href=URL.createObjectURL(blob);link.download="ai-compass-demo-data.json";link.click();setTimeout(function(){URL.revokeObjectURL(link.href);},2000);toast(canEdit()?"Exported full mock dataset.":"Exported published mock records.");return;}
 if(act==="reset"){if(confirm("Replace all browser-saved prototype data with the initial mock dataset? This cannot be undone.")){db=seed();ensureDefaults();persist();ui.modal="";ui.filters={};ui.page="dashboard";render();toast("Mock dataset restored.");}return;}
 });
 document.addEventListener("click",function(ev){if(ev.target&&ev.target.id==="backdrop")closeModal();});
