@@ -440,9 +440,9 @@ return '<div class="list-row"><div class="short"><div class="row">'+badge(w.kind
 var followups=section("Daily notes & handoffs",'<div class="list">'+
 '<div class="list-row"><div><strong>Benchmark work in progress</strong><div class="muted small">Experiments, reviews and publication decisions are handled in the workbench</div></div>'+btn("Open workspace","nav","benchmark","sm")+'</div>'+
 '<div class="list-row"><div><strong>Test design & coverage</strong><div class="muted small">Prepare test cases and protocols independently of the results explorer</div></div>'+btn("Open test design","nav","testdesign","sm")+'</div></div>');
-return heading("Workgroup daily","Dashboard","Read-only operational snapshot of the qualification pipeline and the latest community and technology signals. All workflow actions live in their dedicated workspaces.")+
+return heading("Workgroup daily","Dashboard","Daily read-only campaign pipeline, recent feedback and technology-watch signals. Campaign state changes take place in Benchmark Workspace.")+
 '<div class="daily-kicker" style="margin-bottom:12px">Daily overview <span class="muted">· '+E(new Date().toLocaleDateString("en-GB",{year:"numeric",month:"long",day:"numeric"}))+'</span></div>'+
-'<section class="card"><div class="card-head"><div><h2>Qualification pipeline</h2><p class="muted small" style="margin-top:4px">Observe status, ownership and evidence. Changes are made from Benchmark workspace.</p></div></div>'+qualificationBoard(true)+'</section>'+
+'<section class="card"><div class="card-head"><div><h2>Benchmark campaign pipeline</h2><p class="muted small" style="margin-top:4px">Planned → In progress → Under review → Published. Open a campaign in Benchmark Workspace to take action.</p></div></div>'+campaignBoard()+'</section>'+
 '<div class="grid g2" style="margin-top:18px">'+feedbackPanel+watchPanel+'</div><div style="margin-top:18px">'+followups+'</div>';
 }
 function dashboardPage(){
@@ -666,26 +666,34 @@ return heading("Decision support","Published recommendations","Globally shared r
 }
 
 
+function campaignStages(){return [{id:"planned",name:"Planned",hint:"Campaigns to prepare"},{id:"active",name:"In progress",hint:"Open for execution"},{id:"review",name:"Under review",hint:"Closed / staged"},{id:"published",name:"Published",hint:"Reviewed evidence"}];}
+function campaignRuns(c){return db.runs.filter(function(r){return r.campaignId===c.id;});}
+function campaignCompleted(c){return db.campaignTrials.filter(function(t){return t.campaign===c.id&&t.status==="completed";});}
+function campaignStatusLabel(c){return campaignStages().find(function(s){return s.id===c.stage;})?.name||c.stage;}
+function campaignBoard(){
+return '<div class="daily-board">'+campaignStages().map(function(stage){
+ var items=db.campaigns.filter(function(c){return c.stage===stage.id;});
+ return '<section class="daily-lane"><div class="daily-lane-head"><div><h3>'+E(stage.name)+'</h3><span class="muted small">'+E(stage.hint)+'</span></div><span class="lane-num">'+items.length+'</span></div>'+
+ (items.map(function(c){return '<article class="daily-card"><div class="row-between">'+badge(c.mode==="task_compare"?"Task comparison":"Solution coverage")+'<span class="muted small">'+E(c.updated||"")+'</span></div><h4>'+E(c.title)+'</h4>'+
+ '<div class="muted small">'+E(c.purpose||"")+'</div><div class="muted small" style="margin:8px 0">Owner: '+E(actor(c.owner))+' · '+c.caseIds.length+' TCs · '+campaignRuns(c).length+' runs</div>'+
+ btn("View summary","campaignPeek",c.id,"sm")+'</article>';}).join("")||'<div class="empty">No campaigns</div>')+'</section>';
+}).join("")+'</div>';
+}
+function campaignSummary(id){
+var c=rec("campaigns",id);if(!c)return;
+openModal("Campaign snapshot · "+c.title,
+'<div class="row">'+badge(campaignStatusLabel(c))+' '+badge(c.mode==="task_compare"?"Task-centred":"Solution-centred")+'</div>'+
+'<p class="muted" style="margin:12px 0">'+E(c.purpose)+'</p><p><strong>Owner:</strong> '+E(actor(c.owner))+'</p>'+
+'<p class="small">'+c.caseIds.length+' test cases · '+campaignRuns(c).length+' recorded runs</p>'+
+'<div class="note" style="margin-top:12px">This daily pipeline is read-only; manage execution and review in Benchmark workspace.</div>',
+btn("Close","close","","")+btn("Open workbench","openCampaign",id,""));
+}
 function benchmarkPage(){
 if(!canEdit())return resultsPage();
-var review=db.qualifications.filter(function(q){return q.stage==="review";}),active=db.qualifications.filter(function(q){return q.stage==="to_qualify"||q.stage==="qualifying";}),
-drafts=db.runs.filter(function(r){return r.status==="draft";});
-var qualifications='<div class="list">'+review.concat(active).map(function(q){
- var sol=rec("solutions",q.solution),tests=qualificationRuns(q);
- return '<div class="list-row"><div><div class="row">'+badge(qualificationStage(q.stage).name)+' '+badge(q.priority+' priority')+'</div><div style="margin:7px 0 4px">'+linkAction(q.title,"qualDetail",q.id)+'</div><div class="muted small">'+E(sol?.name||rec("components",q.candidate?.model)?.name||"Component candidate")+' · Owner: '+E(actor(q.owner))+' · '+tests.length+' published run(s)</div></div>'+btn(q.stage==="review"?"Review decision":"Continue","qualDetail",q.id,"sm")+'</div>';
-}).join("")+'</div>';
-var stagedForecasts=db.proposals.filter(function(p){return ["staged","reviewed","published"].includes(p.status);});
-var forecastPipeline='<div class="list">'+stagedForecasts.map(function(p){
- return '<div class="list-row"><div><div class="tags">'+badge("THEORETICAL")+" "+badge(p.status)+'</div><div style="margin:7px 0">'+linkAction(p.name,"forecastDetail",p.id)+'</div><div class="muted small">'+E(rec("tasks",p.task)?.name||"Unknown")+' · '+p.quality+'/100 estimated · '+forecastCitations(p).length+' sources</div></div><div class="inline-actions">'+btn("Compare","forecastCompare",p.id,"sm")+btn("Validate experimentally","validateForecast",p.id,"sm primary")+'</div></div>';
-}).join("")+'</div>';
-var staging='<div class="list">'+(drafts.map(function(r){
-return '<div class="list-row"><div><strong>'+E(caseOf(r)?.title||r.case)+'</strong><div class="muted small">'+E(rec("solutions",r.solution)?.name||r.solution)+' · '+E(actor(r.owner))+' · '+E(r.date)+'</div></div><div class="inline-actions">'+btn("Inspect","runDetail",r.id,"sm")+btn("Publish run","publishRun",r.id,"sm primary")+'</div></div>';
-}).join("")||'<div class="empty">No staged runs waiting for review.</div>')+'</div>';
-return heading("Benchmark work","Plan, execute & review","Operational workbench: start qualifications here, assemble an AI configuration, collect experimental evidence, and review or publish decisions.",btn("+ New qualification","newQualification","","primary")+btn("+ Record benchmark run","newRun","","")+btn("+ Campaign","newCampaign","",""))+
-'<div class="note" style="margin-bottom:18px">This page owns the <strong>workflow and decisions</strong>. Use <strong>Test design</strong> to define reusable cases and protocols; use <strong>Results explorer</strong> to analyze recorded outcomes.</div>'+
-'<div class="grid g2">'+section("Qualifications requiring work",qualifications,btn("Pipeline overview","nav","dashboard","sm"))+section("Run review & publication",staging,btn("Explore published runs","nav","results","sm"))+'</div>'+
-'<div style="margin-top:18px">'+section("Staged theoretical hypotheses awaiting experiments",forecastPipeline,btn("Measured vs theoretical","nav","results","sm"))+'</div>'+
-'<div style="margin-top:18px">'+section("Benchmark campaigns & planned experiments",campaignRegistry(),btn("+ Create campaign","newCampaign","","sm"))+'</div>';
+return heading("Campaign work","Benchmark Workspace","Campaign-led work: configure a scope and AI setup, execute guided Test Cases, close for staging, review, publish or reopen.",btn("+ New campaign","newCampaign","","primary"))+
+'<div class="note" style="margin-bottom:15px">Choose <strong>Solution coverage</strong> to test one fixed configuration across tasks and Test Cases, or <strong>Task comparison</strong> to compare multiple configurations on shared tests of a fixed task. No separate qualification queue is required.</div>'+
+campaignRegistry()+
+'<div style="margin-top:18px">'+section("Staged theoretical forecasts available for experiment",'<div class="list">'+db.proposals.filter(function(p){return ["staged","reviewed","published"].includes(p.status);}).map(function(p){return '<div class="list-row"><div><strong>'+E(p.name)+'</strong><div class="muted small">'+E(rec("tasks",p.task)?.name||"")+' · theoretical / '+E(p.status)+'</div></div>'+btn("Inspect","forecastDetail",p.id,"sm")+'</div>';}).join("")+'</div>')+'</div>';
 }
 function testDesignPage(){
 if(!canEdit())return resultsPage();
