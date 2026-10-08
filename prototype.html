@@ -356,44 +356,47 @@ function qualificationStages(){return [
 function qualificationStage(id){return qualificationStages().find(function(s){return s.id===id;})||qualificationStages()[0];}
 function qualificationRuns(q){return db.runs.filter(function(r){var c=caseOf(r);return r.solution===q.solution&&r.status==="published"&&(!q.task||(c&&descendants(q.task).includes(c.task)));});}
 function qualificationNext(q){var stages=qualificationStages(),index=stages.findIndex(function(s){return s.id===q.stage;});return stages[Math.min(index+1,stages.length-1)]||stages[0];}
-function qualCard(q){
-var s=rec("solutions",q.solution),t=rec("tasks",q.task),runs=qualificationRuns(q),next=qualificationNext(q);
+function qualCard(q,readonly){
+var sol=rec("solutions",q.solution),t=rec("tasks",q.task),runs=qualificationRuns(q),next=qualificationNext(q);
 return '<article class="daily-card" data-stage="'+E(q.stage)+'"><div class="row-between">'+badge(q.priority+" priority")+'<span class="muted small">'+E(q.due||"No due date")+'</span></div>'+
-'<h4>'+linkAction(q.title,"qualDetail",q.id)+'</h4><div class="small">'+(s?linkAction(s.name,"solution",s.id):'<span class="muted">'+E(rec("components",q.candidate?.model)?.name||"Select model candidate")+'</span>')+'</div>'+
+'<h4>'+ (readonly?E(q.title):linkAction(q.title,"qualDetail",q.id))+'</h4><div class="small">'+E(sol?.name||rec("components",q.candidate?.model)?.name||"Candidate not selected")+'</div>'+
 '<div class="muted small" style="margin-top:7px">'+E(t?.name||"Cross-task qualification")+'</div>'+
 '<div class="muted small">Owner: '+E(actor(q.owner))+' · '+runs.length+' published run(s)</div>'+
-'<div class="inline-actions">'+btn("Details","qualDetail",q.id,"sm")+(q.stage!=="published"?btn(q.stage==="review"?"Publish →":"Move → "+next.name,"qualAdvance",q.id,"sm primary"):btn("Requalify","qualReopen",q.id,"sm"))+'</div></article>';
+(readonly?'<div class="inline-actions">'+btn("View summary","qualPeek",q.id,"sm")+'</div>':
+'<div class="inline-actions">'+btn("Work on qualification","qualDetail",q.id,"sm primary")+'</div>')+'</article>';
 }
-function qualificationBoard(){
+function qualificationBoard(readonly){
 return '<div class="daily-board">'+qualificationStages().map(function(stage){
 var cards=db.qualifications.filter(function(q){return q.stage===stage.id;}).sort(function(a,b){var importance={high:0,medium:1,low:2};return (importance[a.priority]??1)-(importance[b.priority]??1)||String(b.updatedAt).localeCompare(String(a.updatedAt));});
-return '<section class="daily-lane" aria-label="'+E(stage.name)+'"><div class="daily-lane-head"><div><h3>'+E(stage.name)+'</h3><span class="muted small">'+E(stage.hint)+'</span></div><span class="lane-num">'+cards.length+'</span></div>'+ (cards.map(qualCard).join("")||'<div class="empty" style="padding:17px 9px;font-size:12px">No qualification cards</div>')+'</section>';
+return '<section class="daily-lane" aria-label="'+E(stage.name)+'"><div class="daily-lane-head"><div><h3>'+E(stage.name)+'</h3><span class="muted small">'+E(stage.hint)+'</span></div><span class="lane-num">'+cards.length+'</span></div>'+ (cards.map(function(q){return qualCard(q,readonly);}).join("")||'<div class="empty" style="padding:17px 9px;font-size:12px">No qualification cards</div>')+'</section>';
 }).join("")+'</div>';
 }
+function previewQualification(id){
+var q=rec("qualifications",id);if(!q)return;
+var solution=rec("solutions",q.solution),task=rec("tasks",q.task),runs=qualificationRuns(q);
+var preview='<div class="row-between"><div>'+badge(qualificationStage(q.stage).name)+' '+badge(q.priority+" priority")+'</div><span class="muted small">'+E(q.updatedAt)+'</span></div>'+
+'<p style="margin-top:14px"><strong>Owner:</strong> '+E(actor(q.owner))+' · <strong>Due:</strong> '+E(q.due||"Not scheduled")+'</p>'+
+'<p style="margin:8px 0"><strong>Task:</strong> '+E(task?.name||"Cross-task")+'</p>'+
+'<p style="margin:8px 0"><strong>Technology:</strong> '+E(solution?.name||rec("components",q.candidate?.model)?.name||"Candidate not selected")+'</p>'+
+'<h3 style="margin:16px 0 7px">Current plan</h3><p class="text-block">'+E(q.notes||"No notes")+'</p>'+
+'<h3 style="margin:16px 0 7px">Evidence status</h3><p class="muted">'+runs.length+' published matching benchmark run(s)</p>'+
+'<div class="note" style="margin-top:14px">Read-only daily view. To plan, execute, review or publish this qualification, use Benchmark workspace.</div>';
+openModal("Pipeline snapshot · "+q.title,preview,btn("Close","close","","")+btn("Open workbench","openQualificationWorkbench",q.id,""));
+}
 function workgroupOverviewPage(){
-var pending=db.feedback.filter(function(x){return x.status==="new"||x.status==="triage";}).sort(function(a,b){return String(b.date).localeCompare(String(a.date));}),
-signals=db.watch.filter(function(w){return w.status==="watching"||w.status==="pending";}).sort(function(a,b){return String(b.date).localeCompare(String(a.date));}),
-active=db.qualifications.filter(function(q){return q.stage==="qualifying";}),review=db.qualifications.filter(function(q){return q.stage==="review";}),
-draftRuns=db.runs.filter(function(r){return r.status==="draft";}),
-due=db.qualifications.filter(function(q){return q.due&&q.stage!=="published"&&q.due<new Date().toISOString().slice(0,10);});
-var kpis='<div class="grid g4">'+stat("Feedback to triage",pending.length,"New & under review")+stat("Watch signals",signals.length,"Monitoring or pending")+stat("Qualifications active",active.length,"Experiments in progress")+stat("Awaiting review",review.length,review.filter(function(q){return qualificationRuns(q).length>0;}).length+" with published evidence")+'</div>';
 var feedbackPanel=section("Latest user feedback",'<div class="daily-scroll daily-compact list">'+(db.feedback.slice().sort(function(a,b){return String(b.date).localeCompare(String(a.date));}).slice(0,5).map(function(f){
-return '<div class="list-row"><div class="short"><div class="row">'+badge(f.type)+' '+badge(f.status)+'</div><div style="margin-top:6px">'+linkAction(f.title,"feedbackDetail",f.id)+'</div><div class="muted small">'+E(actor(f.author))+' · '+E(f.date)+'</div><p class="muted small">'+E(f.body.slice(0,120))+'</p></div>'+btn(f.status==="closed"?"Read":"Triage","feedbackDetail",f.id,"sm")+'</div>';
+return '<div class="list-row"><div class="short"><div class="row">'+badge(f.type)+' '+badge(f.status)+'</div><div style="margin-top:6px">'+linkAction(f.title,"feedbackDetail",f.id)+'</div><div class="muted small">'+E(actor(f.author))+' · '+E(f.date)+'</div><p class="muted small">'+E(f.body.slice(0,120))+'</p></div>'+btn("Read thread","feedbackDetail",f.id,"sm")+'</div>';
 }).join("")||'<div class="empty">No feedback yet</div>')+'</div>',btn("All feedback","nav","feedback","sm"));
 var watchPanel=section("Latest technology-watch signals",'<div class="daily-scroll daily-compact list">'+(db.watch.slice().sort(function(a,b){return String(b.date).localeCompare(String(a.date));}).slice(0,5).map(function(w){
-var linked=db.qualifications.some(function(q){return q.sourceWatch===w.id&&q.stage!=="published";});
-return '<div class="list-row"><div class="short"><div class="row">'+badge(w.kind)+' '+badge(w.status)+'</div><div style="margin-top:6px">'+linkAction(w.title,"watchDetail",w.id)+'</div><div class="muted small">'+E(w.date)+' · '+E(w.source)+'</div><p class="muted small">'+E(w.summary.slice(0,130))+'</p></div><div class="inline-actions">'+(linked?badge("In pipeline"):btn("Qualify","qualFromWatch",w.id,"sm"))+'</div></div>';
-}).join("")||'<div class="empty">No watch signals yet</div>')+'</div>',btn("All signals","nav","watch","sm"));
-var followups=section("Daily follow-ups",'<div class="list">'+
-'<div class="list-row"><div><strong>'+draftRuns.length+' staged experiment(s)</strong><div class="muted small">Check evidence before publication</div></div>'+btn("Review","nav","workgroup","sm")+'</div>'+
-'<div class="list-row"><div><strong>'+due.length+' overdue qualification(s)</strong><div class="muted small">Compared with browser-local date</div></div>'+badge(due.length?"Action needed":"On track")+'</div>'+
-'<div class="list-row"><div><strong>'+review.length+' qualification(s) in review</strong><div class="muted small">Inspect the evidence and recommendation text</div></div>'+btn("Open board","nav","dashboard","sm")+'</div>'+
-'</div><div class="daily-info" style="margin-top:10px">Pipeline stages track workgroup qualification work, independently of solution accessibility and catalog publication. Publishing a conclusion requires existing controlled evidence.</div>');
-return heading("Workgroup daily","Qualification & decision desk","Triage incoming needs, assess new technologies, advance experiments, review evidence and publish defensible conclusions.",btn("+ Qualification","newQualification","","primary")+btn("+ Tech watch","newWatch","","")+btn("+ Benchmark run","newRun","",""))+
-'<div class="daily-kicker" style="margin-bottom:12px"><span>●</span> Daily operational pulse <span class="muted">· '+E(new Date().toLocaleDateString("en-GB",{year:"numeric",month:"long",day:"numeric"}))+'</span></div>'+
-kpis+'<section class="card" style="margin-top:18px"><div class="card-head"><div><h2>Qualification pipeline</h2><p class="muted small" style="margin-top:4px">Select a card to inspect its owner, task, evidence and next decision.</p></div>'+btn("+ Add to pipeline","newQualification","","sm")+'</div>'+qualificationBoard()+'</section>'+
-'<div class="grid g2" style="margin-top:18px">'+feedbackPanel+watchPanel+'</div>'+
-'<div style="margin-top:18px">'+followups+'</div>';
+return '<div class="list-row"><div class="short"><div class="row">'+badge(w.kind)+' '+badge(w.status)+'</div><div style="margin-top:6px">'+linkAction(w.title,"watchDetail",w.id)+'</div><div class="muted small">'+E(w.date)+' · '+E(w.source)+'</div><p class="muted small">'+E(w.summary.slice(0,130))+'</p></div>'+btn("Inspect","watchDetail",w.id,"sm")+'</div>';
+}).join("")||'<div class="empty">No watch signals yet</div>')+'</div>',btn("Watch register","nav","watch","sm"));
+var followups=section("Daily notes & handoffs",'<div class="list">'+
+'<div class="list-row"><div><strong>Benchmark work in progress</strong><div class="muted small">Experiments, reviews and publication decisions are handled in the workbench</div></div>'+btn("Open workspace","nav","benchmark","sm")+'</div>'+
+'<div class="list-row"><div><strong>Test design & coverage</strong><div class="muted small">Prepare test cases and protocols independently of the results explorer</div></div>'+btn("Open test design","nav","testdesign","sm")+'</div></div>');
+return heading("Workgroup daily","Dashboard","Read-only operational snapshot of the qualification pipeline and the latest community and technology signals. All workflow actions live in their dedicated workspaces.")+
+'<div class="daily-kicker" style="margin-bottom:12px">Daily overview <span class="muted">· '+E(new Date().toLocaleDateString("en-GB",{year:"numeric",month:"long",day:"numeric"}))+'</span></div>'+
+'<section class="card"><div class="card-head"><div><h2>Qualification pipeline</h2><p class="muted small" style="margin-top:4px">Observe status, ownership and evidence. Changes are made from Benchmark workspace.</p></div></div>'+qualificationBoard(true)+'</section>'+
+'<div class="grid g2" style="margin-top:18px">'+feedbackPanel+watchPanel+'</div><div style="margin-top:18px">'+followups+'</div>';
 }
 function dashboardPage(){
 if(canEdit())return workgroupOverviewPage();
@@ -979,7 +982,7 @@ if(kind==="task"||kind==="taskEdit"){
  ui.task=node.id;ui.page="tasks";event("Task",(oldTask?"Updated":"Created")+" task node: "+node.name);
 }else if(kind==="case"){
  var c={id:next("c"),task:d.task,title:req(d.title,"Title"),version:req(d.version,"Version"),protocol:d.protocol,objective:req(d.objective,"Objective"),inputs:d.inputs,dod:req(d.dod,"Definition of Done"),status:"published"};
- db.cases.push(c);ui.page="benchmark";ui.bench="cases";event("Test Case","Added challenging test case: "+c.title);
+ db.cases.push(c);ui.page="testdesign";ui.testTab="cases";event("Test Case","Added challenging test case: "+c.title);
 }else if(kind==="run"){
  if(toNum(d.score)>100||toNum(d.score)<0||toNum(d.utility)>100||toNum(d.utility)<0){toast("Rubric scores must be within 0–100.");return;}
  if(!rec("cases",d.case)||!rec("protocols",d.protocol)){toast("Select a valid Test Case and benchmark protocol.");return;}
@@ -1009,7 +1012,7 @@ if(kind==="task"||kind==="taskEdit"){
   revision("Qualification",linkedQ.id,beforeQ,linkedQ);
  }
  if(setup.created)event("Solution","Registered evaluated configuration from benchmark: "+tested.name,true);
- ui.page="benchmark";ui.bench="runs";ui.filters.runStatus="all";event("Run",(r.status==="published"?"Published":"Staged")+" benchmark run: "+r.id,r.status!=="published");
+ ui.page="benchmark";ui.filters.runStatus="all";event("Run",(r.status==="published"?"Published":"Staged")+" benchmark run: "+r.id,r.status!=="published");
 }else if(kind==="solution"||kind==="solutionEdit"){
  var s=kind==="solutionEdit"?rec("solutions",id):{id:next("s"),recommendation:"Not yet qualified; no official usage guidance.",rate:0};
  var previous=kind==="solutionEdit"?JSON.parse(JSON.stringify(s)):null;
@@ -1046,10 +1049,10 @@ if(kind==="task"||kind==="taskEdit"){
  ui.page="solutions";ui.solutionView="components";event("Catalog",(id?"Updated":"Registered")+" "+comp.type+": "+comp.name);
 }else if(kind==="protocol"){
  var protocol={id:next("p"),name:req(d.name,"Protocol name"),version:req(d.version,"Revision"),autonomy:d.autonomy,description:req(d.description,"Setup"),criteria:req(d.criteria,"Criteria")};
- db.protocols.push(protocol);ui.page="benchmark";ui.bench="protocols";event("Protocol","Created protocol revision: "+protocol.name+" v"+protocol.version);
+ db.protocols.push(protocol);ui.page="testdesign";ui.testTab="protocols";event("Protocol","Created protocol revision: "+protocol.name+" v"+protocol.version);
 }else if(kind==="campaign"){
  var ca={id:next("b"),title:req(d.title,"Campaign title"),purpose:req(d.purpose,"Campaign purpose"),caseIds:Array.from(form.querySelectorAll('[name="caseIds"]:checked')).map(function(el){return el.value;}),solutionIds:Array.from(form.querySelectorAll('[name="solutionIds"]:checked')).map(function(el){return el.value;}),status:"active",owner:currentUser};
- if(!ca.caseIds.length||!ca.solutionIds.length){toast("Select at least one case and one solution.");return;}db.campaigns.push(ca);ui.page="benchmark";ui.bench="campaigns";event("Campaign","Created campaign: "+ca.title);
+ if(!ca.caseIds.length||!ca.solutionIds.length){toast("Select at least one case and one solution.");return;}db.campaigns.push(ca);ui.page="benchmark";event("Campaign","Created campaign: "+ca.title);
 }
 ui.modal="";persist();render();toast("Changes saved in this browser.");
 }catch(ex){if(ex.message!=="form validation")throw ex;}
@@ -1076,13 +1079,17 @@ if(act==="task"){ui.task=id;ui.matrixTarget=id;ui.modal="";ui.page="tasks";rende
 if(act==="expand"){ui.expanded[id]=ui.expanded[id]===false?true:false;render();return;}
 if(act==="solution"){ui.modal="";solutionDetail(id);return;}
 if(act==="benchTab"){ui.bench=id;render();return;}
-if(act==="benchSolution"){ui.page="benchmark";ui.bench="runs";ui.filters.runSolution=id;ui.filters.runTask="all";ui.modal="";render();return;}
-if(act==="matrix"){ui.page="benchmark";ui.bench="matrix";ui.modal="";render();return;}
+if(act==="testTab"){ui.testTab=id;render();return;}
+if(act==="resultsTab"){ui.resultsTab=id;render();return;}
+if(act==="benchSolution"){ui.page="results";ui.resultsTab="runs";ui.filters.runSolution=id;ui.filters.runTask="all";ui.modal="";render();return;}
+if(act==="matrix"){ui.page="results";ui.resultsTab="matrix";ui.modal="";render();return;}
 if(act==="runDetail"){detailsRun(id);return;}
 if(act==="caseDetail"){detailsCase(id);return;}
 if(act==="guideDetail"){detailsGuide(id);return;}
 if(act==="feedbackDetail"){detailsFeedback(id);return;}
 if(act==="qualDetail"){detailsQualification(id);return;}
+if(act==="qualPeek"){previewQualification(id);return;}
+if(act==="openQualificationWorkbench"){ui.modal="";ui.page="benchmark";render();detailsQualification(id);return;}
 if(act==="newQualification"){dialogQualification();return;}
 if(act==="editQualification"){dialogQualification(id);return;}
 if(act==="qualFromWatch"){dialogQualification("",id,"");return;}
