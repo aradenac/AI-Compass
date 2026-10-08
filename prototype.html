@@ -2105,10 +2105,13 @@ if(kind==="campaignReview"){
 }else if(kind==="campaignTrialSetup"){
  var home=rec("campaigns",id),chosenCase=rec("cases",d.case);
  if(!home||home.stage!=="active"||!chosenCase||!home.caseIds.includes(chosenCase.id)){toast("Campaign is not open or Test Case is not included.");return;}
- var framework=rec("components",home.frameworkId),
- participant=framework?(home.frameworkInstances||[]).find(function(p){return p.id===d.frameworkInstanceId;}):null;
- if(framework&&!participant){toast("Select a registered participant.");return;}
- var cfg=participant?Object.assign({},participant):home.mode==="solution_scope"?Object.assign({},home.solutionSetup):null;
+ var framework=rec("components",home.frameworkId),collaborative=!!framework&&d.frameworkExecutionMode==="ensemble",
+  participant=framework&&!collaborative?(home.frameworkInstances||[]).find(function(p){return p.id===d.frameworkInstanceId;}):null,
+  selectedParticipants=collaborative?(home.frameworkInstances||[]).filter(function(p){return d["ensembleParticipant_"+p.id]==="yes";}):participant?[participant]:[];
+ if(collaborative&&selectedParticipants.length<2){toast("Select at least two participants for a collaborative Framework run.");return;}
+ if(framework&&!collaborative&&!participant){toast("Select a registered individual participant.");return;}
+ var cfg=collaborative?{configuration:JSON.stringify(selectedParticipants),version:"composite",capabilities:"Multi-agent workflow"}:
+  participant?Object.assign({},participant):home.mode==="solution_scope"?Object.assign({},home.solutionSetup):null;
  if(!framework&&home.mode==="task_compare"){
   var incumbent=rec("solutions",d.existingSolution);
   cfg=incumbent?{model:incumbent.componentRefs?.model,provider:incumbent.componentRefs?.provider,harness:incumbent.componentRefs?.harness,
@@ -2116,8 +2119,9 @@ if(kind==="campaignReview"){
    {model:d.modelComponent,provider:d.providerComponent,harness:d.harnessComponent,
     configuration:d.configuration,version:d.version||"1.0",capabilities:d.capabilities||"",accessible:false};
  }
- if(["model","provider","harness"].some(function(k){return !rec("components",cfg[k]);})||!String(cfg.configuration||"").trim()){toast("Choose a complete AI setup and configuration.");return;}
- if(home.forecastId){
+ if((!collaborative&&["model","provider","harness"].some(function(k){return !rec("components",cfg[k])||rec("components",cfg[k]).type!==k;}))||
+ !String(cfg.configuration||"").trim()){toast("Choose a complete AI setup and configuration.");return;}
+ if(home.forecastId&&!collaborative){
   var projection=rec("proposals",home.forecastId);
   if(projection){
    var changedSetup=String(projection.config||"").trim()!==String(cfg.configuration||"").trim()||["model","provider","harness"].some(function(k){return projection.componentRefs?.[k]!==cfg[k];});
@@ -2133,15 +2137,17 @@ if(kind==="campaignReview"){
 if(!Number.isFinite(Number(d.setupMinutes))||String(d.setupMinutes).trim()===""||Number(d.setupMinutes)<0||Number(d.setupMinutes)>10080){toast("Specify installation duration in minutes (0–10080).");return;}
  if(newGuideTitle&&(newGuideBody||newGuideUrl)){
   var associated=String(d.existingSolution||"");
-  if(!associated){var found=findBenchSolutionForSetup(cfg);if(found)associated=found.id;}
+  if(!associated&&!collaborative){var found=findBenchSolutionForSetup(cfg);if(found)associated=found.id;}
   guide=createSetupGuide(newGuideTitle,newGuideBody,newGuideUrl,home.frameworkId||"",associated);
 }
 if(!guide||guide.type!=="Installation"){toast("Select an installation guide.");return;}
- var applicableSolution=rec("solutions",d.existingSolution)||findBenchSolutionForSetup(cfg);
+ var applicableSolution=!collaborative?(rec("solutions",d.existingSolution)||findBenchSolutionForSetup(cfg)):null;
  if(guide.framework&&guide.framework!==home.frameworkId){toast("This setup guide belongs to another Framework.");return;}
  if(guide.solution&&guide.solution!==applicableSolution?.id){toast("This guide belongs to a different AI configuration. Choose a reusable or matching guide.");return;}
  var session={id:next("trial"),campaign:id,case:chosenCase.id,step:2,status:"in_progress",
   frameworkId:framework?.id||"",frameworkInstanceId:participant?.id||"",
+  frameworkAggregate:collaborative,frameworkParticipantIds:selectedParticipants.map(function(p){return p.id;}),
+  frameworkParticipantsSnapshots:JSON.parse(JSON.stringify(selectedParticipants)),
   frameworkSnapshot:framework?JSON.parse(JSON.stringify(framework)):null,
   participantSnapshot:participant?JSON.parse(JSON.stringify(participant)):null,
   startedAt:d.startedAt,setupMinutes:Number(d.setupMinutes),
