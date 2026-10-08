@@ -494,18 +494,11 @@ Qualification may begin from one or more component candidates, before the AI Sol
 
 The benchmark results can be explored in either direction: **from task to solutions** or **from solution to tasks**.
 
-## 16. Non-functional requirements and design constraints
+## 16. Non-functional requirements — separate specification
 
-- **Traceability:** conclusions link to their source runs, evidence, review, and scoring model.
-- **Versioning and history:** record changes to tasks, TCs, protocols, solutions, scoring, and published guidance.
-- **Auditability:** official published recommendations can be reconstructed from recorded evidence and decision rules.
-- **Reproducibility:** retain the experimental setup, artifacts, and inputs needed to replay a benchmark where technically possible.
-- **Security:** authentication for publishing; access control, data sensitivity labeling, and safe handling of source code and documents.
-- **Shared access:** readers can consult published information without needing workgroup permissions.
-- **Interoperability:** API and export-friendly, machine-readable data, persistent links and references.
-- **Extensibility:** additional BUs, activity taxonomies, providers, harnesses, evaluation methods, and reporting views.
-- **Maintainability:** clean separation of catalog, experimental records, scoring, decisions, and documentation.
-- **Timeliness:** identify freshness, availability, depreciation/retirement, and the need to requalify recommendations.
+Platform quality, interaction consistency, usability, accessibility, traceability, auditability, security, interoperability and maintainability are specified in the dedicated **[Non-Functional Requirements](non-functional-requirements.md)** document.
+
+The Product Definition remains authoritative for **functional scope and workgroup workflows**. Cross-cutting UI interaction rules, such as preventing backdrop dismissal of forms (**NFR-UX-001**), are maintained and verified in the non-functional specification rather than repeated in individual functional sections.
 
 ## 17. Delivery scope and progressive automation
 
