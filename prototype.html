@@ -902,6 +902,7 @@ selectField("solution","Already benchmarked AI Solution",existing.map(function(x
 '<input type="hidden" name="qualification" value="'+E(qualificationId||"")+'"><input type="hidden" name="forecastId" value="'+E(forecastId||"")+'">';
 var fields=selectField("case","Test Case",optionsFrom("cases",function(x){return x.title+" · "+(rec("tasks",x.task)?.name||"");}),c.id,true)+setup+
 selectField("protocol","Benchmark protocol",optionsFrom("protocols",function(x){return x.name+" · "+x.version;}),c.protocol)+
+(projection?'<div class="span2 note warn">Validation of theoretical forecast: '+E(projection.name)+'. Assumptions are pinned when you save the run. Any changed configuration must be explained.</div>'+field("forecastDeviation","Differences from projected configuration (if any)","","textarea","full"):"")+
 selectField("accepted","DoD acceptance",[["yes","Accepted — mandatory DoD met"],["no","Failed / incomplete"]],orig?(orig.accepted?"yes":"no"):"yes")+
 field("score","Quality rubric score (0–100)",orig?.score??80,"number")+
 selectField("status","Run publication",[["draft","Draft / staged"],["published","Publish now"]],orig?.status||"draft")+
@@ -1254,6 +1255,14 @@ if(kind==="task"||kind==="taskEdit"){
  if(!rec("cases",d.case)||!rec("protocols",d.protocol)){toast("Select a valid Test Case and benchmark protocol.");return;}
  // Validate the experimental record before creating the derived solution.
  var fullPrompt=req(d.prompt,"Initial prompt"),fullTrace=req(d.transcript,"Interaction trace");
+ var sourceHypothesis=rec("proposals",d.forecastId);
+ if(sourceHypothesis){
+  if(!["staged","reviewed","published"].includes(sourceHypothesis.status)){toast("Stage this forecast before experimental validation.");return;}
+  if(d.solutionMode!=="new"){toast("Use an assembled setup when validating a theoretical forecast.");return;}
+  var deviates=String(d.configuration||"").trim()!==String(sourceHypothesis.config||"").trim()||["model","provider","harness"].some(function(k){return String(d[k+"Component"]||"")!==String(sourceHypothesis.componentRefs[k]||"");});
+  if(deviates&&!String(d.forecastDeviation||"").trim()){toast("Document deviations from the forecast before recording this run.");return;}
+ }
+
  var mode=d.solutionMode||"existing",setup;
  if(mode==="new"){
   setup=findOrCreateBenchSolution(d);
@@ -1268,7 +1277,7 @@ if(kind==="task"||kind==="taskEdit"){
   solutionSnapshot:JSON.parse(JSON.stringify(tested)),
   componentSnapshots:JSON.parse(JSON.stringify(tested.componentSnapshots||{})),
   protocolSnapshot:JSON.parse(JSON.stringify(rec("protocols",d.protocol))),
-  taskContextSnapshot:ancestors(rec("cases",d.case).task).map(function(t){return {id:t.id,name:t.name,phase:t.phase,criteria:t.criteria,baseline:t.baseline};}),forecastSnapshot:sourceForecast?JSON.parse(JSON.stringify(sourceForecast)):null};
+  taskContextSnapshot:ancestors(rec("cases",d.case).task).map(function(t){return {id:t.id,name:t.name,phase:t.phase,criteria:t.criteria,baseline:t.baseline};}),forecastSnapshot:sourceForecast?JSON.parse(JSON.stringify(sourceForecast)):null,forecastDeviation:d.forecastDeviation||""};
  db.runs.push(r);
  if(sourceForecast){
   var previousProjection=JSON.parse(JSON.stringify(sourceForecast));
