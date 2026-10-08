@@ -463,6 +463,20 @@ function event(type,message,internal,details){
   generated:"automatic",schemaVersion:2};
  db.events.unshift(e);db.events=db.events.slice(0,1000);
 }
+function publicWatchLinks(ids){
+ return (ids||[]).filter(function(id){return rec("watch",id)?.publication==="published";});
+}
+function publicCampaignRecord(c){
+ var copy=JSON.parse(JSON.stringify(c));copy.watchIds=publicWatchLinks(c.watchIds);return copy;
+}
+function publicRunRecord(run){
+ var copy=JSON.parse(JSON.stringify(run));
+ if(copy.campaignSnapshot){
+  copy.campaignSnapshot.watchIds=publicWatchLinks(copy.campaignSnapshot.watchIds);
+  copy.campaignSnapshot.watchSnapshots=(copy.campaignSnapshot.watchSnapshots||[]).filter(function(w){return publicWatchLinks([w.id]).length;});
+ }
+ return copy;
+}
 function publicActivityEvent(e){
  return Object.assign({},e,{
   references:(e.references||[]).map(function(r){return {id:r.id,type:r.type,title:r.title};}),
@@ -2338,7 +2352,7 @@ if(act==="editResearch"){dialogResearch(id);return;}
 if(act==="newCampaign"){dialogCampaign();return;}
 if(act==="publishRun"){if(!editable())return;var r=rec("runs",id);if(r){r.status="published";ui.modal="";saveEvent("Run","Published benchmark run "+id);}return;}
 if(act==="publishGuide"){if(!editable())return;var g=rec("guides",id);if(g){g.status="published";g.date=new Date().toISOString().slice(0,10);ui.modal="";saveEvent("Guide","Published document: "+g.title);}return;}
-if(act==="export"){var out=canEdit()?db:Object.assign({},db,{solutions:db.solutions.filter(visibleSolution),components:db.components.filter(function(c){return !c.publication||c.publication==="published";}),runs:db.runs.filter(visibleRun),guides:db.guides.filter(function(g){return g.status==="published";}),events:db.events.filter(function(e){return !e.internal;}).map(publicActivityEvent),watch:db.watch.filter(watchVisible),researchEvidence:db.researchEvidence.filter(researchVisible),watchSourceLinks:db.watchSourceLinks.filter(function(l){return watchVisible(rec("watch",l.watch))&&researchVisible(rec("researchEvidence",l.source));}),feedbackMessages:db.feedbackMessages.filter(function(m){return m.visibility==="public";}),proposals:db.proposals.filter(function(p){return p.status==="published";}),campaigns:db.campaigns.filter(function(c){return !c.archived&&c.stage==="published";}),campaignTrials:[],qualifications:[],revisions:[]});var blob=new Blob([JSON.stringify(out,null,2)],{type:"application/json"});var link=document.createElement("a");link.href=URL.createObjectURL(blob);link.download="ai-compass-demo-data.json";link.click();setTimeout(function(){URL.revokeObjectURL(link.href);},2000);toast(canEdit()?"Exported full mock dataset.":"Exported published mock records.");return;}
+if(act==="export"){var out=canEdit()?db:Object.assign({},db,{solutions:db.solutions.filter(visibleSolution),components:db.components.filter(function(c){return !c.publication||c.publication==="published";}),runs:db.runs.filter(visibleRun).map(publicRunRecord),guides:db.guides.filter(function(g){return g.status==="published";}),events:db.events.filter(function(e){return !e.internal;}).map(publicActivityEvent),watch:db.watch.filter(watchVisible),researchEvidence:db.researchEvidence.filter(researchVisible),watchSourceLinks:db.watchSourceLinks.filter(function(l){return watchVisible(rec("watch",l.watch))&&researchVisible(rec("researchEvidence",l.source));}),feedbackMessages:db.feedbackMessages.filter(function(m){return m.visibility==="public";}),proposals:db.proposals.filter(function(p){return p.status==="published";}),campaigns:db.campaigns.filter(function(c){return !c.archived&&c.stage==="published";}).map(publicCampaignRecord),campaignTrials:[],qualifications:[],revisions:[]});var blob=new Blob([JSON.stringify(out,null,2)],{type:"application/json"});var link=document.createElement("a");link.href=URL.createObjectURL(blob);link.download="ai-compass-demo-data.json";link.click();setTimeout(function(){URL.revokeObjectURL(link.href);},2000);toast(canEdit()?"Exported full mock dataset.":"Exported published mock records.");return;}
 if(act==="reset"){if(confirm("Replace all browser-saved prototype data with the initial mock dataset? This cannot be undone.")){db=seed();ensureDefaults();persist();ui.modal="";ui.filters={};ui.page="dashboard";render();toast("Mock dataset restored.");}return;}
 });
 document.addEventListener("click",function(ev){
