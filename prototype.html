@@ -771,7 +771,7 @@ return '<p class="muted small" style="margin-bottom:13px">Protocols describe con
 function campaignRegistry(){
 var groups=["planned","active","review","published"];
 return '<div class="card"><div class="filters">'+badge(db.campaigns.filter(function(x){return !x.archived;}).length+" campaigns")+' '+groups.map(function(k){return badge(db.campaigns.filter(function(x){return x.stage===k;}).length+" "+k);}).join(" ")+'</div>'+
-'<div class="list">'+db.campaigns.filter(function(c){return !c.archived||!canEdit();}).filter(function(c){return !c.archived;}).sort(function(a,b){return String(b.updated||"").localeCompare(String(a.updated||""));}).map(function(c){
+'<div class="list">'+db.campaigns.filter(function(c){return !c.archived;}).sort(function(a,b){return String(b.updated||"").localeCompare(String(a.updated||""));}).map(function(c){
 var runs=campaignRuns(c),sessions=db.campaignTrials.filter(function(x){return x.campaign===c.id;});
 return '<div class="list-row"><div class="short"><div class="row">'+badge(campaignStatusLabel(c))+' '+badge(c.mode==="task_compare"?"Task comparison":"Solution coverage")+'</div>'+
 '<div style="margin:7px 0 4px">'+linkAction(c.title,"campaignDetail",c.id)+'</div><div class="muted small">'+E(c.purpose||"")+'</div><div class="muted small">'+c.caseIds.length+' Test Cases · '+runs.length+' completed runs · '+sessions.filter(function(t){return t.status!=="completed";}).length+' ongoing sessions · '+E(actor(c.owner))+'</div></div>'+
@@ -1143,15 +1143,17 @@ var body='<div class="span2 note">Step 1 — Define the experimental campaign. T
 field("title","Campaign title",c?.title||"","text","full")+
 field("purpose","Campaign objective / hypothesis",c?.purpose||"","textarea","full")+
 selectField("mode","Experiment strategy",[["solution_scope","Solution-centred · one AI configuration, multiple tasks and Test Cases"],["task_compare","Task-centred · one task, compare different AI configurations"]],c?.mode||"task_compare",true)+
-selectField("task","Fixed comparison task (task-centred mode)",[["","Not fixed / choose task per Test Case"]].concat(db.tasks.map(function(t){return[t.id,t.name];})),c?.task||"t5",true)+
+'<div class="span2 campaign-mode-panel" data-mode-panel="task_compare"'+((c?.mode||"task_compare")==="task_compare"?"":' style="display:none"')+'>'+
+selectField("task","Fixed task for all comparisons",db.tasks.filter(function(t){return t.baseline>0;}).map(function(t){return[t.id,t.name];}),c?.task||"t5",true)+'</div>'+
 '<div class="span2 note">For <strong>solution-centred</strong> campaigns, choose the fixed model, provider and harness here. In task-centred campaigns, the AI setup will be chosen independently for every experiment.</div>'+
+'<div class="span2 campaign-mode-panel" data-mode-panel="solution_scope"'+((c?.mode||"task_compare")==="solution_scope"?"":' style="display:none"')+'><div class="form-grid">'+
 selectField("modelComponent","Fixed model",comboComponentOptions("model"),setup.model||"")+
 selectField("providerComponent","Fixed provider",comboComponentOptions("provider"),setup.provider||"")+
 selectField("harnessComponent","Fixed harness",comboComponentOptions("harness"),setup.harness||"")+
 selectField("accessible","Company access",[["yes","Accessible"],["no","Not accessible"]],setup.accessible?"yes":"no")+
 field("version","Fixed combined configuration version",setup.version||"1.0")+
 field("configuration","Combined setup notes / versioned configuration (NOT an installation guide)",setup.configuration||"","textarea","full")+
-field("capabilities","Agent tools / skills planned",setup.capabilities||"","textarea","full")+
+field("capabilities","Agent tools / skills planned",setup.capabilities||"","textarea","full")+'</div></div>'+
 selectField("owner","Campaign owner",db.users.filter(function(u){return u.role==="workgroup";}).map(function(u){return[u.id,u.name];}),c?.owner||currentUser)+
 field("notes","Context, constraints and campaign notes",c?.notes||"","textarea","full");
 openForm(c?"Edit campaign":"Step 1 · Create benchmark campaign","campaign",body,id||"",c?"Save campaign":"Create campaign & continue");
@@ -1461,6 +1463,7 @@ function campaignDecision(id,d){
 if(!canEdit())return;var c=rec("campaigns",id);if(!c||c.stage!=="review")return;
 if(!String(d.reviewNotes||"").trim()){toast("Enter the peer review conclusion.");return;}
 if(d.decision==="publish"&&c.owner===currentUser){toast("A different workgroup member must approve publication. Sofia or Maya can act as the reviewer.");return;}
+ if(d.decision==="publish"&&!campaignRuns(c).length){toast("Record at least one completed Test Case before publishing the campaign.");return;}
 var before=JSON.parse(JSON.stringify(c));c.reviewNotes=d.reviewNotes;c.reviewer=currentUser;
 if(d.decision==="publish"){
  c.stage="published";c.status="published";
@@ -1516,6 +1519,7 @@ if(kind==="campaignReview"){
  var setup={model:d.modelComponent||"",provider:d.providerComponent||"",harness:d.harnessComponent||"",
   configuration:d.configuration||"",version:d.version||"1.0",capabilities:d.capabilities||"",accessible:d.accessible==="yes"};
  if(mode==="task_compare"&&!rec("tasks",d.task)){toast("Choose the comparison task.");return;}
+ if(existing&&existing.caseIds?.length&&mode==="task_compare"&&existing.task!==d.task){toast("The fixed task cannot change after Test Cases are attached.");return;}
  if(mode==="solution_scope"&&(["model","provider","harness"].some(function(k){return !rec("components",setup[k]);})||!setup.configuration.trim())){toast("Choose model, provider, harness and fixed configuration.");return;}
  if(existing&&existing.stage==="published"){toast("Reopen a published campaign before editing.");return;}
  var campaign=existing||{id:next("b"),stage:"planned",caseIds:[],solutionIds:[],reviewNotes:"",reviewer:"",archived:false};
@@ -1724,6 +1728,10 @@ ui.modal="";persist();render();toast("Changes saved in this browser.");
 document.addEventListener("submit",function(ev){if(ev.target.matches(".feedback-reply-form")){ev.preventDefault();handleFeedbackReply(ev.target);return;}if(ev.target.matches(".inline-task-form")){ev.preventDefault();saveInlineTask(ev.target);return;}if(ev.target.matches("#modalForm")){ev.preventDefault();handleForm(ev.target);}});
 document.addEventListener("change",function(ev){
 var el=ev.target;
+if(el&&el.name==="mode"&&el.closest&&el.closest("#modalForm")?.dataset.form==="campaign"){
+ document.querySelectorAll(".campaign-mode-panel").forEach(function(panel){panel.style.display=panel.dataset.modePanel===el.value?"":"none";});
+ return;
+}
 if(el&&el.name==="solutionMode"){
  document.querySelectorAll(".run-mode-panel").forEach(function(panel){panel.style.display=panel.dataset.modePanel===el.value?"":"none";});
  return;
