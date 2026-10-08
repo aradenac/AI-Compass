@@ -690,19 +690,36 @@ return heading("Knowledge base","Guides, FAQs & charter","Search, sort, update a
 tools+'<div class="grid g2">'+(docs.map(function(g){return '<div class="card"><div class="row-between"><div class="tags">'+badge(g.type)+badge(g.status)+'</div><span class="muted small">'+E(g.date)+'</span></div>'+
 '<h3 style="margin:12px 0 7px">'+E(g.title)+'</h3><p class="muted small">'+E(g.body.slice(0,170))+(g.body.length>170?"…":"")+'</p><div class="row-between" style="margin-top:14px"><span class="muted small">Author: '+E(actor(g.owner))+'</span><div class="inline-actions">'+btn("Read","guideDetail",g.id,"sm")+(canEdit()?btn("Edit article","editGuide",g.id,"sm primary"):"")+'</div></div></div>';}).join("")||'<div class="empty">No articles match your filters.</div>')+'</div>';
 }
+function watchEvidence(id){return db.researchEvidence.filter(function(e){return e.signal===id;});}
+function forecastVisible(p){return canEdit()||p.status==="published";}
+function forecastNetSavings(p){
+var baseline=rec("tasks",p.task)?.baseline||0;
+return baseline>0?((baseline-Number(p.humanMinutes||0))*Number(p.hourlyRate||0)/60-Number(p.aiCost||0)):null;
+}
+function evidenceKind(p){return p.status==="published"?"Theoretical · published":"Theoretical · "+p.status;}
 function watchPage(){
-var status=ui.filters.watchStatus||"all",filtered=db.watch.filter(function(w){return status==="all"||w.status===status;});
-var candidates=db.components.filter(function(c){return c.status==="watching"||!c.accessible;});
-return heading("Signals","Technology watch","Track emerging models, providers and harnesses before any combined setup has benchmark evidence.",canEdit()?btn("+ Watch entry","newWatch","","primary")+btn("Technology catalog","nav","solutions"):"")+
-'<div class="grid g2">'+
-section("Signals under review",'<div class="filters"><select data-filter="watchStatus">'+[["all","All statuses"],["watching","Watching"],["pending","Pending"],["reviewed","Reviewed"]].map(function(x){return opt(x[0],x[1],status);}).join("")+'</select></div><div class="list">'+filtered.map(function(w){
-var c=rec("components",w.component);
-return '<div class="list-row"><div><div class="row">'+badge(w.kind)+badge(w.status)+(c?badge(c.type):"")+'</div><div class="name" style="margin-top:7px">'+linkAction(w.title,"watchDetail",w.id)+'</div><p class="muted small">'+E(w.summary)+'</p><div class="muted small">'+E(c?.name||"No component linked")+' · '+E(w.source)+' · '+E(w.date)+'</div></div>'+(canEdit()?btn(rec("components",w.component)?"Edit component":"Catalog item",rec("components",w.component)?"editComponent":"catalogFromWatch",rec("components",w.component)?w.component:w.id,"sm"):"")+'</div>';
-}).join("")+'</div>')+
-section("Unqualified technology components",'<div class="list">'+candidates.map(function(c){
-return '<div class="list-row"><div><strong>'+E(c.name)+'</strong><div class="tags" style="margin-top:4px">'+badge(c.type)+badge(c.status)+badge(c.accessible?"Accessible":"Not accessible")+'</div><p class="muted small">'+E(c.details||"")+'</p></div>'+(canEdit()?btn("Edit","editComponent",c.id,"sm"):"")+'</div>';
-}).join("")+'</div><p class="helper">A model, provider or harness can be tracked alone. It becomes part of an AI Solution only when a combined configuration is benchmarked.</p>')+'</div>'+
-'<div style="margin-top:18px">'+section("Public benchmarks, literature & estimates",researchEvidenceList(db.researchEvidence),canEdit()?btn("+ Register source / estimate","newResearch","","sm"):"")+'</div>';
+var status=ui.filters.watchStatus||"all",filtered=db.watch.filter(function(w){return status==="all"||w.status===status;})
+ .sort(function(a,b){return String(b.date).localeCompare(String(a.date));});
+var signals='<div class="filters"><select data-filter="watchStatus">'+[["all","All signals"],["watching","Under review"],["pending","Evidence collection"],["reviewed","Documented"]].map(function(x){return opt(x[0],x[1],status);}).join("")+'</select>'+badge(filtered.length+" signals")+'</div>'+
+'<div class="list">'+filtered.map(function(w){
+var evidence=watchEvidence(w.id),forecasts=db.proposals.filter(function(p){return p.watchIds.includes(w.id);});
+return '<div class="list-row"><div class="short"><div class="tags">'+badge(w.kind)+badge(w.status)+badge(evidence.length+" sources")+'</div>'+
+'<div style="margin:8px 0 4px">'+linkAction(w.title,"watchDetail",w.id)+'</div><p class="muted small">'+E(w.hypothesis||w.summary||"")+'</p>'+
+'<div class="muted small">'+E(w.date)+' · '+forecasts.length+' forecast(s) linked</div></div>'+
+'<div class="inline-actions">'+btn("Open evidence","watchDetail",w.id,"sm")+(canEdit()?btn("Build forecast","forecastFromWatch",w.id,"sm"):"")+'</div></div>';
+}).join("")+'</div>';
+var forecasts=db.proposals.filter(forecastVisible).sort(function(a,b){return String(b.updated).localeCompare(String(a.updated));});
+var estimates='<p class="muted small" style="margin-bottom:12px">These are <strong>predictions, not measured benchmark outcomes</strong>. Drafts remain editable; staged hypotheses can be compared, reviewed and explicitly published with their theoretical provenance intact.</p>'+
+simpleTable(["Configuration / task","Source basis","Forecast (quality, cost)","Lifecycle",""],forecasts.map(function(p){
+return '<tr>'+td(linkAction(p.name,"forecastDetail",p.id)+'<div class="muted small">'+E(rec("tasks",p.task)?.name||"Unassigned")+'</div>')+
+td(badge(p.watchIds.length+" signals")+' '+badge(p.confidence+" confidence"))+
+td('<span class="score">'+Number(p.quality||0)+'/100</span> · '+money(p.aiCost)+' <div class="muted small">Estimated, unverified</div>')+
+td(badge(p.status))+td(btn("Inspect","forecastDetail",p.id,"sm"))+'</tr>';
+}));
+return heading("Technology intelligence","Technology Watch","Gather credible signals, explicit hypotheses and sources; turn selected evidence into staged, task-specific configuration forecasts. Benchmark results remain a separate evidence class.")+
+'<div class="grid g2">'+section("Signals & hypotheses",signals,canEdit()?btn("+ Watch entry","newWatch","","primary"):"")+
+section("Public literature & estimates",'<p class="muted small">Sources belong to watch signals. Record them while drafting a watch entry or add them later.</p>'+researchEvidenceList(db.researchEvidence),canEdit()?btn("+ Standalone source","newResearch","","sm"):"")+'</div>'+
+'<div style="margin-top:20px">'+section("Theoretical configurations linked to tasks",estimates,canEdit()?btn("+ Build forecast","newForecast","","sm primary"):"")+'</div>';
 }
 function researchEvidenceList(items){
 return '<div class="list">'+(items.map(function(x){
