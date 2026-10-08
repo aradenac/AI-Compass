@@ -267,6 +267,25 @@ function ancestors(t){var a=[],seen={};while(t&&!seen[t]){seen[t]=true;var item=
 function descendants(id){var found=[id];for(var i=0;i<found.length;i++){children(found[i]).forEach(function(t){if(found.indexOf(t.id)<0)found.push(t.id);});}return found;}
 function runsForTask(id,published){var group=descendants(id);return db.runs.filter(function(r){var c=caseOf(r);return c&&group.includes(c.task)&&(!published||r.status==="published");});}
 function sRuns(id){return db.runs.filter(function(r){return r.solution===id&&r.status==="published";});}
+function comboSignature(refs,configuration,revision){return JSON.stringify([refs.model,refs.provider,refs.harness,configuration.trim(),revision.trim()]);}
+function findOrCreateBenchSolution(d){
+ var refs={model:d.modelComponent,provider:d.providerComponent,harness:d.harnessComponent};
+ var components=["model","provider","harness"].map(function(type){return db.components.find(function(c){return c.id===refs[type]&&c.type===type;});});
+ if(components.some(function(c){return !c;}))return {error:"Select an existing model, provider and harness."};
+ if(!String(d.configuration||"").trim())return {error:"Document the exact harness/model configuration."};
+ var signature=comboSignature(refs,d.configuration,d.solutionVersion||"1.0");
+ var found=db.solutions.find(function(s){return s.signature===signature;});
+ if(found)return {solution:found,created:false};
+ var sol={id:next("s"),name:components[0].name+" · "+components[1].name+" · "+components[2].name,
+  model:components[0].name,provider:components[1].name,harness:components[2].name,
+  componentRefs:refs,signature:signature,version:d.solutionVersion||"1.0",
+  accessible:d.comboAccessible==="yes",maturity:"experimental",publication:"draft",
+  cost:"Unknown",rate:0,skills:d.capabilities||"",config:d.configuration,description:"Experimental setup automatically registered from its first controlled benchmark run.",
+  limitations:"Qualification and review pending.",recommendation:"No official recommendation yet.",tags:["Benchmarked","Experimental"],
+  createdFromBenchmark:true,lastReviewed:"",supersededBy:""};
+ db.solutions.push(sol);
+ return {solution:sol,created:true};
+}
 function solutionStats(s,rs){var runs=rs||sRuns(s);return {count:runs.length,score:Math.round(avg(runs.map(function(r){return r.score;}))),accept:runs.length?Math.round(100*runs.filter(function(r){return r.accepted;}).length/runs.length):null,effort:Math.round(avg(runs.map(effort))),cost:avg(runs.map(function(r){return r.cost;}))};}
 function badge(v){var low=String(v||"").toLowerCase(),kind=/^(published|qualified|accepted|closed|accessible|active)$/.test(low)?"green":/^(draft|experimental|triage|review|watching|planned|evaluated)$/.test(low)?"amber":/^(failed|inaccessible|retired|superseded|rejected)$/.test(low)?"red":/^(candidate|new|pending)$/.test(low)?"blue":"";return '<span class="tag '+kind+'">'+E(v)+'</span>';}
 function actor(id){var u=rec("users",id);return u?u.name:"Unknown";}
@@ -660,14 +679,35 @@ function dialogCase(task,fromCase){
 var from=rec("cases",fromCase),t=rec("tasks",from?.task)||rec("tasks",task)||rec("tasks",ui.task)||db.tasks[4];
 openForm("Define reproducible Test Case","case",selectField("task","Associated engineering task",optionsFrom("tasks",function(x){return x.name;}),t.id,"full")+field("title","Test Case title",from?from.title+" · new challenge":"TC · New challenge","","full")+field("version","Case version",from?from.version+".1":"1.0")+selectField("protocol","Evaluation protocol",optionsFrom("protocols",function(x){return x.name+" · "+x.version;}),from?.protocol||"p1")+field("objective","What does this case challenge?",from?.objective||"","textarea","full")+field("inputs","Initial state / input files / environment",from?.inputs||"","textarea","full")+field("dod","Specific acceptance conditions (DoD)",from?.dod||"","textarea","full"),"","Create Test Case");
 }
-function dialogRun(preCase,preSolution,repeat){
-var orig=rec("runs",repeat),c=rec("cases",preCase)||rec("cases",orig?.case)||db.cases[0],s=rec("solutions",preSolution)||rec("solutions",orig?.solution)||db.solutions[0];
-var fields=selectField("case","Test Case",optionsFrom("cases",function(x){return x.title+" · "+(rec("tasks",x.task)?.name||"");}),c.id,"full")+
-selectField("solution","AI solution",optionsFrom("solutions",function(x){return x.name;}),s.id,"full")+
+function comboComponentOptions(type,chosen){
+return [["","Select "+type]].concat(db.components.filter(function(c){return c.type===type&&c.status!=="retired";}).map(function(c){return[c.id,c.name+(c.version?" · "+c.version:"")+(c.accessible?"":" (not accessible)")];}));
+}
+function dialogRun(preCase,preSolution,repeat,qualificationId){
+var q=rec("qualifications",qualificationId),orig=rec("runs",repeat),
+ c=rec("cases",preCase)||rec("cases",orig?.case)||db.cases.find(function(x){return q&&(!q.task||descendants(q.task).includes(x.task));})||db.cases[0],
+ s=rec("solutions",preSolution)||rec("solutions",orig?.solution),mode=s?"existing":"new",
+ candidate=q?.candidate||s?.componentRefs||{},
+ existing=db.solutions.filter(function(x){return db.runs.some(function(r){return r.solution===x.id;});});
+var setup='<div class="span2 note"><strong>AI Solution is produced by the benchmark.</strong> Choose a model, provider and harness below, then define the exact configuration. Saving the first run registers the combination; the same tested setup is reused on subsequent runs.</div>'+
+selectField("solutionMode","Benchmark setup",[["new","Assemble a new configuration (model + provider + harness)"],["existing","Repeat / compare an already benchmarked solution"]],mode,true)+
+'<div class="span2 run-mode-panel" data-mode-panel="new"'+(mode!=="new"?' style="display:none"':'')+'><div class="form-grid">'+
+selectField("modelComponent","Model",comboComponentOptions("model"),candidate.model||"",true)+
+selectField("providerComponent","Provider",comboComponentOptions("provider"),candidate.provider||"",true)+
+selectField("harnessComponent","Harness",comboComponentOptions("harness"),candidate.harness||"",true)+
+field("solutionVersion","Combined configuration revision",s?.version||"1.0")+
+selectField("comboAccessible","Company-accessible setup?",[["yes","Yes"],["no","No"]],s?.accessible?"yes":"no")+
+field("configuration","Exact parameters / prompts / tools / system instructions",s?.config||"","textarea","full")+
+field("capabilities","Agentic tools, skills and supported workflows",s?.skills||"","textarea","full")+
+'</div></div>'+
+'<div class="span2 run-mode-panel" data-mode-panel="existing"'+(mode!=="existing"?' style="display:none"':'')+'><div class="form-grid">'+
+selectField("solution","Already benchmarked AI Solution",existing.map(function(x){return[x.id,x.name+" · "+x.version];}),s?.id||existing[0]?.id,true)+
+'</div><p class="helper">The previous solution/configuration remains pinned. Different parameters, versions, provider or harness should be recorded as a new tested combination.</p></div>'+
+'<input type="hidden" name="qualification" value="'+E(qualificationId||"")+'">';
+var fields=selectField("case","Test Case",optionsFrom("cases",function(x){return x.title+" · "+(rec("tasks",x.task)?.name||"");}),c.id,true)+setup+
 selectField("protocol","Benchmark protocol",optionsFrom("protocols",function(x){return x.name+" · "+x.version;}),c.protocol)+
 selectField("accepted","DoD acceptance",[["yes","Accepted — mandatory DoD met"],["no","Failed / incomplete"]],orig?(orig.accepted?"yes":"no"):"yes")+
 field("score","Quality rubric score (0–100)",orig?.score??80,"number")+
-selectField("status","Publication",[["draft","Draft / staged"],["published","Publish now"]],orig?.status||"draft")+
+selectField("status","Run publication",[["draft","Draft / staged"],["published","Publish now"]],orig?.status||"draft")+
 field("prep","Human prep (minutes, estimate)",orig?.prep??10,"number")+
 field("steer","Steering (minutes, estimate)",orig?.steer??15,"number")+
 field("review","Review (minutes, estimate)",orig?.review??20,"number")+
@@ -683,7 +723,7 @@ field("prompt","Full prompt / initial instructions",orig?.prompt||"","textarea",
 field("transcript","Conversation / interaction trace",orig?.transcript||"","textarea","full")+
 field("artifacts","Output artifacts / references / input snapshots",orig?.artifacts||"","textarea","full")+
 field("notes","Reviewer notes / failure details",orig?.notes||"","textarea","full");
-openForm(repeat?"Repeat Test Case — independent new run":"Record a controlled benchmark run","run",fields,"",repeat?"Save repeated run":"Save benchmark run");
+openForm(repeat?"Repeat Test Case — independent run":"Configure & record benchmark","run",fields,"",repeat?"Record repeated run":"Record benchmark run");
 }
 function dialogSolution(id){
 var s=rec("solutions",id),edit=!!s;
