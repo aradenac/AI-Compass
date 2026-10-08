@@ -1521,6 +1521,14 @@ field("capabilities","Agent tools / skills planned",setup.capabilities||"","text
 '<div class="span2"><strong>Linked technology signals (optional, choose one or more)</strong>'+
 '<p class="muted small">Connect the hypotheses motivating this campaign. These links do not transform watch predictions into observed evidence.</p>'+
 '<div class="watch-link-list">'+(db.watch.length?forecastReferenceRows(db.watch,c?.watchIds||projection?.watchIds||[]):'<div class="muted small">No technology signals registered yet.</div>')+'</div></div>'+
+'<div class="span2"><h3>Setup guide</h3><p class="muted small">Choose an existing reference or register a new installation guide containing text, a URL or both. It will be preselected for the campaign executions.</p></div>'+
+selectField("setupGuideId","Preferred setup guide (optional during planning)",installationGuideOptions(
+ c?.frameworkId?"":findBenchSolutionForSetup(setup)?.id||"",c?.frameworkId||""),c?.setupGuideId||"",true)+
+'<details class="span2"><summary class="pointer"><strong>+ Register a new setup guide</strong></summary><div class="form-grid" style="margin-top:9px">'+
+field("campaignGuideTitle","Guide title","","text","full")+
+field("campaignGuideBody","Setup instructions (optional with URL)","","textarea","full")+
+field("campaignGuideUrl","Reference URL (optional with text)","","url","full")+
+'</div></details>'+
 selectField("owner","Campaign owner",db.users.filter(function(u){return u.role==="workgroup";}).map(function(u){return[u.id,u.name];}),c?.owner||currentUser)+
 field("notes","Context, constraints and campaign notes",c?.notes||projection?.uncertainty||"","textarea","full")+
 '<input type="hidden" name="forecastId" value="'+E(c?.forecastId||forecastId||"")+'"><input type="hidden" name="seedCaseId" value="'+E(caseId||"")+'">';
@@ -2010,6 +2018,11 @@ if(kind==="campaignReview"){
 }else if(kind==="campaign"){
  var existing=id?rec("campaigns",id):null,mode=d.mode==="solution_scope"?"solution_scope":"task_compare";
   var watchIds=db.watch.filter(function(w){return d["watch_"+w.id]==="yes";}).map(function(w){return w.id;});
+  var guideTitle=String(d.campaignGuideTitle||"").trim(),guideBody=String(d.campaignGuideBody||"").trim(),guideUrl=String(d.campaignGuideUrl||"").trim(),
+   selectedGuide=rec("guides",d.setupGuideId);
+  if(!validSetupUrl(guideUrl)){toast("Setup guide URL must use HTTP or HTTPS.");return;}
+  if((guideTitle&&!guideBody&&!guideUrl)||(!guideTitle&&(guideBody||guideUrl))){toast("A new guide needs a title and text and/or a URL.");return;}
+  if(d.setupGuideId&&(!selectedGuide||selectedGuide.type!=="Installation")){toast("Choose a registered setup guide.");return;}
  var setup={model:d.modelComponent||"",provider:d.providerComponent||"",harness:d.harnessComponent||"",
   configuration:d.configuration||"",version:d.version||"1.0",capabilities:d.capabilities||"",accessible:d.accessible==="yes"};
  if(mode==="task_compare"&&!rec("tasks",d.task)){toast("Choose the comparison task.");return;}
@@ -2020,13 +2033,20 @@ if(kind==="campaignReview"){
   if(participants.error){toast(participants.error);return;}
   if(mode==="solution_scope"&&!fw&&(["model","provider","harness"].some(function(k){return !rec("components",setup[k])||rec("components",setup[k]).type!==k;})||!setup.configuration.trim())){toast("Choose model, provider, harness and fixed configuration.");return;}
  if(existing&&existing.stage==="published"){toast("Reopen a published campaign before editing.");return;}
+  if(selectedGuide&&d.frameworkId&&selectedGuide.framework&&selectedGuide.framework!==d.frameworkId){toast("Setup guide belongs to another Framework.");return;}
+  if(selectedGuide&&!d.frameworkId&&selectedGuide.framework){toast("Framework-specific guide requires that Framework.");return;}
+  if(selectedGuide&&selectedGuide.solution&&mode==="solution_scope"&&!d.frameworkId&&selectedGuide.solution!==findBenchSolutionForSetup(setup)?.id){toast("Guide belongs to another AI configuration.");return;}
  var campaign=existing||{id:next("b"),stage:"planned",caseIds:d.seedCaseId?[d.seedCaseId]:[],solutionIds:[],reviewNotes:"",reviewer:"",archived:false};
  var before=existing?JSON.parse(JSON.stringify(existing)):null;
+  if(guideTitle&&(guideBody||guideUrl)){
+   var fixedSol=mode==="solution_scope"&&!fw?findBenchSolutionForSetup(setup):null;
+   selectedGuide=createSetupGuide(guideTitle,guideBody,guideUrl,fw?.id||"",fixedSol?.id||"");
+  }
  var desiredTask=mode==="task_compare"?d.task:"";
  if(existing&&campaignTrialsExistingOrCases(campaign)&&existing.mode!==mode){toast("Campaign mode cannot change after cases or sessions exist.");return;}
  Object.assign(campaign,{forecastId:d.forecastId||existing?.forecastId||"",title:req(d.title,"Campaign title"),purpose:req(d.purpose,"Objective"),
-  mode:mode,task:desiredTask,solutionSetup:setup,frameworkId:fw?.id||"",frameworkInstances:participants.instances,watchIds:watchIds,notes:d.notes||"",owner:d.owner||currentUser,updated:TODAY});
- if(existing&&before.stage==="review"&&["title","purpose","mode","task","solutionSetup","frameworkId","frameworkInstances","watchIds"].some(function(k){return JSON.stringify(before[k])!==JSON.stringify(campaign[k]);})){
+  mode:mode,task:desiredTask,solutionSetup:setup,frameworkId:fw?.id||"",frameworkInstances:participants.instances,setupGuideId:selectedGuide?.id||"",watchIds:watchIds,notes:d.notes||"",owner:d.owner||currentUser,updated:TODAY});
+ if(existing&&before.stage==="review"&&["title","purpose","mode","task","solutionSetup","frameworkId","frameworkInstances","setupGuideId","watchIds"].some(function(k){return JSON.stringify(before[k])!==JSON.stringify(campaign[k]);})){
  campaign.stage="active";campaign.status="active";campaign.reviewer="";campaign.reviewNotes="";
 }
  if(!existing)db.campaigns.push(campaign);else revision("Campaign",campaign.id,before,campaign);
