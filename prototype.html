@@ -1017,6 +1017,7 @@ if(!canEdit())return;
 var p=rec("proposals",id);if(!p)return;
 var legal={draft:"staged",staged:"reviewed",reviewed:"published"};
 if(legal[p.status]!==nextStage){toast("Invalid projection lifecycle transition.");return;}
+if(nextStage==="reviewed"&&!String(p.reviewNotes||"").trim()){toast("A documented review is required. Edit this forecast to add review notes first.");return;}
 var error=forecastValidity(p);
 if(error){toast(error);return;}
 var before=JSON.parse(JSON.stringify(p));
@@ -1210,7 +1211,19 @@ openModal("Campaign · "+b.title,html);
 }
 function detailsWatch(id){
 var w=rec("watch",id);if(!w)return;
-openModal("Watch signal",'<div class="tags">'+badge(w.kind)+badge(w.status)+'</div><h3 style="margin:14px 0 8px">'+E(w.title)+'</h3><p>'+E(w.summary)+'</p><p class="muted small" style="margin-top:10px">Source: '+E(w.source)+' · '+E(w.date)+'</p>',btn("Close","close","","")+(canEdit()?btn(rec("components",w.component)?"Edit catalog item":"Add to catalog",rec("components",w.component)?"editComponent":"catalogFromWatch",rec("components",w.component)?w.component:id,"")+btn("Add evidence","newResearchForWatch",id,"")+btn("Edit signal","editWatch",id,"primary"):""));
+var sources=watchEvidence(id),forecasts=db.proposals.filter(function(p){return p.watchIds.includes(id)&&forecastVisible(p);});
+var html='<div class="tags">'+badge(w.kind)+' '+badge(w.status)+' '+badge(sources.length+" literature sources")+'</div>'+
+'<h3 style="margin:14px 0 8px">'+E(w.title)+'</h3>'+
+'<h3 style="margin:13px 0 7px">Hypothesis & expected benefit</h3><p class="text-block">'+E(w.hypothesis||w.summary||"")+'</p>'+
+'<p class="muted small">'+E(w.potential||"Expected activities not specified")+'</p>'+
+'<h3 style="margin:13px 0 7px">Assumptions</h3><div class="note">'+E(w.assumptions||"Not documented")+'</div>'+
+'<h3 style="margin:16px 0 8px">Public literature and evidence ('+sources.length+')</h3>'+
+sources.map(function(e){return '<div class="list-row"><div><strong>'+E(e.title)+'</strong><div class="muted small">'+E(e.type)+' · '+E(e.source)+' · '+E(e.confidence)+' confidence</div><p class="small">'+E(e.assessment)+'</p><p class="muted small">Limits: '+E(e.limitations)+'</p></div>'+(canEdit()?btn("Edit source","editResearch",e.id,"sm"):"")+'</div>';}).join("")+
+'<div class="note" style="margin:12px 0">Sources are external claims or estimates, not reproduced experiments. Turn one or several watch hypotheses into a staged theoretical configuration linked to an engineering task.</div>'+
+'<h3 style="margin:15px 0 7px">Linked theoretical forecasts</h3>'+
+(forecasts.map(function(p){return '<div class="list-row">'+linkAction(p.name,"forecastDetail",p.id)+' '+badge(p.status)+'</div>';}).join("")||'<p class="muted small">No forecast yet.</p>');
+var footer=btn("Close","close","","")+(canEdit()?btn("+ Add source","newResearchForWatch",id,"")+btn("Edit hypothesis","editWatch",id,"")+btn("Build theoretical forecast","forecastFromWatch",id,"primary"):"");
+openModal("Technology Watch · "+w.title,html,footer);
 }
 function detailsRevision(id){
 if(!canEdit())return;var rev=db.revisions.find(function(x){return x.id===id;});if(!rev)return;
@@ -1306,8 +1319,14 @@ if(kind==="task"||kind==="taskEdit"){
  var forecast=id?rec("proposals",id):{id:next("forecast"),status:"draft",author:currentUser,reviewer:"",linkedSolution:"",created:new Date().toISOString().slice(0,10)};
  if(!forecast)return;
  var previous=id?JSON.parse(JSON.stringify(forecast)):null;
+ if(id&&forecast.status==="published"){toast("Published projections are immutable. Create a new forecast for changes.");return;}
  Object.assign(forecast,{name:req(d.name,"Configuration name"),task:d.task,watchIds:watchIds,componentRefs:refs,config:req(d.config,"Configuration"),quality:toNum(d.quality),acceptance:toNum(d.acceptance),autonomy:toNum(d.autonomy),humanMinutes:toNum(d.humanMinutes),aiCost:toNum(d.aiCost),hourlyRate:toNum(d.hourlyRate),confidence:d.confidence,revision:d.revision||"1.0",rationale:req(d.rationale,"Rationale"),uncertainty:req(d.uncertainty,"Uncertainty"),reviewNotes:d.reviewNotes||"",updated:new Date().toISOString().slice(0,10)});
- if(id){if(forecast.status==="published"){toast("Published projection is immutable. Create a new forecast revision.");return;}revision("Theoretical forecast",id,previous,forecast);}
+ if(id){
+  var keyFields=["name","task","watchIds","componentRefs","config","quality","acceptance","autonomy","humanMinutes","aiCost","hourlyRate","confidence","rationale","uncertainty"];
+  var materiallyChanged=keyFields.some(function(k){return JSON.stringify(previous[k])!==JSON.stringify(forecast[k]);});
+  if(materiallyChanged&&previous.status!=="draft"){forecast.status="draft";forecast.reviewer="";forecast.reviewNotes="";toast("Material forecast changes require a new staging and review cycle.");}
+  revision("Theoretical forecast",id,previous,forecast);
+ }
  else db.proposals.push(forecast);
  ui.page="watch";event("Forecast",(id?"Updated":"Created")+" draft theoretical forecast: "+forecast.name,true);
 }else if(kind==="research"||kind==="researchEdit"){
