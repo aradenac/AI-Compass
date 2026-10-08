@@ -5,7 +5,7 @@
 
 ## 1. Campaign is the main work item
 
-Each Campaign has: stable ID, title, objective/hypothesis, owner, notes, mode, fixed scope, linked Test Cases, resumable sessions, recorded runs, review, publication state and audit history.
+Each Campaign has: stable ID, title, objective/hypothesis, owner, notes, mode, fixed scope, **zero or more linked technological signals (Technology Watch entries)**, linked Test Cases, resumable sessions, recorded runs, review, publication state and audit history. Signals can be selected at creation/editing. Creating a campaign to validate a forecast preselects its linked watch signals; changes to the campaign links are reviewable and traceable.
 
 | Mode | Fixed at campaign level | Can vary between Test Case executions | Typical question |
 | --- | --- | --- | --- |
@@ -18,9 +18,9 @@ A new AI Solution is registered from its **first measured benchmark run**, not f
 
 ## 2. Experimenter's guided Test Case record
 
-**Step 1 — Campaign:** specify objective, mode, fixed setup or task, ownership, context and assumptions.
+**Step 1 — Campaign:** specify objective, mode, fixed setup or task, ownership, context and assumptions. Select **one, several or no technological signals** from the Technology Watch catalog. These are motivations and provenance, not proof of measured performance.
 
-**Step 2 — Test Cases:** define or reuse an engineering challenge with task reference, inputs, protocol, expected outputs and DoD. In task-centred mode, Test Cases are restricted to the fixed task. Start a separate execution session for each trial; multiple attempts are allowed.
+**Step 2 — Test Cases:** define or reuse an engineering challenge with task reference, inputs, constraints, expected outputs and DoD. No separate benchmark protocol is selected. In task-centred mode, Test Cases are restricted to the fixed task. Start a separate execution session for each trial; multiple attempts are allowed. The Test Design page groups Test Cases by task and presents explicit parent/fork lineage; forking allocates the next available child version on save.
 
 **Step 3 — Installation and setup:** select a reusable **Installation guide** from Guides & Charter or create one from the execution form. Guides may be linked to an existing AI Solution, or remain reusable/unassigned. The selector offers generic guides and guides linked to the **exact selected AI Solution configuration** (including model/provider/harness, versions and settings), never guides associated only by superficially matching component names. As the setup changes, the guide choices refresh; a newly created guide can remain unassigned if the configuration has not yet produced a measured AI Solution. Record actual installation timestamp, configured environment, human installation/preparation duration and deviations from the guide. **Do not capture the initial prompt here**; changing runtime options and supplying documents to the agent are interactions.
 
@@ -36,7 +36,7 @@ A new AI Solution is registered from its **first measured benchmark run**, not f
 
 Measurement labels expose guidance on mouse hover or keyboard focus, and the full explanation is available to assistive technology. Time sliders use a **nonlinear 0–7-day range**, paired with exact minute fields and dynamic minutes/hours/days displays. Scores use 0–100 sliders. See [Non-Functional Requirements](non-functional-requirements.md) for acceptance criteria.
 
-Closing the execution produces an independent **Benchmark Run** and preserves the full timeline and snapshots of the original task, Test Case, protocol, AI configuration, components and campaign. **Failed results remain auditable evidence.** Closing an execution does not close the campaign.
+Closing the execution produces an independent **Benchmark Run** and preserves the full timeline and snapshots of the original task, Test Case, AI configuration, components and campaign (including linked signal snapshots). **Failed results remain auditable evidence.** Closing an execution does not close the campaign.
 
 ## 3. Campaign lifecycle
 
@@ -60,20 +60,23 @@ The **Dashboard is read-only** with columns Planned / In progress / Under review
 
 ## 4. Source types and validity
 
+A selected technological signal is a referenced **hypothesis**, not a benchmark outcome. Its ID and source snapshot are stored in new run records. Published campaign views must not disclose the details of unpublished watch signals to non-workgroup readers. Pre-existing runs retain any historical protocol metadata solely for backward compatibility; new run forms do not request or create it.
+
+
 Technology Watch predictions are **THEORETICAL**. If a staged forecast is selected for validation, the prototype starts a prefilled Campaign. Its guided run stores a snapshot of the original forecast. Changes from proposed configuration must be justified in the setup notes. Forecast evidence is never silently relabeled as measured.
 
-When comparing AI configurations, disclose Test Case/protocol coverage and sample sizes, and distinguish missing tests from failures. Human-time fields are **approximately declared** and should never be represented as stopwatch measurements. Costs are estimated and need appropriate valuation assumptions.
+When comparing AI configurations, disclose Test Case coverage, execution conditions and sample sizes, and distinguish missing tests from failures. Human-time fields are **approximately declared** and should never be represented as stopwatch measurements. Costs are estimated and need appropriate valuation assumptions.
 
 ## 5. Local demo and manual checks
 
 Run `python3 -m http.server 8080`, open `http://localhost:8080/prototype.html`, sign in as **Maya Laurent** and follow:
 
-1. Create a task-centred campaign, choose a task, add a Test Case, then open the campaign.
+1. Create a task-centred campaign, choose a task and two or more existing Technology Watch signals, add a Test Case, then open the campaign. Edit the campaign and verify multiple checked signals remain selected; confirm the linked signals are shown in campaign details.
 2. Start the Test Case; select or create an installation guide and record installation start time and human setup duration. Confirm generic guides are available, guides from a different AI configuration are excluded, and switching between existing configurations refreshes the options.
 3. Record the first prompt and a correction as two interactions with different timestamps, types and durations; introduce an input file and a skill at a chosen interaction. Confirm they remain in the interaction timeline (not the installation record) after page reload. Focus an ⓘ help icon with the keyboard and verify its explanation appears.
 4. Close the execution as **Failed**, with unknown tokens and a flat-rate cost, then repeat using scaled token counts and a run-specific EUR amount. Inspect the evidence timeline.
 5. Close the campaign. Review and publish as **Maya Laurent**; optionally switch to **Sofia Ramos** for another review perspective.
 6. Reopen the campaign, add further tests, archive and restore; verify previous run evidence remains intact.
-7. Repeat with **Solution-centred**, using a fixed setup across Test Cases belonging to different tasks.
+7. Repeat with **Solution-centred**, using a fixed setup across Test Cases belonging to different tasks. Separately, fork an existing Test Case twice: check that versions are distinct (e.g., 1.0.1 and 1.0.2), that both appear as children of the source, and that a nested fork receives 1.0.1.1. Check that no Protocol tab or protocol selector is displayed.
 
 **Implementation caveat:** Single-file browser prototype, mocked users/roles and data, no actual LLM calls, no background timer, no binary evidence storage. Paths and URLs are recorded as references, not uploaded content. Local data is not shared between browsers or machines. Real production security and artifact storage remain out of scope.
