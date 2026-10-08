@@ -271,6 +271,20 @@ db.proposals.forEach(function(p){
  if(!p.componentRefs)p.componentRefs={model:"",provider:"",harness:""};
  if(!p.componentSnapshots)p.componentSnapshots=Object.fromEntries(["model","provider","harness"].map(function(k){return[k,JSON.parse(JSON.stringify(db.components.find(function(c){return c.id===p.componentRefs[k];})||{}))];}));
 });
+// Campaigns are the operational unit of benchmarking; migrate older demo records non-destructively.
+if(!Array.isArray(db.campaignTrials))db.campaignTrials=[];
+db.campaigns.forEach(function(c,i){
+ if(!c.mode)c.mode=i===0?"task_compare":"solution_scope";
+ if(!c.stage)c.stage=c.status==="published"?"published":c.status==="closed"?"review":c.status==="active"?"active":"planned";
+ if(!c.task)c.task=c.mode==="task_compare"?(rec("cases",c.caseIds?.[0])?.task||"t5"):"";
+ if(!c.notes)c.notes=c.purpose||"";
+ if(!c.reviewNotes)c.reviewNotes="";
+ if(!c.solutionSetup)c.solutionSetup={model:"",provider:"",harness:"",configuration:"",version:"1.0",capabilities:"",accessible:true};
+ if(c.mode==="solution_scope"&&!c.solutionSetup.model){var oldSol=rec("solutions",c.solutionIds?.[0]);if(oldSol)c.solutionSetup={model:oldSol.componentRefs?.model||"",provider:oldSol.componentRefs?.provider||"",harness:oldSol.componentRefs?.harness||"",configuration:oldSol.config||"",version:oldSol.version||"1.0",capabilities:oldSol.skills||"",accessible:oldSol.accessible};}
+ if(!Array.isArray(c.caseIds))c.caseIds=[];
+ if(!c.updated)c.updated=TODAY;
+ if(!c.owner)c.owner="u1";
+});
 if(!db.revisions)db.revisions=[];
 db.tasks.forEach(function(t,i){if(!Number.isFinite(t.order))t.order=i;});
 db.solutions.forEach(function(x,i){if(!x.lastReviewed)x.lastReviewed=i===5?"2026-07-20":"2026-09-28";if(!x.supersededBy)x.supersededBy="";});
