@@ -681,7 +681,8 @@ return '<div class="list-row"><div><div class="row">'+badge(w.kind)+badge(w.stat
 }).join("")+'</div>')+
 section("Unqualified technology components",'<div class="list">'+candidates.map(function(c){
 return '<div class="list-row"><div><strong>'+E(c.name)+'</strong><div class="tags" style="margin-top:4px">'+badge(c.type)+badge(c.status)+badge(c.accessible?"Accessible":"Not accessible")+'</div><p class="muted small">'+E(c.details||"")+'</p></div>'+(canEdit()?btn("Edit","editComponent",c.id,"sm"):"")+'</div>';
-}).join("")+'</div><p class="helper">A model, provider or harness can be tracked alone. It becomes part of an AI Solution only when a combined configuration is benchmarked.</p>')+'</div>';
+}).join("")+'</div><p class="helper">A model, provider or harness can be tracked alone. It becomes part of an AI Solution only when a combined configuration is benchmarked.</p>')+'</div>'+
+'<div style="margin-top:18px">'+section("Public benchmarks, literature & estimates",researchEvidenceList(db.researchEvidence),canEdit()?btn("+ Register source / estimate","newResearch","","sm"):"")+'</div>';
 }
 function researchEvidenceList(items){
 return '<div class="list">'+(items.map(function(x){
