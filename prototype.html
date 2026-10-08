@@ -1456,6 +1456,41 @@ for(var index of indexes){
 }
 return {sources:changes};
 }
+function frameworkParticipantRow(index,item){
+ var x=item||{},key=String(index);
+ return '<div class="card tight" data-framework-participant="'+E(key)+'" style="margin:10px 0">'+
+ '<div class="row-between"><strong>AI participant #'+(Number(index)+1)+'</strong><button class="btn sm" type="button" data-act="removeFrameworkParticipant">Remove participant</button></div>'+
+ '<input type="hidden" name="participantId_'+key+'" value="'+E(x.id||"")+'"><div class="form-grid" style="margin-top:9px">'+
+ field("participantLabel_"+key,"Role / participant label",x.label||"","text","full")+
+ selectField("participantModel_"+key,"Model",comboComponentOptions("model"),x.model||"")+
+ selectField("participantProvider_"+key,"Provider",comboComponentOptions("provider"),x.provider||"")+
+ selectField("participantHarness_"+key,"Harness",comboComponentOptions("harness"),x.harness||"")+
+ field("participantVersion_"+key,"Participant configuration revision",x.version||"1.0")+
+ selectField("participantAccessible_"+key,"Company access",[["yes","Accessible"],["no","Not accessible"]],x.accessible===false?"no":"yes")+
+ field("participantConfiguration_"+key,"Exact participant setup parameters",x.configuration||"","textarea","full")+
+ field("participantCapabilities_"+key,"Available tools and capabilities",x.capabilities||"","textarea","full")+'</div></div>';
+}
+function collectFrameworkParticipants(d,form,existing){
+ var rows=Array.from(form.querySelectorAll("[data-framework-participant]")),out=[],used=new Set();
+ for(var row of rows){
+  var key=row.dataset.frameworkParticipant,refs={};
+  for(var k of ["model","provider","harness"]){
+   var id=d["participant"+k[0].toUpperCase()+k.slice(1)+"_"+key],component=rec("components",id);
+   if(!component||component.type!==k)return {error:"Every participant must specify a valid Model, Provider and Harness."};
+   refs[k]=id;
+  }
+  var label=String(d["participantLabel_"+key]||"").trim(),configuration=String(d["participantConfiguration_"+key]||"").trim();
+  if(!label||!configuration)return {error:"Every framework participant needs a role label and exact configuration."};
+  if(used.has(label.toLowerCase()))return {error:"Each participant role must be distinct."};
+  used.add(label.toLowerCase());
+  var prev=(existing||[]).find(function(x){return x.id===d["participantId_"+key];});
+  out.push(Object.assign({id:prev?.id||next("participant"),label:label},refs,{
+   version:d["participantVersion_"+key]||"1.0",configuration:configuration,
+   capabilities:d["participantCapabilities_"+key]||"",accessible:d["participantAccessible_"+key]==="yes"
+  }));
+ }
+ return out.length?{instances:out}:{error:"Select at least one AI participant for the Framework."};
+}
 function dialogCampaign(id,forecastId,solutionId,caseId){
 if(!canEdit())return;
 var c=rec("campaigns",id),projection=rec("proposals",forecastId),sourceSolution=rec("solutions",solutionId),sourceCase=rec("cases",caseId),
@@ -1463,11 +1498,16 @@ setup=c?.solutionSetup||(sourceSolution?{model:sourceSolution.componentRefs?.mod
 var body='<div class="span2 note">Step 1 — Define the experimental campaign. Test Cases, execution sessions and interaction timelines are added <strong>after</strong> creation. You can edit, close, review or reopen a campaign later.</div>'+
 field("title","Campaign title",c?.title||(projection?"Validate forecast · "+projection.name:sourceSolution?"Evaluate "+sourceSolution.name:sourceCase?"Compare configurations on "+sourceCase.title:""),"text","full")+
 field("purpose","Campaign objective / hypothesis",c?.purpose||(projection?"Test the literature-derived forecast on controlled task challenges. "+projection.rationale:""),"textarea","full")+
+selectField("frameworkId","Orchestration framework (optional)",comboComponentOptions("framework",c?.frameworkId||""),c?.frameworkId||"",true)+
+'<div class="span2" data-framework-panel'+(c?.frameworkId?'':' style="display:none"')+'>'+
+'<div class="note">Define one or more independently configured <strong>Model + Provider + Harness</strong> participants. The Framework coordinates them; each tested trio is measured as an individual AI Solution.</div>'+
+'<div data-framework-participants>'+(c?.frameworkInstances?.length?c.frameworkInstances.map(function(v,i){return frameworkParticipantRow(i,v);}).join(""):frameworkParticipantRow(0,null))+'</div>'+
+'<button type="button" class="btn sm" data-act="addFrameworkParticipant">+ Add AI participant</button></div>'+
 selectField("mode","Experiment strategy",[["solution_scope","Solution-centred · one AI configuration, multiple tasks and Test Cases"],["task_compare","Task-centred · one task, compare different AI configurations"]],c?.mode||(sourceSolution?"solution_scope":"task_compare"),true)+
 '<div class="span2 campaign-mode-panel" data-mode-panel="task_compare"'+((c?.mode||(sourceSolution?"solution_scope":"task_compare"))==="task_compare"?"":' style="display:none"')+'>'+
 selectField("task","Fixed task for all comparisons",db.tasks.filter(function(t){return t.baseline>0;}).map(function(t){return[t.id,t.name];}),c?.task||projection?.task||sourceCase?.task||"t5",true)+'</div>'+
 '<div class="span2 note">For <strong>solution-centred</strong> campaigns, choose the fixed model, provider and harness here. In task-centred campaigns, the AI setup will be chosen independently for every experiment.</div>'+
-'<div class="span2 campaign-mode-panel" data-mode-panel="solution_scope"'+((c?.mode||(sourceSolution?"solution_scope":"task_compare"))==="solution_scope"?"":' style="display:none"')+'><div class="form-grid">'+
+'<div class="span2 campaign-mode-panel" data-mode-panel="solution_scope"'+((c?.mode||(sourceSolution?"solution_scope":"task_compare"))==="solution_scope"&&!c?.frameworkId?"":' style="display:none"')+'><div class="form-grid">'+
 selectField("modelComponent","Fixed model",comboComponentOptions("model"),setup.model||"")+
 selectField("providerComponent","Fixed provider",comboComponentOptions("provider"),setup.provider||"")+
 selectField("harnessComponent","Fixed harness",comboComponentOptions("harness"),setup.harness||"")+
@@ -1951,15 +1991,19 @@ if(kind==="campaignReview"){
   configuration:d.configuration||"",version:d.version||"1.0",capabilities:d.capabilities||"",accessible:d.accessible==="yes"};
  if(mode==="task_compare"&&!rec("tasks",d.task)){toast("Choose the comparison task.");return;}
  if(existing&&existing.caseIds?.length&&mode==="task_compare"&&existing.task!==d.task){toast("The fixed task cannot change after Test Cases are attached.");return;}
- if(mode==="solution_scope"&&(["model","provider","harness"].some(function(k){return !rec("components",setup[k]);})||!setup.configuration.trim())){toast("Choose model, provider, harness and fixed configuration.");return;}
+ var fw=rec("components",d.frameworkId);
+  if(d.frameworkId&&(!fw||fw.type!=="framework"||fw.status==="retired")){toast("Select an active Framework.");return;}
+  var participants=d.frameworkId?collectFrameworkParticipants(d,form,existing?.frameworkInstances):{instances:[]};
+  if(participants.error){toast(participants.error);return;}
+  if(mode==="solution_scope"&&!fw&&(["model","provider","harness"].some(function(k){return !rec("components",setup[k])||rec("components",setup[k]).type!==k;})||!setup.configuration.trim())){toast("Choose model, provider, harness and fixed configuration.");return;}
  if(existing&&existing.stage==="published"){toast("Reopen a published campaign before editing.");return;}
  var campaign=existing||{id:next("b"),stage:"planned",caseIds:d.seedCaseId?[d.seedCaseId]:[],solutionIds:[],reviewNotes:"",reviewer:"",archived:false};
  var before=existing?JSON.parse(JSON.stringify(existing)):null;
  var desiredTask=mode==="task_compare"?d.task:"";
  if(existing&&campaignTrialsExistingOrCases(campaign)&&existing.mode!==mode){toast("Campaign mode cannot change after cases or sessions exist.");return;}
  Object.assign(campaign,{forecastId:d.forecastId||existing?.forecastId||"",title:req(d.title,"Campaign title"),purpose:req(d.purpose,"Objective"),
-  mode:mode,task:desiredTask,solutionSetup:setup,watchIds:watchIds,notes:d.notes||"",owner:d.owner||currentUser,updated:TODAY});
- if(existing&&before.stage==="review"&&["title","purpose","mode","task","solutionSetup","watchIds"].some(function(k){return JSON.stringify(before[k])!==JSON.stringify(campaign[k]);})){
+  mode:mode,task:desiredTask,solutionSetup:setup,frameworkId:fw?.id||"",frameworkInstances:participants.instances,watchIds:watchIds,notes:d.notes||"",owner:d.owner||currentUser,updated:TODAY});
+ if(existing&&before.stage==="review"&&["title","purpose","mode","task","solutionSetup","frameworkId","frameworkInstances","watchIds"].some(function(k){return JSON.stringify(before[k])!==JSON.stringify(campaign[k]);})){
  campaign.stage="active";campaign.status="active";campaign.reviewer="";campaign.reviewNotes="";
 }
  if(!existing)db.campaigns.push(campaign);else revision("Campaign",campaign.id,before,campaign);
@@ -2243,8 +2287,10 @@ if(el?.name==="costMode"){
  if(area)area.style.display=el.value==="amount"?"":"none";
  return;
 }
-if(el&&el.name==="mode"&&el.closest&&el.closest("#modalForm")?.dataset.form==="campaign"){
- document.querySelectorAll(".campaign-mode-panel").forEach(function(panel){panel.style.display=panel.dataset.modePanel===el.value?"":"none";});
+if(el?.closest?.("#modalForm")?.dataset.form==="campaign"&&["mode","frameworkId"].includes(el.name)){
+ var form=el.closest("form"),mode=form.querySelector('[name="mode"]')?.value,fw=form.querySelector('[name="frameworkId"]')?.value;
+ form.querySelectorAll(".campaign-mode-panel").forEach(function(panel){panel.style.display=panel.dataset.modePanel===mode&&(panel.dataset.modePanel!=="solution_scope"||!fw)?"":"none";});
+ var fp=form.querySelector("[data-framework-panel]");if(fp)fp.style.display=fw?"":"none";
  return;
 }
 if(el?.matches?.("[data-source-search]")){
@@ -2290,6 +2336,13 @@ if(act==="qualRetreat"){transitionQualification(id,"back");return;}
 if(act==="qualReopen"){requalify(id);return;}
 if(act==="qualNewRun"){var q=rec("qualifications",id),tc=q&&db.cases.find(function(c){return !q.task||descendants(q.task).includes(c.task);});if(q){if(!tc&&q.task){toast("This task has no Test Case yet. Define one before recording a run.");dialogCase(q.task);}else dialogRun(tc?.id||"",q.solution,"",q.id);}return;}
 
+if(act==="addFrameworkParticipant"){
+ var form=b.closest("#modalForm"),list=form?.querySelector("[data-framework-participants]");
+ if(list){var indices=Array.from(list.querySelectorAll("[data-framework-participant]")).map(function(row){return Number(row.dataset.frameworkParticipant);});
+  var i=indices.length?Math.max(...indices)+1:0;list.insertAdjacentHTML("beforeend",frameworkParticipantRow(i,null));}
+ return;
+}
+if(act==="removeFrameworkParticipant"){b.closest("[data-framework-participant]")?.remove();return;}
 if(act==="campaignDetail"){detailsCampaign(id);return;}
 if(act==="campaignPeek"){campaignSummary(id);return;}
 if(act==="openCampaign"){ui.page="benchmark";ui.modal="";render();detailsCampaign(id);return;}
