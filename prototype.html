@@ -238,6 +238,15 @@ db.qualifications.forEach(function(q){
  {id:"demo_provider_gateway",type:"provider",name:"Enterprise Inference Gateway",version:"Evaluation",publication:"published",status:"watching",accessible:true,details:"Illustrative enterprise-hosted inference provider for future qualification."},
  {id:"demo_harness_pipeline",type:"harness",name:"Agent Pipeline Runner",version:"Experimental",publication:"published",status:"watching",accessible:false,details:"Illustrative agent harness; not yet bench-tested."}
 ].forEach(function(c){if(!db.components.some(function(x){return x.id===c.id;}))db.components.push(c);});
+if(!Array.isArray(db.researchEvidence))db.researchEvidence=[
+ {id:"research1",title:"Agent coding benchmark — illustrative public result",type:"Independent benchmark",component:"",signal:"w1",source:"Mock external benchmark (no real URL)",date:"2026-10-03",confidence:"low",assessment:"Potential coding strength; tested configuration and methodology require verification.",limitations:"Illustrative observation; not a controlled internal run.",author:"u1"},
+ {id:"research2",title:"Provider pricing note — illustrative estimate",type:"Vendor claim",component:"",signal:"w2",source:"Mock provider bulletin",date:"2026-10-06",confidence:"low",assessment:"Potential value improvement, subject to benchmarking.",limitations:"Unverified promotional claim.",author:"u5"}
+];
+if(!Array.isArray(db.feedbackMessages))db.feedbackMessages=[
+ {id:"msg1",feedback:"f1",visibility:"public",author:"u1",date:"2026-10-06T09:15:00",body:"Thanks for reporting this; we are investigating context limits."},
+ {id:"msg2",feedback:"f1",visibility:"internal",author:"u5",date:"2026-10-06T11:40:00",body:"Reproduce with a large-repo Test Case and capture the exact router configuration."},
+ {id:"msg3",feedback:"f2",visibility:"public",author:"u5",date:"2026-10-07T10:10:00",body:"Your hardware-in-the-loop benchmark proposal has been noted."}
+];
 if(!db.revisions)db.revisions=[];
 db.tasks.forEach(function(t,i){if(!Number.isFinite(t.order))t.order=i;});
 db.solutions.forEach(function(x,i){if(!x.lastReviewed)x.lastReviewed=i===5?"2026-07-20":"2026-09-28";if(!x.supersededBy)x.supersededBy="";});
@@ -674,6 +683,25 @@ section("Unqualified technology components",'<div class="list">'+candidates.map(
 return '<div class="list-row"><div><strong>'+E(c.name)+'</strong><div class="tags" style="margin-top:4px">'+badge(c.type)+badge(c.status)+badge(c.accessible?"Accessible":"Not accessible")+'</div><p class="muted small">'+E(c.details||"")+'</p></div>'+(canEdit()?btn("Edit","editComponent",c.id,"sm"):"")+'</div>';
 }).join("")+'</div><p class="helper">A model, provider or harness can be tracked alone. It becomes part of an AI Solution only when a combined configuration is benchmarked.</p>')+'</div>';
 }
+function researchEvidenceList(items){
+return '<div class="list">'+(items.map(function(x){
+var comp=rec("components",x.component),signal=rec("watch",x.signal);
+return '<div class="list-row"><div><div class="row">'+badge(x.type)+' '+badge("Confidence: "+x.confidence)+'</div><div style="margin-top:7px"><strong>'+E(x.title)+'</strong></div><div class="muted small">'+E(x.source)+' · '+E(x.date)+(comp?' · '+E(comp.name):"")+(signal?' · '+E(signal.title):"")+'</div><p class="muted small" style="margin-top:6px">'+E(x.assessment)+'</p><p class="muted small">Limitations: '+E(x.limitations)+'</p></div>'+(canEdit()?btn("Edit","editResearch",x.id,"sm"):"")+'</div>';
+}).join("")||'<div class="empty">No external sources or estimates registered.</div>')+'</div>';
+}
+function dialogResearch(id,watchId){
+if(!canEdit())return;
+var e=rec("researchEvidence",id),w=rec("watch",watchId);
+openForm(e?"Edit external evidence":"Register literature or performance estimate",e?"researchEdit":"research",
+field("title","Source / assessment title",e?.title||"","text","full")+
+selectField("type","Evidence category",[["Independent benchmark","Independent benchmark"],["Vendor claim","Provider/vendor claim"],["Research paper","Research paper"],["Expert estimate","Workgroup estimate"],["Other","Other literature"]],e?.type||"Independent benchmark")+
+selectField("confidence","Confidence",[["low","Low / unverified"],["medium","Medium"],["high","High"]],e?.confidence||"low")+
+selectField("signal","Related technology watch signal",[["","None"]].concat(db.watch.map(function(x){return[x.id,x.title];})),e?.signal||watchId||"")+
+selectField("component","Related catalog component",[["","Not linked"]].concat(db.components.map(function(x){return[x.id,x.type+": "+x.name];})),e?.component||w?.component||"")+
+field("source","Source URL, publication or citation",e?.source||"","text","full")+
+field("assessment","Findings, claimed performance and/or predictions",e?.assessment||"","textarea","full")+
+field("limitations","Methodology, uncertainty and assumptions",e?.limitations||"","textarea","full"),id,e?"Save evidence":"Register source");
+}
 function feedbackPage(){
 var status=ui.filters.feedbackStatus||"all",f=db.feedback.filter(function(x){return status==="all"||x.status===status;}).sort(function(a,b){return b.date.localeCompare(a.date);});
 var rows=f.map(function(x){var target=rec("tasks",x.target)||rec("solutions",x.target);return '<tr>'+td('<strong>'+E(x.title)+'</strong><div class="muted small">'+E(x.body.slice(0,120))+'</div>')+td(badge(x.type))+td(target?E(target.name):"—")+td(E(actor(x.author))+'<div class="muted small">'+E(rec("users",x.author)?.bu||"")+'</div>')+td(badge(x.status))+td(canEdit()?btn("Triage","feedbackDetail",x.id,"sm"):btn("Read","feedbackDetail",x.id,"sm"))+'</tr>';});
@@ -1042,6 +1070,11 @@ if(kind==="task"||kind==="taskEdit"){
 }else if(kind==="watch"){
  var w=id?rec("watch",id):{id:next("w")};Object.assign(w,{title:req(d.title,"Title"),kind:d.kind,status:d.status,component:d.component||"",solution:w?.solution||"",summary:req(d.summary,"Summary"),source:d.source,date:new Date().toISOString().slice(0,10)});
  if(!id)db.watch.push(w);ui.page="watch";event("Watch",(id?"Updated":"Added")+" technology signal: "+w.title);
+}else if(kind==="research"||kind==="researchEdit"){
+ var item=kind==="researchEdit"?rec("researchEvidence",id):{id:next("research")},oldEvidence=kind==="researchEdit"?JSON.parse(JSON.stringify(item)):null;
+ Object.assign(item,{title:req(d.title,"Title"),type:d.type,confidence:d.confidence,component:d.component||"",signal:d.signal||"",source:req(d.source,"Source reference"),assessment:req(d.assessment,"Assessment"),limitations:req(d.limitations,"Limitations"),date:new Date().toISOString().slice(0,10),author:currentUser});
+ if(kind==="research")db.researchEvidence.push(item);else revision("External evidence",id,oldEvidence,item);
+ ui.page="watch";event("Research",(kind==="research"?"Registered":"Updated")+" external evidence: "+item.title,true);
 }else if(kind==="component"||kind==="componentEdit"){
  var comp=id?rec("components",id):{id:next("component")},prevComp=id?JSON.parse(JSON.stringify(comp)):null;
  if(prevComp&&prevComp.type!==d.type&&db.solutions.some(function(sol){return sol.componentRefs?.[prevComp.type]===comp.id;})){toast("A referenced component cannot change type; create a new component instead.");return;}
@@ -1134,6 +1167,9 @@ if(act==="newGuide"){dialogGuide();return;}
 if(act==="editGuide"){dialogGuide(id);return;}
 if(act==="newWatch"){dialogWatch();return;}
 if(act==="editWatch"){dialogWatch(id);return;}
+if(act==="newResearch"){dialogResearch();return;}
+if(act==="newResearchForWatch"){dialogResearch("",id);return;}
+if(act==="editResearch"){dialogResearch(id);return;}
 if(act==="newCampaign"){dialogCampaign();return;}
 if(act==="publishRun"){if(!editable())return;var r=rec("runs",id);if(r){r.status="published";ui.modal="";saveEvent("Run","Published benchmark run "+id);}return;}
 if(act==="publishGuide"){if(!editable())return;var g=rec("guides",id);if(g){g.status="published";g.date=new Date().toISOString().slice(0,10);ui.modal="";saveEvent("Guide","Published document: "+g.title);}return;}
