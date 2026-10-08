@@ -50,8 +50,8 @@ The workgroup requires a distinct information architecture, not the end-user `Di
 | Task management | Maintain the task tree in place while still inspecting the engineer-facing navigation and task evidence. |
 | Technology watch | Create evidence-backed hypotheses, select previously registered citations or add new ones, derive theoretical forecasts and manage their publication state. |
 | Technology catalog | Maintain individual models, providers and harnesses; it is **not** a benchmark launch point. |
-| Test design | Create, update and inspect reusable Test Cases and versioned benchmark protocols. |
-| Benchmark workspace | **Campaign-centred operational entry point**: create/edit campaigns, select task/solution comparison mode, attach Test Cases, log execution steps and outcomes, close, review/publish and reopen campaigns. |
+| Test design | Create and inspect reusable, versioned Test Cases; navigate the parent–fork tree and assign collision-free fork versions. |
+| Benchmark workspace | **Campaign-centred operational entry point**: create/edit campaigns, link any number of Technology Watch signals, select task/solution comparison mode, attach Test Cases, log execution steps and outcomes, close, review/publish and reopen campaigns. |
 | Results explorer | **The analytical entry point** for published run evidence, coverage and task- or solution-centric comparison; distinct from the operational workbench. |
 | Recommendations | Inspect and maintain evidence-linked decisions and their publication state. |
 | Guides & charter | Maintain, filter, search, sort, edit and publish knowledge articles. |
@@ -144,8 +144,8 @@ A TC should document:
 - The associated task and purpose of the challenge.
 - Initial state, input files/assets, dependencies, environment, and constraints.
 - Expected output and applicable DoD/acceptance criteria.
-- Any TC-specific settings or deviations from the common protocol.
-- Its version and evolution history.
+- Any TC-specific test conditions, constraints and variations needed to interpret results.
+- Its version, optional direct parent (when forked) and evolution history.
 
 **New TCs can be added at any time specifically to challenge, invalidate, or strengthen earlier conclusions.** They expand experimental coverage; they do not replace earlier results.
 
@@ -155,6 +155,8 @@ The system must distinguish:
 - **New run of an existing TC:** a repeat under documented conditions to observe variability, reliability, or changes over time.
 
 There is no mandatory quota of TCs per task. A task can start with one and accumulate more.
+
+**Fork lineage in Test Design.** An independent Test Case is a root (for example, version `1.0`). Forking creates a **distinct child Test Case** with a stable technical ID, its parent's ID, and a version built by appending a new integer to the parent's full version: `1.0 → 1.0.1` and `1.0.2`, or `1.0.1 → 1.0.1.1`. The suffix is assigned at save time and must not collide with existing versions for that engineering task. Children inherit their parent's task; the previous cases, versions and measured runs remain intact. A task-grouped navigable tree presents the parent/fork hierarchy. Older cases without explicit parent metadata are treated as roots rather than given speculative ancestry. The original `TC1` naming in demo titles is descriptive, not a globally unique key.
 
 ## 7. Campaign-centred benchmarking and comparison modes
 
@@ -174,11 +176,11 @@ The member chooses **one engineering task** as the fixed comparison scope. Sever
 
 Question: **Which tested configuration is appropriate for this task, with what evidence, effort and cost?**
 
-Comparisons must report the Test Cases, protocol conditions and sample sizes; unmatched challenge sets must not be treated as like-for-like rankings.
+Comparisons must report the Test Cases, experimental conditions and sample sizes; unmatched challenge sets must not be treated as like-for-like rankings.
 
 ### Lifecycle and ownership
 
-A campaign defines its experimental objective, strategy, fixed task or fixed AI setup, owner, notes and linked Test Cases/runs. Its operational lifecycle is:
+A campaign defines its experimental objective, strategy, fixed task or fixed AI setup, owner, notes, **zero or more linked Technology Watch signals**, and Test Cases/runs. Signals are selected by checkboxes at creation or editing and may be associated with a forecast. Links preserve references without copying or transforming Technology Watch estimates into measured results. New benchmark run records pin a snapshot of the campaign's selected signals; changing links while a campaign is Under review requires a new review cycle. Its operational lifecycle is:
 
 **Planned → In progress → Under review → Published**
 
@@ -193,21 +195,13 @@ Any workgroup member, **including the campaign creator**, may document and appro
 
 The daily Dashboard shows the four campaign columns and progress/ownership **read-only**, while the Benchmark Workspace is the actual control surface.
 
-## 8. Benchmark protocol, run, and evidence
+## 8. Benchmark run and evidence
 
-### Benchmark Protocol
+### Experimental conditions without a separate protocol object
 
-A protocol describes **how an evaluation is conducted** and defines comparison invariants where applicable:
+The active Test Design interface deliberately does **not** expose benchmark protocols or a separate protocol catalog. The Test Case itself defines the challenge, input state, environment, constraints and Definition of Done. The guided benchmark session captures configuration, installation guide, timestamped interactions, durations, reviewer assessments, and artifacts. For meaningful comparison, engineers must still document relevant differences in conditions and samples, but no additional versioned protocol must be created or selected.
 
-- Experimental objective and relevant task/TC.
-- Setup and preparation; input context and permissible resources.
-- Scope of agent autonomy (manual, semi-autonomous, autonomous).
-- Interaction, interruption, re-prompting, and intervention rules.
-- Required deliverables and DoD, including pass/fail requirements and graded criteria.
-- Measurement instructions, evaluation rubric, and applicable cost assumptions.
-- Repetition requirements where useful.
-
-A common protocol helps compare solutions fairly; variations must be recorded.
+Historical records may retain legacy protocol identifiers and snapshots for backward compatibility; they are not requested in new forms and are not presented as a current workflow.
 
 ### Guided workgroup execution
 
@@ -216,18 +210,18 @@ A Test Case in an **open campaign** follows a guided, resumable sequence.
 1. **Installation and setup:** select a reusable **Installation guide** from Guides & Charter or register one inline. A guide may optionally be associated with an AI Solution; its version/snapshot is retained in the run. A linked guide is applicable to an **exact versioned AI configuration**, while unlinked installation guides remain reusable across solutions. Record actual model/provider/harness setup, local installation start, environment/deployment notes and human setup duration. Prompting the agent, submitting inputs or activating runtime skills/options is **not installation**.
 2. **Timed interactions (at least one):** initial prompt/instructions are logged as the first interaction. Subsequent prompts, input documents, enabled skills/options, reviews and corrections are timestamped with independent human intervention and agent runtime/waiting durations plus intermediate evidence. **Total agent runtime is derived by summing those iteration durations**, not independently entered in Step 5.
 3. **Results, artifacts and metrics:** record accepted/failed DoD, Quality and Information Utility scores (0–100, supported by free-form evaluation), **optional total tokens** with explicit multiplier, and one cost classification: run-specific numeric EUR amount, flat-rate/subscription (cost unallocated), or unknown. Flat-rate/unknown must not be treated as €0. Record final human review and correction durations, one canonical set of produced output references, and optional additional notes. No redundant separate input/output token fields, additional runtime input, duplicated deliverable descriptions or utility-related loose text fields.
-4. **Close run:** pin Test Case, protocol, solution configuration, installation guide, interaction timeline, outputs and known/unknown metrics. Failed runs remain auditable. Closing a run does not close the campaign.
+4. **Close run:** pin Test Case, solution configuration, installation guide, interaction timeline, outputs and known/unknown metrics. Failed runs remain auditable. Closing a run does not close the campaign.
 
-Installation guides are knowledge-base items separate from benchmark protocols, and may be shared across AI Solutions. In this prototype they are text procedures and references, not binary uploaded packages.
+Installation guides are reusable knowledge-base items, and may be shared across AI Solutions. In this prototype they are text procedures and references, not binary uploaded packages.
 
 ### Benchmark Run
 
-A run is one execution of **one fully specified combined setup on one TC**, using a specified protocol/version. For a setup without existing evidence, the run **creates its AI Solution identity** and stores the component references, their versions, the complete configuration, and experimental snapshots. For subsequent runs, the existing exact solution may be reused. Multiple runs of the same pairing are allowed and useful.
+A run is one execution of **one fully specified combined setup on one Test Case**, with documented execution conditions. For a setup without existing evidence, the run **creates its AI Solution identity** and stores the component references, their versions, the complete configuration, and experimental snapshots. For subsequent runs, the existing exact solution may be reused. Multiple runs of the same pairing are allowed and useful.
 
 A run records:
 
 1. Exact solution/model/provider/harness/configuration versions.
-2. Test case, protocol, run date, and relevant environment/input revisions.
+2. Test Case (including fork lineage when available), run date, and relevant environment/input revisions.
 3. Initial prompt/instructions and any subsequent interactions.
 4. Execution trace, interruptions, re-prompts, failures, and interventions.
 5. Produced deliverables and results against acceptance criteria.
@@ -241,7 +235,7 @@ A run records:
 
 Each run should provide:
 
-- A **reproducibility package**: the inputs, prompts, versions, configuration, environment, protocol, and dependencies needed to recreate experimental conditions.
+- A **reproducibility package**: the inputs, prompts, versions, configuration, environment, and dependencies needed to recreate experimental conditions.
 - An **evidence package**: traces, outputs, tests, cost records, reviews, corrections, observations, and relevant provenance supporting the reported results.
 
 A reproducible setup does **not** guarantee identical outputs from stochastic AI systems. Repeated runs characterize that variability.
@@ -456,13 +450,12 @@ These are functional entities/relationships, **not a mandated physical database 
 | Concept | Function |
 | --- | --- |
 | Task Node | A stable, editable node in the engineering activity tree, with parent/children and metadata. |
-| Test Case | A concrete, versioned experimental challenge linked to a task. Not a task-tree level. |
-| Benchmark Protocol | The versioned method, invariants, acceptance criteria, and measurement rules. |
+| Test Case | A concrete, versioned experimental challenge linked to a task, optionally a child fork of another Test Case. Not a task-tree level. |
 | AI Model / Provider / Harness | Versioned catalog components. |
 | AI Solution | Versioned and uniquely identifiable combination of model, provider, harness, configuration and capabilities, registered from its **first benchmark run**; never merely an untested candidate. |
-| Benchmark Run | One solution × one TC × one protocol execution, with conditions and observations. |
+| Benchmark Run | One AI solution × one Test Case execution, including recorded conditions, observations and the campaign’s pinned technological signals. |
 | Campaign Trial Session | In-progress step-by-step Test Case execution: initial setup, timestamped iterative human/agent interventions, interim artifacts, and eventual accepted/failed outcome. |
-| Benchmark Campaign | **Primary workgroup process**: objective, comparison mode, fixed task or fixed AI setup, owner, lifecycle, Test Case membership, resumable sessions, runs, closure and peer review. |
+| Benchmark Campaign | **Primary workgroup process**: objective, comparison mode, fixed task or fixed AI setup, linked watch signals, owner, lifecycle, Test Case membership, resumable sessions, runs, closure and review. |
 | Evidence | Inputs, traces, reviews, artifacts, provenance, test results, and cost records from controlled runs. |
 | External Research Evidence | Reusable canonical literature/source records with citation, type, confidence, scope and limitations, distinct from internal runs; not owned by just one Watch Entry. |
 | Watch-Source Link | Many-to-many references linking shared external sources to Watch Entries without copying their content. |
@@ -506,7 +499,7 @@ Prioritize the **correct knowledge and experimental model** before advanced dash
 
 - Independent workgroup catalogs of **models, providers and harnesses**, including inaccessible and as-yet untested candidates; AI Solutions appear after the first recorded benchmark run.
 - Editable engineering task hierarchy and transversal properties.
-- Test-case and benchmark protocol definitions.
+- Test Case definitions and traceable fork/version lineage.
 - Manual benchmark runs with measurable results and complete evidence attachments.
 - Solution-centric and task-centric exploration/comparison.
 - Traceable evaluations and published recommendations.
@@ -531,14 +524,14 @@ Prioritize the **correct knowledge and experimental model** before advanced dash
 - Integration with engineering systems such as repositories, CI, issue trackers, test environments, and agent harnesses.
 - Repeatable campaigns and continuous requalification following new models, releases, or test cases.
 
-Automation is an **evolution of the same Benchmark Run / Evidence model**, not a separate evaluation system. Manual and automated runs should remain comparable where protocols allow.
+Automation is an **evolution of the same Benchmark Run / Evidence model**, not a separate evaluation system. Manual and automated runs should remain comparable when task challenges and recorded execution conditions permit.
 
 ## 18. Explicitly open design decisions
 
 The following have **not** been specified or mandated yet:
 
 - Exact scoring algorithms, metric weights, confidence thresholds, aggregation and normalization methods.
-- Detailed benchmark protocol templates and test-set design requirements.
+- Detailed test-set design requirements and experimental comparability guidance.
 - Inheritance and override semantics for task properties, including historical version snapshots.
 - Exact qualification maturity labels, feedback triage statuses, and contribution moderation policy.
 - Information-density measurement methodology and handling of unreliable external benchmark claims.
