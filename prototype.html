@@ -288,6 +288,10 @@ db.proposals.forEach(function(p){
  if(!p.componentSnapshots)p.componentSnapshots=Object.fromEntries(["model","provider","harness"].map(function(k){return[k,JSON.parse(JSON.stringify(db.components.find(function(c){return c.id===p.componentRefs[k];})||{}))];}));
 });
 // Campaigns are the operational unit of benchmarking; migrate older demo records non-destructively.
+if(!db.guides.some(function(g){return g.type==="Installation";})){
+ db.guides.push({id:"guide_install_mock",title:"Example CLI environment installation guide",type:"Installation",status:"draft",
+ body:"Illustrative only: document OS prerequisites, installation commands, environment setup and how to verify the agent is ready. Replace with validated instructions.",owner:"u1",date:"2026-10-08",solution:""});
+}
 if(!Array.isArray(db.campaignTrials))db.campaignTrials=[];
 if(!db.campaigns.some(function(c){return c.id==="demo_campaign_planned";})){
  db.campaigns.push({id:"demo_campaign_planned",title:"Plan: agent autonomy for intermittent driver bugs",
@@ -983,7 +987,7 @@ var type=ui.filters.guideType||"all",status=ui.filters.guideStatus||"all",sort=u
 var docs=db.guides.filter(function(g){return (canEdit()||g.status==="published")&&(type==="all"||g.type===type)&&(status==="all"||g.status===status)&&(g.title+" "+g.body).toLowerCase().includes(query);})
  .sort(function(a,b){return sort==="alpha"?a.title.localeCompare(b.title):sort==="oldest"?String(a.date).localeCompare(String(b.date)):String(b.date).localeCompare(String(a.date));});
 var tools='<div class="filters"><input class="input" data-filter="guideSearch" value="'+E(ui.filters.guideSearch||"")+'" placeholder="Search article text / title…">'+
-'<select data-filter="guideType">'+[["all","All article types"],["Charter","Charter"],["Guide","Guide"],["FAQ","FAQ"],["Training","Training"]].map(function(x){return opt(x[0],x[1],type);}).join("")+'</select>'+
+'<select data-filter="guideType">'+[["all","All article types"],["Charter","Charter"],["Guide","Guide"],["Installation","Installation guide"],["FAQ","FAQ"],["Training","Training"]].map(function(x){return opt(x[0],x[1],type);}).join("")+'</select>'+
 '<select data-filter="guideStatus">'+[["all","All publication states"],["published","Published"],["draft","Draft"]].map(function(x){return opt(x[0],x[1],status);}).join("")+'</select>'+
 '<select data-filter="guideSort">'+[["newest","Most recent"],["oldest","Oldest"],["alpha","Alphabetical"]].map(function(x){return opt(x[0],x[1],sort);}).join("")+'</select>'+badge(docs.length+" articles")+'</div>';
 return heading("Knowledge base","Guides, FAQs & charter","Search, sort, update and publish documentation. Each article revision is attributable and retained in the activity history.",canEdit()?btn("+ New article","newGuide","","primary"):"")+
@@ -1233,10 +1237,11 @@ field("body","Context, observations and proposal","","textarea","full"),"","Subm
 function dialogGuide(id){
 var g=rec("guides",id);
 openForm(g?"Edit document":"Create knowledge document","guide",
-selectField("type","Document type",[["Charter","Charter"],["Guide","User guide"],["FAQ","FAQ"],["Training","Training"]],g?.type||"Guide")+
+selectField("type","Document type",[["Charter","Charter"],["Guide","User guide"],["Installation","Installation guide"],["FAQ","FAQ"],["Training","Training"]],g?.type||"Guide")+
 selectField("status","Publication",[["draft","Draft"],["published","Published"]],g?.status||"draft")+
 field("title","Title",g?.title||"","text","full")+
-field("body","Document text",g?.body||"","textarea","full"),id,g?"Save document":"Create document");
+selectField("solution","Related measured AI Solution (optional)",[["","Reusable / unassigned"]].concat(db.solutions.map(function(x){return[x.id,x.name];})),g?.solution||"")+
+field("body","Installation / deployment procedure, prerequisites and verification",g?.body||"","textarea","full"),id,g?"Save document":"Create document");
 }
 function watchSourceRow(i,e){
 return '<div class="watch-source-row muted-panel" data-source-index="'+i+'"><div class="row-between"><strong class="small">Source '+(i+1)+'</strong>'+badge(e?.confidence||"unverified")+'</div>'+
@@ -1425,27 +1430,34 @@ selectField("case","Reusable Test Case",available.map(function(x){return[x.id,x.
 '<div class="span2 note">Attaching does not duplicate a Test Case, alter the original, or change its existing experimental evidence.</div>',
 id,"Attach to campaign");
 }
+function installationGuideOptions(solutionId){
+return [["","Select a referenced installation guide"]].concat(db.guides.filter(function(g){return g.type==="Installation"&&(!g.solution||!solutionId||g.solution===solutionId);})
+ .map(function(g){return[g.id,g.title+(g.solution?" · linked to solution":" · reusable")];}));
+}
 function campaignTrialStart(campaignId,caseId){
 var c=rec("campaigns",campaignId),tc=rec("cases",caseId);
 if(!c||!tc||c.stage!=="active"||!canEdit()||!c.caseIds.includes(caseId))return;
-var fixed=c.mode==="solution_scope",setup=c.solutionSetup||{},suggested=tc.inputs||"",sourceForecast=rec("proposals",c.forecastId),predicted=sourceForecast?.componentRefs||{};
-var fields='<div class="span2 note">Step 3 — Record the <strong>initial experimental setup</strong> and start time. This is not a software installation guide. Every field is attached to this execution only.</div>'+
+var fixed=c.mode==="solution_scope",setup=c.solutionSetup||{},sourceForecast=rec("proposals",c.forecastId),predicted=sourceForecast?.componentRefs||{};
+var fields='<div class="span2 note">Step 3 — <strong>Initial installation / deployment</strong>: record which installation guide was used, actual environment, setup time and start timestamp. Prompts, documents supplied to the agent, skills activated and options changed belong to the subsequent timed interactions, including the first one.</div>'+
 '<input type="hidden" name="case" value="'+E(tc.id)+'"><div class="span2"><strong>'+E(tc.title)+'</strong><p class="muted small">'+E(rec("tasks",tc.task)?.name||"")+' · DoD: '+E(tc.dod)+'</p></div>'+
-(fixed?'<div class="span2 note"><strong>Fixed campaign solution:</strong> '+["model","provider","harness"].map(function(k){return E(rec("components",setup[k])?.name||"Not set");}).join(" · ")+'</div>':
+(fixed?'<div class="span2 note"><strong>Fixed campaign AI setup:</strong> '+["model","provider","harness"].map(function(k){return E(rec("components",setup[k])?.name||"Not set");}).join(" · ")+'</div>':
 selectField("existingSolution","Optional already benchmarked AI Solution",[["","New configuration for this Test Case"]].concat(db.solutions.filter(function(x){return db.runs.some(function(r){return r.solution===x.id;});}).map(function(x){return[x.id,x.name+" · "+x.version];})),"",true)+
 selectField("modelComponent","Model",comboComponentOptions("model"),predicted.model||"")+
 selectField("providerComponent","Provider",comboComponentOptions("provider"),predicted.provider||"")+
 selectField("harnessComponent","Harness",comboComponentOptions("harness"),predicted.harness||"")+
-field("version","Configuration version","1.0")+
-field("configuration","Model / harness settings used in this experiment",sourceForecast?.config||"","textarea","full")+
-field("capabilities","Agent tools, skills and allowed integrations","","textarea","full"))+
-field("startedAt","Configuration / experiment start date and time",campaignLocalTime(),"datetime-local")+
-field("setupMinutes","Human preparation duration (minutes)","","number")+
-field("initialPrompt","Initial prompt / instructions actually supplied","","textarea","full")+
-field("inputDocuments","Input documents, file paths, versions and source references",suggested,"textarea","full")+
-field("providedSkills","Provided skills, tools and contextual knowledge","","textarea","full")+
-field("setupNotes","Experimental setup notes, constraints and environment","","textarea","full");
-openForm("Step 3 · Initial configuration","campaignTrialSetup",fields,campaignId,"Save setup → interactions");
+guidedField("version","AI configuration version","1.0","text",null,"Version of the specific model/provider/harness/settings combination used in this experiment.")+
+guidedField("configuration","AI solution setup parameters",sourceForecast?.config||"","textarea","full","Record actual versioned model/provider/harness configuration. Later prompt changes or option toggles go in timed interactions.")+
+guidedField("capabilities","Available tools / integrations (deployed)","","textarea","full","Available environment capabilities after installation, not the instructions or context subsequently supplied to the agent."))+
+guidedField("startedAt","Installation start date and time",campaignLocalTime(),"datetime-local",null,"Local wall-clock start of the installation/setup activity. Subsequent interactions cannot be earlier than this timestamp.")+
+durationField("setupMinutes","Human installation / preparation time (minutes)",0,"Active human time preparing/installing the environment and verifying readiness. Do not include prompting, agent runtime or later review. 0–10,080 minutes (7 days).")+
+'<div class="span2"><h3>Installation guide</h3><p class="muted small">Guides are reusable knowledge-base documents, optionally associated with an AI Solution; selecting a guide does not mean the guide itself was authored during this run.</p></div>'+
+selectField("installationGuide","Guide used for setup",installationGuideOptions(""),"","true")+
+'<details class="span2"><summary class="pointer"><strong>+ Create a new installation guide</strong></summary><div class="form-grid" style="margin-top:9px">'+
+guidedField("newGuideTitle","New guide title","","text","full","Name the reusable installation/deployment procedure, e.g. Ubuntu + agent CLI setup.")+
+guidedField("newGuideBody","Installation steps, prerequisites and verification","","textarea","full","List actual prerequisites and deployment steps; this document is added to Guides & Charter for reuse.")+
+'</div></details>'+
+guidedField("setupNotes","Installation deviations / deployment environment (optional)","","textarea","full","Record OS, machine, deviations from the selected guide and environment constraints. If validating a Technology Watch forecast, document deviations from its proposed configuration here.");
+openForm("Step 3 · Installation & setup","campaignTrialSetup",fields,campaignId,"Save setup → interactions");
 }
 function campaignTrialInteraction(id){
 var t=rec("campaignTrials",id),c=t&&rec("campaigns",t.campaign);
@@ -1934,7 +1946,7 @@ if(kind==="task"||kind==="taskEdit"){
  var f={id:next("f"),author:currentUser,type:d.type,target:d.target,title:req(d.title,"Title"),body:req(d.body,"Description"),status:"new",linked:"",date:new Date().toISOString().slice(0,10)};
  db.feedback.push(f);ui.page="feedback";event("Feedback","New "+f.type.toLowerCase()+": "+f.title);
 }else if(kind==="guide"){
- var g=id?rec("guides",id):{id:next("g")},prevGuide=id?JSON.parse(JSON.stringify(g)):null;Object.assign(g,{title:req(d.title,"Title"),type:d.type,status:d.status,body:req(d.body,"Document"),owner:currentUser,date:new Date().toISOString().slice(0,10)});
+ var g=id?rec("guides",id):{id:next("g")},prevGuide=id?JSON.parse(JSON.stringify(g)):null;Object.assign(g,{title:req(d.title,"Title"),type:d.type,status:d.status,solution:d.solution||"",body:req(d.body,"Document"),owner:currentUser,date:new Date().toISOString().slice(0,10)});
  if(!id)db.guides.push(g);else revision("Guide",id,prevGuide,g);ui.page="knowledge";event("Guide",(id?"Updated":"Created")+" "+g.type.toLowerCase()+": "+g.title,g.status!=="published");
 }else if(kind==="qualification"||kind==="qualificationEdit"){
  if(d.solution&&!db.runs.some(function(r){return r.solution===d.solution;})){toast("Choose an already benchmarked solution or leave it blank.");return;}
