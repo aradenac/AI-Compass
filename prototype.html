@@ -480,10 +480,16 @@ function publicWatchLinks(ids){
  return (ids||[]).filter(function(id){return rec("watch",id)?.publication==="published";});
 }
 function publicCampaignRecord(c){
- var copy=JSON.parse(JSON.stringify(c));copy.watchIds=publicWatchLinks(c.watchIds);return copy;
+ var copy=JSON.parse(JSON.stringify(c));copy.watchIds=publicWatchLinks(c.watchIds);
+ if(copy.setupGuideId&&rec("guides",copy.setupGuideId)?.status!=="published")copy.setupGuideId="";
+ return copy;
 }
 function publicRunRecord(run){
  var copy=JSON.parse(JSON.stringify(run));
+ if(copy.initialSetup?.installationGuideSnapshot?.status!=="published"&&copy.initialSetup){
+  copy.initialSetup.installationGuideId="";
+  copy.initialSetup.installationGuideSnapshot=null;
+ }
  if(copy.campaignSnapshot){
   copy.campaignSnapshot.watchIds=publicWatchLinks(copy.campaignSnapshot.watchIds);
   copy.campaignSnapshot.watchSnapshots=(copy.campaignSnapshot.watchSnapshots||[]).filter(function(w){return publicWatchLinks([w.id]).length;});
@@ -1795,7 +1801,12 @@ r.tokens===null||r.tokens===undefined?"Tokens unknown":fmt(r.tokens)+" total tok
 '<div class="grid g2" style="margin-top:12px">'+stat("Information utility / density",r.utility+"/100","Declared usefulness of relevant/correct/actionable information")+stat("Agent runtime",displayMinutes(r.duration),"Sum of logged agent durations")+'</div><h3 style="margin:16px 0 7px">Observed side effects</h3><pre class="code">'+E(r.sideEffects||"None recorded")+'</pre><h3 style="margin:16px 0 7px">Pinned configuration / version at run time</h3><pre class="code">'+E(s?.config||"")+'</pre>'+
 forecastPanel+(r.initialSetup?'<h3 style="margin:17px 0 8px">Step-by-step experiment timeline</h3>'+
 '<div class="note"><strong>Installation/setup:</strong> '+E(r.initialSetup.startedAt)+' · '+displayMinutes(r.initialSetup.setupMinutes)+' human setup'+
-'<p class="small"><strong>Installation guide:</strong> '+E(r.initialSetup.installationGuideSnapshot?.title||"Not recorded for this legacy run")+'</p>'+
+'<p class="small"><strong>Installation guide:</strong> '+
+ ((canEdit()||r.initialSetup.installationGuideSnapshot?.status==="published")?
+ E(r.initialSetup.installationGuideSnapshot?.title||"Not recorded for this legacy run")+
+ (r.initialSetup.installationGuideSnapshot?.url&&validSetupUrl(r.initialSetup.installationGuideSnapshot.url)?
+ ' · <a href="'+E(r.initialSetup.installationGuideSnapshot.url)+'" target="_blank" rel="noopener noreferrer">Open setup reference ↗</a>':""):
+ "Unpublished reference")+'</p>'+
 '<p class="small" style="margin-top:8px"><strong>Setup notes:</strong> '+E(r.initialSetup.setupNotes)+'</p></div>'+
 ((r.initialSetup.inputDocuments||r.initialSetup.providedSkills)?'<div class="note" style="margin-top:7px"><strong>Legacy interaction input summary (not installation):</strong><p class="small">Documents: '+E(r.initialSetup.inputDocuments||"—")+'</p><p class="small">Skills/options: '+E(r.initialSetup.providedSkills||"—")+'</p></div>':"")+
 simpleTable(["Iteration / date-time","Human effort","Agent runtime","Action & observations"],(r.interactions||[]).map(function(v,i){
