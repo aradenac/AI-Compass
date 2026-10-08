@@ -983,13 +983,13 @@ var html='<div class="row-between"><div>'+badge(r.status)+" "+badge(r.accepted?"
 '<h3 style="margin:16px 0 7px">Artifacts / evidence references</h3><pre class="code">'+E(r.artifacts)+'</pre>'+
 '<h3 style="margin:16px 0 7px">Review and conclusions</h3><p class="text-block">'+E(r.notes)+'</p>'+
 '<div class="note warn" style="margin-top:16px">This run is synthetic. File names are illustrative references, not downloadable real artifacts. A production deployment must preserve versioned files and complete logs.</div>';
-var foot=btn("Close","close","","")+(canEdit()?btn("Repeat this case","repeatRun",r.id,"")+ (r.status==="draft"?btn("Publish run","publishRun",r.id,"primary"):""):"");
+var foot=btn("Close","close","","")+(canEdit()&&ui.page==="benchmark"?btn("Repeat this case","repeatRun",r.id,"")+ (r.status==="draft"?btn("Publish run","publishRun",r.id,"primary"):""):"");
 openModal("Benchmark evidence · "+r.id,html,foot);
 }
 function detailsCase(id){
 var c=rec("cases",id);if(!c||(!canEdit()&&c.status!=="published"))return;var t=rec("tasks",c.task),p=rec("protocols",c.protocol),rs=db.runs.filter(function(r){return r.case===c.id;});
 var html='<div class="row-between">'+badge(c.status)+' '+badge("v"+c.version)+'</div><p style="margin:14px 0">'+E(c.objective)+'</p><h3>Engineering task</h3><p class="small">'+E(t?.name||"")+'</p><h3 style="margin:13px 0 6px">Inputs and test conditions</h3><pre class="code">'+E(c.inputs)+'</pre><h3 style="margin:13px 0 6px">Acceptance / DoD</h3><pre class="code">'+E(c.dod)+'</pre><h3 style="margin:13px 0 6px">Protocol</h3><p class="muted small">'+E(p?.name||"")+' · '+E(p?.autonomy||"")+'</p><hr class="divider"><h3>Recorded benchmark runs</h3>'+simpleTable(["Solution","Observed quality","Publication",""],rs.map(function(r){return '<tr>'+td(E(rec("solutions",r.solution)?.name||r.solution))+td('<span class="score">'+r.score+'/100</span>')+td(badge(r.status))+td(btn("Evidence","runDetail",r.id,"sm"))+'</tr>';}));
-openModal(c.title,html,btn("Close","close","","")+(canEdit()?btn("Fork new challenge","forkCase",c.id,"")+btn("Run this TC","newRunForCase",c.id,"primary"):""));
+openModal(c.title,html,btn("Close","close","","")+(canEdit()?btn("Fork new challenge","forkCase",c.id,"")+(ui.page==="benchmark"?btn("Run this TC","newRunForCase",c.id,"primary"):""):""));
 }
 function detailsGuide(id){
 var g=rec("guides",id);if(!g||(!canEdit()&&g.status!=="published"))return;
