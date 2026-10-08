@@ -700,7 +700,7 @@ return '<p class="muted small" style="margin-bottom:12px">Different task mixes a
 }
 function solutionDetail(id){
 var s=rec("solutions",id);if(!s||!visibleSolution(s))return;var rs=sRuns(id),stats=solutionStats(id),cases=new Set(rs.map(function(x){return x.case;}));
-var html='<div class="grid g2">'+stat("Published runs",stats.count,cases.size+" distinct test cases")+stat("Mean result",stats.count?stats.score+"/100":"Unknown",stats.count?stats.accept+"% accepted":"No controlled evidence")+'</div><hr class="divider"><div class="tags">'+badge(s.accessible?"Accessible":"Not accessible")+badge(s.maturity)+badge(s.publication)+'</div>'+(s.publication==="superseded"||s.publication==="retired"?'<div class="note warn" style="margin-top:13px">Historical recommendation only. '+(s.supersededBy?"Suggested successor: "+linkAction(rec("solutions",s.supersededBy)?.name||"Unknown","solution",s.supersededBy):"No successor designated.")+'</div>':"")+'<p class="muted small" style="margin-top:12px">Last reviewed: '+E(s.lastReviewed||"Not recorded")+'</p><p style="margin-top:13px">'+E(s.description)+'</p><h3 style="margin:18px 0 8px">Recommended use</h3><div class="callout">'+E(s.recommendation)+'</div><h3 style="margin:17px 0 8px">Configuration snapshot</h3><pre class="code">'+E(s.config)+'</pre><h3 style="margin:16px 0 7px">Capabilities</h3><p>'+E(s.skills)+'</p><h3 style="margin:16px 0 7px">Limitations</h3><p class="muted">'+E(s.limitations)+'</p><h3 style="margin:18px 0 8px">Benchmark evidence</h3>'+simpleTable(["Case","Score","Accepted","Evidence"],rs.map(function(r){return '<tr>'+td(E(rec("cases",r.case)?.title||r.case))+td('<span class="score">'+r.score+'</span>')+td(badge(r.accepted?"Accepted":"Failed"))+td(btn("Inspect","runDetail",r.id,"sm"))+'</tr>';}))+(canEdit()?'<div class="inline-actions" style="margin-top:15px">'+btn("Edit solution","editSolution",id,"sm")+btn("Update recommendation","editRecommendation",id,"sm")+btn("Benchmark this solution","newRunForSolution",id,"primary sm")+'</div>':'');
+var html='<div class="grid g2">'+stat("Published runs",stats.count,cases.size+" distinct test cases")+stat("Mean result",stats.count?stats.score+"/100":"Unknown",stats.count?stats.accept+"% accepted":"No controlled evidence")+'</div><hr class="divider"><div class="tags">'+badge(s.accessible?"Accessible":"Not accessible")+badge(s.maturity)+badge(s.publication)+'</div>'+(s.publication==="superseded"||s.publication==="retired"?'<div class="note warn" style="margin-top:13px">Historical recommendation only. '+(s.supersededBy?"Suggested successor: "+linkAction(rec("solutions",s.supersededBy)?.name||"Unknown","solution",s.supersededBy):"No successor designated.")+'</div>':"")+'<p class="muted small" style="margin-top:12px">Last reviewed: '+E(s.lastReviewed||"Not recorded")+'</p><p style="margin-top:13px">'+E(s.description)+'</p><h3 style="margin:18px 0 8px">Recommended use</h3><div class="callout">'+E(s.recommendation)+'</div><h3 style="margin:17px 0 8px">Configuration snapshot</h3><pre class="code">'+E(s.config)+'</pre><h3 style="margin:16px 0 7px">Capabilities</h3><p>'+E(s.skills)+'</p><h3 style="margin:16px 0 7px">Limitations</h3><p class="muted">'+E(s.limitations)+'</p><h3 style="margin:18px 0 8px">Benchmark evidence</h3>'+simpleTable(["Case","Score","Accepted","Evidence"],rs.map(function(r){return '<tr>'+td(E(rec("cases",r.case)?.title||r.case))+td('<span class="score">'+r.score+'</span>')+td(badge(r.accepted?"Accepted":"Failed"))+td(btn("Inspect","runDetail",r.id,"sm"))+'</tr>';}))+(canEdit()?'<div class="inline-actions" style="margin-top:15px">'+btn("Edit solution","editSolution",id,"sm")+btn("Update recommendation","editRecommendation",id,"sm")+btn("Plan campaign with solution","newRunForSolution",id,"primary sm")+'</div>':'');
 openModal(s.name,html);
 }
 function recommendationsPage(){
@@ -785,10 +785,21 @@ tableRow("Traceable detail",function(x){return x.forecast?btn("Watch sources & r
 var intro='<div class="note warn" style="margin-bottom:13px">Projections are <strong>not</strong> empirical observations. They have no controlled acceptance count or observed runtime. Comparing different tasks, protocols or cost assumptions is indicative only; do not infer ranking superiority from this table.</div>';
 return intro+filters+simpleTable(["Evidence / metric"].concat(chosen.map(function(x){return x.label;})),lines)+'<h3 style="margin:19px 0 12px">Change compared configurations</h3>'+cards;
 }
+function publishedCampaignRegistry(){
+var items=db.campaigns.filter(function(c){return !c.archived&&c.stage==="published";});
+return '<p class="muted small" style="margin-bottom:12px">Reviewed, published campaigns only. This is an evidence registry; lifecycle actions remain in Benchmark Workspace.</p>'+
+simpleTable(["Campaign","Study mode","Evidence","Peer reviewer",""],items.map(function(c){
+var rs=campaignRuns(c);
+return '<tr>'+td(E(c.title)+'<div class="muted small">'+E(c.purpose)+'</div>')+
+td(E(c.mode==="task_compare"?"Task comparison":"Solution coverage"))+
+td(rs.length+' run(s) · '+rs.filter(function(r){return r.accepted;}).length+' accepted')+
+td(E(actor(c.reviewer)))+td(btn("Inspect evidence","campaignDetail",c.id,"sm"))+'</tr>';
+}));
+}
 function resultsPage(){
 var tab=ui.resultsTab||"cross",tabs='<div class="pill-tabs">'+[['cross','Measured vs theoretical'],['runs','Published runs'],['matrix','Comparison matrix'],['campaigns','Campaign evidence']].map(function(x){return '<button class="tab'+(tab===x[0]?' active':'')+'" data-act="resultsTab" data-id="'+x[0]+'">'+x[1]+'</button>';}).join("")+'</div>';
 return heading("Evidence & analysis","Results explorer","Examine experimental outcomes, repeatability, coverage and cost. This is an analytical view, separate from creating or approving benchmarks.",btn("Task explorer","nav","tasks","","")+(canEdit()?btn("Benchmark workspace","nav","benchmark"):""))+
-'<div class="card">'+tabs+(tab==="cross"?crossEvidenceComparison():tab==="matrix"?comparisonMatrix():tab==="campaigns"?campaignRegistry():runRegistry(true))+'</div>';
+'<div class="card">'+tabs+(tab==="cross"?crossEvidenceComparison():tab==="matrix"?comparisonMatrix():tab==="campaigns"?publishedCampaignRegistry():runRegistry(true))+'</div>';
 }
 function runRegistry(publishedOnly){
 var sol=ui.filters.runSolution||"all",task=ui.filters.runTask||"all",status=publishedOnly?"published":ui.filters.runStatus||"all";
@@ -1181,17 +1192,18 @@ for(var index of indexes){
 }
 return {sources:changes};
 }
-function dialogCampaign(id,forecastId){
+function dialogCampaign(id,forecastId,solutionId,caseId){
 if(!canEdit())return;
-var c=rec("campaigns",id),projection=rec("proposals",forecastId),setup=c?.solutionSetup||{};
+var c=rec("campaigns",id),projection=rec("proposals",forecastId),sourceSolution=rec("solutions",solutionId),sourceCase=rec("cases",caseId),
+setup=c?.solutionSetup||(sourceSolution?{model:sourceSolution.componentRefs?.model,provider:sourceSolution.componentRefs?.provider,harness:sourceSolution.componentRefs?.harness,configuration:sourceSolution.config,version:sourceSolution.version,capabilities:sourceSolution.skills,accessible:sourceSolution.accessible}:{});
 var body='<div class="span2 note">Step 1 — Define the experimental campaign. Test Cases, execution sessions and interaction timelines are added <strong>after</strong> creation. You can edit, close, review or reopen a campaign later.</div>'+
-field("title","Campaign title",c?.title||(projection?"Validate forecast · "+projection.name:""),"text","full")+
+field("title","Campaign title",c?.title||(projection?"Validate forecast · "+projection.name:sourceSolution?"Evaluate "+sourceSolution.name:sourceCase?"Compare configurations on "+sourceCase.title:""),"text","full")+
 field("purpose","Campaign objective / hypothesis",c?.purpose||(projection?"Test the literature-derived forecast on controlled task challenges. "+projection.rationale:""),"textarea","full")+
-selectField("mode","Experiment strategy",[["solution_scope","Solution-centred · one AI configuration, multiple tasks and Test Cases"],["task_compare","Task-centred · one task, compare different AI configurations"]],c?.mode||"task_compare",true)+
-'<div class="span2 campaign-mode-panel" data-mode-panel="task_compare"'+((c?.mode||"task_compare")==="task_compare"?"":' style="display:none"')+'>'+
-selectField("task","Fixed task for all comparisons",db.tasks.filter(function(t){return t.baseline>0;}).map(function(t){return[t.id,t.name];}),c?.task||projection?.task||"t5",true)+'</div>'+
+selectField("mode","Experiment strategy",[["solution_scope","Solution-centred · one AI configuration, multiple tasks and Test Cases"],["task_compare","Task-centred · one task, compare different AI configurations"]],c?.mode||(sourceSolution?"solution_scope":"task_compare"),true)+
+'<div class="span2 campaign-mode-panel" data-mode-panel="task_compare"'+((c?.mode||(sourceSolution?"solution_scope":"task_compare"))==="task_compare"?"":' style="display:none"')+'>'+
+selectField("task","Fixed task for all comparisons",db.tasks.filter(function(t){return t.baseline>0;}).map(function(t){return[t.id,t.name];}),c?.task||projection?.task||sourceCase?.task||"t5",true)+'</div>'+
 '<div class="span2 note">For <strong>solution-centred</strong> campaigns, choose the fixed model, provider and harness here. In task-centred campaigns, the AI setup will be chosen independently for every experiment.</div>'+
-'<div class="span2 campaign-mode-panel" data-mode-panel="solution_scope"'+((c?.mode||"task_compare")==="solution_scope"?"":' style="display:none"')+'><div class="form-grid">'+
+'<div class="span2 campaign-mode-panel" data-mode-panel="solution_scope"'+((c?.mode||(sourceSolution?"solution_scope":"task_compare"))==="solution_scope"?"":' style="display:none"')+'><div class="form-grid">'+
 selectField("modelComponent","Fixed model",comboComponentOptions("model"),setup.model||"")+
 selectField("providerComponent","Fixed provider",comboComponentOptions("provider"),setup.provider||"")+
 selectField("harnessComponent","Fixed harness",comboComponentOptions("harness"),setup.harness||"")+
@@ -1201,7 +1213,7 @@ field("configuration","Combined setup notes / versioned configuration (NOT an in
 field("capabilities","Agent tools / skills planned",setup.capabilities||"","textarea","full")+'</div></div>'+
 selectField("owner","Campaign owner",db.users.filter(function(u){return u.role==="workgroup";}).map(function(u){return[u.id,u.name];}),c?.owner||currentUser)+
 field("notes","Context, constraints and campaign notes",c?.notes||projection?.uncertainty||"","textarea","full")+
-'<input type="hidden" name="forecastId" value="'+E(c?.forecastId||forecastId||"")+'">';
+'<input type="hidden" name="forecastId" value="'+E(c?.forecastId||forecastId||"")+'"><input type="hidden" name="seedCaseId" value="'+E(caseId||"")+'">';
 openForm(c?"Edit campaign":"Step 1 · Create benchmark campaign","campaign",body,id||"",c?"Save campaign":"Create campaign & continue");
 }
 function campaignLocalTime(){
@@ -1471,7 +1483,7 @@ var body=head+'<h3 style="margin:18px 0 10px">Test Cases in campaign</h3>'+
 '<div class="list">'+(cases||'<p class="muted small">No Test Cases yet. Add a new one or attach an existing challenge.</p>')+'</div>'+
 (c.stage==="active"?'<div class="inline-actions" style="margin:11px 0">'+btn("+ New Test Case","campaignNewCase",id,"sm primary")+btn("Attach existing Test Case","campaignAttachCase",id,"sm")+'</div>':"")+
 '<h3 style="margin:19px 0 8px">Experiment sessions</h3><div class="list">'+(trialList||'<div class="empty">No sessions recorded</div>')+'</div>'+review;
-var actions=btn("Close","close","","")+(canEdit()?btn("Edit campaign","editCampaign",id,"")+
+var actions=btn("Close","close","","")+(canEdit()&&ui.page==="benchmark"?btn("Edit campaign","editCampaign",id,"")+
 (c.stage==="planned"?btn("Open campaign","campaignActivate",id,"primary"):c.stage==="active"?btn("Close → staging","campaignClose",id,"primary"):c.stage==="review"?btn("Record review","campaignReview",id,"primary"):"")+
 (c.stage!=="active"?btn("Reopen","campaignReopen",id,""):"")+btn("Delete / archive","campaignDelete",id,""):"");
 openModal("Benchmark campaign",body,actions);
@@ -1584,7 +1596,7 @@ if(kind==="campaignReview"){
  if(existing&&existing.caseIds?.length&&mode==="task_compare"&&existing.task!==d.task){toast("The fixed task cannot change after Test Cases are attached.");return;}
  if(mode==="solution_scope"&&(["model","provider","harness"].some(function(k){return !rec("components",setup[k]);})||!setup.configuration.trim())){toast("Choose model, provider, harness and fixed configuration.");return;}
  if(existing&&existing.stage==="published"){toast("Reopen a published campaign before editing.");return;}
- var campaign=existing||{id:next("b"),stage:"planned",caseIds:[],solutionIds:[],reviewNotes:"",reviewer:"",archived:false};
+ var campaign=existing||{id:next("b"),stage:"planned",caseIds:d.seedCaseId?[d.seedCaseId]:[],solutionIds:[],reviewNotes:"",reviewer:"",archived:false};
  var before=existing?JSON.parse(JSON.stringify(existing)):null;
  var desiredTask=mode==="task_compare"?d.task:"";
  if(existing&&campaignTrialsExistingOrCases(campaign)&&existing.mode!==mode){toast("Campaign mode cannot change after cases or sessions exist.");return;}
@@ -1871,11 +1883,16 @@ if(act==="newProtocol"){dialogProtocol();return;}
 if(act==="reviseProtocol"){dialogProtocol(id);return;}
 if(act==="forkCase"){dialogCase("",id);return;}
 if(act==="newCase"){dialogCase(id);return;}
-if(act==="newRun"){dialogRun();return;}
+if(act==="newRun"){dialogCampaign();return;}
 if(act==="validateForecast"){var p=rec("proposals",id);if(!p||!["staged","reviewed","published"].includes(p.status)||!canEdit())return;dialogCampaign("",id);return;}
-if(act==="newRunForCase"){dialogRun(id);return;}
-if(act==="newRunForSolution"){dialogRun("",id);return;}
-if(act==="repeatRun"){dialogRun("","",id);return;}
+if(act==="newRunForCase"){dialogCampaign("","","",id);return;}
+if(act==="newRunForSolution"){dialogCampaign("","",id);return;}
+if(act==="repeatRun"){
+ var r=rec("runs",id),campaign=r&&rec("campaigns",r.campaignId);
+ if(campaign&&campaign.stage==="active"&&campaign.caseIds.includes(r.case)){campaignTrialStart(campaign.id,r.case);}
+ else if(r){dialogCampaign("","",r.solution,r.case);}
+ return;
+}
 if(act==="newSolution"){dialogSolution();return;}
 if(act==="editSolution"){dialogSolution(id);return;}
 if(act==="editRecommendation"){dialogRecommendation(id);return;}
