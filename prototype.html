@@ -217,6 +217,11 @@ db.solutions.forEach(function(sol){
  };
  if(!sol.signature||JSON.parse(sol.signature).length===5)sol.signature=comboSignature(sol.componentRefs,sol.config||"",sol.version||"",sol.skills||"");
  if(!sol.createdFromBenchmark)sol.createdFromBenchmark=db.runs.some(function(run){return run.solution===sol.id;});
+ if(!sol.componentSnapshots)sol.componentSnapshots={
+  model:JSON.parse(JSON.stringify(db.components.find(function(c){return c.id===sol.componentRefs.model;})||{})),
+  provider:JSON.parse(JSON.stringify(db.components.find(function(c){return c.id===sol.componentRefs.provider;})||{})),
+  harness:JSON.parse(JSON.stringify(db.components.find(function(c){return c.id===sol.componentRefs.harness;})||{}))
+ };
 });
 db.qualifications.forEach(function(q){
  if(!q.candidate)q.candidate={model:"",provider:"",harness:""};
@@ -244,6 +249,7 @@ db.runs.forEach(function(r,i){
  if(r.duration==null)r.duration=18+(i*7)%93;
  if(!r.caseSnapshot)r.caseSnapshot=JSON.parse(JSON.stringify(db.cases.find(function(c){return c.id===r.case;})||{}));
  if(!r.solutionSnapshot)r.solutionSnapshot=JSON.parse(JSON.stringify(db.solutions.find(function(x){return x.id===r.solution;})||{}));
+ if(!r.componentSnapshots)r.componentSnapshots=JSON.parse(JSON.stringify(r.solutionSnapshot.componentSnapshots||{}));
  if(!r.protocolSnapshot)r.protocolSnapshot=JSON.parse(JSON.stringify(db.protocols.find(function(x){return x.id===r.protocol;})||{}));
  if(!r.taskContextSnapshot){var tc=db.cases.find(function(x){return x.id===r.case;});r.taskContextSnapshot=tc?ancestors(tc.task).map(function(t){return {id:t.id,name:t.name,phase:t.phase,criteria:t.criteria,baseline:t.baseline};}):[];}
 
@@ -292,7 +298,8 @@ function findOrCreateBenchSolution(d){
   accessible:d.comboAccessible==="yes",maturity:"experimental",publication:"draft",
   cost:"Unknown",rate:0,skills:d.capabilities||"",config:d.configuration,description:"Experimental setup automatically registered from its first controlled benchmark run.",
   limitations:"Qualification and review pending.",recommendation:"No official recommendation yet.",tags:["Benchmarked","Experimental"],
-  createdFromBenchmark:true,lastReviewed:"",supersededBy:""};
+  createdFromBenchmark:true,lastReviewed:"",supersededBy:"",
+  componentSnapshots:{model:JSON.parse(JSON.stringify(components[0])),provider:JSON.parse(JSON.stringify(components[1])),harness:JSON.parse(JSON.stringify(components[2]))}};
  db.solutions.push(sol);
  return {solution:sol,created:true};
 }
@@ -958,7 +965,7 @@ if(kind==="task"||kind==="taskEdit"){
  var r={id:next("r"),case:d.case,solution:tested.id,protocol:d.protocol,date:new Date().toISOString().slice(0,10),score:toNum(d.score),accepted:d.accepted==="yes",status:d.status,prep:toNum(d.prep),steer:toNum(d.steer),review:toNum(d.review),correction:toNum(d.correction),cost:toNum(d.cost),tokens:toNum(d.tokens),duration:toNum(d.duration),interruptions:toNum(d.interruptions),reprompts:toNum(d.reprompts),utility:toNum(d.utility),sideEffects:d.sideEffects,prompt:fullPrompt,transcript:fullTrace,artifacts:d.artifacts,notes:d.notes,owner:currentUser,
   caseSnapshot:JSON.parse(JSON.stringify(rec("cases",d.case))),
   solutionSnapshot:JSON.parse(JSON.stringify(tested)),
-  componentSnapshots:{"model":JSON.parse(JSON.stringify(rec("components",tested.componentRefs?.model)||{})),"provider":JSON.parse(JSON.stringify(rec("components",tested.componentRefs?.provider)||{})),"harness":JSON.parse(JSON.stringify(rec("components",tested.componentRefs?.harness)||{}))},
+  componentSnapshots:JSON.parse(JSON.stringify(tested.componentSnapshots||{})),
   protocolSnapshot:JSON.parse(JSON.stringify(rec("protocols",d.protocol))),
   taskContextSnapshot:ancestors(rec("cases",d.case).task).map(function(t){return {id:t.id,name:t.name,phase:t.phase,criteria:t.criteria,baseline:t.baseline};})};
  db.runs.push(r);
@@ -1001,6 +1008,7 @@ if(kind==="task"||kind==="taskEdit"){
  if(!id)db.watch.push(w);ui.page="watch";event("Watch",(id?"Updated":"Added")+" technology signal: "+w.title);
 }else if(kind==="component"||kind==="componentEdit"){
  var comp=id?rec("components",id):{id:next("component")},prevComp=id?JSON.parse(JSON.stringify(comp)):null;
+ if(prevComp&&prevComp.type!==d.type&&db.solutions.some(function(sol){return sol.componentRefs?.[prevComp.type]===comp.id;})){toast("A referenced component cannot change type; create a new component instead.");return;}
  Object.assign(comp,{type:d.type,name:req(d.name,"Component name"),version:d.version,details:d.details,publication:d.publication,accessible:d.accessible==="yes",status:d.status||"active"});
  if(!id)db.components.push(comp);else revision("Component",id,prevComp,comp);
  ui.page="solutions";ui.solutionView="components";event("Catalog",(id?"Updated":"Registered")+" "+comp.type+": "+comp.name);
