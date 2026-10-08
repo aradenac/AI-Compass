@@ -70,8 +70,8 @@ Sign in as **Maya Laurent** or **Sofia Ramos**. The workgroup has its own sideba
 | Experiments | **Results explorer** | Compare theoretical predictions against measured runs with separate evidence labels, plus inspect benchmark matrices. |
 | Experiments | **Recommendations** | Maintain evidence-linked published decisions and guidance. |
 | Knowledge & collaboration | **Guides & charter** | Search, sort, filter and edit existing articles, plus create and publish new ones. |
-| Knowledge & collaboration | **Feedback & discussions** | Triage contributions and respond in separate public and private workgroup threads. |
-| Knowledge & collaboration | **Activity feed** | Continue using the existing activity and revision history. |
+| Knowledge & collaboration | **Feedback & discussions** | Review user-submitted ideas and experiences in a single chronological thread with public/internal visibility per reply; no action-tracking disposition. |
+| Knowledge & collaboration | **Activity feed** | Automatically attributed, searchable activity records with per-event detail, revision provenance and JSON/CSV reporting exports. |
 | Reporting | **Management view** | Remains unchanged for this iteration. |
 
 ### Workgroup daily dashboard
@@ -98,6 +98,8 @@ An uncompleted Test Case session can be **resumed from the campaign**. Sessions 
 **Test this with Maya Laurent (campaign author) and Sofia Ramos (independent reviewer):** Create → Open → Add a Test Case → Save setup → Add two interactions at different times → Record a failed or accepted result → Close → Switch workgroup account → Review & publish → Reopen and inspect preserved runs.
 
 ### Technology Watch: evidence-backed forecasts
+
+A Watch Entry now supports both selecting citations from the existing evidence library and registering new references, rather than requiring repeated literature entry.
 
 Workflow: watch hypothesis → theoretical forecast → staged review → comparison with empirical results.
 
@@ -126,11 +128,15 @@ The Technology Catalog stays independent; creating a Watch Entry does not redire
 
 Try the evidence-first path **Technology Watch → sources → theoretical forecast → stage/review → Results explorer**, or the controlled path **Test design → Benchmark workspace → benchmark run → measured AI Solution**. Existing run snapshots and revision history remain intact.
 
-### Feedback discussion and article management
+### Feedback discussions, source reuse and audit reporting
 
-Each feedback item supports two **independent chronological threads**: a **public thread** visible to ordinary users and a **workgroup-only internal thread** for analysis and coordination. Replies carry author and timestamp and persist in `localStorage`; the original status/triage information remains available. Internal comments must never be shown to engineers or in their export.
+**Technology Watch sources:** `+ Watch entry` offers a searchable **shared reference library** where several existing citations can be selected. An optional collapsed `Register a new source` section allows new literature references, with multiple new citations when needed. Duplicate reference identifiers/URLs are reused rather than creating a second record. The reference-to-watch relationship is **many-to-many**: one paper/benchmark may underpin several hypotheses, and one hypothesis may cite many sources. Historical Watch Entry links are migrated into this relationship model without losing existing records. Deselecting a source on edit unlinks it from that hypothesis without deleting the shared reference.
 
-In **Guides & charter**, the workgroup can now search document content, filter by type/publication state, sort by name/date and directly edit existing articles. Article changes remain traceable in Change History.
+**Feedback & discussions:** feedbacks are **submitted by regular users**, not workgroup accounts. Workgroup members read them and converse in a **single timestamp-ordered thread**, combining public replies and clearly marked internal workgroup notes. Reader views and public exports hide internal messages. The former workgroup disposition/status editor and artificial links to corrective action/evidence were removed: tracking fixes belongs to other engineering workflows, not this contribution discussion.
+
+**Activity Feed:** every new automatic event records timestamp, identity/role, business unit, category, workspace, short summary, linked objects (with snapshots when available), and associated change revisions. The visible feed is concise and searchable by type, contributor or text. Clicking **Details** opens its full event metadata, including revision history. Workgroup members can export a detailed **JSON** or **CSV** reporting file. The full local dataset export also retains enriched activity records. Older imported events with fewer fields remain readable. No server-side reporting service is used in this prototype.
+
+In **Guides & charter**, workgroup members can search, filter, sort, edit and publish existing articles. Changes remain traceable in the Activity Feed.
 
 ### In-place task hierarchy organizer
 
@@ -151,8 +157,8 @@ All changes are persisted in `localStorage`; node IDs remain stable, and prior b
 4. **Maya:** Open **Benchmark workspace**, create a campaign in one of the two modes, open it, define Test Cases, and follow guided setup → interactions → result steps.
 5. **Maya:** Close the campaign for independent peer review, then switch to Sofia Ramos to approve publication or request rework.
 6. **Maya:** Open **Results explorer → Measured vs theoretical** to compare staged theoretical forecasts and benchmarked configurations with explicit provenance.
-7. **Maya:** In **Feedback & discussions**, post an internal note and then a public response; inspect those conversations after reloading the page.
-8. **Maya:** In **Guides & charter**, filter articles, edit an existing guide and verify its revision in **Activity feed**.
+7. **Maya:** In **Feedback & discussions**, write an internal note and a public response in the same chronological conversation; inspect the visibility badges and test reader access.
+8. **Maya:** Open **Activity Feed**, inspect an event detail and export detailed JSON/CSV. Then edit an article in **Guides & charter** and inspect its revision history.
 9. **Nicolas (engineer):** Switch account; verify only the public feedback conversation and published documents are visible. Management view remains a separate, largely unchanged perspective.
 
 Runs retain a **snapshot of their test case, protocol, and solution** as created, so later changes do not rewrite the historical experimental setup. Recommendation and catalog edits are tracked in prototype revision records.
