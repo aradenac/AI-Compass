@@ -97,7 +97,7 @@ The same model under different providers, harnesses, or configurations can const
 
 The user-requested label **PMAD** is kept as an *unverified* example, separately from verified **BMAD Method**, pending identification of the intended product. Do not present PMAD as verified or silently identify it with BMAD.
 
-**Current prototype boundary:** each experimental session presently selects one registered Framework participant and produces one individually attributed AI Solution benchmark result. Multi-agent *collaborative execution within one session*, with a composite result and defensible attribution of cost/quality to participants, is a distinct future data-model extension. Do not assign a shared aggregate quality score to each participant as though each had delivered the result independently.
+**Current prototype modes:** a Framework campaign supports (1) **individual participant runs**, each linked to one exact model/provider/harness configuration and capable of registering a measured AI Solution; and (2) **collaborative workflow runs**, selecting two or more registered Framework participants within one Test Case execution. Collaborative runs preserve all participating roles, component references, framework workflow wiring, selected Setup Guide and per-interaction responsible participant. Their **composite quality, information utility, cost and duration belong to the overall workflow**, not to its participants individually. They therefore carry a composite benchmark flag without asserting individual AI Solution scores. Existing independently tested participant solutions can be linked for context, but are not credited with the collective result.
 
 Component candidates and resulting AI Solutions may be **accessible or inaccessible** to enterprise users. Accessibility is a visible/filterable property, not an exclusion rule. Untested candidates remain discoverable in the independent component catalogs and technology watch; only recorded benchmark combinations appear in the AI Solution discovery view.
 
@@ -174,7 +174,7 @@ A member chooses and pins **one concrete AI configuration** (model, provider, ha
 
 Question: **What can this particular AI configuration accomplish across the chosen engineering tasks?**
 
-Without a Framework, the fixed configuration is recorded at campaign creation before any run. With a Framework selected, the campaign instead records one or more individually labeled and configured participants; execution selects which participant will be evaluated. A new measured AI Solution identity is generated when that specific configuration has its first controlled run.
+Without a Framework, the fixed configuration is recorded at campaign creation before any run. With a Framework selected, the campaign instead records one or more individually labeled and configured participants, plus optional orchestration/wiring notes; execution selects either one participant for an individual evaluation or multiple participants for one composite workflow evaluation. A new measured AI Solution identity is generated when that specific configuration has its first controlled run.
 
 ### Mode B — Task-centred comparison campaign
 
@@ -222,11 +222,11 @@ Setup guides are reusable knowledge-base entries: create/select them at campaign
 
 ### Benchmark Run
 
-A run is one execution of **one fully specified combined setup on one Test Case**, with documented execution conditions. For a setup without existing evidence, the run **creates its AI Solution identity** and stores the component references, their versions, the complete configuration, and experimental snapshots. For subsequent runs, the existing exact solution may be reused. Multiple runs of the same pairing are allowed and useful.
+A run is one execution of **one fully specified AI setup or orchestrated Framework workflow on one Test Case**, with documented execution conditions. Individual runs refer to one measured AI Solution; composite Framework runs refer to the Framework and multiple participant configurations, without manufacturing a single-trio AI Solution identity. For a setup without existing evidence, the run **creates its AI Solution identity** and stores the component references, their versions, the complete configuration, and experimental snapshots. For subsequent runs, the existing exact solution may be reused. Multiple runs of the same pairing are allowed and useful.
 
 A run records:
 
-1. Exact solution/model/provider/harness/configuration versions.
+1. Exact solution/model/provider/harness/configuration versions, or the pinned Framework and all joint participant roles/configurations for a composite run.
 2. Test Case (including fork lineage when available), run date, and relevant environment/input revisions.
 3. Initial prompt/instructions and any subsequent interactions.
 4. Execution trace, interruptions, re-prompts, failures, and interventions.
@@ -461,7 +461,7 @@ These are functional entities/relationships, **not a mandated physical database 
 | Framework | Catalogued orchestration/process tool, optionally linked to one or more independently configured AI participants within a campaign. |
 | Framework Participant | Campaign-scoped, role-labeled model/provider/harness trio, exact version/configuration and stable participant ID. |
 | AI Solution | Versioned and uniquely identifiable combination of model, provider, harness, configuration and capabilities, registered from its **first benchmark run**; never merely an untested candidate. |
-| Benchmark Run | One AI solution × one Test Case execution, including recorded conditions, observations and the campaign’s pinned technological signals. |
+| Benchmark Run | Either one measured AI Solution × one Test Case, or one composite Framework execution with multiple selected participants × one Test Case. Group metrics are not imputed to individual AI Solutions. |
 | Campaign Trial Session | In-progress step-by-step Test Case execution: initial setup, timestamped iterative human/agent interventions, interim artifacts, and eventual accepted/failed outcome. |
 | Benchmark Campaign | **Primary workgroup process**: objective, comparison mode, optionally Framework plus participant trios, referenced Setup Guide, fixed task or single setup, linked watch signals, owner, lifecycle, Test Cases and runs, closure and review. |
 | Evidence | Inputs, traces, reviews, artifacts, provenance, test results, and cost records from controlled runs. |
@@ -483,7 +483,7 @@ Core relationship:
 
 **Technology Watch hypotheses + literature → Theoretical Forecast (task + components + assumptions) → Staging → Review → Optional theoretical publication**
 
-**Component catalog (Model / Provider / Harness) → Single configured participant → First Run → Measured AI Solution → Evaluation → Recommendation; optional Framework → multiple participant definitions at Campaign level**
+**Component catalog (Model / Provider / Harness) → Single configured participant → Individual Run → Measured AI Solution → Evaluation → Recommendation; Framework + multiple participants → Composite Run → Joint workflow outcome (separate from individual AI Solution scores)**
 
 **Theoretical forecast ↔ Controlled benchmark run (optional validation, immutable original prediction)**
 
