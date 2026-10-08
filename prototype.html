@@ -215,7 +215,7 @@ db.solutions.forEach(function(sol){
   provider:db.components.find(function(c){return c.type==="provider"&&c.name===sol.provider;})?.id||"",
   harness:db.components.find(function(c){return c.type==="harness"&&c.name===sol.harness;})?.id||""
  };
- if(!sol.signature)sol.signature=JSON.stringify([sol.componentRefs.model,sol.componentRefs.provider,sol.componentRefs.harness,sol.config||"",sol.version||""]);
+ if(!sol.signature||JSON.parse(sol.signature).length===5)sol.signature=comboSignature(sol.componentRefs,sol.config||"",sol.version||"",sol.skills||"");
  if(!sol.createdFromBenchmark)sol.createdFromBenchmark=db.runs.some(function(run){return run.solution===sol.id;});
 });
 db.qualifications.forEach(function(q){
@@ -273,13 +273,17 @@ function ancestors(t){var a=[],seen={};while(t&&!seen[t]){seen[t]=true;var item=
 function descendants(id){var found=[id];for(var i=0;i<found.length;i++){children(found[i]).forEach(function(t){if(found.indexOf(t.id)<0)found.push(t.id);});}return found;}
 function runsForTask(id,published){var group=descendants(id);return db.runs.filter(function(r){var c=caseOf(r);return c&&group.includes(c.task)&&(!published||r.status==="published");});}
 function sRuns(id){return db.runs.filter(function(r){return r.solution===id&&r.status==="published";});}
-function comboSignature(refs,configuration,revision){return JSON.stringify([refs.model,refs.provider,refs.harness,configuration.trim(),revision.trim()]);}
+function comboSignature(refs,configuration,revision,capabilities){
+return JSON.stringify(["model","provider","harness"].map(function(type){
+ var comp=rec("components",refs[type]);return [refs[type]||"",comp?.version||""];
+}).concat([String(configuration||"").trim(),String(revision||"").trim(),String(capabilities||"").trim()]));
+}
 function findOrCreateBenchSolution(d){
  var refs={model:d.modelComponent,provider:d.providerComponent,harness:d.harnessComponent};
  var components=["model","provider","harness"].map(function(type){return db.components.find(function(c){return c.id===refs[type]&&c.type===type;});});
  if(components.some(function(c){return !c;}))return {error:"Select an existing model, provider and harness."};
  if(!String(d.configuration||"").trim())return {error:"Document the exact harness/model configuration."};
- var signature=comboSignature(refs,d.configuration,d.solutionVersion||"1.0");
+ var signature=comboSignature(refs,d.configuration,d.solutionVersion||"1.0",d.capabilities||"");
  var found=db.solutions.find(function(s){return s.signature===signature;});
  if(found)return {solution:found,created:false};
  var sol={id:next("s"),name:components[0].name+" · "+components[1].name+" · "+components[2].name,
