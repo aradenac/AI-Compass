@@ -564,7 +564,7 @@ function componentCatalog(){
 var count=db.components.length;
 return '<div class="note" style="margin-bottom:17px"><strong>Workgroup operating model:</strong> maintain Models, Providers and Harnesses independently. Build a configuration inside <strong>Benchmark lab → New run</strong>; its first recorded run registers the tested combination as an AI Solution. Drafts and catalog candidates are not automatically recommendations.</div>'+
 '<div class="grid g3">'+["model","provider","harness"].map(componentCatalogueType).join("")+'</div>'+
-'<div class="row-between" style="margin-top:16px"><span class="muted small">'+count+' catalog components · '+db.solutions.filter(function(s){return db.runs.some(function(r){return r.solution===s.id;});}).length+' combinations with experimental evidence</span>'+btn("Configure & benchmark →","newRun","","primary")+'</div>';
+'<div class="row-between" style="margin-top:16px"><span class="muted small">'+count+' catalog components · '+db.solutions.filter(function(s){return db.runs.some(function(r){return r.solution===s.id;});}).length+' combinations tested so far</span><span class="muted small">Inventory only · benchmarking starts in Benchmark workspace</span></div>';
 }
 function solutionsPage(){
 if(canEdit())return heading("Workgroup catalog","Models, Providers & Harnesses","Manage the reusable building blocks independently. AI Solutions are the outputs of benchmark experiments.",btn("+ Model","newComponentType","model","primary")+btn("+ Provider","newComponentType","provider")+btn("+ Harness","newComponentType","harness"))+componentCatalog();
@@ -668,7 +668,7 @@ return heading("Signals","Technology watch","Track emerging models, providers an
 '<div class="grid g2">'+
 section("Signals under review",'<div class="filters"><select data-filter="watchStatus">'+[["all","All statuses"],["watching","Watching"],["pending","Pending"],["reviewed","Reviewed"]].map(function(x){return opt(x[0],x[1],status);}).join("")+'</select></div><div class="list">'+filtered.map(function(w){
 var c=rec("components",w.component);
-return '<div class="list-row"><div><div class="row">'+badge(w.kind)+badge(w.status)+(c?badge(c.type):"")+'</div><div class="name" style="margin-top:7px">'+linkAction(w.title,"watchDetail",w.id)+'</div><p class="muted small">'+E(w.summary)+'</p><div class="muted small">'+E(c?.name||"No component linked")+' · '+E(w.source)+' · '+E(w.date)+'</div></div>'+(canEdit()?btn("Qualify","qualFromWatch",w.id,"sm"):"")+'</div>';
+return '<div class="list-row"><div><div class="row">'+badge(w.kind)+badge(w.status)+(c?badge(c.type):"")+'</div><div class="name" style="margin-top:7px">'+linkAction(w.title,"watchDetail",w.id)+'</div><p class="muted small">'+E(w.summary)+'</p><div class="muted small">'+E(c?.name||"No component linked")+' · '+E(w.source)+' · '+E(w.date)+'</div></div>'+(canEdit()?btn(rec("components",w.component)?"Edit component":"Catalog item",rec("components",w.component)?"editComponent":"catalogFromWatch",rec("components",w.component)?w.component:w.id,"sm"):"")+'</div>';
 }).join("")+'</div>')+
 section("Unqualified technology components",'<div class="list">'+candidates.map(function(c){
 return '<div class="list-row"><div><strong>'+E(c.name)+'</strong><div class="tags" style="margin-top:4px">'+badge(c.type)+badge(c.status)+badge(c.accessible?"Accessible":"Not accessible")+'</div><p class="muted small">'+E(c.details||"")+'</p></div>'+(canEdit()?btn("Edit","editComponent",c.id,"sm"):"")+'</div>';
@@ -718,16 +718,17 @@ selectField("status","Lifecycle",[["active","Active"],["retired","Retired"]],old
 field("desc","Problem / scope",old?.desc||"","textarea","full")+
 field("criteria","Expected outcomes / Definition of Done",old?.criteria||"","textarea","full"),existing||"",old?"Save task node":"Create task");
 }
-function dialogComponent(id,prefType){
-var c=rec("components",id);
+function dialogComponent(id,prefType,watchId){
+var c=rec("components",id),fromWatch=rec("watch",watchId);
 openForm(c?"Edit catalog component":"Register catalog component",c?"componentEdit":"component",
 selectField("type","Object type",[["model","Model"],["provider","Provider"],["harness","Harness"]],c?.type||prefType||"model")+
 selectField("publication","Publication status",[["draft","Draft"],["published","Published"]],c?.publication||"published")+
 selectField("accessible","Accessible to the company?",[["yes","Yes"],["no","No"]],c?(c.accessible?"yes":"no"):"yes")+
 selectField("status","Technology lifecycle",[["active","Active"],["watching","Watch candidate"],["retired","Retired"]],c?.status||"active")+
-field("name","Component name",c?.name||"","text","full")+
+field("name","Component name",c?.name||fromWatch?.title||"","text","full")+
 field("version","Version / revision (if applicable)",c?.version||"")+
-field("details","Notes, capabilities, limitations",c?.details||"","textarea","full"),id,c?"Save component":"Create component");
+field("details","Notes, capabilities, limitations",c?.details||fromWatch?.summary||"","textarea","full"),id,c?"Save component":"Create component");
+if(fromWatch&&ui.modal){var linkedForm=document.querySelector("#modalForm");if(linkedForm)linkedForm.dataset.watch=fromWatch.id;}
 }
 function dialogProtocol(id){
 var p=rec("protocols",id);
@@ -963,7 +964,7 @@ openModal("Campaign · "+b.title,html);
 }
 function detailsWatch(id){
 var w=rec("watch",id);if(!w)return;
-openModal("Watch signal",'<div class="tags">'+badge(w.kind)+badge(w.status)+'</div><h3 style="margin:14px 0 8px">'+E(w.title)+'</h3><p>'+E(w.summary)+'</p><p class="muted small" style="margin-top:10px">Source: '+E(w.source)+' · '+E(w.date)+'</p>',btn("Close","close","","")+(canEdit()?btn("Create qualification","qualFromWatch",id,"")+btn("Edit signal","editWatch",id,"primary"):""));
+openModal("Watch signal",'<div class="tags">'+badge(w.kind)+badge(w.status)+'</div><h3 style="margin:14px 0 8px">'+E(w.title)+'</h3><p>'+E(w.summary)+'</p><p class="muted small" style="margin-top:10px">Source: '+E(w.source)+' · '+E(w.date)+'</p>',btn("Close","close","","")+(canEdit()?btn(rec("components",w.component)?"Edit catalog item":"Add to catalog",rec("components",w.component)?"editComponent":"catalogFromWatch",rec("components",w.component)?w.component:id,"")+btn("Add evidence","newResearchForWatch",id,"")+btn("Edit signal","editWatch",id,"primary"):""));
 }
 function detailsRevision(id){
 if(!canEdit())return;var rev=db.revisions.find(function(x){return x.id===id;});if(!rev)return;
@@ -1046,6 +1047,7 @@ if(kind==="task"||kind==="taskEdit"){
  if(prevComp&&prevComp.type!==d.type&&db.solutions.some(function(sol){return sol.componentRefs?.[prevComp.type]===comp.id;})){toast("A referenced component cannot change type; create a new component instead.");return;}
  Object.assign(comp,{type:d.type,name:req(d.name,"Component name"),version:d.version,details:d.details,publication:d.publication,accessible:d.accessible==="yes",status:d.status||"active"});
  if(!id)db.components.push(comp);else revision("Component",id,prevComp,comp);
+ if(form.dataset.watch){var signal=rec("watch",form.dataset.watch);if(signal){signal.component=comp.id;signal.status="reviewed";}}
  ui.page="solutions";ui.solutionView="components";event("Catalog",(id?"Updated":"Registered")+" "+comp.type+": "+comp.name);
 }else if(kind==="protocol"){
  var protocol={id:next("p"),name:req(d.name,"Protocol name"),version:req(d.version,"Revision"),autonomy:d.autonomy,description:req(d.description,"Setup"),criteria:req(d.criteria,"Criteria")};
@@ -1114,6 +1116,7 @@ if(act==="organizeUp"||act==="organizeDown"){if(!canEdit())return;var moved=task
 if(act==="solutionTab"){ui.solutionView=id;render();return;}
 if(act==="newComponent"){dialogComponent();return;}
 if(act==="newComponentType"){dialogComponent("",id);return;}
+if(act==="catalogFromWatch"){var watch=rec("watch",id);if(watch)dialogComponent("",watch.kind==="Model"?"model":watch.kind==="Provider"?"provider":watch.kind==="Harness"?"harness":"model",id);return;}
 if(act==="editComponent"){dialogComponent(id);return;}
 if(act==="newProtocol"){dialogProtocol();return;}
 if(act==="reviseProtocol"){dialogProtocol(id);return;}
