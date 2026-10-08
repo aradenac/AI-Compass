@@ -301,6 +301,15 @@ if(!db.guides.some(function(g){return g.type==="Installation";})){
  body:"Illustrative only: document OS prerequisites, installation commands, environment setup and how to verify the agent is ready. Replace with validated instructions.",owner:"u1",date:"2026-10-08",solution:""});
 }
 if(!Array.isArray(db.campaignTrials))db.campaignTrials=[];
+[
+ {id:"framework_n8n",name:"n8n",version:"Example",details:"Workflow orchestration and automation platform; configure actual AI participants per campaign.",url:"https://n8n.io/",accessible:true},
+ {id:"framework_pmad",name:"PMAD (unverified name)",version:"Unverified",details:"User-provided name PMAD; product identity is not independently confirmed. This is a placeholder, possibly referring to BMAD Method.",url:"",accessible:false},
+ {id:"framework_bmad",name:"BMAD Method",version:"Example",details:"Structured AI-native development framework with specialist agent roles and reusable workflows.",url:"https://github.com/bmad-code-org/BMAD-METHOD",accessible:true},
+ {id:"framework_speckit",name:"GitHub Spec Kit",version:"Example",details:"Spec-driven development processes, templates, workflows and supported coding agents.",url:"https://github.com/github/spec-kit",accessible:true}
+].forEach(function(example){
+ if(!db.components.some(function(comp){return comp.type==="framework"&&(comp.id===example.id||comp.name.toLowerCase()===example.name.toLowerCase())}))
+  db.components.push(Object.assign({type:"framework",publication:"published",status:"active"},example));
+});
 db.cases.forEach(function(tc){if(!tc.parentCaseId)tc.parentCaseId=null;});
 if(!db.campaigns.some(function(c){return c.id==="demo_campaign_planned";})){
  db.campaigns.push({id:"demo_campaign_planned",title:"Plan: agent autonomy for intermittent driver bugs",
@@ -356,6 +365,9 @@ db.campaigns.forEach(function(c,i){
  if(!Array.isArray(c.caseIds))c.caseIds=[];
  if(!c.updated)c.updated=TODAY;
  if(!c.owner)c.owner="u1";
+  if(!c.frameworkId)c.frameworkId="";
+  if(!Array.isArray(c.frameworkInstances))c.frameworkInstances=[];
+
   if(!Array.isArray(c.watchIds))c.watchIds=c.watchId?[c.watchId]:rec("proposals",c.forecastId)?.watchIds?.slice()||[];
   c.watchIds=Array.from(new Set(c.watchIds.filter(function(id){return !!rec("watch",id);})));
 
@@ -837,23 +849,29 @@ return '<article class="card solution-card"><div class="solution-title"><div cla
 }
 
 function componentCatalogueType(type){
-var title={model:"Models",provider:"Providers",harness:"Harnesses"}[type];
-var list=db.components.filter(function(c){return c.type===type;}).sort(function(a,b){return a.name.localeCompare(b.name);});
-return '<section class="card component-lane"><div class="card-head"><div><div class="eyebrow">'+E(type)+'</div><h2>'+E(title)+'</h2></div>'+btn("+ Add","newComponentType",type,"sm")+'</div>'+
-'<p class="muted small" style="margin-bottom:14px">'+E(type==="model"?"Versioned AI engines and capabilities":type==="provider"?"Hosting, endpoints, access and pricing context":"CLI, web, IDE, tools and agent integrations")+'</p>'+
-'<div class="list">'+list.map(function(c){
-var related=db.solutions.filter(function(s){return s.componentRefs&&s.componentRefs[type]===c.id&&db.runs.some(function(r){return r.solution===s.id;});});
-return '<div class="list-row"><div class="short"><strong>'+E(c.name)+'</strong><div class="muted small">'+E(c.version||"Version not set")+' · '+related.length+' bench-tested combination(s)</div><div class="tags" style="margin-top:5px">'+badge(c.publication||"published")+badge(c.status||"active")+badge(c.accessible?"Accessible":"Not accessible")+'</div><p class="muted small">'+E((c.details||"").slice(0,112))+'</p></div>'+btn("Edit","editComponent",c.id,"sm")+'</div>';
-}).join("")+'</div></section>';
+ var title={model:"Models",provider:"Providers",harness:"Harnesses",framework:"Frameworks"}[type];
+ var list=db.components.filter(function(c){return c.type===type;}).sort(function(a,b){return a.name.localeCompare(b.name);});
+ return '<section class="card component-lane"><div class="card-head"><div><div class="eyebrow">'+E(type)+'</div><h2>'+E(title)+'</h2></div>'+btn("+ Add","newComponentType",type,"sm")+'</div>'+
+ '<p class="muted small" style="margin-bottom:14px">'+E(({model:"Versioned engines and capabilities",provider:"Hosting, endpoints, access and pricing",harness:"CLI, web, IDE and agent tool integrations",framework:"Multi-agent process and orchestration; multiple configured trios per campaign"})[type])+'</p>'+
+ '<div class="list">'+list.map(function(c){
+  var count=type==="framework"?db.campaigns.filter(function(x){return x.frameworkId===c.id;}).length:
+   db.solutions.filter(function(sol){return sol.componentRefs?.[type]===c.id&&db.runs.some(function(r){return r.solution===sol.id;});}).length;
+  return '<div class="list-row"><div class="short"><strong>'+E(c.name)+'</strong>'+
+   '<div class="muted small">'+E(c.version||"Version not set")+' · '+count+(type==="framework"?" linked campaigns":" tested combinations")+'</div>'+
+   '<div class="tags" style="margin-top:5px">'+badge(c.publication||"published")+badge(c.status||"active")+badge(c.accessible?"Accessible":"Not accessible")+'</div>'+
+   '<p class="muted small">'+E((c.details||"").slice(0,180))+'</p>'+
+   (c.url?'<p class="small"><a href="'+E(c.url)+'" target="_blank" rel="noopener noreferrer">Documentation ↗</a></p>':"")+
+   '</div>'+btn("Edit","editComponent",c.id,"sm")+'</div>';
+ }).join("")+'</div></section>';
 }
 function componentCatalog(){
-var count=db.components.length;
-return '<div class="note" style="margin-bottom:17px"><strong>Workgroup operating model:</strong> maintain Models, Providers and Harnesses independently. Build a configuration inside <strong>Benchmark lab → New run</strong>; its first recorded run registers the tested combination as an AI Solution. Drafts and catalog candidates are not automatically recommendations.</div>'+
-'<div class="grid g3">'+["model","provider","harness"].map(componentCatalogueType).join("")+'</div>'+
-'<div class="row-between" style="margin-top:16px"><span class="muted small">'+count+' catalog components · '+db.solutions.filter(function(s){return db.runs.some(function(r){return r.solution===s.id;});}).length+' combinations tested so far</span><span class="muted small">Inventory only · benchmarking starts in Benchmark workspace</span></div>';
+ var count=db.components.length;
+ return '<div class="note" style="margin-bottom:17px"><strong>Catalog model:</strong> Models, Providers and Harnesses define individual AI configurations. A Framework orchestrates <strong>one or more</strong> separately configured trios within a benchmark campaign. An AI Solution is registered only after actual benchmark execution.</div>'+
+ '<div class="grid g2">'+["model","provider","harness","framework"].map(componentCatalogueType).join("")+'</div>'+
+ '<div class="row-between" style="margin-top:16px"><span class="muted small">'+count+' catalog components · '+db.solutions.filter(function(sol){return db.runs.some(function(r){return r.solution===sol.id;});}).length+' measured configurations</span><span class="muted small">Catalog ≠ measured evidence</span></div>';
 }
 function solutionsPage(){
-if(canEdit())return heading("Workgroup catalog","Models, Providers & Harnesses","Manage the reusable building blocks independently. AI Solutions are the outputs of benchmark experiments.",btn("+ Model","newComponentType","model","primary")+btn("+ Provider","newComponentType","provider")+btn("+ Harness","newComponentType","harness"))+componentCatalog();
+if(canEdit())return heading("Workgroup catalog","Models, Providers, Harnesses & Frameworks","Frameworks orchestrate configured AI participants; individual AI Solutions are measured through benchmark runs.",btn("+ Model","newComponentType","model","primary")+btn("+ Provider","newComponentType","provider")+btn("+ Harness","newComponentType","harness")+btn("+ Framework","newComponentType","framework"))+componentCatalog();
 var q=String(ui.filters.solutionSearch||"").toLowerCase(),availability=ui.filters.access||"all",maturity=ui.filters.maturity||"all";
 var solutions=db.solutions.filter(function(s){return visibleSolution(s)&&(s.name+" "+s.model+" "+s.harness+" "+s.provider+" "+s.tags.join(" ")).toLowerCase().includes(q)&&(availability==="all"||(availability==="yes"?s.accessible:!s.accessible))&&(maturity==="all"||s.maturity===maturity);});
 var filters='<div class="filters"><input class="input" data-filter="solutionSearch" placeholder="Search model, harness, provider or capability…" value="'+E(ui.filters.solutionSearch||"")+'"><select data-filter="access">'+[["all","Any access"],["yes","Accessible"],["no","Not accessible"]].map(function(x){return opt(x[0],x[1],availability);}).join("")+'</select><select data-filter="maturity">'+[["all","Any maturity"],["candidate","Candidate"],["experimental","Experimental"],["evaluated","Evaluated"],["qualified","Qualified"]].map(function(x){return opt(x[0],x[1],maturity);}).join("")+'</select></div>';
@@ -1186,12 +1204,13 @@ field("criteria","Expected outcomes / Definition of Done",old?.criteria||"","tex
 function dialogComponent(id,prefType,watchId){
 var c=rec("components",id),fromWatch=rec("watch",watchId);
 openForm(c?"Edit catalog component":"Register catalog component",c?"componentEdit":"component",
-selectField("type","Object type",[["model","Model"],["provider","Provider"],["harness","Harness"]],c?.type||prefType||"model")+
+selectField("type","Object type",[["model","Model"],["provider","Provider"],["harness","Harness"],["framework","Framework"]],c?.type||prefType||"model")+
 selectField("publication","Publication status",[["draft","Draft"],["published","Published"]],c?.publication||"published")+
 selectField("accessible","Accessible to the company?",[["yes","Yes"],["no","No"]],c?(c.accessible?"yes":"no"):"yes")+
 selectField("status","Technology lifecycle",[["active","Active"],["watching","Watch candidate"],["retired","Retired"]],c?.status||"active")+
 field("name","Component name",c?.name||fromWatch?.title||"","text","full")+
 field("version","Version / revision (if applicable)",c?.version||"")+
+field("url","Official project URL (optional)",c?.url||"","url","full")+
 field("details","Notes, capabilities, limitations",c?.details||fromWatch?.summary||"","textarea","full"),id,c?"Save component":"Create component");
 if(fromWatch&&ui.modal){var linkedForm=document.querySelector("#modalForm");if(linkedForm)linkedForm.dataset.watch=fromWatch.id;}
 }
@@ -2194,7 +2213,7 @@ if(kind==="task"||kind==="taskEdit"){
 }else if(kind==="component"||kind==="componentEdit"){
  var comp=id?rec("components",id):{id:next("component")},prevComp=id?JSON.parse(JSON.stringify(comp)):null;
  if(prevComp&&prevComp.type!==d.type&&db.solutions.some(function(sol){return sol.componentRefs?.[prevComp.type]===comp.id;})){toast("A referenced component cannot change type; create a new component instead.");return;}
- Object.assign(comp,{type:d.type,name:req(d.name,"Component name"),version:d.version,details:d.details,publication:d.publication,accessible:d.accessible==="yes",status:d.status||"active"});
+ Object.assign(comp,{type:d.type,name:req(d.name,"Component name"),version:d.version,url:d.url||"",details:d.details,publication:d.publication,accessible:d.accessible==="yes",status:d.status||"active"});
  if(!id)db.components.push(comp);else revision("Component",id,prevComp,comp);
  if(form.dataset.watch){var signal=rec("watch",form.dataset.watch);if(signal){signal.component=comp.id;signal.status="reviewed";}}
  ui.page="solutions";ui.solutionView="components";event("Catalog",(id?"Updated":"Registered")+" "+comp.type+": "+comp.name);
