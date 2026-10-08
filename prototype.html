@@ -558,7 +558,7 @@ openModal("Pipeline snapshot · "+q.title,preview,btn("Close","close","","")+btn
 }
 function workgroupOverviewPage(){
 var feedbackPanel=section("Latest user feedback",'<div class="daily-scroll daily-compact list">'+(db.feedback.slice().sort(function(a,b){return String(b.date).localeCompare(String(a.date));}).slice(0,5).map(function(f){
-return '<div class="list-row"><div class="short"><div class="row">'+badge(f.type)+' '+badge(f.status)+'</div><div style="margin-top:6px">'+linkAction(f.title,"feedbackDetail",f.id)+'</div><div class="muted small">'+E(actor(f.author))+' · '+E(f.date)+'</div><p class="muted small">'+E(f.body.slice(0,120))+'</p></div>'+btn("Read thread","feedbackDetail",f.id,"sm")+'</div>';
+return '<div class="list-row"><div class="short"><div class="row">'+badge(f.type)+'</div><div style="margin-top:6px">'+linkAction(f.title,"feedbackDetail",f.id)+'</div><div class="muted small">'+E(actor(f.author))+' · '+E(f.date)+'</div><p class="muted small">'+E(f.body.slice(0,120))+'</p></div>'+btn("Read thread","feedbackDetail",f.id,"sm")+'</div>';
 }).join("")||'<div class="empty">No feedback yet</div>')+'</div>',btn("All feedback","nav","feedback","sm"));
 var watchPanel=section("Latest technology-watch signals",'<div class="daily-scroll daily-compact list">'+(db.watch.slice().sort(function(a,b){return String(b.date).localeCompare(String(a.date));}).slice(0,5).map(function(w){
 return '<div class="list-row"><div class="short"><div class="row">'+badge(w.kind)+' '+badge(w.status)+'</div><div style="margin-top:6px">'+linkAction(w.title,"watchDetail",w.id)+'</div><div class="muted small">'+E(w.date)+' · '+E(w.source)+'</div><p class="muted small">'+E(w.summary.slice(0,130))+'</p></div>'+btn("Inspect","watchDetail",w.id,"sm")+'</div>';
