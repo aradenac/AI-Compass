@@ -213,7 +213,7 @@ A common protocol helps compare solutions fairly; variations must be recorded.
 
 A Test Case in an **open campaign** follows a guided, resumable sequence.
 
-1. **Installation and setup:** select a reusable **Installation guide** from Guides & Charter or register one inline. A guide may optionally be associated with an AI Solution; its version/snapshot is retained in the run. Record actual model/provider/harness setup, local installation start, environment/deployment notes and human setup duration. Prompting the agent, submitting inputs or activating runtime skills/options is **not installation**.
+1. **Installation and setup:** select a reusable **Installation guide** from Guides & Charter or register one inline. A guide may optionally be associated with an AI Solution; its version/snapshot is retained in the run. A linked guide is applicable to an **exact versioned AI configuration**, while unlinked installation guides remain reusable across solutions. Record actual model/provider/harness setup, local installation start, environment/deployment notes and human setup duration. Prompting the agent, submitting inputs or activating runtime skills/options is **not installation**.
 2. **Timed interactions (at least one):** initial prompt/instructions are logged as the first interaction. Subsequent prompts, input documents, enabled skills/options, reviews and corrections are timestamped with independent human intervention and agent runtime/waiting durations plus intermediate evidence. **Total agent runtime is derived by summing those iteration durations**, not independently entered in Step 5.
 3. **Results, artifacts and metrics:** record accepted/failed DoD, Quality and Information Utility scores (0–100, supported by free-form evaluation), **optional total tokens** with explicit multiplier, and one cost classification: run-specific numeric EUR amount, flat-rate/subscription (cost unallocated), or unknown. Flat-rate/unknown must not be treated as €0. Record final human review and correction durations, one canonical set of produced output references, and optional additional notes. No redundant separate input/output token fields, additional runtime input, duplicated deliverable descriptions or utility-related loose text fields.
 4. **Close run:** pin Test Case, protocol, solution configuration, installation guide, interaction timeline, outputs and known/unknown metrics. Failed runs remain auditable. Closing a run does not close the campaign.
@@ -257,12 +257,12 @@ Benchmark results must preserve **raw observations** separately from derived met
 | Dimension | Examples |
 | --- | --- |
 | Quality and acceptance | Mandatory DoD pass/fail; graded rubric; defects; completeness, maintainability, test outcomes. |
-| Human preparation | Time preparing context, files, baseline setup, and initial request. |
-| Human steering | Approximate time guiding the solution; interventions, interruptions, iterations, and re-prompts. |
+| Human preparation | Active tool installation, deployment and initial environment readiness work, excluding agent prompting and later input exchanges. |
+| Human steering | Approximate active human time guiding the solution, including the initial prompt, input submissions, interventions, iterations and re-prompts. |
 | Human review | Approximate time inspecting, understanding, and verifying deliverables. |
 | Human corrections | Approximate additional engineering work required to reach acceptance. |
 | Autonomy | Successful independent progression, human intervention demand, failure/escalation patterns. |
-| AI resource use | Input/output tokens, model calls, elapsed runtime, tooling/API expenditure. |
+| AI resource use | Optional total tokens consumed (if known), model calls where documented, computed agent runtime, and run-specific tooling/API expenditure or an explicit flat-rate/unknown classification. |
 | Information utility / density | Relevant, novel, correct, actionable information in proportion to the amount produced (e.g., tokens or output volume), accounting for irrelevant content and adverse side effects. |
 | Reliability | Variation between repeated runs; completion/acceptance rate; recurring failure modes. |
 | Cost/value | Direct AI/tool costs, valued human effort, saved work versus engineer-only baseline, cost per accepted result. |
