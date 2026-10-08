@@ -1859,29 +1859,50 @@ if(kind==="campaignReview"){
    if(changedSetup&&!String(d.setupNotes||"").trim()){toast("Describe any deviations from the linked theoretical forecast in experimental setup notes.");return;}
   }
  }
- if(!String(d.startedAt||"").trim()||!String(d.initialPrompt||"").trim()||!String(d.inputDocuments||"").trim()){toast("Record start time, initial prompt and input references.");return;}
- if(!Number.isFinite(Number(d.setupMinutes))||String(d.setupMinutes).trim()===""||Number(d.setupMinutes)<0){toast("Specify the human setup duration.");return;}
+ if(!String(d.startedAt||"").trim()||!Number.isFinite(Date.parse(d.startedAt))){toast("Record a valid installation start time.");return;}
+ var guide=rec("guides",d.installationGuide),newGuideTitle=String(d.newGuideTitle||"").trim(),
+  newGuideBody=String(d.newGuideBody||"").trim();
+ if(!guide&&(!newGuideTitle||!newGuideBody)){toast("Select an existing installation guide or create a new one with title and steps.");return;}
+ if((newGuideTitle&&!newGuideBody)||(!newGuideTitle&&newGuideBody)){toast("Complete both new guide title and installation instructions.");return;}
+ if(!Number.isFinite(Number(d.setupMinutes))||String(d.setupMinutes).trim()===""||Number(d.setupMinutes)<0||Number(d.setupMinutes)>10080){toast("Specify installation duration in minutes (0–10080).");return;}
+ if(newGuideTitle&&newGuideBody){
+  var associated=String(d.existingSolution||"");
+  if(!associated){
+   var found=db.solutions.find(function(sol){return sol.componentRefs&&["model","provider","harness"].every(function(k){return sol.componentRefs[k]===cfg[k];});});
+   if(found)associated=found.id;
+  }
+  guide={id:next("g"),title:newGuideTitle,type:"Installation",status:"draft",body:newGuideBody,
+   solution:associated,owner:currentUser,date:new Date().toISOString().slice(0,10)};
+  db.guides.push(guide);event("Guide","Registered installation guide: "+guide.title,true);
+ }
+ if(!guide||guide.type!=="Installation"){toast("Select an installation guide.");return;}
  var session={id:next("trial"),campaign:id,case:chosenCase.id,step:2,status:"in_progress",
-  startedAt:d.startedAt,setupMinutes:Number(d.setupMinutes),initialPrompt:d.initialPrompt,inputDocuments:d.inputDocuments,
-  providedSkills:d.providedSkills||"",setupNotes:d.setupNotes||"",solutionSetup:cfg,forecastSnapshot:home.forecastId?JSON.parse(JSON.stringify(rec("proposals",home.forecastId)||null)):null,interactions:[],runId:"",createdBy:currentUser};
+  startedAt:d.startedAt,setupMinutes:Number(d.setupMinutes),initialPrompt:"",inputDocuments:"",providedSkills:"",
+  installationGuideId:guide.id,installationGuideSnapshot:JSON.parse(JSON.stringify(guide)),
+  setupNotes:d.setupNotes||"",solutionSetup:cfg,forecastSnapshot:home.forecastId?JSON.parse(JSON.stringify(rec("proposals",home.forecastId)||null)):null,interactions:[],runId:"",createdBy:currentUser};
  db.campaignTrials.push(session);event("Trial","Started "+chosenCase.title+" in "+home.title,true);
  persist();campaignTrialInteraction(session.id);return;
 }else if(kind==="campaignInteraction"){
  var session=rec("campaignTrials",id),ownerCampaign=session&&rec("campaigns",session.campaign);
  if(!session||!ownerCampaign||ownerCampaign.stage!=="active"||session.status==="completed"){toast("This execution cannot be changed.");return;}
- if(!d.at||!String(d.description||"").trim()){toast("Provide the interaction time and description.");return;}
- if(["humanMinutes","agentMinutes"].some(function(k){return String(d[k]??"").trim()===""||!Number.isFinite(Number(d[k]))||Number(d[k])<0;})){toast("Provide both human and agent duration (0 allowed).");return;}
+ if(!d.at||!Number.isFinite(Date.parse(d.at))||!String(d.description||"").trim()){toast("Provide valid interaction time and description.");return;}
+ if(Date.parse(d.at)>Date.now()+300000){toast("An interaction cannot be in the future.");return;}
+ if(["humanMinutes","agentMinutes"].some(function(k){return String(d[k]??"").trim()===""||!Number.isFinite(Number(d[k]))||Number(d[k])<0||Number(d[k])>10080;})){toast("Provide human and agent duration in minutes (0–10080).");return;}
  if(Date.parse(d.at)<Date.parse(session.startedAt)){toast("An iteration cannot predate initial setup.");return;}
  session.interactions.push({at:d.at,kind:d.kind||"Interaction",humanMinutes:Number(d.humanMinutes),agentMinutes:Number(d.agentMinutes),
-  description:d.description,promptUpdate:d.promptUpdate||"",artifacts:d.artifacts||""});
+  description:d.description,promptUpdate:d.promptUpdate||"",inputDocuments:d.inputDocuments||"",providedSkills:d.providedSkills||"",artifacts:d.artifacts||""});
  session.step=2;event("Trial","Logged interaction for "+rec("cases",session.case)?.title,true);
  persist();campaignTrialInteraction(id);return;
 }else if(kind==="campaignTrialOutcome"){
  var session=rec("campaignTrials",id),campaign=session&&rec("campaigns",session.campaign);
  if(!session||!campaign||campaign.stage!=="active"||session.status==="completed"){toast("This session is no longer open.");return;}
  if(["score","utility"].some(function(k){return !String(d[k]??"").trim()||!Number.isFinite(Number(d[k]))||Number(d[k])<0||Number(d[k])>100;})){toast("Enter outcome metrics (quality and utility 0–100).");return;}
- if(["tokensInput","tokensOutput","cost","finalRuntime","reviewMinutes","correctionMinutes"].some(function(k){return String(d[k]??"").trim()===""||!Number.isFinite(Number(d[k]))||Number(d[k])<0;})){toast("Enter nonnegative usage and effort measures (0 allowed).");return;}
- if(!String(d.conclusion||"").trim()||!String(d.deliverableNotes||"").trim()||!String(d.outputDocuments||"").trim()){toast("Document the conclusion, produced outputs and their references.");return;}
+ if(["reviewMinutes","correctionMinutes"].some(function(k){return String(d[k]??"").trim()===""||!Number.isFinite(Number(d[k]))||Number(d[k])<0||Number(d[k])>10080;})){toast("Enter final human effort in minutes, 0–10080.");return;}
+ if(!["amount","flat","unknown"].includes(d.costMode)){toast("Select how the AI/tool cost is represented.");return;}
+ if(d.costMode==="amount"&&(String(d.cost??"").trim()===""||!Number.isFinite(Number(d.cost))||Number(d.cost)<0)){toast("Enter a nonnegative total run cost in EUR.");return;}
+ if(String(d.tokenCount??"").trim()!==""&&(!Number.isFinite(Number(d.tokenCount))||Number(d.tokenCount)<0||!["1","10","100","1000","1000000"].includes(String(d.tokenScale)))){toast("Invalid token total or multiplier.");return;}
+ if(!session.interactions.length){toast("Log at least one interaction, including the initial prompt/action.");return;}
+ if(!String(d.outputDocuments||"").trim()){toast("Document the final produced outputs or explicitly state none.");return;}
  var finished=campaignRecordRun(session,d);
  if(finished.error){toast(finished.error);return;}
  if(session.forecastSnapshot){var source=rec("proposals",session.forecastSnapshot.id);if(source){var previous=JSON.parse(JSON.stringify(source));source.linkedSolution=finished.run.solution;revision("Forecast validation link",source.id,previous,source);}}
