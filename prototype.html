@@ -1181,15 +1181,15 @@ for(var index of indexes){
 }
 return {sources:changes};
 }
-function dialogCampaign(id){
+function dialogCampaign(id,forecastId){
 if(!canEdit())return;
-var c=rec("campaigns",id),setup=c?.solutionSetup||{};
+var c=rec("campaigns",id),projection=rec("proposals",forecastId),setup=c?.solutionSetup||{};
 var body='<div class="span2 note">Step 1 — Define the experimental campaign. Test Cases, execution sessions and interaction timelines are added <strong>after</strong> creation. You can edit, close, review or reopen a campaign later.</div>'+
-field("title","Campaign title",c?.title||"","text","full")+
-field("purpose","Campaign objective / hypothesis",c?.purpose||"","textarea","full")+
+field("title","Campaign title",c?.title||(projection?"Validate forecast · "+projection.name:""),"text","full")+
+field("purpose","Campaign objective / hypothesis",c?.purpose||(projection?"Test the literature-derived forecast on controlled task challenges. "+projection.rationale:""),"textarea","full")+
 selectField("mode","Experiment strategy",[["solution_scope","Solution-centred · one AI configuration, multiple tasks and Test Cases"],["task_compare","Task-centred · one task, compare different AI configurations"]],c?.mode||"task_compare",true)+
 '<div class="span2 campaign-mode-panel" data-mode-panel="task_compare"'+((c?.mode||"task_compare")==="task_compare"?"":' style="display:none"')+'>'+
-selectField("task","Fixed task for all comparisons",db.tasks.filter(function(t){return t.baseline>0;}).map(function(t){return[t.id,t.name];}),c?.task||"t5",true)+'</div>'+
+selectField("task","Fixed task for all comparisons",db.tasks.filter(function(t){return t.baseline>0;}).map(function(t){return[t.id,t.name];}),c?.task||projection?.task||"t5",true)+'</div>'+
 '<div class="span2 note">For <strong>solution-centred</strong> campaigns, choose the fixed model, provider and harness here. In task-centred campaigns, the AI setup will be chosen independently for every experiment.</div>'+
 '<div class="span2 campaign-mode-panel" data-mode-panel="solution_scope"'+((c?.mode||"task_compare")==="solution_scope"?"":' style="display:none"')+'><div class="form-grid">'+
 selectField("modelComponent","Fixed model",comboComponentOptions("model"),setup.model||"")+
@@ -1200,7 +1200,8 @@ field("version","Fixed combined configuration version",setup.version||"1.0")+
 field("configuration","Combined setup notes / versioned configuration (NOT an installation guide)",setup.configuration||"","textarea","full")+
 field("capabilities","Agent tools / skills planned",setup.capabilities||"","textarea","full")+'</div></div>'+
 selectField("owner","Campaign owner",db.users.filter(function(u){return u.role==="workgroup";}).map(function(u){return[u.id,u.name];}),c?.owner||currentUser)+
-field("notes","Context, constraints and campaign notes",c?.notes||"","textarea","full");
+field("notes","Context, constraints and campaign notes",c?.notes||projection?.uncertainty||"","textarea","full")+
+'<input type="hidden" name="forecastId" value="'+E(c?.forecastId||forecastId||"")+'">';
 openForm(c?"Edit campaign":"Step 1 · Create benchmark campaign","campaign",body,id||"",c?"Save campaign":"Create campaign & continue");
 }
 function campaignLocalTime(){
@@ -1232,16 +1233,16 @@ id,"Attach to campaign");
 function campaignTrialStart(campaignId,caseId){
 var c=rec("campaigns",campaignId),tc=rec("cases",caseId);
 if(!c||!tc||c.stage!=="active"||!canEdit()||!c.caseIds.includes(caseId))return;
-var fixed=c.mode==="solution_scope",setup=c.solutionSetup||{},suggested=tc.inputs||"";
+var fixed=c.mode==="solution_scope",setup=c.solutionSetup||{},suggested=tc.inputs||"",sourceForecast=rec("proposals",c.forecastId),predicted=sourceForecast?.componentRefs||{};
 var fields='<div class="span2 note">Step 3 — Record the <strong>initial experimental setup</strong> and start time. This is not a software installation guide. Every field is attached to this execution only.</div>'+
 '<input type="hidden" name="case" value="'+E(tc.id)+'"><div class="span2"><strong>'+E(tc.title)+'</strong><p class="muted small">'+E(rec("tasks",tc.task)?.name||"")+' · DoD: '+E(tc.dod)+'</p></div>'+
 (fixed?'<div class="span2 note"><strong>Fixed campaign solution:</strong> '+["model","provider","harness"].map(function(k){return E(rec("components",setup[k])?.name||"Not set");}).join(" · ")+'</div>':
 selectField("existingSolution","Optional already benchmarked AI Solution",[["","New configuration for this Test Case"]].concat(db.solutions.filter(function(x){return db.runs.some(function(r){return r.solution===x.id;});}).map(function(x){return[x.id,x.name+" · "+x.version];})),"",true)+
-selectField("modelComponent","Model",comboComponentOptions("model"),"")+
-selectField("providerComponent","Provider",comboComponentOptions("provider"),"")+
-selectField("harnessComponent","Harness",comboComponentOptions("harness"),"")+
+selectField("modelComponent","Model",comboComponentOptions("model"),predicted.model||"")+
+selectField("providerComponent","Provider",comboComponentOptions("provider"),predicted.provider||"")+
+selectField("harnessComponent","Harness",comboComponentOptions("harness"),predicted.harness||"")+
 field("version","Configuration version","1.0")+
-field("configuration","Model / harness settings used in this experiment","","textarea","full")+
+field("configuration","Model / harness settings used in this experiment",sourceForecast?.config||"","textarea","full")+
 field("capabilities","Agent tools, skills and allowed integrations","","textarea","full"))+
 field("startedAt","Configuration / experiment start date and time",campaignLocalTime(),"datetime-local")+
 field("setupMinutes","Human preparation duration (minutes)","","number")+
@@ -1561,7 +1562,8 @@ var r={id:next("r"),campaignId:c.id,sessionId:t.id,case:tc.id,solution:sol.id,
  campaignSnapshot:JSON.parse(JSON.stringify({id:c.id,title:c.title,mode:c.mode,purpose:c.purpose,task:c.task,notes:c.notes})),
  caseSnapshot:JSON.parse(JSON.stringify(tc)),solutionSnapshot:JSON.parse(JSON.stringify(sol)),
  componentSnapshots:JSON.parse(JSON.stringify(sol.componentSnapshots||{})),
- protocolSnapshot:JSON.parse(JSON.stringify(rec("protocols",tc.protocol)||{})),
+ forecastSnapshot:t.forecastSnapshot?JSON.parse(JSON.stringify(t.forecastSnapshot)):null,forecastDeviation:t.forecastSnapshot?String(t.setupNotes||""):"",
+  protocolSnapshot:JSON.parse(JSON.stringify(rec("protocols",tc.protocol)||{})),
  taskContextSnapshot:ancestors(tc.task).map(function(x){return{id:x.id,name:x.name,phase:x.phase,criteria:x.criteria,baseline:x.baseline};})
 };
 db.runs.push(r);
@@ -1586,7 +1588,7 @@ if(kind==="campaignReview"){
  var before=existing?JSON.parse(JSON.stringify(existing)):null;
  var desiredTask=mode==="task_compare"?d.task:"";
  if(existing&&campaignTrialsExistingOrCases(campaign)&&existing.mode!==mode){toast("Campaign mode cannot change after cases or sessions exist.");return;}
- Object.assign(campaign,{title:req(d.title,"Campaign title"),purpose:req(d.purpose,"Objective"),
+ Object.assign(campaign,{forecastId:d.forecastId||existing?.forecastId||"",title:req(d.title,"Campaign title"),purpose:req(d.purpose,"Objective"),
   mode:mode,task:desiredTask,solutionSetup:setup,notes:d.notes||"",owner:d.owner||currentUser,updated:TODAY});
  if(!existing)db.campaigns.push(campaign);else revision("Campaign",campaign.id,before,campaign);
  event("Campaign",(existing?"Edited ":"Created ")+campaign.title,true);persist();detailsCampaign(campaign.id);return;
@@ -1620,7 +1622,7 @@ if(kind==="campaignReview"){
  if(!Number.isFinite(Number(d.setupMinutes))||String(d.setupMinutes).trim()===""||Number(d.setupMinutes)<0){toast("Specify the human setup duration.");return;}
  var session={id:next("trial"),campaign:id,case:chosenCase.id,step:2,status:"in_progress",
   startedAt:d.startedAt,setupMinutes:Number(d.setupMinutes),initialPrompt:d.initialPrompt,inputDocuments:d.inputDocuments,
-  providedSkills:d.providedSkills||"",setupNotes:d.setupNotes||"",solutionSetup:cfg,interactions:[],runId:"",createdBy:currentUser};
+  providedSkills:d.providedSkills||"",setupNotes:d.setupNotes||"",solutionSetup:cfg,forecastSnapshot:home.forecastId?JSON.parse(JSON.stringify(rec("proposals",home.forecastId)||null)):null,interactions:[],runId:"",createdBy:currentUser};
  db.campaignTrials.push(session);event("Trial","Started "+chosenCase.title+" in "+home.title,true);
  persist();campaignTrialInteraction(session.id);return;
 }else if(kind==="campaignInteraction"){
@@ -1641,6 +1643,7 @@ if(kind==="campaignReview"){
  if(!String(d.conclusion||"").trim()||!String(d.deliverableNotes||"").trim()||!String(d.outputDocuments||"").trim()){toast("Document the conclusion, produced outputs and their references.");return;}
  var finished=campaignRecordRun(session,d);
  if(finished.error){toast(finished.error);return;}
+ if(session.forecastSnapshot){var source=rec("proposals",session.forecastSnapshot.id);if(source){var previous=JSON.parse(JSON.stringify(source));source.linkedSolution=finished.run.solution;revision("Forecast validation link",source.id,previous,source);}}
  session.status="completed";session.step=3;session.runId=finished.run.id;session.finishedAt=campaignLocalTime();
  if(!campaign.solutionIds.includes(finished.run.solution))campaign.solutionIds.push(finished.run.solution);
  campaign.updated=TODAY;event("Trial","Closed "+rec("cases",session.case)?.title+" — "+(finished.run.accepted?"Accepted":"Failed"),true);
@@ -1869,7 +1872,7 @@ if(act==="reviseProtocol"){dialogProtocol(id);return;}
 if(act==="forkCase"){dialogCase("",id);return;}
 if(act==="newCase"){dialogCase(id);return;}
 if(act==="newRun"){dialogRun();return;}
-if(act==="validateForecast"){var p=rec("proposals",id);if(!p||!["staged","reviewed","published"].includes(p.status))return;ui.page="benchmark";var tc=db.cases.find(function(c){return descendants(p.task).includes(c.task);});if(!tc){ui.task=p.task;render();toast("Create a Test Case for this task before validation.");dialogCase(p.task);}else dialogRun(tc.id,"","","",p.id);return;}
+if(act==="validateForecast"){var p=rec("proposals",id);if(!p||!["staged","reviewed","published"].includes(p.status)||!canEdit())return;dialogCampaign("",id);return;}
 if(act==="newRunForCase"){dialogRun(id);return;}
 if(act==="newRunForSolution"){dialogRun("",id);return;}
 if(act==="repeatRun"){dialogRun("","",id);return;}
