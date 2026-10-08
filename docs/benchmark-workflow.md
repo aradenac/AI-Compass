@@ -53,7 +53,7 @@ flowchart LR
 - **Close → Under review:** stage the collected draft runs; no automatic public release.
 - **Review:** the campaign owner or another workgroup member can record the rationale and approve publication or request rework. At least one completed run is required before publication.
 - **Published:** controlled evidence becomes available for analytical results exploration. Publishing a failed run makes the failure visible; it does not constitute recommending the AI Solution.
-- **Unpublish / Reopen:** a published campaign can return to Under review via Unpublish, or In progress via Reopen. Previous decisions and run evidence are retained.
+- **Unpublish / Reopen:** a published campaign can return to Under review via Unpublish, or In progress via Reopen. **Unpublish retracts the campaign's public runs** and restores the draft state of a benchmark-generated AI Solution only if no other published run still supports it; reopening for additional tests does not in itself unpublish previously released evidence. Previous decisions and run evidence are retained.
 - **Delete / archive:** truly empty campaigns can be deleted. Campaigns with sessions/runs are archived instead, preserving provenance and allowing restoration.
 
 The **Dashboard is read-only** with columns Planned / In progress / Under review / Published. The **Benchmark Workspace** owns all actions; **Results Explorer** owns comparison and published-campaign evidence reading.
