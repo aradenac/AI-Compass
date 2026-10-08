@@ -994,7 +994,14 @@ selectField("task","Engineering task receiving this expected performance",[["","
 '<div class="span2"><strong>Supporting watch signals (select one or more)</strong><p class="muted small">Multiple hypotheses and their external sources may support the same forecast.</p><div class="watch-link-list">'+forecastReferenceRows(db.watch,chosen)+'</div></div>'+
 selectField("modelComponent","Model (theoretical)",comboComponentOptions("model"),refs.model||"",true)+
 selectField("providerComponent","Provider (theoretical)",comboComponentOptions("provider"),refs.provider||"",true)+
-selectField("harnessComponent","Harness (theoretical)",comboComponentOptions("harness"),refs.harness||"",true)+
+selectField("harnessComponent","Harness (theoretical)",comboComponentOptions("harness"),refs.harness||"",true)+'<details class="span2" style="margin:4px 0 11px"><summary class="pointer small"><strong>Component missing?</strong> Register model/provider/harness here (optional)</summary>'+
+'<div class="note" style="margin:9px 0">These will be added as unverified items to Technology Catalog when this forecast is saved; the Watch Entry remains independent.</div><div class="form-grid">'+
+field("newModel","New model name (overrides selection)","")+
+field("newModelVersion","Model version","Unverified")+
+field("newProvider","New provider name (overrides selection)","")+
+field("newProviderVersion","Provider version","Unverified")+
+field("newHarness","New harness name (overrides selection)","")+
+field("newHarnessVersion","Harness version","Unverified")+'</div></details>'+
 field("config","Assumed configuration, tools, versions and constraints",p?.config||"","textarea","full")+
 '<div class="span2"><h3>Predicted outcomes — NOT benchmark results</h3><p class="muted small">Scores are workgroup estimates (0–100); AI cost and engineer time refer to a hypothetical accepted-result attempt, not an observed run.</p></div>'+
 field("quality","Estimated quality /100",p?.quality??"","number")+
@@ -1344,14 +1351,24 @@ if(kind==="task"||kind==="taskEdit"){
 }else if(kind==="forecast"){
  var watchIds=db.watch.filter(function(w){return d["watch_"+w.id]==="yes";}).map(function(w){return w.id;});
  var refs={model:d.modelComponent,provider:d.providerComponent,harness:d.harnessComponent};
+ var replacements={model:String(d.newModel||"").trim(),provider:String(d.newProvider||"").trim(),harness:String(d.newHarness||"").trim()};
+ if(id&&rec("proposals",id)?.status==="published"){toast("Published forecast is immutable. Create a new revision.");return;}
  if(!watchIds.length){toast("Select at least one supporting watch hypothesis.");return;}
- if(!rec("tasks",d.task)||["model","provider","harness"].some(function(k){return !rec("components",refs[k]);})){toast("Select a task, model, provider and harness.");return;}
+ if(!rec("tasks",d.task)||["model","provider","harness"].some(function(k){return !replacements[k]&&!rec("components",refs[k]);})){toast("Select or register a task, model, provider and harness.");return;}
  if([d.quality,d.acceptance,d.autonomy,d.humanMinutes,d.aiCost,d.hourlyRate].some(function(v){return String(v??"").trim()===""||!Number.isFinite(Number(v))||Number(v)<0;})||[d.quality,d.acceptance,d.autonomy].some(function(v){return Number(v)>100;})){toast("Enter explicitly justified nonnegative estimates (scores 0–100).");return;}
  var forecast=id?rec("proposals",id):{id:next("forecast"),status:"draft",author:currentUser,reviewer:"",linkedSolution:"",created:new Date().toISOString().slice(0,10)};
  if(!forecast)return;
  var previous=id?JSON.parse(JSON.stringify(forecast)):null;
- if(id&&forecast.status==="published"){toast("Published projections are immutable. Create a new forecast for changes.");return;}
- Object.assign(forecast,{name:req(d.name,"Configuration name"),task:d.task,watchIds:watchIds,componentRefs:refs,config:req(d.config,"Configuration"),quality:toNum(d.quality),acceptance:toNum(d.acceptance),autonomy:toNum(d.autonomy),humanMinutes:toNum(d.humanMinutes),aiCost:toNum(d.aiCost),hourlyRate:toNum(d.hourlyRate),confidence:d.confidence,revision:d.revision||"1.0",rationale:req(d.rationale,"Rationale"),uncertainty:req(d.uncertainty,"Uncertainty"),reviewNotes:d.reviewNotes||"",updated:new Date().toISOString().slice(0,10)});
+ var forecastName=req(d.name,"Configuration name"),configText=req(d.config,"Configuration"),justification=req(d.rationale,"Rationale"),unknowns=req(d.uncertainty,"Uncertainty");
+ ["model","provider","harness"].forEach(function(kind){
+  var name=replacements[kind];if(!name)return;
+  var version=String(d["new"+kind[0].toUpperCase()+kind.slice(1)+"Version"]||"Unverified").trim();
+  var existing=db.components.find(function(c){return c.type===kind&&c.name.toLowerCase()===name.toLowerCase()&&c.version===version;});
+  if(existing){refs[kind]=existing.id;return;}
+  var component={id:next("component"),type:kind,name:name,version:version,status:"watching",publication:"draft",accessible:false,details:"Proposed from literature-based forecast; unverified and not yet benchmarked."};
+  db.components.push(component);refs[kind]=component.id;event("Catalog","Registered unverified "+kind+": "+name,true);
+ });
+ Object.assign(forecast,{name:forecastName,task:d.task,watchIds:watchIds,componentRefs:refs,config:configText,quality:toNum(d.quality),acceptance:toNum(d.acceptance),autonomy:toNum(d.autonomy),humanMinutes:toNum(d.humanMinutes),aiCost:toNum(d.aiCost),hourlyRate:toNum(d.hourlyRate),confidence:d.confidence,revision:d.revision||"1.0",rationale:justification,uncertainty:unknowns,reviewNotes:d.reviewNotes||"",updated:new Date().toISOString().slice(0,10)});
  if(id){
   var keyFields=["name","task","watchIds","componentRefs","config","quality","acceptance","autonomy","humanMinutes","aiCost","hourlyRate","confidence","rationale","uncertainty"];
   var materiallyChanged=keyFields.some(function(k){return JSON.stringify(previous[k])!==JSON.stringify(forecast[k]);});
