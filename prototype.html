@@ -769,7 +769,7 @@ if(act==="qualFromFeedback"){dialogQualification("","",id);return;}
 if(act==="qualAdvance"){transitionQualification(id,"next");return;}
 if(act==="qualRetreat"){transitionQualification(id,"back");return;}
 if(act==="qualReopen"){requalify(id);return;}
-if(act==="qualNewRun"){var q=rec("qualifications",id),tc=q&&db.cases.find(function(c){return !q.task||descendants(q.task).includes(c.task);});if(q)dialogRun(tc?.id||"",q.solution);return;}
+if(act==="qualNewRun"){var q=rec("qualifications",id),tc=q&&db.cases.find(function(c){return !q.task||descendants(q.task).includes(c.task);});if(q){if(!tc&&q.task){toast("This task has no Test Case yet. Define one before recording a run.");dialogCase(q.task);}else dialogRun(tc?.id||"",q.solution);}return;}
 
 if(act==="campaignDetail"){detailsCampaign(id);return;}
 if(act==="watchDetail"){detailsWatch(id);return;}
