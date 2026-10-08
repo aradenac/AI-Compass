@@ -273,6 +273,49 @@ db.proposals.forEach(function(p){
 });
 // Campaigns are the operational unit of benchmarking; migrate older demo records non-destructively.
 if(!Array.isArray(db.campaignTrials))db.campaignTrials=[];
+if(!db.campaigns.some(function(c){return c.id==="demo_campaign_planned";})){
+ db.campaigns.push({id:"demo_campaign_planned",title:"Plan: agent autonomy for intermittent driver bugs",
+  purpose:"Design common test challenges for agent reliability and autonomy in embedded failure diagnosis.",
+  caseIds:[],solutionIds:[],status:"planned",stage:"planned",mode:"task_compare",task:"t5",
+  solutionSetup:{model:"",provider:"",harness:"",configuration:"",version:"1.0",capabilities:"",accessible:true},
+  owner:"u5",notes:"Proposed scope — not yet executed.",reviewNotes:"",reviewer:"",updated:"2026-10-08"});
+}
+if(!db.campaigns.some(function(c){return c.id==="demo_campaign_review";})){
+ var example= db.solutions.find(function(x){return x.id==="s1";});
+ db.campaigns.push({id:"demo_campaign_review",title:"Peer review: embedded driver output fidelity",
+  purpose:"Check documented quality, setup reproducibility, trace and acceptance criteria for a fixed AI configuration.",
+  caseIds:["c1"],solutionIds:["s1"],status:"closed",stage:"review",mode:"solution_scope",task:"",
+  solutionSetup:{model:example?.componentRefs?.model||"",provider:example?.componentRefs?.provider||"",harness:example?.componentRefs?.harness||"",configuration:example?.config||"",version:example?.version||"1.0",capabilities:example?.skills||"",accessible:!!example?.accessible},
+  owner:"u1",notes:"Mock campaign ready for independent workgroup review.",reviewNotes:"",reviewer:"",updated:"2026-10-07"});
+ var template=db.runs.find(function(x){return x.case==="c1";})||db.runs[0];
+ if(template){
+  var run=JSON.parse(JSON.stringify(template));run.id="demo_review_run";run.campaignId="demo_campaign_review";run.status="draft";run.sessionId="demo_review_trial";
+  run.initialSetup={startedAt:"2026-10-06T09:00",setupMinutes:12,inputDocuments:"Synthetic driver input and specification",providedSkills:"Zephyr driver skill",setupNotes:"Mock native_sim experiment",initialPrompt:run.prompt,configuration:example?.config||""};
+  run.interactions=[{at:"2026-10-06T09:40",kind:"Review and correction",humanMinutes:9,agentMinutes:21,description:"Inspected mock driver output and requested test corrections.",promptUpdate:"Add regression test",artifacts:"mock-tests.log"}];
+  run.campaignSnapshot={id:"demo_campaign_review",title:"Peer review: embedded driver output fidelity",mode:"solution_scope"};
+  db.runs.push(run);
+  db.campaignTrials.push({id:"demo_review_trial",campaign:"demo_campaign_review",case:run.case,step:3,status:"completed",interactions:run.interactions,startedAt:run.initialSetup.startedAt,runId:run.id});
+ }
+}
+if(!db.campaigns.some(function(c){return c.id==="demo_campaign_published";})){
+ var baseline=db.solutions.find(function(x){return x.id==="s4";})||db.solutions[0];
+ db.campaigns.push({id:"demo_campaign_published",title:"Published: requirements analysis benchmark",
+  purpose:"Completed illustrative campaign comparing requirements/document interpretation outputs.",
+  caseIds:["c5"],solutionIds:baseline?[baseline.id]:[],status:"published",stage:"published",mode:"task_compare",task:rec("cases","c5")?.task||"t10",
+  solutionSetup:{model:"",provider:"",harness:"",configuration:"",version:"1.0",capabilities:"",accessible:true},
+  owner:"u1",notes:"Mock controlled evidence used to demonstrate campaign publication.",
+  reviewNotes:"Independent review of prompts, trace and acceptance outcomes complete.",reviewer:"u5",updated:"2026-10-06"});
+ var seedRun=db.runs.find(function(x){return x.case==="c5"&&x.status==="published";})||db.runs.find(function(x){return x.status==="published";});
+ if(seedRun){
+  var published=JSON.parse(JSON.stringify(seedRun));published.id="demo_campaign_published_run";published.campaignId="demo_campaign_published";published.sessionId="demo_campaign_published_trial";published.status="published";
+  published.initialSetup={startedAt:"2026-10-05T08:30",setupMinutes:15,inputDocuments:"Synthetic requirements export",providedSkills:"Requirements quality rubric",setupNotes:"Mock document analysis",initialPrompt:published.prompt,configuration:published.solutionSnapshot?.config||""};
+  published.interactions=[{at:"2026-10-05T09:35",kind:"Review",humanMinutes:10,agentMinutes:20,description:"Inspected traceability and acceptance consistency.",promptUpdate:"Clarify missing source links",artifacts:"mock-traceability.md"}];
+  published.campaignSnapshot={id:"demo_campaign_published",title:"Published: requirements analysis benchmark",mode:"task_compare"};
+  db.runs.push(published);
+  db.campaignTrials.push({id:"demo_campaign_published_trial",campaign:"demo_campaign_published",case:published.case,step:3,status:"completed",interactions:published.interactions,startedAt:published.initialSetup.startedAt,runId:published.id});
+ }
+}
+
 db.campaigns.forEach(function(c,i){
  if(!c.mode)c.mode=i===0?"task_compare":"solution_scope";
  if(!c.stage)c.stage=c.status==="published"?"published":c.status==="closed"?"review":c.status==="active"?"active":"planned";
