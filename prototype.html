@@ -77,6 +77,12 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;b
 .feedback-message{background:#fff;border:1px solid var(--line);border-radius:9px;padding:11px;margin-bottom:8px}
 .feedback-messages{min-height:78px;max-height:330px;overflow-y:auto;margin-bottom:10px}
 .feedback-reply-form textarea{margin-top:8px}
+
+.cross-pick{display:flex;align-items:flex-start;gap:11px;border:1px solid var(--line);border-radius:9px;padding:12px;background:#fbfcff;font-size:12px;cursor:pointer}
+.cross-pick input{margin-top:5px;flex-shrink:0}.watch-link-list{max-height:220px;overflow:auto;border:1px solid var(--line);border-radius:9px}
+.watch-link-row{display:flex;align-items:center;gap:11px;padding:10px 13px;border-bottom:1px solid var(--line);cursor:pointer}
+.watch-link-row:last-child{border-bottom:0}.watch-link-row:hover{background:#f4f8ff}.watch-link-row input{flex-shrink:0}
+.watch-source-row{margin:9px 0}.watch-source-row textarea{min-height:65px}
 </style>
 </head>
 <body>
@@ -647,10 +653,48 @@ var tab=ui.testTab||"cases",tabs='<div class="pill-tabs">'+[['cases','Test Cases
 return heading("Test engineering","Test design","Define reusable, independent experimental challenges and versioned evaluation protocols. These are prepared before benchmark execution.",btn("+ Test Case","newCase","","primary")+btn("+ Protocol","newProtocol","",""))+
 '<div class="card">'+tabs+(tab==="protocols"?protocolRegistry():caseRegistry())+'</div>';
 }
+function crossEvidenceComparison(){
+var task=ui.filters.crossTask||"all";
+var runs=db.runs.filter(function(r){return r.status==="published"&&visibleRun(r)&&(task==="all"||(caseOf(r)&&descendants(task).includes(caseOf(r).task)));});
+var measured=db.solutions.filter(function(s){return visibleSolution(s)&&runs.some(function(r){return r.solution===s.id;});});
+var forecasts=db.proposals.filter(function(p){return forecastVisible(p)&&["staged","reviewed","published"].includes(p.status)&&(task==="all"||descendants(task).includes(p.task));});
+var items=measured.map(function(s){return {id:s.id,label:s.name,type:"measured",solution:s};})
+ .concat(forecasts.map(function(p){return {id:p.id,label:p.name,type:"forecast",forecast:p};}));
+var chosen=items.filter(function(x){return ui.selectedCompare.includes(x.id);});
+var filters='<div class="filters"><select data-filter="crossTask">'+[opt("all","All tasks (different task mixes)",task)].concat(db.tasks.filter(function(t){return t.baseline>0;}).map(function(t){return opt(t.id,t.name,task);})).join("")+'</select>'+
+badge(measured.length+" measured")+' '+badge(forecasts.length+" projected")+'</div>';
+var cards='<div class="grid g2">'+items.map(function(x){
+var p=x.forecast;
+return '<label class="cross-pick"><input type="checkbox" data-compare="'+E(x.id)+'"'+(ui.selectedCompare.includes(x.id)?' checked':'')+'><div><strong>'+E(x.label)+'</strong><div class="tags" style="margin-top:4px">'+badge(x.type==="forecast"?"THEORETICAL · "+p.status:"MEASURED · controlled run")+ (p?badge(p.confidence+" confidence"):badge("Empirical evidence"))+'</div>'+
+'<div class="muted small" style="margin-top:5px">'+(p?E(rec("tasks",p.task)?.name||"Unknown task")+' · '+theoreticalSources(p).length+' external source(s)':runs.filter(function(r){return r.solution===x.id;}).length+' observed run(s)')+'</div></div></label>';
+}).join("")+'</div>';
+if(!chosen.length)return '<div class="note">Select a measured AI Solution and/or a theoretical forecast below. Only staged, reviewed or published forecasts enter this analytical comparison.</div>'+filters+cards;
+function tableRow(label,metric){return '<tr>'+td('<strong>'+label+'</strong>')+chosen.map(function(x){return td(metric(x));}).join("")+'</tr>';}
+function runstats(x){return solutionStats(x.solution.id,runs.filter(function(r){return r.solution===x.solution.id;}));}
+function estimated(x,field,suffix){var p=x.forecast;return p?'<span class="tag amber">Estimated</span> '+E(p[field])+suffix:'<span class="muted">Not estimated</span>';}
+function observed(x,field,suffix){if(!x.solution)return '<span class="muted">Not measured</span>';var z=runstats(x);return z.count?'<span class="tag green">Observed</span> '+E(z[field])+suffix:'<span class="muted">Not measured</span>';}
+var lines=[
+tableRow("Evidence class",function(x){return x.forecast?badge("THEORETICAL · "+x.forecast.status):badge("MEASURED");}),
+tableRow("Task / scope",function(x){return E(x.forecast?rec("tasks",x.forecast.task)?.name||"Unknown":task==="all"?"Mixed tasks":rec("tasks",task)?.name||"Unknown");}),
+tableRow("Quality — observed",function(x){return observed(x,"score","/100");}),
+tableRow("Quality — projected",function(x){return estimated(x,"quality","/100");}),
+tableRow("DoD acceptance — observed",function(x){return observed(x,"accept","%");}),
+tableRow("DoD acceptance — projected",function(x){return estimated(x,"acceptance","%");}),
+tableRow("Engineer time — observed",function(x){return observed(x,"effort"," min");}),
+tableRow("Engineer time — projected",function(x){return estimated(x,"humanMinutes"," min");}),
+tableRow("AI/tool cost — observed",function(x){return x.solution&&runstats(x).count?'<span class="tag green">Observed</span> '+money(runstats(x).cost):"Not measured";}),
+tableRow("AI/tool cost — projected",function(x){return x.forecast?'<span class="tag amber">Estimated</span> '+money(x.forecast.aiCost):"Not estimated";}),
+tableRow("Net labor value scenario",function(x){if(!x.forecast)return "Not estimated";var net=forecastNetSavings(x.forecast);return net==null?"No task baseline":'<span class="tag amber">Scenario</span> '+money(net);}),
+tableRow("Evidence & confidence",function(x){return x.forecast?badge(x.forecast.confidence+" confidence")+' · '+theoreticalSources(x.forecast).length+' cited source(s)':runstats(x).count+' controlled published run(s)';}),
+tableRow("Traceable detail",function(x){return x.forecast?btn("Watch sources & rationale","forecastDetail",x.id,"sm"):btn("Measured evidence","solution",x.id,"sm");})
+];
+var intro='<div class="note warn" style="margin-bottom:13px">Projections are <strong>not</strong> empirical observations. They have no controlled acceptance count or observed runtime. Comparing different tasks, protocols or cost assumptions is indicative only; do not infer ranking superiority from this table.</div>';
+return intro+filters+simpleTable(["Evidence / metric"].concat(chosen.map(function(x){return x.label;})),lines)+'<h3 style="margin:19px 0 12px">Change compared configurations</h3>'+cards;
+}
 function resultsPage(){
-var tab=ui.resultsTab||"runs",tabs='<div class="pill-tabs">'+[['runs','Published runs'],['matrix','Comparison matrix'],['campaigns','Campaign evidence']].map(function(x){return '<button class="tab'+(tab===x[0]?' active':'')+'" data-act="resultsTab" data-id="'+x[0]+'">'+x[1]+'</button>';}).join("")+'</div>';
+var tab=ui.resultsTab||"cross",tabs='<div class="pill-tabs">'+[['cross','Measured vs theoretical'],['runs','Published runs'],['matrix','Comparison matrix'],['campaigns','Campaign evidence']].map(function(x){return '<button class="tab'+(tab===x[0]?' active':'')+'" data-act="resultsTab" data-id="'+x[0]+'">'+x[1]+'</button>';}).join("")+'</div>';
 return heading("Evidence & analysis","Results explorer","Examine experimental outcomes, repeatability, coverage and cost. This is an analytical view, separate from creating or approving benchmarks.",btn("Task explorer","nav","tasks","","")+(canEdit()?btn("Benchmark workspace","nav","benchmark"):""))+
-'<div class="card">'+tabs+(tab==="matrix"?comparisonMatrix():tab==="campaigns"?campaignRegistry():runRegistry(true))+'</div>';
+'<div class="card">'+tabs+(tab==="cross"?crossEvidenceComparison():tab==="matrix"?comparisonMatrix():tab==="campaigns"?campaignRegistry():runRegistry(true))+'</div>';
 }
 function runRegistry(publishedOnly){
 var sol=ui.filters.runSolution||"all",task=ui.filters.runTask||"all",status=publishedOnly?"published":ui.filters.runStatus||"all";
