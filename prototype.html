@@ -263,7 +263,8 @@ if(!Array.isArray(db.proposals))db.proposals=[
  {id:"forecast_demo1",name:"GLM-5.2 / CCR — embedded driver forecast",task:"t5",watchIds:["w2"],componentRefs:{model:db.components.find(function(c){return c.type==="model"&&c.name==="GLM-5.2";})?.id||"",provider:db.components.find(function(c){return c.type==="provider"&&c.name==="Scaleway";})?.id||"",harness:db.components.find(function(c){return c.type==="harness"&&c.name==="Claude Code + CCR";})?.id||""},config:"Hypothetical reasoning=max, context compression on; not validated",quality:83,acceptance:72,autonomy:65,humanMinutes:85,aiCost:1.9,hourlyRate:60,confidence:"low",uncertainty:"Indicative only. No comparable controlled run was used to infer these numbers.",rationale:"Illustrative scenario based on technology-watch signals; no causal benchmark established.",status:"staged",author:"u1",reviewer:"",reviewNotes:"",linkedSolution:"",created:"2026-10-07",updated:"2026-10-07",revision:"1.0"},
  {id:"forecast_demo2",name:"Preview coding model / Agent Runner — candidate",task:"t7",watchIds:["w1"],componentRefs:{model:"demo_model_unverified",provider:"demo_provider_gateway",harness:"demo_harness_pipeline"},config:"Unverified illustrative combination; no actual runtime access confirmed",quality:75,acceptance:64,autonomy:50,humanMinutes:120,aiCost:1.1,hourlyRate:60,confidence:"low",uncertainty:"Entirely conjectural, no directly applicable evaluation and untested components.",rationale:"Exploratory product hypothesis for coding work in an embedded setting.",status:"draft",author:"u5",reviewer:"",reviewNotes:"",linkedSolution:"",created:"2026-10-08",updated:"2026-10-08",revision:"0.1"}
 ];
-db.watch.forEach(function(w){if(w.hypothesis===undefined)w.hypothesis=w.summary||"";if(w.assumptions===undefined)w.assumptions="Not yet documented";if(w.potential===undefined)w.potential="";});
+db.watch.forEach(function(w){if(!w.publication)w.publication="published";if(w.hypothesis===undefined)w.hypothesis=w.summary||"";if(w.assumptions===undefined)w.assumptions="Not yet documented";if(w.potential===undefined)w.potential="";});
+db.researchEvidence.forEach(function(e){if(!e.publication)e.publication="published";});
 db.proposals.forEach(function(p){if(!Array.isArray(p.watchIds))p.watchIds=p.watchId?[p.watchId]:[];if(!p.status)p.status="draft";if(!p.componentRefs)p.componentRefs={model:"",provider:"",harness:""};});
 if(!db.revisions)db.revisions=[];
 db.tasks.forEach(function(t,i){if(!Number.isFinite(t.order))t.order=i;});
@@ -754,7 +755,9 @@ return heading("Knowledge base","Guides, FAQs & charter","Search, sort, update a
 tools+'<div class="grid g2">'+(docs.map(function(g){return '<div class="card"><div class="row-between"><div class="tags">'+badge(g.type)+badge(g.status)+'</div><span class="muted small">'+E(g.date)+'</span></div>'+
 '<h3 style="margin:12px 0 7px">'+E(g.title)+'</h3><p class="muted small">'+E(g.body.slice(0,170))+(g.body.length>170?"…":"")+'</p><div class="row-between" style="margin-top:14px"><span class="muted small">Author: '+E(actor(g.owner))+'</span><div class="inline-actions">'+btn("Read","guideDetail",g.id,"sm")+(canEdit()?btn("Edit article","editGuide",g.id,"sm primary"):"")+'</div></div></div>';}).join("")||'<div class="empty">No articles match your filters.</div>')+'</div>';
 }
-function watchEvidence(id){return db.researchEvidence.filter(function(e){return e.signal===id;});}
+function watchVisible(w){return !!w&&(canEdit()||w.publication==="published");}
+function researchVisible(e){return !!e&&(canEdit()||(e.publication==="published"&&(!e.signal||watchVisible(rec("watch",e.signal)))));}
+function watchEvidence(id){return db.researchEvidence.filter(function(e){return e.signal===id&&researchVisible(e);});}
 function forecastVisible(p){return canEdit()||p.status==="published";}
 function forecastNetSavings(p){
 var baseline=rec("tasks",p.task)?.baseline||0;
@@ -763,7 +766,7 @@ return baseline>0&&acceptance>0?baseline*hourly/60-(Number(p.humanMinutes||0)*ho
 }
 function evidenceKind(p){return p.status==="published"?"Theoretical · published":"Theoretical · "+p.status;}
 function watchPage(){
-var status=ui.filters.watchStatus||"all",filtered=db.watch.filter(function(w){return status==="all"||w.status===status;})
+var status=ui.filters.watchStatus||"all",filtered=db.watch.filter(function(w){return watchVisible(w)&&(status==="all"||w.status===status);})
  .sort(function(a,b){return String(b.date).localeCompare(String(a.date));});
 var signals='<div class="filters"><select data-filter="watchStatus">'+[["all","All signals"],["watching","Under review"],["pending","Evidence collection"],["reviewed","Documented"]].map(function(x){return opt(x[0],x[1],status);}).join("")+'</select>'+badge(filtered.length+" signals")+'</div>'+
 '<div class="list">'+filtered.map(function(w){
@@ -783,7 +786,7 @@ td(badge(p.status))+td(btn("Inspect","forecastDetail",p.id,"sm"))+'</tr>';
 }));
 return heading("Technology intelligence","Technology Watch","Gather credible signals, explicit hypotheses and sources; turn selected evidence into staged, task-specific configuration forecasts. Benchmark results remain a separate evidence class.")+
 '<div class="grid g2">'+section("Signals & hypotheses",signals,canEdit()?btn("+ Watch entry","newWatch","","primary"):"")+
-section("Public literature & estimates",'<p class="muted small">Sources belong to watch signals. Record them while drafting a watch entry or add them later.</p>'+researchEvidenceList(db.researchEvidence),canEdit()?btn("+ Standalone source","newResearch","","sm"):"")+'</div>'+
+section("Public literature & estimates",'<p class="muted small">Sources belong to watch signals. Record them while drafting a watch entry or add them later.</p>'+researchEvidenceList(db.researchEvidence.filter(researchVisible)),canEdit()?btn("+ Standalone source","newResearch","","sm"):"")+'</div>'+
 '<div style="margin-top:20px">'+section("Theoretical configurations linked to tasks",estimates,canEdit()?btn("+ Build forecast","newForecast","","sm primary"):"")+'</div>';
 }
 function researchEvidenceList(items){
@@ -1017,6 +1020,7 @@ field("uncertainty","Uncertainty, caveats, what still needs validation",p?.uncer
 field("reviewNotes","Reviewer notes (recorded for future review)",p?.reviewNotes||"","textarea","full");
 openForm(p?"Edit theoretical forecast":"Draft theoretical configuration","forecast",inputs,id||"",p?"Save forecast":"Create draft forecast");
 }
+function watchVisibleForPublication(id){var w=rec("watch",id);return !!w&&w.publication==="published"&&watchEvidence(id).some(function(e){return e.publication==="published";});}
 function forecastValidity(p){
 var sourceCount=theoreticalSources(p).length;
 if(!p.watchIds.length)return "Link one or more Technology Watch hypotheses.";
@@ -1031,6 +1035,7 @@ if(!canEdit())return;
 var p=rec("proposals",id);if(!p)return;
 var legal={draft:"staged",staged:"reviewed",reviewed:"published"};
 if(legal[p.status]!==nextStage){toast("Invalid projection lifecycle transition.");return;}
+if(nextStage==="published"&&p.watchIds.some(function(id){return !watchVisibleForPublication(id); })){toast("Publish supporting Watch Entries before publishing this forecast, so readers can inspect its sources.");return;}
 if(nextStage==="reviewed"&&!String(p.reviewNotes||"").trim()){toast("A documented review is required. Edit this forecast to add review notes first.");return;}
 var error=forecastValidity(p);
 if(error){toast(error);return;}
@@ -1070,6 +1075,7 @@ var body='<div class="span2 note">A watch entry is an evidence-backed <strong>hy
 field("title","Signal or hypothesis title",w?.title||"","text","full")+
 selectField("kind","Technology theme",[["Model","Model"],["Provider","Provider"],["Harness","Harness"],["Configuration","Configuration / combination"],["Tool","Tools and integrations"],["Research","Research finding"]],w?.kind||"Configuration")+
 selectField("status","Evidence collection status",[["watching","Under review"],["pending","Collecting evidence"],["reviewed","Documented"]],w?.status||"watching")+
+selectField("publication","Watch evidence visibility",[["draft","Workgroup only — Draft"],["published","Published to readers"]],w?.publication||"draft")+
 field("hypothesis","Reasoned hypothesis / intuition",w?.hypothesis||w?.summary||"","textarea","full")+
 field("assumptions","Assumptions and conditions for engineering use",w?.assumptions||"","textarea","full")+
 field("potential","Expected benefit / engineering activities to investigate",w?.potential||"","textarea","full")+
@@ -1234,7 +1240,7 @@ var html='<p>'+E(b.purpose)+'</p><div class="tags" style="margin:13px 0">'+badge
 openModal("Campaign · "+b.title,html);
 }
 function detailsWatch(id){
-var w=rec("watch",id);if(!w)return;
+var w=rec("watch",id);if(!watchVisible(w))return;
 var sources=watchEvidence(id),forecasts=db.proposals.filter(function(p){return p.watchIds.includes(id)&&forecastVisible(p);});
 var html='<div class="tags">'+badge(w.kind)+' '+badge(w.status)+' '+badge(sources.length+" literature sources")+'</div>'+
 '<h3 style="margin:14px 0 8px">'+E(w.title)+'</h3>'+
@@ -1340,7 +1346,7 @@ if(kind==="task"||kind==="taskEdit"){
  var w=kind==="watchEdit"?rec("watch",id):{id:next("w")};if(!w)return;
  var collected=collectWatchSources(d,w.id);if(collected.error){toast(collected.error);return;}
  var original=kind==="watchEdit"?JSON.parse(JSON.stringify(w)):null;
- Object.assign(w,{title:req(d.title,"Hypothesis title"),kind:d.kind,status:d.status,hypothesis:req(d.hypothesis,"Hypothesis"),assumptions:d.assumptions||"",potential:d.potential||"",summary:d.hypothesis,component:w.component||"",date:new Date().toISOString().slice(0,10)});
+ Object.assign(w,{title:req(d.title,"Hypothesis title"),kind:d.kind,status:d.status,publication:d.publication||"draft",hypothesis:req(d.hypothesis,"Hypothesis"),assumptions:d.assumptions||"",potential:d.potential||"",summary:d.hypothesis,component:w.component||"",date:new Date().toISOString().slice(0,10)});
  if(kind==="watch")db.watch.push(w);else revision("Watch hypothesis",w.id,original,w);
  collected.sources.forEach(function(src){
   var existing=rec("researchEvidence",src.id),before=existing?JSON.parse(JSON.stringify(existing)):null;
@@ -1499,7 +1505,7 @@ if(act==="editResearch"){dialogResearch(id);return;}
 if(act==="newCampaign"){dialogCampaign();return;}
 if(act==="publishRun"){if(!editable())return;var r=rec("runs",id);if(r){r.status="published";ui.modal="";saveEvent("Run","Published benchmark run "+id);}return;}
 if(act==="publishGuide"){if(!editable())return;var g=rec("guides",id);if(g){g.status="published";g.date=new Date().toISOString().slice(0,10);ui.modal="";saveEvent("Guide","Published document: "+g.title);}return;}
-if(act==="export"){var out=canEdit()?db:Object.assign({},db,{solutions:db.solutions.filter(visibleSolution),components:db.components.filter(function(c){return !c.publication||c.publication==="published";}),runs:db.runs.filter(visibleRun),guides:db.guides.filter(function(g){return g.status==="published";}),events:db.events.filter(function(e){return !e.internal;}),feedbackMessages:db.feedbackMessages.filter(function(m){return m.visibility==="public";}),proposals:db.proposals.filter(function(p){return p.status==="published";}),qualifications:[],revisions:[]});var blob=new Blob([JSON.stringify(out,null,2)],{type:"application/json"});var link=document.createElement("a");link.href=URL.createObjectURL(blob);link.download="ai-compass-demo-data.json";link.click();setTimeout(function(){URL.revokeObjectURL(link.href);},2000);toast(canEdit()?"Exported full mock dataset.":"Exported published mock records.");return;}
+if(act==="export"){var out=canEdit()?db:Object.assign({},db,{solutions:db.solutions.filter(visibleSolution),components:db.components.filter(function(c){return !c.publication||c.publication==="published";}),runs:db.runs.filter(visibleRun),guides:db.guides.filter(function(g){return g.status==="published";}),events:db.events.filter(function(e){return !e.internal;}),watch:db.watch.filter(watchVisible),researchEvidence:db.researchEvidence.filter(researchVisible),feedbackMessages:db.feedbackMessages.filter(function(m){return m.visibility==="public";}),proposals:db.proposals.filter(function(p){return p.status==="published";}),qualifications:[],revisions:[]});var blob=new Blob([JSON.stringify(out,null,2)],{type:"application/json"});var link=document.createElement("a");link.href=URL.createObjectURL(blob);link.download="ai-compass-demo-data.json";link.click();setTimeout(function(){URL.revokeObjectURL(link.href);},2000);toast(canEdit()?"Exported full mock dataset.":"Exported published mock records.");return;}
 if(act==="reset"){if(confirm("Replace all browser-saved prototype data with the initial mock dataset? This cannot be undone.")){db=seed();ensureDefaults();persist();ui.modal="";ui.filters={};ui.page="dashboard";render();toast("Mock dataset restored.");}return;}
 });
 document.addEventListener("click",function(ev){if(ev.target&&ev.target.id==="backdrop")closeModal();});
