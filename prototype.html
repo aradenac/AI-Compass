@@ -1622,7 +1622,7 @@ if(!c||!tc||c.stage!=="active"||!canEdit()||!c.caseIds.includes(caseId))return;
 var framework=rec("components",c.frameworkId),participants=framework?(c.frameworkInstances||[]):[];
 var fixed=c.mode==="solution_scope"&&!framework,setup=c.solutionSetup||{},sourceForecast=rec("proposals",c.forecastId),predicted=sourceForecast?.componentRefs||{};
 if(framework&&!participants.length){toast("Configure at least one Framework participant.");return;}
-var matchingFixedSolution=framework?findBenchSolutionForSetup(participants[0]):fixed?findBenchSolutionForSetup(setup):null;
+var matchingFixedSolution=framework?(participants.length>1?null:findBenchSolutionForSetup(participants[0])):fixed?findBenchSolutionForSetup(setup):null;
 var fields='<div class="span2 note">Step 3 — <strong>Initial installation / deployment</strong>: record which installation guide was used, actual environment, setup time and start timestamp. Prompts, documents supplied to the agent, skills activated and options changed belong to the subsequent timed interactions, including the first one.</div>'+
 '<input type="hidden" name="case" value="'+E(tc.id)+'"><div class="span2"><strong>'+E(tc.title)+'</strong><p class="muted small">'+E(rec("tasks",tc.task)?.name||"")+' · DoD: '+E(tc.dod)+'</p></div>'+
 (framework?'<div class="span2 note"><strong>Framework:</strong> '+E(framework.name)+'. Choose one participant for individual evidence, or run several together for a <strong>composite Framework outcome</strong> (not attributable to one participant).</div>'+
@@ -1806,7 +1806,9 @@ var forecastPanel=expectation?
 var html='<div class="row-between"><div>'+badge(r.status)+" "+badge(r.accepted?"DoD accepted":"DoD failed")+'</div><span class="muted small">'+E(r.date)+' · '+E(actor(r.owner))+'</span></div>'+
 '<h3 style="margin:15px 0 5px">'+E(c?.title||r.case)+' × '+E(r.frameworkAggregate?(r.frameworkSnapshot?.name||"Framework")+" collaborative workflow":s?.name||r.solution)+'</h3><p class="muted small">'+E(t?.name||"")+' · Test Case v'+E(c?.version||"Unknown")+'</p>'+
 (r.frameworkAggregate?'<div class="note warn" style="margin:12px 0"><strong>Composite Framework outcome.</strong> Quality, utility, duration and cost describe the coordinated workflow; they must not be interpreted as per-participant scores.</div>'+
- '<h3 style="margin:13px 0 7px">Jointly executed participants</h3><div class="list">'+
+ '<h3 style="margin:13px 0 7px">Jointly executed participants</h3>'+
+ (r.campaignSnapshot?.frameworkWorkflow?'<p class="small text-block">'+E(r.campaignSnapshot.frameworkWorkflow)+'</p>':"")+
+ '<div class="list">'+
  (r.frameworkParticipantsSnapshots||[]).map(function(p){return '<div class="list-row"><div><strong>'+E(p.label)+'</strong><p class="small">'+["model","provider","harness"].map(function(k){return E(rec("components",p[k])?.name||p[k]);}).join(" / ")+'</p><p class="muted small">'+E(p.configuration||"")+'</p></div></div>';}).join("")+'</div>':"")+
 '<div class="grid g3" style="margin-top:17px">'+stat("Quality rubric",r.score+"/100",r.accepted?"Mandatory criteria accepted":"Mandatory criteria failed")+stat("AI / tool spend",r.costMode==="flat"?"Flat-rate":r.costMode==="unknown"?"Unknown":money(r.cost),
 r.tokens===null||r.tokens===undefined?"Tokens unknown":fmt(r.tokens)+" total tokens")+stat("Human effort",effort(r)+" min",(baseline?baseline+" min baseline":"Baseline unavailable"))+'</div>'+
