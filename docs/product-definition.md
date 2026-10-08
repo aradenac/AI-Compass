@@ -78,9 +78,9 @@ Exact identity-provider/SSO implementation and finer-grained access policies rem
 
 The **workgroup catalog is organized primarily around three independent, reusable component types: AI Models, Providers, and Harnesses**. Members maintain each item's version, capabilities, availability, lifecycle and provenance. These catalog candidates exist **before** they are combined or benchmarked; they are **not** themselves AI Solutions.
 
-**An AI Solution is registered as the outcome of the first benchmark run of a specific assembled setup.** During benchmark preparation, a workgroup member selects one model, one provider, one harness, and the complete versioned configuration (prompts, parameters, tools, skills, etc.). Once that setup has a recorded run — including a failed or unpublished run — it becomes an identifiable AI Solution linked to its evidence. The same exact configuration can be reused across tasks, TCs and runs; materially changed components or configurations produce a distinct solution.
+**A measured AI Solution is registered by the first controlled benchmark run of a specific assembled setup.** Before that run, the workgroup may create a distinct, task-linked **Theoretical Configuration / Forecast** based on Technology Watch evidence. Forecasts are comparable solution candidates, but their numbers remain predictions and not empirical AI Solution results. During benchmark preparation, a workgroup member selects one model, one provider, one harness, and the complete versioned configuration (prompts, parameters, tools, skills, etc.). Once that setup has a recorded run — including a failed or unpublished run — it becomes an identifiable AI Solution linked to its evidence. The same exact configuration can be reused across tasks, TCs and runs; materially changed components or configurations produce a distinct solution.
 
-This is a **creation and identity rule**, not a qualification decision: the new AI Solution remains experimental and unpublished until explicitly reviewed and published. Candidates can stay in the catalog or technology-watch pipeline without ever generating an AI Solution.
+This defines **two evidence channels**: a workgroup's theory-backed forecast may be drafted, staged, reviewed and published without a controlled run; the benchmarked AI Solution is independently identifiable once a run exists. Publishing a forecast does not qualify a model, make its projected metrics measured, or implicitly publish a measured solution. Component catalog records, Watch Entries, forecasts, benchmark runs and official recommendations retain separate identities and lifecycles.
 
 An **AI Solution** is the concrete, reproducible combination of:
 
@@ -95,7 +95,7 @@ The same model under different providers, harnesses, or configurations can const
 
 Component candidates and resulting AI Solutions may be **accessible or inaccessible** to enterprise users. Accessibility is a visible/filterable property, not an exclusion rule. Untested candidates remain discoverable in the independent component catalogs and technology watch; only recorded benchmark combinations appear in the AI Solution discovery view.
 
-Technology-watch records may refer to individual components without inventing a future combined solution.
+Technology-watch entries are free-standing **reasoned hypotheses** that may concern a model, harness, provider or *complete proposed configuration*. They can include multiple external literature sources and need not immediately create or link any technology catalog component. One or more watch entries may support a forecast for an engineering task.
 
 ## 5. Flexible engineering task hierarchy
 
@@ -116,6 +116,7 @@ The system must support:
 - **Inherited task properties:** a node can expose effective classification/context properties inherited from its ancestors, alongside its own explicitly defined properties. Local overrides or exceptions must be identifiable rather than silently changing the meaning of a parent's property.
 - Stable identities and historical references: rearranging the tree or changing inherited properties must not retroactively reinterpret the recorded context of past experiments.
 - Aggregated performance/coverage views at higher levels without pretending they were directly benchmarked.
+- Distinct task-linked **theoretical forecasts** containing expected metrics and supporting Watch Entries, visible alongside measured TC/run evidence without mixing the two evidence classes.
 
 The hierarchy is primarily an **engineering activity taxonomy**. A task can be broad or specific. Multiple cross-cutting classifications may apply to the same task; they should not all be forced into the tree.
 
