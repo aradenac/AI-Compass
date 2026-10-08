@@ -1035,7 +1035,7 @@ persist();render();detailsForecast(id);toast("Forecast "+nextStage+". Its metric
 }
 function detailsForecast(id){
 var p=rec("proposals",id);if(!p||!forecastVisible(p))return;
-var sources=theoreticalSources(p),saved=forecastNetSavings(p),task=rec("tasks",p.task);
+var sources=theoreticalSources(p),saved=forecastNetSavings(p),task=rec("tasks",p.task),validationRuns=db.runs.filter(function(r){return r.forecastSnapshot?.id===p.id&&visibleRun(r);});
 var html='<div class="tags">'+badge(evidenceKind(p))+' '+badge(p.confidence+" confidence")+'</div>'+
 '<p class="muted small" style="margin-top:12px">Task: '+E(task?.name||"Unknown")+' · Last update: '+E(p.updated)+'</p>'+
 '<h3 style="margin:16px 0 6px">Hypothetical setup</h3>'+
@@ -1046,6 +1046,8 @@ var html='<div class="tags">'+badge(evidenceKind(p))+' '+badge(p.confidence+" co
 '<h3 style="margin:16px 0 6px">Rationale and uncertainty</h3><p class="text-block">'+E(p.rationale)+'</p><div class="note warn" style="margin:12px 0">'+E(p.uncertainty)+'</div>'+
 '<h3 style="margin:15px 0 6px">Supporting watch evidence ('+sources.length+')</h3>'+
 sources.map(function(e){return '<div class="list-row"><div><strong>'+E(e.title)+'</strong><div class="muted small">'+E(e.type)+' · '+E(e.source)+' · confidence: '+E(e.confidence)+'</div><div class="small">'+E(e.assessment)+'</div></div></div>';}).join("")+
+'<h3 style="margin:15px 0 6px">Experimental validation ('+validationRuns.length+' run(s))</h3>'+
+(validationRuns.length?simpleTable(["Run","Expected quality","Observed quality","Experiment"],validationRuns.map(function(r){return '<tr>'+td(E(r.id))+td(p.quality+'/100 (predicted)')+td(r.score+'/100 (observed)')+td(btn("Evidence","runDetail",r.id,"sm"))+'</tr>';})):'<div class="muted small">No controlled experimental validation yet.</div>')+
 '<h3 style="margin:15px 0 6px">Review</h3><p class="muted small">'+E(p.reviewNotes||"Not reviewed yet")+'</p>'+
 (p.linkedSolution?'<div class="note">A measured AI solution was later created from this hypothesis: '+linkAction(rec("solutions",p.linkedSolution)?.name||p.linkedSolution,"solution",p.linkedSolution)+'</div>':"")+
 '<div class="note" style="margin-top:12px">Publishing a theoretical forecast never turns its estimated scores into measured benchmark results.</div>';
@@ -1165,13 +1167,21 @@ db.qualifications.push(newCycle);ui.modal="";event("Qualification","Reopened ass
 function detailsRun(id){
 var r=rec("runs",id),c=r&&rec("cases",r.case),s=r&&rec("solutions",r.solution);if(!r||!visibleRun(r))return;c=r.caseSnapshot||c;s=r.solutionSnapshot||s;
 var p=r.protocolSnapshot||rec("protocols",r.protocol),t=rec("tasks",c?.task),baseline=r.taskContextSnapshot?.at(-1)?.baseline??t?.baseline??0;
+var expectation=r.forecastSnapshot;
+var forecastPanel=expectation?
+'<div class="note warn" style="margin-top:15px"><strong>Forecast validation context — not a measured prediction.</strong>'+
+'<p class="small" style="margin-top:7px">Original hypothesis: '+E(expectation.name)+' · expected quality '+Number(expectation.quality)+'/100 · observed quality '+r.score+'/100 · delta '+(r.score-Number(expectation.quality))+' points</p>'+
+'<p class="small">Expected AI cost '+money(expectation.aiCost)+' · measured AI cost '+money(r.cost)+'</p>'+
+'<p class="small">Expected engineer time '+expectation.humanMinutes+' min · measured human effort '+effort(r)+' min</p>'+
+'<p class="small">Deviation from projected setup: '+E(r.forecastDeviation||"No deviations declared")+'</p>'+
+'<p class="small">Pinned forecast rationale: '+E(expectation.rationale)+'</p></div>':"";
 var html='<div class="row-between"><div>'+badge(r.status)+" "+badge(r.accepted?"DoD accepted":"DoD failed")+'</div><span class="muted small">'+E(r.date)+' · '+E(actor(r.owner))+'</span></div>'+
 '<h3 style="margin:15px 0 5px">'+E(c?.title||r.case)+' × '+E(s?.name||r.solution)+'</h3><p class="muted small">'+E(t?.name||"")+' · '+E(p?.name||"")+' ('+E(p?.version||"")+')</p>'+
 '<div class="grid g3" style="margin-top:17px">'+stat("Quality rubric",r.score+"/100",r.accepted?"Mandatory criteria accepted":"Mandatory criteria failed")+stat("AI / tool spend",money(r.cost),fmt(r.tokens)+" tokens")+stat("Human effort",effort(r)+" min",(baseline?baseline+" min baseline":"Baseline unavailable"))+'</div>'+
 '<div class="card tight" style="margin-top:14px">'+bar("Preparation",baseline?100*r.prep/baseline:0,r.prep+" min")+bar("Steering",baseline?100*r.steer/baseline:0,r.steer+" min")+bar("Review",baseline?100*r.review/baseline:0,r.review+" min")+bar("Corrections",baseline?100*r.correction/baseline:0,r.correction+" min")+'</div>'+
 '<h3 style="margin:16px 0 7px">Original task taxonomy / inherited context</h3><div class="tags">'+(r.taskContextSnapshot||[]).map(function(x){return badge(x.name);}).join("")+'</div><h3 style="margin:16px 0 7px">Test context & acceptance</h3><p class="text-block">'+E(c?.objective||"")+'</p><div class="callout" style="margin:10px 0">Inputs: '+E(c?.inputs||"")+'<hr class="divider">Definition of Done: '+E(c?.dod||"")+'</div>'+
 '<div class="grid g2" style="margin-top:12px">'+stat("Information utility / density",r.utility+"/100","Declared rubric · relative to output volume")+stat("Agent runtime",r.duration+" min",r.interruptions+" interruptions · "+r.reprompts+" reprompts")+'</div><h3 style="margin:16px 0 7px">Observed side effects</h3><pre class="code">'+E(r.sideEffects||"None recorded")+'</pre><h3 style="margin:16px 0 7px">Pinned configuration / version at run time</h3><pre class="code">'+E(s?.config||"")+'</pre>'+
-'<h3 style="margin:16px 0 7px">Initial prompt</h3><pre class="code">'+E(r.prompt)+'</pre>'+
+forecastPanel+'<h3 style="margin:16px 0 7px">Initial prompt</h3><pre class="code">'+E(r.prompt)+'</pre>'+
 '<h3 style="margin:16px 0 7px">Interaction trace</h3><pre class="code">'+E(r.transcript)+'</pre>'+
 '<h3 style="margin:16px 0 7px">Artifacts / evidence references</h3><pre class="code">'+E(r.artifacts)+'</pre>'+
 '<h3 style="margin:16px 0 7px">Review and conclusions</h3><p class="text-block">'+E(r.notes)+'</p>'+
