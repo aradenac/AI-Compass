@@ -1663,7 +1663,7 @@ db.qualifications.push(newCycle);ui.modal="";event("Qualification","Reopened ass
 }
 function detailsRun(id){
 var r=rec("runs",id),c=r&&rec("cases",r.case),s=r&&rec("solutions",r.solution);if(!r||!visibleRun(r))return;c=r.caseSnapshot||c;s=r.solutionSnapshot||s;
-var p=r.protocolSnapshot||rec("protocols",r.protocol),t=rec("tasks",c?.task),baseline=r.taskContextSnapshot?.at(-1)?.baseline??t?.baseline??0;
+var t=rec("tasks",c?.task),baseline=r.taskContextSnapshot?.at(-1)?.baseline??t?.baseline??0;
 var expectation=r.forecastSnapshot;
 var forecastPanel=expectation?
 '<div class="note warn" style="margin-top:15px"><strong>Forecast validation context — not a measured prediction.</strong>'+
@@ -1700,7 +1700,7 @@ var foot=btn("Close","close","","")+(canEdit()&&ui.page==="benchmark"?btn("Repea
 openModal("Benchmark evidence · "+r.id,html,foot);
 }
 function detailsCase(id){
-var c=rec("cases",id);if(!c||(!canEdit()&&c.status!=="published"))return;var t=rec("tasks",c.task),p=rec("protocols",c.protocol),rs=db.runs.filter(function(r){return r.case===c.id;});
+var c=rec("cases",id);if(!c||(!canEdit()&&c.status!=="published"))return;var t=rec("tasks",c.task),parent=rec("cases",c.parentCaseId),rs=db.runs.filter(function(r){return r.case===c.id;});
 var html='<div class="row-between">'+badge(c.status)+' '+badge("v"+c.version)+'</div><p style="margin:14px 0">'+E(c.objective)+'</p><h3>Engineering task</h3><p class="small">'+E(t?.name||"")+'</p><h3 style="margin:13px 0 6px">Inputs and test conditions</h3><pre class="code">'+E(c.inputs)+'</pre><h3 style="margin:13px 0 6px">Acceptance / DoD</h3><pre class="code">'+E(c.dod)+'</pre><h3 style="margin:13px 0 6px">Protocol</h3><p class="muted small">'+E(p?.name||"")+' · '+E(p?.autonomy||"")+'</p><hr class="divider"><h3>Recorded benchmark runs</h3>'+simpleTable(["Solution","Observed quality","Publication",""],rs.map(function(r){return '<tr>'+td(E(rec("solutions",r.solution)?.name||r.solution))+td('<span class="score">'+r.score+'/100</span>')+td(badge(r.status))+td(btn("Evidence","runDetail",r.id,"sm"))+'</tr>';}));
 openModal(c.title,html,btn("Close","close","","")+(canEdit()?btn("Fork new challenge","forkCase",c.id,"")+(ui.page==="benchmark"?btn("Run this TC","newRunForCase",c.id,"primary"):""):""));
 }
@@ -1874,7 +1874,7 @@ var tokensKnown=String(d.tokenCount??"").trim()!=="",
 var initialPrompt=interactions.find(function(v){return String(v.promptUpdate||"").trim();})?.promptUpdate||"";
 var trace=interactions.map(function(v,i){return "Iteration "+(i+1)+" @ "+v.at+" | "+v.kind+" | human "+v.humanMinutes+" min | agent "+v.agentMinutes+" min\n"+v.description+"\nPrompt update: "+(v.promptUpdate||"None")+"\nArtifacts: "+(v.artifacts||"None");}).join("\n\n");
 var r={id:next("r"),campaignId:c.id,sessionId:t.id,case:tc.id,solution:sol.id,
- protocol:tc.protocol,date:day,score:Number(d.score),accepted:d.accepted==="yes",status:"draft",
+ date:day,score:Number(d.score),accepted:d.accepted==="yes",status:"draft",
  prep:Number(t.setupMinutes),steer:steering,review:Number(d.reviewMinutes||0),
  correction:Number(d.correctionMinutes||0),cost:estimatedCost,costMode:costMode,tokens:tokens,
  tokensKnown:tokensKnown,tokenEntry:tokensKnown?{quantity:Number(d.tokenCount),multiplier:Number(d.tokenScale||1)}:null,
@@ -1894,7 +1894,7 @@ var r={id:next("r"),campaignId:c.id,sessionId:t.id,case:tc.id,solution:sol.id,
  caseSnapshot:JSON.parse(JSON.stringify(tc)),solutionSnapshot:JSON.parse(JSON.stringify(sol)),
  componentSnapshots:JSON.parse(JSON.stringify(sol.componentSnapshots||{})),
  forecastSnapshot:t.forecastSnapshot?JSON.parse(JSON.stringify(t.forecastSnapshot)):null,forecastDeviation:t.forecastSnapshot?String(t.setupNotes||""):"",
-  protocolSnapshot:JSON.parse(JSON.stringify(rec("protocols",tc.protocol)||{})),
+
  taskContextSnapshot:ancestors(tc.task).map(function(x){return{id:x.id,name:x.name,phase:x.phase,criteria:x.criteria,baseline:x.baseline};})
 };
 db.runs.push(r);
@@ -1932,8 +1932,8 @@ if(kind==="campaignReview"){
  if(!parentCampaign||parentCampaign.stage!=="active"||!rec("tasks",d.task)){toast("Open campaign and choose a task.");return;}
  if(parentCampaign.mode==="task_compare"&&parentCampaign.task!==d.task){toast("A comparison campaign must use its fixed task.");return;}
  var tc={id:next("c"),task:d.task,title:req(d.title,"Test Case title"),version:d.version||"1.0",
-  protocol:d.protocol,objective:req(d.objective,"Challenge objective"),inputs:d.inputs||"",dod:req(d.dod,"DoD"),status:"published"};
- if(!rec("protocols",tc.protocol)){toast("Select a benchmark protocol.");return;}
+  objective:req(d.objective,"Challenge objective"),inputs:d.inputs||"",dod:req(d.dod,"DoD"),status:"published"};
+ 
  db.cases.push(tc);parentCampaign.caseIds.push(tc.id);parentCampaign.updated=TODAY;
  event("Campaign","New Test Case "+tc.title+" added to "+parentCampaign.title,true);persist();detailsCampaign(parentCampaign.id);return;
 }else if(kind==="campaignAttachCase"){
@@ -2035,7 +2035,7 @@ if(kind==="task"||kind==="taskEdit"){
 
 }else if(kind==="run"){
  if(toNum(d.score)>100||toNum(d.score)<0||toNum(d.utility)>100||toNum(d.utility)<0){toast("Rubric scores must be within 0–100.");return;}
- if(!rec("cases",d.case)||!rec("protocols",d.protocol)){toast("Select a valid Test Case and benchmark protocol.");return;}
+ if(!rec("cases",d.case)){toast("Select a valid Test Case.");return;}
  // Validate the experimental record before creating the derived solution.
  var fullPrompt=req(d.prompt,"Initial prompt"),fullTrace=req(d.transcript,"Interaction trace");
  var sourceHypothesis=rec("proposals",d.forecastId);
@@ -2055,11 +2055,11 @@ if(kind==="task"||kind==="taskEdit"){
   if(!setup.solution||!db.runs.some(function(r){return r.solution===setup.solution.id;})){toast("Select an already benchmarked AI Solution.");return;}
  }
  var tested=setup.solution,linkedQ=rec("qualifications",d.qualification),sourceForecast=rec("proposals",d.forecastId);
- var r={id:next("r"),case:d.case,solution:tested.id,protocol:d.protocol,date:new Date().toISOString().slice(0,10),score:toNum(d.score),accepted:d.accepted==="yes",status:d.status,prep:toNum(d.prep),steer:toNum(d.steer),review:toNum(d.review),correction:toNum(d.correction),cost:toNum(d.cost),tokens:toNum(d.tokens),duration:toNum(d.duration),interruptions:toNum(d.interruptions),reprompts:toNum(d.reprompts),utility:toNum(d.utility),sideEffects:d.sideEffects,prompt:fullPrompt,transcript:fullTrace,artifacts:d.artifacts,notes:d.notes,owner:currentUser,
+ var r={id:next("r"),case:d.case,solution:tested.id,date:new Date().toISOString().slice(0,10),score:toNum(d.score),accepted:d.accepted==="yes",status:d.status,prep:toNum(d.prep),steer:toNum(d.steer),review:toNum(d.review),correction:toNum(d.correction),cost:toNum(d.cost),tokens:toNum(d.tokens),duration:toNum(d.duration),interruptions:toNum(d.interruptions),reprompts:toNum(d.reprompts),utility:toNum(d.utility),sideEffects:d.sideEffects,prompt:fullPrompt,transcript:fullTrace,artifacts:d.artifacts,notes:d.notes,owner:currentUser,
   caseSnapshot:JSON.parse(JSON.stringify(rec("cases",d.case))),
   solutionSnapshot:JSON.parse(JSON.stringify(tested)),
   componentSnapshots:JSON.parse(JSON.stringify(tested.componentSnapshots||{})),
-  protocolSnapshot:JSON.parse(JSON.stringify(rec("protocols",d.protocol))),
+
   taskContextSnapshot:ancestors(rec("cases",d.case).task).map(function(t){return {id:t.id,name:t.name,phase:t.phase,criteria:t.criteria,baseline:t.baseline};}),forecastSnapshot:sourceForecast?JSON.parse(JSON.stringify(sourceForecast)):null,forecastDeviation:d.forecastDeviation||""};
  db.runs.push(r);
  if(sourceForecast){
@@ -2180,10 +2180,6 @@ if(kind==="task"||kind==="taskEdit"){
  if(!id)db.components.push(comp);else revision("Component",id,prevComp,comp);
  if(form.dataset.watch){var signal=rec("watch",form.dataset.watch);if(signal){signal.component=comp.id;signal.status="reviewed";}}
  ui.page="solutions";ui.solutionView="components";event("Catalog",(id?"Updated":"Registered")+" "+comp.type+": "+comp.name);
-}else if(kind==="protocol"){
- var protocol={id:next("p"),name:req(d.name,"Protocol name"),version:req(d.version,"Revision"),autonomy:d.autonomy,description:req(d.description,"Setup"),criteria:req(d.criteria,"Criteria")};
- db.protocols.push(protocol);ui.page="testdesign";ui.testTab="protocols";event("Protocol","Created protocol revision: "+protocol.name+" v"+protocol.version);
-
 }
 ui.modal="";persist();render();toast("Changes saved in this browser.");
 }catch(ex){if(ex.message!=="form validation")throw ex;}
