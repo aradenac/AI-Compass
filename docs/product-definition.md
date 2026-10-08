@@ -381,7 +381,7 @@ A forecast's illustrative net financial value may be estimated as **engineer-onl
 
 The second input path is still:
 
-**Task → Test Case + Protocol → Controlled benchmark run → Measured AI Solution → qualification/recommendation**
+**Task → Test Case (with fork lineage where applicable) → Controlled benchmark run → Measured AI Solution → qualification/recommendation**
 
 Task-centric discovery and the Results Explorer must support **side-by-side comparisons of forecasts and experimentally tested solutions**. The presentation must distinguish estimated versus observed metrics and display source type, evidence coverage/sample count, confidence and comparable task scope. In particular, expected quality/acceptance/cost/time must never be rendered as observed benchmark means, even if the forecast has been published.
 
