@@ -91,6 +91,12 @@ A forecast may cite several Watch Entries, and one Watch Entry can underpin seve
 
 The Technology Catalog stays independent; creating a Watch Entry does not redirect to component management. Source-supported predictions and internal measurements remain distinct evidence classes.
 
+**Optional inline component creation:** If the proposed model, provider or harness is absent, use the expandable fields on the forecast form. Only the explicitly named items are added to Technology Catalog as unverified; creating a Watch Entry still does not create a component automatically.
+
+**Visibility and provenance:** New Watch Entries default to an internal Draft, with an explicit publishable setting. A theoretical forecast can be staged and compared internally, but cannot be published for readers until its supporting Watch Entries have been published. Source citations, linked hypotheses and component versions are frozen when staging, and later experimental runs retain the original forecast snapshot.
+
+**Profitability scenario:** The projected net savings use the engineer-only baseline, a declared hourly rate and an estimated DoD acceptance probability to adjust expected AI/tool and engineer costs. They are not observed ROI and should not imply more confidence than the cited assumptions support.
+
 ### Benchmark process vs. result exploration vs. test design
 
 **Test design** manages reusable, versioned Test Cases and protocols. **Benchmark workspace** owns qualification planning, configurations, execution records, draft-run review and publication. **Results explorer** owns comparison and analytical reading, including the shared TC evidence matrix. These roles are separated deliberately rather than provided as flat tabs of one `Benchmark lab`.
