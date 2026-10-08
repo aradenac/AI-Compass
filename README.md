@@ -45,6 +45,20 @@ The app uses **localStorage** for records and the selected demo account. Changes
 
 No passwords are required. **Identity and permissions are simulated in the browser; this is not an authentication or security implementation.**
 
+### Workgroup daily dashboard
+
+Sign in as **Maya Laurent** or **Sofia Ramos**. The default **Overview** becomes a workgroup daily/qualification desk rather than the general engineer discovery dashboard. It includes recent user feedback, new technology-watch signals, a four-stage qualification pipeline (**To qualify → Qualifying → Review → Published**), owner/priority/due-date tracking, and pending publication actions.
+
+Try the full operational workflow:
+
+1. From **Latest technology-watch signals** or a user-feedback record, choose **Qualify / Start qualification**; link an AI solution and engineering task, then assign an owner, priority, and due date.
+2. Move the qualification from **To qualify** to **Qualifying**. Create a new Test Case if needed and record controlled benchmark runs.
+3. Advance to **Review**, inspect published runs and draft a reasoned conclusion.
+4. **Publish conclusion** once matching controlled evidence exists. This updates the solution's recommendation and stores a history revision; it does not erase experiments.
+5. Use **Requalify** on a published item to open a new cycle while retaining the published decision and prior evidence.
+
+The pipeline describes **workgroup activities**, distinct from solution accessibility, model maturity or raw catalog publication. Everything is browser-local and shared across simulated accounts within one browser.
+
 ### Exercise the complete workflow
 
 1. **Engineer:** Task explorer → KSZ8851SNL Driver → inspect the DoD, TCs and solution comparison; open evidence or guidance.
