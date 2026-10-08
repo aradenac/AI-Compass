@@ -1603,7 +1603,7 @@ function refreshCampaignInstallationGuides(form){
  if(!form||form.dataset.form!=="campaignTrialSetup")return;
  var selector=form.querySelector('[name="installationGuide"]'),campaign=rec("campaigns",form.dataset.id);
  if(!selector||!campaign)return;
- var selected=selector.value,participant=(campaign.frameworkInstances||[]).find(function(x){return x.id===form.querySelector('[name="frameworkInstanceId"]')?.value;}),
+ var selected=selector.value,isComposite=form.querySelector('[name="frameworkExecutionMode"]')?.value==="ensemble",participant=!isComposite?(campaign.frameworkInstances||[]).find(function(x){return x.id===form.querySelector('[name="frameworkInstanceId"]')?.value;}):null,
  chosen=participant?findBenchSolutionForSetup(participant):rec("solutions",form.querySelector('[name="existingSolution"]')?.value);
  if(!chosen&&!campaign.frameworkId&&campaign.mode==="solution_scope")chosen=findBenchSolutionForSetup(campaign.solutionSetup);
  if(!chosen&&!campaign.frameworkId&&campaign.mode==="task_compare")chosen=findBenchSolutionForSetup({
@@ -1623,8 +1623,14 @@ if(framework&&!participants.length){toast("Configure at least one Framework part
 var matchingFixedSolution=framework?findBenchSolutionForSetup(participants[0]):fixed?findBenchSolutionForSetup(setup):null;
 var fields='<div class="span2 note">Step 3 — <strong>Initial installation / deployment</strong>: record which installation guide was used, actual environment, setup time and start timestamp. Prompts, documents supplied to the agent, skills activated and options changed belong to the subsequent timed interactions, including the first one.</div>'+
 '<input type="hidden" name="case" value="'+E(tc.id)+'"><div class="span2"><strong>'+E(tc.title)+'</strong><p class="muted small">'+E(rec("tasks",tc.task)?.name||"")+' · DoD: '+E(tc.dod)+'</p></div>'+
-(framework?'<div class="span2 note"><strong>Framework:</strong> '+E(framework.name)+' · choose the exact registered participant used in this execution.</div>'+
- selectField("frameworkInstanceId","AI participant",participants.map(function(p){return[p.id,p.label+" · "+["model","provider","harness"].map(function(k){return rec("components",p[k])?.name||"?";}).join(" / ")];}),participants[0]?.id,true):
+(framework?'<div class="span2 note"><strong>Framework:</strong> '+E(framework.name)+'. Choose one participant for individual evidence, or run several together for a <strong>composite Framework outcome</strong> (not attributable to one participant).</div>'+
+ selectField("frameworkExecutionMode","Framework execution scope",participants.length>1?[["ensemble","Collaborative workflow — selected participants together"],["individual","Single participant — individual AI Solution"]]:[["individual","Single participant — individual AI Solution"]],participants.length>1?"ensemble":"individual",true)+
+ '<div class="span2" data-framework-execution="individual"'+(participants.length>1?' style="display:none"':'')+'>'+
+ selectField("frameworkInstanceId","AI participant",participants.map(function(p){return[p.id,p.label+" · "+["model","provider","harness"].map(function(k){return rec("components",p[k])?.name||"?";}).join(" / ")];}),participants[0]?.id,true)+'</div>'+
+ '<div class="span2" data-framework-execution="ensemble"'+(participants.length>1?'':' style="display:none"')+'>'+
+ '<strong>Select participants in the coordinated workflow (at least two)</strong><div class="watch-link-list">'+
+ participants.map(function(p){return '<label class="watch-link-row"><input type="checkbox" name="ensembleParticipant_'+E(p.id)+'" value="yes" checked>'+
+ '<span><strong>'+E(p.label)+'</strong><span class="muted small" style="display:block">'+["model","provider","harness"].map(function(k){return E(rec("components",p[k])?.name||"?");}).join(" / ")+'</span></span></label>';}).join("")+'</div></div>':
  fixed?'<div class="span2 note"><strong>Fixed campaign AI setup:</strong> '+["model","provider","harness"].map(function(k){return E(rec("components",setup[k])?.name||"Not set");}).join(" · ")+'</div>':
 selectField("existingSolution","Optional already benchmarked AI Solution",[["","New configuration for this Test Case"]].concat(db.solutions.filter(function(x){return db.runs.some(function(r){return r.solution===x.id;});}).map(function(x){return[x.id,x.name+" · "+x.version];})),"",true)+
 selectField("modelComponent","Model",comboComponentOptions("model"),predicted.model||"")+
@@ -2371,8 +2377,11 @@ document.addEventListener("change",function(ev){
 var el=ev.target;
 if(updateMetricControl(el))return;
 if(el?.name==="tokenScale"){tokenPreview(el.closest("form"));return;}
-if(["frameworkInstanceId","existingSolution","modelComponent","providerComponent","harnessComponent","version","configuration","capabilities"].includes(el?.name)){
-  refreshCampaignInstallationGuides(el.closest("form"));refreshCampaignSetupGuides(el.closest("form"));return;
+if(["frameworkExecutionMode","frameworkInstanceId","existingSolution","modelComponent","providerComponent","harnessComponent","version","configuration","capabilities"].includes(el?.name)){
+  if(el?.name==="frameworkExecutionMode"){
+  el.closest("form").querySelectorAll("[data-framework-execution]").forEach(function(panel){panel.style.display=panel.dataset.frameworkExecution===el.value?"":"none";});
+ }
+ refreshCampaignInstallationGuides(el.closest("form"));refreshCampaignSetupGuides(el.closest("form"));return;
  }
 if(el?.name==="costMode"){
  var area=el.closest("form")?.querySelector("[data-metered-cost]");
