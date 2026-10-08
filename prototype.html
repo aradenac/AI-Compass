@@ -207,7 +207,7 @@ db.qualifications.forEach(function(q){if(!q.updatedAt)q.updatedAt="2026-10-08";i
 db.components.forEach(function(c){
  if(!c.publication)c.publication="published";
  if(!c.status)c.status="active";
- if(c.accessible===undefined)c.accessible=true;
+ if(c.accessible===undefined)c.accessible=db.solutions.some(function(sol){return sol[c.type]===c.name&&sol.accessible;});
 });
 db.solutions.forEach(function(sol){
  if(!sol.componentRefs)sol.componentRefs={
@@ -227,6 +227,12 @@ db.qualifications.forEach(function(q){
   if(incumbent&&!db.runs.some(function(run){return run.solution===incumbent.id;}))q.solution="";
  }
 });
+// Independent candidates not yet configured or tested together.
+[
+ {id:"demo_model_unverified",type:"model",name:"Coder Preview (unverified)",version:"Preview",publication:"published",status:"watching",accessible:false,details:"Illustrative candidate: no internal benchmark or authorized provider access yet."},
+ {id:"demo_provider_gateway",type:"provider",name:"Enterprise Inference Gateway",version:"Evaluation",publication:"published",status:"watching",accessible:true,details:"Illustrative enterprise-hosted inference provider for future qualification."},
+ {id:"demo_harness_pipeline",type:"harness",name:"Agent Pipeline Runner",version:"Experimental",publication:"published",status:"watching",accessible:false,details:"Illustrative agent harness; not yet bench-tested."}
+].forEach(function(c){if(!db.components.some(function(x){return x.id===c.id;}))db.components.push(c);});
 if(!db.revisions)db.revisions=[];
 db.tasks.forEach(function(t,i){if(!Number.isFinite(t.order))t.order=i;});
 db.solutions.forEach(function(x,i){if(!x.lastReviewed)x.lastReviewed=i===5?"2026-07-20":"2026-09-28";if(!x.supersededBy)x.supersededBy="";});
@@ -301,7 +307,7 @@ function optionsFrom(type,format){return db[type].map(function(x){return[x.id,fo
 function navButton(page,icon,title,count){return '<button class="nav-link'+(ui.page===page?' active':'')+'" data-act="nav" data-id="'+page+'"><span class="nav-icon">'+icon+'</span>'+title+(count!=null?'<span class="count">'+count+'</span>':'')+'</button>';}
 function shell(inner,title){var u=user();if(!u)return login();
 document.getElementById("app").innerHTML='<div class="app"><aside class="sidebar"><div class="brand"><div class="brand-mark">✦</div><div><div class="brand-name">AI Compass</div><div class="brand-note">Evidence workspace</div></div></div><div class="nav-area"><div class="nav-group"><div class="nav-label">Discover</div>'+
-navButton("dashboard","◈","Overview")+navButton("tasks","▤","Task explorer")+navButton("solutions","◇",canEdit()?"Models / Providers / Harnesses":"AI solutions")+navButton("recommendations","✧","Recommendations")+'</div><div class="nav-group"><div class="nav-label">Evaluate</div>'+navButton("benchmark","◫","Benchmark lab")+navButton("knowledge","▣","Guides & charter")+navButton("watch","◉","Technology watch")+'</div><div class="nav-group"><div class="nav-label">Collaborate</div>'+navButton("feedback","♧","Feedback & ideas",db.feedback.filter(function(x){return x.status==="new"||x.status==="triage";}).length)+navButton("activity","◷","Activity feed")+navButton("management","▥","Management view")+(canEdit()?navButton("workgroup","⚙","Workgroup studio",db.runs.filter(function(x){return x.status==="draft";}).length+db.guides.filter(function(x){return x.status==="draft";}).length):"")+'</div></div><div class="side-foot"><div class="demo">INTERACTIVE PROTOTYPE<br>All records are simulated and saved only in this browser.</div><button data-act="export">↓ Export data JSON</button>'+(canEdit()?'<button data-act="import">↑ Import data JSON</button>':'')+'<input id="importFile" type="file" accept=".json,application/json" style="display:none"><button data-act="reset">↺ Reset demo dataset</button></div></aside><section class="main"><header class="topbar"><div class="top-label"><span class="crumb">Workspace</span><span class="muted">/</span><strong>'+E(title)+'</strong></div><div class="top-actions"><span class="tag blue">LOCAL DEMO</span><button class="account" data-act="switch"><span class="avatar">'+E(u.initials)+'</span><span><strong>'+E(u.name)+'</strong><span class="tiny-role">'+E(u.role)+" · "+E(u.bu)+'</span></span><span class="muted">⌄</span></button></div></header><main class="content">'+inner+'</main></section></div>'+modal();
+navButton("dashboard","◈","Overview")+navButton("tasks","▤","Task explorer")+navButton("solutions","◇",canEdit()?"Technology catalog":"AI solutions")+navButton("recommendations","✧","Recommendations")+'</div><div class="nav-group"><div class="nav-label">Evaluate</div>'+navButton("benchmark","◫","Benchmark lab")+navButton("knowledge","▣","Guides & charter")+navButton("watch","◉","Technology watch")+'</div><div class="nav-group"><div class="nav-label">Collaborate</div>'+navButton("feedback","♧","Feedback & ideas",db.feedback.filter(function(x){return x.status==="new"||x.status==="triage";}).length)+navButton("activity","◷","Activity feed")+navButton("management","▥","Management view")+(canEdit()?navButton("workgroup","⚙","Workgroup studio",db.runs.filter(function(x){return x.status==="draft";}).length+db.guides.filter(function(x){return x.status==="draft";}).length):"")+'</div></div><div class="side-foot"><div class="demo">INTERACTIVE PROTOTYPE<br>All records are simulated and saved only in this browser.</div><button data-act="export">↓ Export data JSON</button>'+(canEdit()?'<button data-act="import">↑ Import data JSON</button>':'')+'<input id="importFile" type="file" accept=".json,application/json" style="display:none"><button data-act="reset">↺ Reset demo dataset</button></div></aside><section class="main"><header class="topbar"><div class="top-label"><span class="crumb">Workspace</span><span class="muted">/</span><strong>'+E(title)+'</strong></div><div class="top-actions"><span class="tag blue">LOCAL DEMO</span><button class="account" data-act="switch"><span class="avatar">'+E(u.initials)+'</span><span><strong>'+E(u.name)+'</strong><span class="tiny-role">'+E(u.role)+" · "+E(u.bu)+'</span></span><span class="muted">⌄</span></button></div></header><main class="content">'+inner+'</main></section></div>'+modal();
 }
 function heading(eyebrow,title,desc,actions){return '<div class="page-head"><div><div class="eyebrow">'+E(eyebrow)+'</div><h1>'+E(title)+'</h1><p class="lead">'+E(desc)+'</p></div><div class="head-actions">'+(actions||"")+'</div></div>';}
 function stat(label,value,foot){return '<div class="card"><div class="stat-label">'+E(label)+'</div><div class="stat-value">'+E(value)+'</div><div class="stat-foot">'+E(foot||"")+'</div></div>';}
@@ -774,7 +780,7 @@ openForm(w?"Review technology-watch signal":"New technology-watch signal","watch
 field("title","Signal title",w?.title||"","text","full")+
 selectField("kind","Technology category",[["Model","Model"],["Harness","Harness"],["Provider","Provider"],["Tool","Tool"],["Research","Research"]],w?.kind||"Model")+
 selectField("status","Watch state",[["watching","Watching"],["pending","Pending evaluation"],["reviewed","Reviewed"]],w?.status||"watching")+
-selectField("solution","Linked solution",[["","None"]].concat(optionsFrom("solutions",function(x){return x.name;})),w?.solution||"")+
+selectField("component","Watch candidate (model / provider / harness)",[["","No component linked"]].concat(db.components.map(function(c){return[c.id,c.type+": "+c.name];})),w?.component||"")+
 field("source","Source / provenance",w?.source||"","text","full")+
 field("summary","Observation and follow-up",w?.summary||"","textarea","full"),id,w?"Update signal":"Create signal");
 }
@@ -787,6 +793,7 @@ openForm("Create benchmark campaign","campaign",field("title","Campaign name",""
 function dialogQualification(id,watchId,feedbackId){
 if(!canEdit())return;
 var q=rec("qualifications",id),w=rec("watch",watchId),f=rec("feedback",feedbackId);
+if(w?.solution&&!w.component){var legacy=rec("solutions",w.solution);if(legacy&&!db.runs.some(function(r){return r.solution===legacy.id;}))w.component=legacy.componentRefs?.model||"";}
 var suggestedSolution=q?.solution||(w?.solution&&db.runs.some(function(r){return r.solution===w.solution;})?w.solution:"")||(rec("solutions",f?.target)?f.target:"");
 var prior=rec("solutions",suggestedSolution);
 var candidate=Object.assign({model:"",provider:"",harness:""},q?.candidate||prior?.componentRefs||{});
@@ -977,7 +984,7 @@ if(kind==="task"||kind==="taskEdit"){
  if(qualification.sourceWatch){var watch=rec("watch",qualification.sourceWatch);if(watch&&watch.status==="watching")watch.status="pending";}
  ui.page="dashboard";event("Qualification",(oldQ?"Updated":"Created")+" qualification: "+qualification.title,true);
 }else if(kind==="watch"){
- var w=id?rec("watch",id):{id:next("w")};Object.assign(w,{title:req(d.title,"Title"),kind:d.kind,status:d.status,solution:d.solution,summary:req(d.summary,"Summary"),source:d.source,date:new Date().toISOString().slice(0,10)});
+ var w=id?rec("watch",id):{id:next("w")};Object.assign(w,{title:req(d.title,"Title"),kind:d.kind,status:d.status,component:d.component||"",solution:w?.solution||"",summary:req(d.summary,"Summary"),source:d.source,date:new Date().toISOString().slice(0,10)});
  if(!id)db.watch.push(w);ui.page="watch";event("Watch",(id?"Updated":"Added")+" technology signal: "+w.title);
 }else if(kind==="component"||kind==="componentEdit"){
  var comp=id?rec("components",id):{id:next("component")},prevComp=id?JSON.parse(JSON.stringify(comp)):null;
