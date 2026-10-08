@@ -38,6 +38,25 @@
 
 All modal dialogs, including forms, shall expose an identifiable, keyboard-operable close control (×) with an accessible label. When an explicit **Cancel** action is present, it must close without submitting. Dismissal behavior must not depend on the workgroup/engineer role.
 
+### NFR-UX-003 — Guided metric input and interpretation
+
+- Each benchmark metric entry shall have a concise **hover/focus information affordance**, documenting accepted units, scope, measurement/estimation basis and interpretation.
+- **Quality** and **Information Utility** shall have synchronized **0–100 sliders and editable numeric inputs**. Their own supporting free-text evaluations shall be adjacent to each metric.
+- Human preparation, human intervention, agent duration and final human review/correction shall use synchronized **nonlinear duration sliders**, from **0 to 10,080 minutes (7 days)**. Retain exact editable minutes; labels shall adapt to **minutes, hours and days**. Fine resolution near zero and progressively coarser movement at longer durations are expected.
+- Optional total token consumption shall support a multiplier (×1, ×10, ×100, ×1,000 or ×1,000,000) and show the calculated total. Blank means unknown, **not zero**.
+- Cost controls shall distinguish **run-specific EUR amount**, **flat-rate/subscription** and **unknown**, showing the amount input only for the first case. A nonallocated cost must not be treated as zero.
+- Total agent runtime shall be **computed from recorded iterations** rather than elicited redundantly in the final form.
+
+**Acceptance:** moving a duration/score slider updates its paired numeric value; typing an exact value updates the slider; assistive text remains available via keyboard focus; optional token inputs and missing costs are never auto-filled with zero; the chosen cost mode governs which amount field is visible.
+
+### NFR-UX-004 — Concise, resumable benchmark forms
+
+The experimental installation step shall reference reusable **installation guides**, distinct from the first prompt or subsequent input exchanges. Those exchanges belong to the timed interactions. The workgroup's guided Test Case session shall remain resumable with previously saved installation-guide and interaction snapshots.
+
+The final result form shall avoid duplicated deliverable narrative fields: one canonical **Produced outputs** entry shall be followed by only one free-form **Additional notes (optional)** field, aside from explicitly metric-linked evaluations.
+
+All form modals remain protected from accidental outside-click dismissal under **NFR-UX-001**.
+
 ## 2. Cross-cutting system qualities
 
 The following requirements were separated from the Product Definition's original non-functional section. They remain platform-level requirements and **are not claimed as fully implemented by the browser-only prototype**.
