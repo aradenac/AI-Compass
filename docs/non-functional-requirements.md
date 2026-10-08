@@ -73,6 +73,24 @@ Test Design shall not expose a protocol catalog or require a protocol choice to 
 
 **Acceptance:** link two watch signals to a campaign, save, reopen and confirm both remain checked; remove one and verify the other is retained. Create a Test Case and complete a new run without providing protocol fields. Existing data and audit history must remain readable.
 
+### NFR-UX-007 — Framework orchestration catalog and participant traceability
+
+Technology Catalog shall expose a fourth component class, **Framework**, alongside Model, Provider and Harness. Frameworks describe workflow/orchestration products or methods, not replacements for the Model/Provider/Harness elements of a single AI Solution. Catalog entries may be versioned and optionally include an HTTP(S) project reference. Examples shall distinguish verified products (n8n, GitHub Spec Kit, BMAD Method) from unverified names (PMAD).
+
+A campaign shall accept at most one selected Framework and an arbitrary-length set of configured AI participants. Each participant shall have a persistent ID and role, an independently selected model/provider/harness trio, an explicit configuration/revision, capabilities and access metadata. Adding/removing participants within the draft/edit campaign form shall not lose unsaved choices. Saving shall validate all component types and nonempty participant role/configuration, and keep roles unique within the campaign.
+
+A guided session shall select one of the campaign's registered participants and pin Framework, participant ID and configuration snapshots to the measured run. Scores must not be attributed to other participants that were merely configured but were not the subject of that run. The actual multi-agent combined execution and composite outcome/attribution model are **not implemented** by this prototype and shall be specified separately when required.
+
+**Acceptance:** create one Framework with two participants using distinct trios. Reload and verify both appear in campaign details. Execute a Test Case selecting the second participant and verify its pinned identity, while a separate run of the first participant retains distinct provenance. An attempted participant with invalid component IDs or missing role/configuration must be rejected.
+
+### NFR-UX-008 — Referenced Setup Guides
+
+Setup Guides shall be registered reusable knowledge-base documents with a stable ID. Their content may be **text-only**, **URL-only**, or **both**; reject items lacking both sources or containing a URL without an HTTP(S) scheme. A guide may optionally refer to a specific Framework or exact AI Solution configuration; generic guides remain reusable.
+
+The campaign form shall allow users to select an existing Setup Guide or register a new one (title and text/URL) without leaving the form. The chosen guide ID shall be persisted with the campaign, displayed in its detail view, and preselected for subsequent Test Case installation sessions. The execution form shall permit a compatible override or new guide and preserve the selected guide's text/URL snapshot in the resulting run. Existing records without URLs shall remain valid.
+
+**Acceptance:** create a URL-only guide in campaign planning, save and reopen; then execute with the preselected guide. Repeat using text-only and combined guides, verify link navigation and snapshot persistence, and reject malformed URLs. Verify a guide tied to a different Framework or AI configuration cannot be silently used in a session.
+
 ## 2. Cross-cutting system qualities
 
 The following requirements were separated from the Product Definition's original non-functional section. They remain platform-level requirements and **are not claimed as fully implemented by the browser-only prototype**.
