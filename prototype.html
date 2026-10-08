@@ -1642,6 +1642,7 @@ if(kind==="campaignReview"){
  var finished=campaignRecordRun(session,d);
  if(finished.error){toast(finished.error);return;}
  session.status="completed";session.step=3;session.runId=finished.run.id;session.finishedAt=campaignLocalTime();
+ if(!campaign.solutionIds.includes(finished.run.solution))campaign.solutionIds.push(finished.run.solution);
  campaign.updated=TODAY;event("Trial","Closed "+rec("cases",session.case)?.title+" — "+(finished.run.accepted?"Accepted":"Failed"),true);
  persist();detailsCampaign(campaign.id);return;
 }
