@@ -378,7 +378,7 @@ function next(prefix){return prefix+"_"+Date.now().toString(36)+"_"+Math.random(
 function textOf(x){return x==null?"":String(x);}
 function E(x){return textOf(x).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");}
 function opt(v,label,selected){return '<option value="'+E(v)+'"'+(String(v)===String(selected)?' selected':'')+'>'+E(label)+'</option>';}
-function money(n){return "€"+Number(n||0).toFixed(2);}
+function money(n){return n===null||n===undefined||!Number.isFinite(Number(n))?"Not known":"€"+Number(n).toFixed(2);}
 function fmt(n){return Number(n||0).toLocaleString("en-US");}
 function avg(xs){return xs.length?xs.reduce(function(a,b){return a+Number(b||0);},0)/xs.length:0;}
 function effort(r){return ["prep","steer","review","correction"].reduce(function(n,k){return n+Number(r[k]||0);},0);}
@@ -413,7 +413,14 @@ function findOrCreateBenchSolution(d){
  db.solutions.push(sol);
  return {solution:sol,created:true};
 }
-function solutionStats(s,rs){var runs=rs||sRuns(s);return {count:runs.length,score:Math.round(avg(runs.map(function(r){return r.score;}))),accept:runs.length?Math.round(100*runs.filter(function(r){return r.accepted;}).length/runs.length):null,effort:Math.round(avg(runs.map(effort))),cost:avg(runs.map(function(r){return r.cost;}))};}
+function solutionStats(s,rs){
+ var runs=rs||sRuns(s),knownCosts=runs.filter(function(r){return r.cost!==null&&r.cost!==undefined;});
+ return {count:runs.length,score:Math.round(avg(runs.map(function(r){return r.score;}))),
+  accept:runs.length?Math.round(100*runs.filter(function(r){return r.accepted;}).length/runs.length):null,
+  effort:Math.round(avg(runs.map(effort))),
+  cost:knownCosts.length?avg(knownCosts.map(function(r){return r.cost;})):null,
+  costSampleSize:knownCosts.length};
+}
 function badge(v){var low=String(v||"").toLowerCase(),kind=/^(published|qualified|accepted|closed|accessible|active)$/.test(low)?"green":/^(draft|experimental|triage|review|watching|planned|evaluated)$/.test(low)?"amber":/^(failed|inaccessible|retired|superseded|rejected)$/.test(low)?"red":/^(candidate|new|pending)$/.test(low)?"blue":"";return '<span class="tag '+kind+'">'+E(v)+'</span>';}
 function actor(id){var u=rec("users",id);return u?u.name:"Unknown";}
 var pendingActivityRevisions=[];
@@ -1776,20 +1783,32 @@ var result=findOrCreateBenchSolution(configured);
 if(result.error)return result;
 var sol=result.solution,interactions=t.interactions||[];
 var steering=interactions.reduce(function(n,v){return n+Number(v.humanMinutes||0);},0);
-var time=interactions.reduce(function(n,v){return n+Number(v.agentMinutes||0);},0)+Number(d.finalRuntime||0);
-var tokensInput=Number(d.tokensInput||0),tokensOutput=Number(d.tokensOutput||0),day=new Date().toISOString().slice(0,10);
+var time=interactions.reduce(function(n,v){return n+Number(v.agentMinutes||0);},0);
+var tokensKnown=String(d.tokenCount??"").trim()!=="",
+ tokens=tokensKnown?Number(d.tokenCount)*Number(d.tokenScale||1):null,
+ costMode=d.costMode||"unknown",estimatedCost=costMode==="amount"?Number(d.cost):null,
+ day=new Date().toISOString().slice(0,10);
+var initialPrompt=interactions.find(function(v){return String(v.promptUpdate||"").trim();})?.promptUpdate||"";
+var documents=interactions.map(function(v){return v.inputDocuments||"";}).filter(Boolean).join("\n");
+var skills=interactions.map(function(v){return v.providedSkills||"";}).filter(Boolean).join("\n");
 var trace=interactions.map(function(v,i){return "Iteration "+(i+1)+" @ "+v.at+" | "+v.kind+" | human "+v.humanMinutes+" min | agent "+v.agentMinutes+" min\n"+v.description+"\nPrompt update: "+(v.promptUpdate||"None")+"\nArtifacts: "+(v.artifacts||"None");}).join("\n\n");
 var r={id:next("r"),campaignId:c.id,sessionId:t.id,case:tc.id,solution:sol.id,
  protocol:tc.protocol,date:day,score:Number(d.score),accepted:d.accepted==="yes",status:"draft",
  prep:Number(t.setupMinutes),steer:steering,review:Number(d.reviewMinutes||0),
- correction:Number(d.correctionMinutes||0),cost:Number(d.cost),tokens:tokensInput+tokensOutput,
- tokensInput:tokensInput,tokensOutput:tokensOutput,duration:time,interruptions:interactions.length,
+ correction:Number(d.correctionMinutes||0),cost:estimatedCost,costMode:costMode,tokens:tokens,
+ tokensKnown:tokensKnown,tokenEntry:tokensKnown?{quantity:Number(d.tokenCount),multiplier:Number(d.tokenScale||1)}:null,
+ tokensInput:null,tokensOutput:null,duration:time,runtimeSource:"sum_of_iterations",interruptions:interactions.length,
  reprompts:interactions.filter(function(v){return String(v.kind+" "+v.description).toLowerCase().includes("prompt");}).length,
- utility:Number(d.utility),sideEffects:d.densityNotes||"",prompt:t.initialPrompt,transcript:trace,
- artifacts:d.outputDocuments||"",notes:d.conclusion||"",owner:currentUser,
- initialSetup:JSON.parse(JSON.stringify({startedAt:t.startedAt,setupMinutes:t.setupMinutes,inputDocuments:t.inputDocuments,providedSkills:t.providedSkills,setupNotes:t.setupNotes,initialPrompt:t.initialPrompt,configuration:setup.configuration})),
+ utility:Number(d.utility),qualityAssessment:d.qualityAssessment||"",utilityAssessment:d.utilityAssessment||"",
+ sideEffects:d.additionalNotes||"",prompt:initialPrompt,transcript:trace,
+ artifacts:d.outputDocuments||"",notes:d.qualityAssessment||d.additionalNotes||"",owner:currentUser,
+ initialSetup:JSON.parse(JSON.stringify({startedAt:t.startedAt,setupMinutes:t.setupMinutes,
+ installationGuideId:t.installationGuideId||"",installationGuideSnapshot:t.installationGuideSnapshot||null,
+ inputDocuments:documents,providedSkills:skills,setupNotes:t.setupNotes,
+ initialPrompt:initialPrompt,configuration:setup.configuration})),
  interactions:JSON.parse(JSON.stringify(interactions)),
- resultDetails:{deliverableNotes:d.deliverableNotes||"",densityNotes:d.densityNotes||"",outputDocuments:d.outputDocuments||"",finishedAt:campaignLocalTime()},
+ resultDetails:{qualityAssessment:d.qualityAssessment||"",utilityAssessment:d.utilityAssessment||"",
+ additionalNotes:d.additionalNotes||"",outputDocuments:d.outputDocuments||"",finishedAt:campaignLocalTime()},
  campaignSnapshot:JSON.parse(JSON.stringify({id:c.id,title:c.title,mode:c.mode,purpose:c.purpose,task:c.task,notes:c.notes})),
  caseSnapshot:JSON.parse(JSON.stringify(tc)),solutionSnapshot:JSON.parse(JSON.stringify(sol)),
  componentSnapshots:JSON.parse(JSON.stringify(sol.componentSnapshots||{})),
