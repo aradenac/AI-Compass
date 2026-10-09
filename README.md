@@ -30,6 +30,17 @@ See **[Non-Functional Requirements](docs/non-functional-requirements.md)** for s
 
 For the benchmarker's guided campaign workflow, see **[Benchmark Campaign Workflow](docs/benchmark-workflow.md)**.
 
+## Runtime modes: permanent Demo and Server alternatives
+
+AI Compass intentionally maintains **two independent data modes using the same frontend**:
+
+- **Demo (standalone):** seeded fictitious records and simulated accounts persisted in browser `localStorage`. No Django, Docker or DB is required; this mode remains supported permanently.
+- **Server (progressively implemented):** shared real data via the Django Ninja API backed by PostgreSQL, server authentication, immutable history and evidence files.
+
+A common `DataProvider` abstraction will select the storage adapter at startup as domain APIs are delivered. Demo and Server never silently mix data or fall back to one another. **At the current prototype stage, business screens operate in Demo mode only; a health-only Server backend is the first planned increment.**
+
+See **[Local Installation & Deployment](docs/local-installation.md)** and [Platform Architecture](docs/platform-architecture-and-data-governance.md).
+
 ## Interactive prototype
 
 **[Open the standalone prototype source](prototype.html)** · Single self-contained HTML file (vanilla CSS/JavaScript; no build system, backend, or external dependencies).
