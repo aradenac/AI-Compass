@@ -34,7 +34,7 @@ assert.equal(events.length, 0, "Demo and signed-out Server should never fetch");
 control.setAccess(false, false);
 assert.equal(events.length, 0);
 control.setAccess(true, false);
-Promise.resolve().then(() => Promise.resolve()).then(() => {
+new Promise(resolve => setImmediate(resolve)).then(() => {
   assert.equal(events.length, 1);
   assert.equal(events[0].url, "/api/v1/tasks");
   assert(element("#server-task-list").innerHTML.includes("&lt;unsafe&gt;"));
