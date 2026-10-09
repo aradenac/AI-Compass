@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Offline PLAT-29 failure-path tests; never interact with production Docker."""
 import hashlib
+import copy
 import io
 import json
 import os
@@ -39,7 +40,7 @@ class FullRecoveryTests(unittest.TestCase):
             "dump_file": self.dump.name, "blobs_file": self.archive.name,
             "database": {"sha256": db.hash_file(self.dump), "bytes": self.dump.stat().st_size},
             "evidence_archive": {"sha256": db.hash_file(self.archive), "bytes": self.archive.stat().st_size},
-            "restored_inspection": INSPECTION, "blobs": BLOBS, "link_count": 2,
+            "restored_inspection": copy.deepcopy(INSPECTION), "blobs": copy.deepcopy(BLOBS), "link_count": 2,
         }
         self.commit()
 
