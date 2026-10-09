@@ -73,10 +73,11 @@ def listing(archive, expected, *, destination=None):
     expected = {x["sha256"]: x["size"] for x in expected}
     seen = set()
     if destination:
-        destination.mkdir(mode=0o700, parents=True, exist_ok=False)
+        destination.mkdir(mode=0o755, parents=True, exist_ok=False)
     with tarfile.open(archive, "r:*") as tar:
         for member in tar:
-            if member.isdir() and member.name.rstrip("/") in (".", "blobs"):
+            if member.isdir() and (member.name.rstrip("/") in (".", "blobs") or
+                re.fullmatch(r"blobs/[0-9a-f]{2}(/[0-9a-f]{2})?", member.name.rstrip("/"))):
                 continue
             if not member.isfile():
                 fail("Unsafe/non-file evidence archive member: " + member.name)
@@ -96,7 +97,10 @@ def listing(archive, expected, *, destination=None):
             destination_file = None
             if destination:
                 directory = destination / "blobs" / sha[:2] / sha[2:4]
-                directory.mkdir(parents=True, mode=0o700, exist_ok=True)
+                directory.mkdir(parents=True, mode=0o755, exist_ok=True)
+                (destination / "blobs").chmod(0o755)
+                (destination / "blobs" / sha[:2]).chmod(0o755)
+                directory.chmod(0o755)
                 destination_file = open(directory / sha, "xb")
             digest = hashlib.sha256()
             size = 0
@@ -110,6 +114,7 @@ def listing(archive, expected, *, destination=None):
                 if destination_file:
                     destination_file.flush()
                     os.fsync(destination_file.fileno())
+                    os.fchmod(destination_file.fileno(), 0o644)
             finally:
                 if destination_file:
                     destination_file.close()
@@ -356,6 +361,7 @@ def full_backup(args):
 
 
 def full_drill(path):
+    path = db.validate_dump_path(path)
     report = {"status": "failed", "started_at": db.utc_now(), "action": "full-restore"}
     try:
         metadata = verified_manifest(path)
