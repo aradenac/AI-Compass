@@ -156,6 +156,7 @@ def fork(*, actor, parent_id, expected_parent_revision, name=None, properties=No
 
 def revise(*, actor, public_id, expected_revision, name=None, properties=None):
     with transaction.atomic():
+        _lock()
         case=_case(public_id)
         item=CatalogItem.objects.select_for_update().get(pk=case.item_id)
         old=item.current_revision
