@@ -5,6 +5,8 @@ on:
     paths:
       - "backend/**"
       - "scripts/**"
+      - "staging/**"
+      - "docs/migration-staging.md"
       - "compose.yaml"
       - "Caddyfile"
       - "prototype.html"
@@ -28,14 +30,37 @@ on:
 jobs:
   demo-and-server:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
+      - name: Use cached public image mirror on hosted CI
+        run: |
+          sudo install -d -m 0755 /etc/docker
+          echo '{"registry-mirrors":["https://mirror.gcr.io"]}' | sudo tee /etc/docker/daemon.json
+          sudo systemctl restart docker
+          docker info --format '{{json .RegistryConfig.Mirrors}}'
+          # Explicit public ECR pulls avoid Docker Hub rate-limit fallback.
+          for image in postgres:17-alpine caddy:2-alpine python:3.12-slim busybox:1.36; do
+            success=false
+            for attempt in 1 2 3 4 5; do
+              if docker pull "public.ecr.aws/docker/library/$image"; then
+                success=true
+                break
+              fi
+              sleep $((attempt * 6))
+            done
+            if test "$success" != true; then
+              echo "ECR pull failed for $image after retries" >&2
+              exit 1
+            fi
+            docker tag "public.ecr.aws/docker/library/$image" "$image"
+          done
       - name: Validate recovery code and failure-path unit tests
         run: |
           python3 -m py_compile scripts/recovery.py scripts/install-backup-timer.py scripts/test_recovery.py scripts/smoke_recovery_domain.py scripts/smoke_catalog.py scripts/smoke_evidence.py
           python3 -m unittest discover -s scripts -p 'test_recovery.py' -v
           python3 -m unittest discover -s scripts -p 'test_full_recovery.py' -v
+          python3 -m unittest discover -s scripts -p 'test_migration_stage.py' -v
           python3 scripts/install-backup-timer.py --destination "$PWD" --dry-run | grep 'ai-compass-backup.service'
       - name: Create isolated local credentials
         run: python3 scripts/init-env.py
@@ -65,6 +90,8 @@ jobs:
           docker compose exec -T api python manage.py reconcile_evidence --json
       - name: Check that catalog ORM models match checked-in migrations
         run: docker compose exec -T api python manage.py makemigrations --check --dry-run
+      - name: Validate staging-only registered migration in Django test database
+        run: docker compose exec -T api python manage.py test config.test_migration_staging -v 1
       - name: Run backend, persistence and backup/restore checks
         run: bash scripts/smoke-platform.sh
       - name: Verify DB-only recovery manifest flags uncovered evidence files
@@ -102,6 +129,48 @@ jobs:
           if python3 scripts/full_recovery.py --destination "$RUNNER_TEMP/missing-mount" backup; then
             echo "UNAVAILABLE BACKUP DESTINATION ACCEPTED" >&2; exit 1
           fi
+      - name: Isolate, reject and recreate a full staged migration candidate twice
+        env:
+          AI_COMPASS_FULL_RECOVERY_CI: "1"
+        run: |
+          set -x
+          # A historical v1 record remains unmodified on the original operational CI Server.
+          docker compose exec -T api python manage.py shell -c '
+          from django.contrib.auth import get_user_model
+          from config.models import CatalogItem,CatalogRevision,CatalogAuditEvent,ObjectTypeVersion
+          user=get_user_model().objects.get(username="ci-contributor")
+          item=CatalogItem.objects.create(type_slug="model",public_id="mdl-staging-test-canary")
+          rev=CatalogRevision.objects.create(item=item,number=1,schema_version=ObjectTypeVersion.objects.get(type_slug="model",version=1),display_name="Historical staging candidate",properties={"release_channel":"preview","vendor_extension":{"unknown":None}},created_by=user)
+          item.current_revision=rev; item.save(update_fields=["current_revision"])
+          CatalogAuditEvent.objects.create(item=item,revision=rev,actor=user,action="created")
+          '
+          mkdir -p "$RUNNER_TEMP/stage-backups"
+          dump=$(python3 scripts/full_recovery.py --destination "$RUNNER_TEMP/stage-backups" --allow-local-ci backup)
+          python3 scripts/migration_stage.py create --snapshot "$dump" > "$RUNNER_TEMP/stage1.json"
+          candidate=$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d["automated_checks"]=="passed" and d["migrated"]["changed"]==1; print(d["candidate_id"])' "$RUNNER_TEMP/stage1.json")
+          curl -fsS "http://127.0.0.1:18081/?mode=server" | grep -q '/banner.js'
+          curl -fsS http://127.0.0.1:18081/banner.js | grep -q "NOT PRODUCTION"
+          curl -fsS http://127.0.0.1:18081/server-mode.js | cmp - server-mode.js
+          curl -fsS http://127.0.0.1:18081/api/v1/health | python3 -c 'import json,sys; x=json.load(sys.stdin); assert x["status"]=="ok" and x["database"]=="ok"'
+          if python3 scripts/migration_stage.py verdict "$candidate" accepted --notes "Missing manual frontend acceptance"; then
+            echo "UNREVIEWED STAGE ACCEPTED" >&2; exit 1
+          fi
+          python3 scripts/migration_stage.py verdict "$candidate" rejected --notes "CI deliberately tests rejection" > /dev/null
+          python3 scripts/migration_stage.py recreate "$candidate" > "$RUNNER_TEMP/stage2.json"
+          candidate2=$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d["automated_checks"]=="passed" and d["migrated"]["changed"]==1; print(d["candidate_id"])' "$RUNNER_TEMP/stage2.json")
+          test "$candidate" != "$candidate2"
+          python3 scripts/migration_stage.py recreate "$candidate2" > "$RUNNER_TEMP/stage3.json"
+          candidate3=$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d["automated_checks"]=="passed" and d["migrated"]["changed"]==1; print(d["candidate_id"])' "$RUNNER_TEMP/stage3.json")
+          test "$candidate2" != "$candidate3"
+          python3 scripts/migration_stage.py discard "$candidate3" > /dev/null
+          docker compose exec -T api python manage.py shell -c '
+          from config.models import CatalogItem
+          item=CatalogItem.objects.get(public_id="mdl-staging-test-canary")
+          assert item.current_revision.number==1 and item.current_revision.schema_version.version==1
+          assert item.current_revision.properties["vendor_extension"]=={"unknown":None}
+          '
+          python3 -c 'from pathlib import Path; import json,sys; r=json.loads((Path(".local/staging")/sys.argv[1]/"report.json").read_text()); assert r["status"]=="discarded" and r["verdict"]["decision"]=="rejected"' "$candidate"
+          python3 scripts/full_recovery.py verify "$dump" > /dev/null
       - name: Restore real Models from an entirely disposable CI database
         env:
           AI_COMPASS_ISOLATED_FIXTURE_CI: "1"

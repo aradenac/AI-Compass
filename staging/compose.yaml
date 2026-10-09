@@ -1,0 +1,63 @@
+# PLAT-35: disposable Server stack. Never combine with production compose.yaml.
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ai_compass_restore_verify
+      POSTGRES_USER: ai_compass_restore
+      POSTGRES_PASSWORD: ${STAGING_DB_PASSWORD:?Missing disposable DB password}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ai_compass_restore -d ai_compass_restore_verify"]
+      interval: 3s
+      timeout: 3s
+      retries: 25
+    networks: [sandbox]
+  api:
+    build:
+      context: ../backend
+    environment:
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_NAME: ai_compass_restore_verify
+      DB_USER: ai_compass_restore
+      DB_PASSWORD: ${STAGING_DB_PASSWORD:?Missing disposable DB password}
+      DJANGO_SECRET_KEY: ${STAGING_DJANGO_SECRET:?Missing disposable secret}
+      DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1,api,testserver"
+      AI_COMPASS_STAGING: "1"
+      AI_COMPASS_STAGING_CANDIDATE: ${STAGING_CANDIDATE:?Missing candidate}
+      AI_COMPASS_EVIDENCE_ROOT: /var/lib/ai-compass/evidence
+    volumes:
+      - evidence:/var/lib/ai-compass/evidence
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health',timeout=3).read()"]
+      interval: 5s
+      timeout: 3s
+      retries: 25
+    networks: [sandbox]
+  web:
+    image: caddy:2-alpine
+    ports:
+      - "127.0.0.1:${STAGING_PORT:?Missing loopback port}:80"
+    volumes:
+      - ../Caddyfile:/etc/caddy/Caddyfile:ro
+      - ${STAGING_PAGE:?Missing labeled page}:/srv/frontend/prototype.html:ro
+      - ../server-mode.js:/srv/frontend/server-mode.js:ro
+      - ../model-catalog.js:/srv/frontend/model-catalog.js:ro
+      - ./banner.js:/srv/frontend/banner.js:ro
+    depends_on:
+      api:
+        condition: service_healthy
+    networks: [sandbox, exposure]
+volumes:
+  pgdata:
+  evidence:
+networks:
+  sandbox:
+    internal: true
+  exposure:
+    driver: bridge
