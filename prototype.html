@@ -107,6 +107,9 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;b
 <script>
 "use strict";
 
+/* Explicit Server mode: do not load, read or modify fake Demo localStorage. */
+if (new URLSearchParams(window.location.search).get("mode") !== "server") {
+
 var KEY="ai-compass-demo-v1", SESSION="ai-compass-demo-user";
 var TODAY="2026-10-08";
 var seed=function(){
@@ -2628,7 +2631,9 @@ document.addEventListener("keydown",function(ev){
 });
 window.addEventListener("storage",function(ev){if(ev.key===KEY){try{db=JSON.parse(ev.newValue)||seed();render();}catch(ex){}}});
 render();
+}
 
 </script>
+<script src="server-mode.js"></script>
 </body>
 </html>
