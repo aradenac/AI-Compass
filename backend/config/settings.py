@@ -1,4 +1,4 @@
-"""Minimal AI Compass backend: local-only RBAC sessions, not yet domain persistence."""
+"""Minimal AI Compass backend: local-only RBAC sessions and immutable Model catalog."""
 import os
 from pathlib import Path
 
