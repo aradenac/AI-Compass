@@ -73,7 +73,11 @@ def list_guides(request):
         from django.db.models import Q
         items=items.filter(Q(public_id__icontains=q.strip())|
                            Q(current_revision__display_name__icontains=q.strip()))
-    return json_no_store({"results":[_guide(item) for item in items[:501]]})
+    rows=list(items[:501])
+    if len(rows)>500:
+        return json_no_store({"error":"too_many_guides",
+                              "detail":"Filter by title or ID to narrow the lookup"},422)
+    return json_no_store({"results":[_guide(item) for item in rows]})
 
 
 @require_POST
