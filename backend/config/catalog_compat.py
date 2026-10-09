@@ -34,7 +34,9 @@ def classify(type_slug, schema_type, source_version, properties, versions):
     base = {
         "status": "unsupported", "read_only": True,
         "source_schema_version": source_version,
-        "current_schema_version": max(versions) if versions else None,
+        "current_schema_version": (max(set(versions).intersection(SUPPORTED_MODEL_VERSIONS))
+                                   if type_slug == "model" and set(versions).intersection(SUPPORTED_MODEL_VERSIONS)
+                                   else max(versions) if versions else None),
         "unknown_fields": [], "missing_fields": [], "null_fields": [],
         "incompatible_fields": [], "reason": None,
     }
