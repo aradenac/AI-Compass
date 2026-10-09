@@ -70,3 +70,9 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
+
+# PLAT-17: private writable storage (never served by Caddy or published as static).
+EVIDENCE_STORE_ROOT = Path(os.environ.get("AI_COMPASS_EVIDENCE_ROOT", "/var/lib/ai-compass/evidence"))
+EVIDENCE_MAX_BYTES = 16 * 1024 * 1024
+FILE_UPLOAD_MAX_MEMORY_SIZE = 0  # stream uploaded files via Django's temp file handler
+DATA_UPLOAD_MAX_MEMORY_SIZE = 128 * 1024

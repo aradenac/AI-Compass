@@ -60,6 +60,7 @@
     '<input id="server-inspect-id" name="object_id" required maxlength="120" placeholder="mdl-word-word-word">',
     '<button type="submit">Inspect original record</button></form>',
     '<section id="server-catalog-raw" class="server-card" style="margin-top:12px" hidden></section>',
+    '<section id="server-catalog-evidence" class="server-card" style="margin-top:12px" hidden></section>',
     '<div class="note" style="margin-top:14px">Frameworks describe orchestration and are not benchmarked AI Solutions.</div>',
     '</section></main></div>'
   ].join("");
@@ -74,6 +75,8 @@
   var editor = document.getElementById("server-model-editor");
   var history = document.getElementById("server-model-history");
   var raw = document.getElementById("server-catalog-raw");
+  var evidence = document.getElementById("server-catalog-evidence");
+  var evidenceGeneration = 0;
   var cachedModels = [];
   var TYPES = ["model","provider","harness","framework"];
   var adapters = Object.fromEntries(TYPES.map(function (type) {
@@ -165,6 +168,8 @@
     editor.hidden = true;
     history.hidden = true;
     raw.hidden = true;
+    evidence.hidden = true;
+    ++evidenceGeneration;
     if (!data.authenticated) {
       grants = [];
       cachedModels = [];
@@ -220,6 +225,7 @@
       return;
     }
     history.hidden = true;
+    evidence.hidden = true;
     var p = (item && item.properties) || {};
     var extras = {};
     Object.keys(p).forEach(function (key) {
@@ -332,6 +338,7 @@
     editor.hidden = true;
     history.hidden = false;
     raw.hidden = true;
+    evidence.hidden = true;
     history.classList.remove("server-error");
     history.textContent = "Loading immutable catalog revisions…";
     try {
@@ -365,6 +372,7 @@
   function showRaw(record) {
     editor.hidden = true;
     history.hidden = true;
+    evidence.hidden = true;
     raw.hidden = false;
     var diagnostic = record.compatibility || {status: "unsupported", read_only: true};
     var metadata = {
@@ -383,6 +391,89 @@
       raw.hidden = true;
     });
     raw.scrollIntoView({block: "nearest", behavior: "smooth"});
+  }
+
+  async function showEvidence(id) {
+    if (!grants.includes("business_read")) return;
+    var item = cachedModels.find(function (entry) { return entry.id === id; });
+    if (!item) return;
+    var ticket = ++evidenceGeneration;
+    editor.hidden = true;
+    history.hidden = true;
+    raw.hidden = true;
+    evidence.hidden = false;
+    evidence.textContent = "Loading verified evidence attachments…";
+    try {
+      var response = await fetch("/api/v1/catalog/items/" + encodeURIComponent(id) + "/evidence", {
+        credentials: "same-origin", cache: "no-store"
+      });
+      if (!response.ok) throw new Error("HTTP " + response.status);
+      var payload = await response.json();
+      if (ticket !== evidenceGeneration || evidence.hidden || catalog.hidden) return;
+      var entries = payload.results || [];
+      evidence.innerHTML = '<h2>Original evidence for ' + escapeHtml(item.name) + '</h2>' +
+        '<p class="muted small">Immutable bytes · exact revision references · distinct provenance for each link.</p>' +
+        (entries.length ? '<div class="list">' + entries.map(function (row) {
+          var download = row.integrity === "ok" ?
+            '<a href="' + escapeHtml(row.download) + '">Download original bytes</a>' :
+            '<strong>Integrity failure — original unavailable</strong>';
+          return '<div class="list-row"><div><strong>' + escapeHtml(row.filename) + '</strong>' +
+            '<div class="muted small">SHA-256: ' + escapeHtml(row.sha256) + '</div>' +
+            '<div class="muted small">Target: ' + escapeHtml(row.revision || "catalog item") +
+            ' · Uploader: ' + escapeHtml(row.uploaded_by) +
+            ' · Source: ' + escapeHtml(row.source || "not specified") + '</div>' +
+            '<div class="muted small">' + escapeHtml(JSON.stringify(row.provenance)) +
+            '</div>' + download + '</div></div>';
+        }).join("") + '</div>' : '<p>No evidence attached to this record.</p>') +
+        (grants.includes("business_write") ?
+          '<form id="server-evidence-upload" enctype="multipart/form-data">' +
+          '<h3>Attach immutable evidence</h3>' +
+          '<label>Document (PDF, image, text, JSON or ZIP; max 16 MiB)</label>' +
+          '<input type="file" name="file" required accept=".pdf,.png,.jpg,.jpeg,.webp,.txt,.md,.csv,.json,.zip">' +
+          '<label>Exact revision (optional, e.g. r001; blank means record)</label>' +
+          '<input name="revision" placeholder="' + escapeHtml(item.revision || "r001") + '">' +
+          '<label>Source / provenance reference</label><input name="source" maxlength="600">' +
+          '<label>Additional provenance JSON object</label>' +
+          '<textarea name="provenance">{}</textarea>' +
+          '<button type="submit">Upload immutable document</button>' +
+          '<p id="server-evidence-upload-state" role="status"></p></form>' : "") +
+        '<button type="button" id="server-close-evidence">Close evidence</button>';
+      evidence.querySelector("#server-close-evidence").addEventListener("click", function () {
+        evidence.hidden = true; ++evidenceGeneration;
+      });
+      var form = evidence.querySelector("#server-evidence-upload");
+      if (form) form.addEventListener("submit", async function (event) {
+        event.preventDefault();
+        var message = evidence.querySelector("#server-evidence-upload-state");
+        var button = form.querySelector('button[type="submit"]');
+        button.disabled = true;
+        message.textContent = "Uploading to private Server evidence store…";
+        try {
+          var multipart = new FormData(form);
+          var parsed = JSON.parse(multipart.get("provenance") || "{}");
+          if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+            throw new Error("Provenance must be a JSON object");
+          var upload = await fetch("/api/v1/catalog/items/" + encodeURIComponent(id) +
+            "/evidence/upload", {
+            method: "POST", credentials: "same-origin", cache: "no-store",
+            headers: {"X-CSRFToken": csrfFromCookie()}, body: multipart
+          });
+          if (!upload.ok) {
+            var error = await upload.json().catch(function () { return {}; });
+            throw new Error(error.detail || ("HTTP " + upload.status));
+          }
+          await showEvidence(id);
+        } catch (error) {
+          message.textContent = "Upload refused: " + error.message +
+            ". No Demo data was saved.";
+          button.disabled = false;
+        }
+      });
+    } catch (error) {
+      if (ticket !== evidenceGeneration || evidence.hidden) return;
+      evidence.textContent = "Evidence unavailable: " + error.message;
+      evidence.classList.add("server-error");
+    }
   }
 
   document.getElementById("server-inspect-catalog-form").addEventListener("submit", async function (event) {
@@ -415,6 +506,7 @@
       if (model) showEditor(model);
     }
     if (act === "modelHistory") showHistory(id);
+    if (act === "catalogEvidence") showEvidence(id);
     if (act === "modelRaw") {
       var record = cachedModels.find(function (item) { return item.id === id; });
       if (record) showRaw(record);
@@ -424,6 +516,8 @@
     editor.hidden = true;
     history.hidden = true;
     raw.hidden = true;
+    evidence.hidden = true;
+    ++evidenceGeneration;
     refreshModels();
   });
 

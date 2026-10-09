@@ -60,3 +60,31 @@ class CatalogAuditEvent(models.Model):
 
     class Meta:
         ordering = ["created_at", "id"]
+
+
+class EvidenceBlob(models.Model):
+    """Immutable content-addressed payload metadata; bytes live on private volume."""
+    sha256 = models.CharField(primary_key=True, max_length=64)
+    size = models.PositiveBigIntegerField()
+    media_type = models.CharField(max_length=100)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class EvidenceLink(models.Model):
+    """Immutable attribution per usage, even when two usages share identical bytes."""
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    blob = models.ForeignKey(EvidenceBlob, on_delete=models.PROTECT, related_name="links")
+    # Stable FK to any currently supported catalog item; other domain targets
+    # may be added to this same link model as the platform grows.
+    item = models.ForeignKey(CatalogItem, on_delete=models.PROTECT, related_name="evidence_links")
+    revision = models.ForeignKey(
+        CatalogRevision, null=True, blank=True, on_delete=models.PROTECT, related_name="evidence_links"
+    )
+    original_filename = models.CharField(max_length=180)
+    source = models.CharField(max_length=600, blank=True)
+    provenance = models.JSONField(default=dict)
+    uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at", "id"]
