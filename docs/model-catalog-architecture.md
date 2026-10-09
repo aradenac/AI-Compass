@@ -97,4 +97,33 @@ The CI pipeline also provisions a throwaway contributor and runs `scripts/smoke-
 
 **PLAT-05 browser contract:** `model-catalog.js` defines the common `LocalStorageDataProvider` and `ApiDataProvider` shape (list/get/create/revise/revisions) and the single shared Models card renderer. Demo uses its existing browser localStorage callbacks. Server uses authenticated same-origin Django fetch, preserves unrecognized JSON properties, sends `expected_revision` on edit and exposes full read-only revision history. An HTTP 401/403/409 or backend outage is shown as a failure, never as a fake local fallback. The Server page deliberately exposes only Models among the four technology catalog types.
 
+## Version-aware schema compatibility (PLAT-25)
+
+The **Model v1 registry row, original JSONB snapshots and r001 identity remain unchanged**. A new immutable Model v2 schema is installed through `config.0002_model_schema_v2`; it defines optional `release_channel` (`stable`, `preview`, `experimental`) and `max_output_tokens` alongside existing known fields. This intentionally reveals a meaningful v1-to-v2 edge: a previously unconstrained v1 `release_channel` extension can now be incompatible, but the original record is still readable. **No default is inferred, no migration is executed, and every historical revision keeps its original schema-version FK.**
+
+All catalog reads return original `properties` unchanged with a derived `compatibility` envelope: `status`, `read_only`, source/current schema versions, `unknown_fields`, `missing_fields`, `null_fields`, `incompatible_fields` and a human-readable `reason`. Statuses:
+
+| Status | Meaning | Editing |
+| --- | --- | --- |
+| `current` | Valid against the latest supported version | Allowed for Model |
+| `migration_available` | Valid old schema and explicitly registered **non-mutating** compatible projection | Allowed under the original pinned schema (no auto-upgrade) |
+| `outdated` | Valid old schema but no compatibility projection registered | Allowed under the original pinned schema; generic other-type read remains read only |
+| `needs_review` | Original revision valid under its schema but incompatible with the newest supported projection | **Blocked** pending deliberate review/migration |
+| `unsupported` | Unknown type/version, mismatched schema type, missing current revision | **Blocked** |
+| `invalid` | Historical value contradicts its own registered schema | **Blocked** |
+
+For safe v1 Model edits, `POST /api/v1/models/{id}/revisions` **pins the previous revision's schema** instead of silently stamping v2; all unknown fields are preserved when `properties` is omitted. A blocked write returns HTTP **409 `schema_write_blocked`** with compatibility diagnostics; the backend enforces this independently of UI controls. Current new Model writes use **v2**, and deliberately unsupported future registry versions cannot hijack that choice.
+
+Additional authorized, GET-only generic endpoints support upcoming catalog types:
+
+- `/api/v1/catalog/schemas/{type_slug}` (latest registered) and `?version=1` (exact immutable version).
+- `/api/v1/catalog/items/{public_id}` (metadata + original raw fields, even for unknown types or partial records).
+- `/api/v1/models/schema?version=1` and the versionless latest supported Model schema.
+
+Server frontend cards show compatibility, absent/null/extension diagnostics, hide unsafe Model edits, and offer **Original data** plus revision history. An authenticated reader may enter any catalog HRID into **Inspect original catalog record**; unsupported/partial records are displayed in an escaped, read-only raw view. The independent browser Demo remains unchanged and does not access the registry APIs.
+
+**Reproducible checks:** run migrations then `docker compose exec -T api python manage.py test config --verbosity 1`, `node scripts/test-model-catalog.js` and the CI smoke. The backend tests construct a historical v1 record without migrating it, confirm v2 creation, verify read and safe v1 editing, assert manual-review/invalid/future-schema writes are blocked, check authorization, and confirm v1 schema rows remain immutable.
+
+**Explicitly deferred:** editable schema designer, bulk conversion, automatic promotion of stored v1 snapshots to v2, or arbitrary plugin code. Actual migration staging/approval remains #35/#26.
+
 **Explicitly deferred:** generic type registry UI, all non-Model Server catalog types, legacy export/import, external storage and advanced migration tooling; these belong to later increments.
