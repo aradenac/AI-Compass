@@ -46,6 +46,16 @@ assert call("models")["results"] == [], "Fresh Server was not empty"
 
 schema = call("models/schema")
 assert schema["type"] == "model" and schema["version"] == 2
+# Schema v1 must remain inspectable after v2 registration, including from the
+# generic catalog registry. No historical revision may be rewritten to v2.
+v1 = call("models/schema?version=1")
+assert v1["type"] == "model" and v1["version"] == 1
+assert "release_channel" not in v1["schema"]["properties"]
+generic_v1 = call("catalog/schemas/model?version=1")
+generic_v2 = call("catalog/schemas/model")
+assert generic_v1["schema"] == v1["schema"]
+assert generic_v2["schema"] == schema["schema"] and generic_v2["version"] == 2
+assert call("catalog/schemas/model?version=invalid", status=400)["error"] == "invalid_version"
 
 created = call("models", {"name": "Smoke Model", "properties": {"context_window": 12000, "future_flag": 7}}, 201)
 public_id = created["id"]
