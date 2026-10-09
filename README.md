@@ -37,9 +37,9 @@ AI Compass intentionally maintains **two independent data modes using the same f
 - **Demo (standalone):** seeded fictitious records and simulated accounts persisted in browser `localStorage`. No Django, Docker or DB is required; this mode remains supported permanently.
 - **Server (progressively implemented):** shared real data via the Django Ninja API backed by PostgreSQL, server authentication, immutable history and evidence files.
 
-A common `DataProvider` abstraction will select the storage adapter at startup as domain APIs are delivered. Demo and Server never silently mix data or fall back to one another. **PLAT-01 provides the Server infrastructure and health API; PLAT-02 adds real Django login and independent role permissions in the same frontend. Business catalogs, campaigns and evidence screens are still Demo-only until their API-backed implementations are delivered.**
+A common `DataProvider` abstraction will select the storage adapter at startup as domain APIs are delivered. Demo and Server never silently mix data or fall back to one another. **PLAT-01 provides Server infrastructure; PLAT-02 adds Django login and independent roles; PLAT-03 adds a persistent, immutable Model REST API (`/api/v1/models`). The graphical catalog screens remain Demo-only until their Server data adapters arrive in later issues.**
 
-See **[Local Installation & Deployment](docs/local-installation.md)** for real role bootstrap and the Server login at `http://127.0.0.1:8080/prototype.html?mode=server`; see also [Platform Architecture](docs/platform-architecture-and-data-governance.md).
+See **[Local Installation & Deployment](docs/local-installation.md)** for setup and Server login, **[Model Catalog Architecture & API](docs/model-catalog-architecture.md)** for the versioned Model API, and [Platform Architecture](docs/platform-architecture-and-data-governance.md).
 
 ## Interactive prototype
 
