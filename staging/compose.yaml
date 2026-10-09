@@ -52,10 +52,12 @@ services:
     depends_on:
       api:
         condition: service_healthy
-    networks: [sandbox]
+    networks: [sandbox, exposure]
 volumes:
   pgdata:
   evidence:
 networks:
   sandbox:
     internal: true
+  exposure:
+    driver: bridge
