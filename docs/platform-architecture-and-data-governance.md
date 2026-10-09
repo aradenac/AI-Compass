@@ -3,7 +3,7 @@
 > **Status:** Architecture baseline — agreed direction; implementation pending  
 > **Decision date:** 2026-10-09  
 > **Scope:** Backend, persistence, immutable history, identifiers, schema evolution, documents, backups, deployment, roles and maintenance tooling  
-> **Related:** [Product Definition](product-definition.md) · [Non-Functional Requirements](non-functional-requirements.md) · [Benchmark Workflow](benchmark-workflow.md)  
+> **Related:** [Product Definition](product-definition.md) · [Non-Functional Requirements](non-functional-requirements.md) · [Benchmark Workflow](benchmark-workflow.md) · [Incremental Implementation Roadmap](platform-implementation-roadmap.md)  
 > **Principle:** *Preserve evidence first. Every transformation must be traceable, verifiable and recoverable.*
 
 This page consolidates the platform-level decisions following the transition from the standalone browser/localStorage prototype to a persistent multi-user system. It specifies architectural **intent and invariants**, not a claim that these capabilities are already implemented. The product definition remains authoritative for business workflows; this page is authoritative for the target technical direction.
