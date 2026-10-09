@@ -4,7 +4,8 @@ from django.db import IntegrityError, transaction
 from .catalog_ids import new_public_id
 from .catalog_schemas import validate_model
 from .catalog_compat import compatibility_for_revision, SUPPORTED_MODEL_VERSIONS
-from .models import CatalogItem, CatalogRevision, CatalogAuditEvent, ObjectTypeVersion
+from .models import CatalogItem, CatalogRevision, ObjectTypeVersion
+from .activity_services import record_catalog_event
 
 CATALOG_TYPES = {
     "model": "mdl",
@@ -69,9 +70,7 @@ def create_component(*, type_slug, actor, name, properties):
                 )
                 item.current_revision = revision
                 item.save(update_fields=["current_revision"])
-                CatalogAuditEvent.objects.create(
-                    item=item, revision=revision, actor=actor, action="created",
-                )
+                record_catalog_event(item=item, revision=revision, actor=actor, action="created")
                 return item
         except IntegrityError:
             if CatalogItem.objects.filter(public_id=candidate).exists():
@@ -103,9 +102,14 @@ def revise_component(*, item, type_slug, actor, expected_revision,
         )
         locked.current_revision = revision
         locked.save(update_fields=["current_revision"])
-        CatalogAuditEvent.objects.create(
-            item=locked, revision=revision, actor=actor, action="revised",
-        )
+        previous_publication = previous.properties.get("publication")
+        current_publication = updated_properties.get("publication")
+        action = "revised"
+        if previous_publication != "published" and current_publication == "published":
+            action = "published"
+        elif previous_publication == "published" and current_publication != "published":
+            action = "unpublished"
+        record_catalog_event(item=locked, revision=revision, actor=actor, action=action)
         return locked
 
 
