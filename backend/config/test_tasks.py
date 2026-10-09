@@ -114,7 +114,7 @@ class TaskTaxonomyTests(TestCase):
         self.assertEqual(self.post({"name": "N", "unexpected": 123}).status_code, 400)
         self.assertEqual(self.post({"name": "N", "properties": {"baseline": -5}}).status_code, 400)
         self.assertEqual(self.patch(root["id"], {"expected_revision": "r001", "name": 12}).status_code, 400)
-        self.assertEqual(self.client.delete(BASE + "/" + root["id"]).status_code, 405)
+        self.assertEqual(self.client.delete(BASE + "/" + root["id"], HTTP_X_CSRFTOKEN=self.csrf).status_code, 405)
         self.client.force_login(self.reader)
         self.assertEqual(self.client.get(BASE).status_code, 200)
         self.assertEqual(self.client.get(BASE + "/" + root["id"] + "/revisions").status_code, 200)
