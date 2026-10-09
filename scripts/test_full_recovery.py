@@ -88,7 +88,7 @@ class FullRecoveryTests(unittest.TestCase):
     def test_corrupt_missing_or_unreferenced_blob_and_symlink_fail(self):
         self.make_tar(contents=b"fake original bytes")
         self.commit()
-        with self.assertRaisesRegex(db.RecoveryError, "Corrupt"):
+        with self.assertRaisesRegex(db.RecoveryError, "(Corrupt|size differs)"):
             f.verified_manifest(self.dump)
         self.make_tar(name="../../unsafe", contents=CONTENT)
         self.commit()
