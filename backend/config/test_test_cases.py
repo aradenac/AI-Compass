@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
-from django.db import DatabaseError, close_old_connections, transaction
+from django.db import DatabaseError, close_old_connections, connections, transaction
 from django.test import Client, TestCase, TransactionTestCase
 
 from .catalog_compat import compatibility_for_revision
@@ -188,7 +188,9 @@ class ConcurrentForkTests(TransactionTestCase):
                            expected_parent_revision="r001")
                 return child.item.public_id,child.case_version
             finally:
-                close_old_connections()
+                # ThreadPool workers may keep idle test DB connections alive.
+                # Force-close them before Django drops the disposable database.
+                connections.close_all()
         with ThreadPoolExecutor(max_workers=2) as executor:
             futures=[executor.submit(worker) for _ in range(2)]
             out=[f.result(timeout=35) for f in futures]
