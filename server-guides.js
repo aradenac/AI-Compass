@@ -179,7 +179,7 @@
         '<div class="guide-inline-editor" hidden></div>';
       el(".guide-inline-select").addEventListener("change",function(){
         var item=known.find(function(x){return x.id===this.value;},this);
-        if(item)onSelected({id:item.id,revision:item.revision,revision_id:null,name:item.name});
+        if(item)onSelected({id:item.id,revision:item.revision,revision_id:item.revision_id,name:item.name});
       });
       if(write)el(".guide-inline-create").addEventListener("click",function(){
         var node=el(".guide-inline-editor");
@@ -196,7 +196,7 @@
             await refresh();
             if(!active)return;
             el(".guide-inline-select").value=created.id;
-            onSelected({id:created.id,revision:created.revision,name:created.name});
+            onSelected({id:created.id,revision:created.revision,revision_id:created.revision_id,name:created.name});
             el(".guide-inline-status").textContent="Created and selected "+created.id;
           } catch(error) {
             if(active)el(".guide-inline-status").textContent="Create refused: "+error.message;
