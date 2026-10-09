@@ -15,6 +15,7 @@ class StagingTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
+        self.base = Path(self.temp.name)
         patcher = patch.object(s, "STATE_ROOT", self.base / ".local" / "staging")
         patcher.start()
         self.addCleanup(patcher.stop)
