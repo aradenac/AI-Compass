@@ -62,6 +62,16 @@
     '<section id="server-catalog-raw" class="server-card" style="margin-top:12px" hidden></section>',
     '<section id="server-catalog-evidence" class="server-card" style="margin-top:12px" hidden></section>',
     '<div class="note" style="margin-top:14px">Frameworks describe orchestration and are not benchmarked AI Solutions.</div>',
+    '</section>',
+    '<section id="server-task-tree" class="server-catalog" hidden>',
+    '<div class="server-model-toolbar"><div><h2>Task management</h2>',
+    '<p class="muted small">Persistent engineering taxonomy · revisioned ancestry and order</p></div>',
+    '<button id="server-task-refresh" type="button">Refresh tasks</button></div>',
+    '<p id="server-task-state" class="server-status" role="status"></p>',
+    '<button id="server-task-add-root" type="button" hidden>+ Create root section</button>',
+    '<div id="server-task-list"></div>',
+    '<section id="server-task-editor" class="server-card" hidden></section>',
+    '<pre id="server-task-history" class="server-card" hidden style="white-space:pre-wrap;overflow-wrap:anywhere"></pre>',
     '</section></main></div>'
   ].join("");
 
@@ -86,6 +96,7 @@
   var refreshGeneration = 0;
   var adapter = modelsUi.ApiDataProvider(csrfFromCookie);
   var escapeHtml = modelsUi.escapeHtml;
+  var tasks = window.AICompassServerTasks.mount(document.getElementById("server-task-tree"), csrfFromCookie, escapeHtml);
 
   function status(message, isError) {
     state.textContent = message;
@@ -172,6 +183,7 @@
     ++evidenceGeneration;
     if (!data.authenticated) {
       grants = [];
+      tasks.setAccess(false, false);
       cachedModels = [];
       modelList.replaceChildren();
       catalog.hidden = true;
@@ -181,6 +193,7 @@
       return;
     }
     grants = data.permissions || [];
+    tasks.setAccess(grants.includes("business_read"), grants.includes("business_write"));
     form.hidden = true;
     account.hidden = false;
     document.getElementById("server-account-name").textContent = data.username;
@@ -555,6 +568,7 @@
       account.hidden = true;
       form.hidden = true;
       catalog.hidden = true;
+      tasks.setAccess(false, false);
       status("Server unavailable. Demo data will NOT be loaded automatically. " + error.message, true);
     }
   })();
