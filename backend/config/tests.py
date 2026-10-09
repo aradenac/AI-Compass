@@ -176,7 +176,7 @@ class ModelCatalogTests(TestCase):
     def create(self, name="GLM-5.2", properties=None):
         if properties is None:
             properties = {"context_window": 262144, "vendor_feature": {"unknown_future_key": True}}
-        return self.post("/api/v1/models/create", {"name": name, "properties": properties})
+        return self.post("/api/v1/models", {"name": name, "properties": properties})
 
     def post(self, path, payload, csrf=True):
         kwargs = {}
@@ -199,7 +199,7 @@ class ModelCatalogTests(TestCase):
         self.assertEqual(item.id.variant, RFC_4122)
         self.assertEqual(self.client.get("/api/v1/models").json()["results"][0]["id"], first["id"])
 
-        changed = self.post(f"/api/v1/models/{first['id']}/revisions/create",
+        changed = self.post(f"/api/v1/models/{first['id']}/revisions",
                             {"expected_revision": "r001", "name": "GLM-5.2 updated"})
         self.assertEqual(changed.status_code, 201, changed.content)
         later = changed.json()
