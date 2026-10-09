@@ -36,7 +36,7 @@ class Migration(migrations.Migration):
                 EXECUTE FUNCTION ai_compass_no_revision_mutation();
 
             CREATE FUNCTION ai_compass_validate_production_promotion() RETURNS trigger
-            LANGUAGE plpgsql AS $
+            LANGUAGE plpgsql AS $promote$
             BEGIN
               IF NOT EXISTS (
                 SELECT 1 FROM config_catalogrevision src
@@ -52,7 +52,7 @@ class Migration(migrations.Migration):
                 RAISE EXCEPTION 'Production promotion must link successive v1/v2 revisions of one Model';
               END IF;
               RETURN NEW;
-            END $;
+            END $promote$;
 
             CREATE TRIGGER validate_production_migration_receipt
               BEFORE INSERT ON config_productionmigrationreceipt FOR EACH ROW
