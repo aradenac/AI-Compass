@@ -6,7 +6,7 @@
 
 PLAT-03 is the first persistent, audited business object in **Server mode**. A user with `business_read` can list/get Models and past revisions; one with `business_write` can create a Model and append new revisions. Authentication is the real Django session from PLAT-02 (cookie + CSRF header on POST).
 
-The exact same `prototype.html` supports standalone **Demo mode**, using seeded fake `localStorage` records. The existing graphical Models catalog stays Demo-only until [PLAT-05](https://github.com/aradenac/AI-Compass/issues/5). **PLAT-03 does not synchronize, import or overwrite Demo records.**
+The exact same `prototype.html` supports standalone **Demo mode**, using seeded fake `localStorage` records. [PLAT-05](https://github.com/aradenac/AI-Compass/issues/5) binds the graphical Models lane to this API in Server mode while keeping the independent Demo data adapter. **PLAT-03 does not synchronize, import or overwrite Demo records.**
 
 ## Physical model
 
@@ -95,4 +95,6 @@ bash scripts/smoke-platform.sh
 
 The CI pipeline also provisions a throwaway contributor and runs `scripts/smoke-models.py` through Caddy: login, fetch schema, create, list, revise, read old revision, reject stale/invalid edits, log out and reject an anonymous request. Existing Demo/offline, role-separation and backup/restore smoke checks remain enabled.
 
-**Explicitly deferred:** generic type registry UI, all non-Model catalog types, legacy export/import, browser catalog connection, external storage and advanced migration tooling; these belong to later increments.
+**PLAT-05 browser contract:** `model-catalog.js` defines the common `LocalStorageDataProvider` and `ApiDataProvider` shape (list/get/create/revise/revisions) and the single shared Models card renderer. Demo uses its existing browser localStorage callbacks. Server uses authenticated same-origin Django fetch, preserves unrecognized JSON properties, sends `expected_revision` on edit and exposes full read-only revision history. An HTTP 401/403/409 or backend outage is shown as a failure, never as a fake local fallback. The Server page deliberately exposes only Models among the four technology catalog types.
+
+**Explicitly deferred:** generic type registry UI, all non-Model Server catalog types, legacy export/import, external storage and advanced migration tooling; these belong to later increments.
