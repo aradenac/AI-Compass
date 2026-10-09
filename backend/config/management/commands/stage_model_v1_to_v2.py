@@ -28,7 +28,7 @@ def assert_disposable_target():
 def upgrade():
     with transaction.atomic():
         target = ObjectTypeVersion.objects.get(type_slug="model", version=2)
-        items = list(CatalogItem.objects.select_for_update().filter(type_slug="model")
+        items = list(CatalogItem.objects.select_for_update(of=("self",)).filter(type_slug="model")
                      .select_related("current_revision__schema_version").order_by("pk"))
         changed = []
         for item in items:
