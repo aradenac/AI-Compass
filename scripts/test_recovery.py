@@ -141,6 +141,60 @@ class RecoveryTests(unittest.TestCase):
         self.assertTrue(any(cmd[0:3] == ["docker", "rm", "--force"] for cmd in issued))
         self.assertTrue(any(cmd[:3] == ["docker", "exec", "-i"] for cmd in issued))
 
+    def test_individual_schema_sha256_uses_restored_bytes(self):
+        import hashlib
+        schema = {"type": "object", "properties": {
+            "context_window": {"minimum": 1, "type": "integer"}}}
+        raw = dict(INSPECTION, schema_definitions=[
+            {"type": "model", "version": 1, "schema": schema}
+        ])
+        def fake_run(args, **kwargs):
+            if "SELECT to_regclass" in args[-1]:
+                return "f"
+            return json.dumps(raw)
+        with patch.object(recovery, "run", side_effect=fake_run):
+            result = recovery.inspect_restored("isolated-only")
+        expected = hashlib.sha256(json.dumps(
+            schema, sort_keys=True, ensure_ascii=False, separators=(",", ":")
+        ).encode()).hexdigest()
+        self.assertEqual(result["schema_hashes"], [
+            {"type": "model", "version": 1, "sha256": expected}
+        ])
+        self.assertNotIn("schema_definitions", result)
+        # Field order in JSON schema must not alter the digest.
+        self.assertEqual(expected, hashlib.sha256(json.dumps(
+            {"properties": schema["properties"], "type": "object"},
+            sort_keys=True, ensure_ascii=False, separators=(",", ":")
+        ).encode()).hexdigest())
+
+    def test_recovery_verifier_failure_also_disposes_separate_postgres(self):
+        dump = self.make_backup()
+        issued = []
+        def fake_command(args, **kwargs):
+            issued.append(args)
+            return "ok"
+        def fail_verification(container, inspection):
+            raise AssertionError("Historical v1 Model does not match")
+        with patch.object(recovery, "run", side_effect=fake_command), \
+             patch.object(recovery, "inspect_restored", return_value=dict(INSPECTION)):
+            with self.assertRaisesRegex(AssertionError, "does not match"):
+                recovery.restore_isolated(dump, verifier=fail_verification)
+        self.assertTrue(any(cmd[:3] == ["docker", "rm", "--force"] for cmd in issued))
+        self.assertNotIn("-v", issued[0])
+        self.assertEqual(issued[0][issued[0].index("--network") + 1], "none")
+
+    def test_real_domain_drill_refuses_manual_or_production_invocation(self):
+        import subprocess
+        import os
+        environment = dict(os.environ)
+        environment.pop("AI_COMPASS_ISOLATED_FIXTURE_CI", None)
+        result = subprocess.run(
+            ["python3", str(Path(__file__).with_name("smoke_recovery_domain.py"))],
+            env=environment, text=True, capture_output=True, check=False
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("CI-only", result.stderr)
+
     def test_restore_failure_still_force_removes_disposable_container(self):
         dump = self.make_backup()
         issued = []
