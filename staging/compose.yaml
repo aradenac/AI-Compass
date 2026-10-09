@@ -24,7 +24,7 @@ services:
       DB_USER: ai_compass_restore
       DB_PASSWORD: ${STAGING_DB_PASSWORD:?Missing disposable DB password}
       DJANGO_SECRET_KEY: ${STAGING_DJANGO_SECRET:?Missing disposable secret}
-      DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1,api"
+      DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1,api,testserver"
       AI_COMPASS_STAGING: "1"
       AI_COMPASS_STAGING_CANDIDATE: ${STAGING_CANDIDATE:?Missing candidate}
       AI_COMPASS_EVIDENCE_ROOT: /var/lib/ai-compass/evidence
