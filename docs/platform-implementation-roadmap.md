@@ -1,108 +1,107 @@
 # AI Compass — Incremental Platform Implementation Roadmap
 
-> **Status:** Ordered GitHub implementation backlog · **Created:** 2026-10-09
-> **Architecture:** [Platform Architecture & Data Governance](platform-architecture-and-data-governance.md)
-> **Existing functional contract:** [Product Definition](product-definition.md) · [Benchmark Workflow](benchmark-workflow.md) · [Non-Functional Requirements](non-functional-requirements.md)
+> **Status:** Active, dependency-driven issue backlog · **Updated:** 2026-10-09  
+> **Agent contract:** [AGENTS.md](../AGENTS.md) · **Architecture:** [Platform Architecture & Data Governance](platform-architecture-and-data-governance.md) · **Product:** [Product Definition](product-definition.md)
 
 ## Operating principle
 
-**One issue = one focused coding conversation = one independently testable vertical increment = one direct, reviewable commit on `main` (no PR).** This is a sizing heuristic, **not** a guaranteed wall-clock or token budget. `S` and `M` effort labels are relative only. If an increment cannot be completed with its tests and safety checks in one conversation, **split it before implementing**, keeping a smaller observable end-to-end outcome rather than dropping tests or losing history.
+**One issue = one independently demonstrable outcome with a focused PR and tests.** Several autonomous agents may implement the **same issue on separate branches from the exact same baseline commit**; choose the best PR after comparable CI and review. An issue is not closed until a selected solution is merged and all acceptance checks pass. The issue plus linked repository references must suffice **without any assistant's chat memory**.
 
-Start at [PLAT-01](https://github.com/aradenac/AI-Compass/issues/1). The labels `PLAT-01`...`PLAT-33` indicate recommended presentation order; the real prerequisites are the linked **Depends on** issue references inside each ticket. Some catalog slices can run independently after their common foundation, but process only one issue at a time when working with a coding assistant.
+Size heuristics: **S** extends a mechanism; **M** delivers one functional vertical across backend/frontend/tests; **L** spans several subsystems and should be narrowed before implementation. Optimize the **critical dependency path**, not just ticket count. The actual order is controlled by `Depends on`, not issue numbers.
 
-Each issue contains: **user-visible outcome**, bounded **in-scope changes**, **acceptance tests**, explicit **out-of-scope**, **prerequisites**, and immutable-data **safety guardrails**. All issues are engineering work, not empty umbrella epics; no issue should be closed on the strength of scaffolding alone.
+## Active delivery sequence
 
-## Ordered issues
+### 1. Completed technical foundation and next first UI slice
 
-### 1. Executable foundation and first durable vertical slice
-
-| Issue | Usable increment |
+| Issue | Outcome |
 | --- | --- |
-| [PLAT-01](https://github.com/aradenac/AI-Compass/issues/1) | **Completed** — Django/PostgreSQL infrastructure, unchanged Demo frontend, tested restore and install guide |
-| [PLAT-02](https://github.com/aradenac/AI-Compass/issues/2) | **Completed** — real Django session login, CSRF, six independent roles, Demo/Server switching |
-| [PLAT-03](https://github.com/aradenac/AI-Compass/issues/3) | **Completed** — UUIDv7 + HRIDs, versioned JSON Schema, immutable Model revisions, audit and authorized REST API |
-| [PLAT-04](https://github.com/aradenac/AI-Compass/issues/4) | **Cancelled (not planned)** — fake Demo records are never migrated to Server |
-| [PLAT-05](https://github.com/aradenac/AI-Compass/issues/5) | Enable API-backed Models in Server mode without removing the local Demo provider |
+| [#1](https://github.com/aradenac/AI-Compass/issues/1) | **Done** — Django/PostgreSQL/Caddy, persistence and restore smoke |
+| [#2](https://github.com/aradenac/AI-Compass/issues/2) | **Done** — real session login and independent roles |
+| [#3](https://github.com/aradenac/AI-Compass/issues/3) | **Done** — Model REST API, UUIDv7/HRIDs, immutable revisions |
+| [#5](https://github.com/aradenac/AI-Compass/issues/5) | **Next** — same Models UI in independent Demo and initially empty Server mode |
 
-### 2. Persist the rest of the catalog and design assets
+[#4](https://github.com/aradenac/AI-Compass/issues/4) was cancelled: never import fake Demo business data into Server.
 
-| Issue | Usable increment |
+### 2. Early durability, extensibility and safe migration foundations
+
+| Issue | Outcome / actual prerequisite |
 | --- | --- |
-| [PLAT-06](https://github.com/aradenac/AI-Compass/issues/6) | Providers catalog |
-| [PLAT-07](https://github.com/aradenac/AI-Compass/issues/7) | Harnesses catalog |
-| [PLAT-08](https://github.com/aradenac/AI-Compass/issues/8) | Frameworks catalog |
-| [PLAT-09](https://github.com/aradenac/AI-Compass/issues/9) | Editable task tree |
-| [PLAT-10](https://github.com/aradenac/AI-Compass/issues/10) | Versioned Test Cases and forks |
-| [PLAT-11](https://github.com/aradenac/AI-Compass/issues/11) | Reusable Setup Guides |
+| [#34](https://github.com/aradenac/AI-Compass/issues/34) | Scheduled DB snapshots + **verified isolated restoration**; after #5 |
+| [#25](https://github.com/aradenac/AI-Compass/issues/25) | Model v2 / generic version-aware schema compatibility, before more catalog types; after #34 |
+| [#17](https://github.com/aradenac/AI-Compass/issues/17) | Reusable, immutable EvidenceBlob/Link store across all later business domains; after #34 |
+| [#35](https://github.com/aradenac/AI-Compass/issues/35) | Isolated temporary Server staging, migration trial, **manual validation through real frontend**, accept/reject/discard/recreate; after #25/#34 |
+| [#26](https://github.com/aradenac/AI-Compass/issues/26) | Governed production apply of **staging-approved** schema/data migration, new restorable snapshot and retry; after #35 |
 
-### 3. Record reproducible experiments and original evidence
+These are **capabilities**, not a requirement to block every independent catalog feature until #26. A data-affecting migration cannot bypass #35/#26; adding a new type with its own non-destructive schema/revisions does not necessarily require a production data conversion.
 
-| Issue | Usable increment |
+### 3. Persistent catalog, taxonomy and reusable experimental definitions
+
+| Issue | Outcome |
 | --- | --- |
-| [PLAT-12](https://github.com/aradenac/AI-Compass/issues/12) | Campaign planning and lifecycle |
-| [PLAT-13](https://github.com/aradenac/AI-Compass/issues/13) | Framework participants |
-| [PLAT-14](https://github.com/aradenac/AI-Compass/issues/14) | Resumable timed sessions |
-| [PLAT-15](https://github.com/aradenac/AI-Compass/issues/15) | Individual immutable runs and measured solutions |
-| [PLAT-16](https://github.com/aradenac/AI-Compass/issues/16) | Composite Framework runs |
-| [PLAT-17](https://github.com/aradenac/AI-Compass/issues/17) | Immutable document upload and retrieval |
+| [#6](https://github.com/aradenac/AI-Compass/issues/6) | **Consolidated** Provider + Harness + Framework catalogs using shared Model/schema adapter (former #7/#8) |
+| [#9](https://github.com/aradenac/AI-Compass/issues/9) | Editable hierarchical engineering task taxonomy |
+| [#10](https://github.com/aradenac/AI-Compass/issues/10) | Independent versioned Test Cases and fork lineage, with evidence links |
+| [#11](https://github.com/aradenac/AI-Compass/issues/11) | Reusable Setup Guides (text/URL/version history) |
 
-### 4. Publish attributable knowledge and expose results
+Former [#7](https://github.com/aradenac/AI-Compass/issues/7) and [#8](https://github.com/aradenac/AI-Compass/issues/8) were closed as **consolidated into #6**, not deleted.
 
-| Issue | Usable increment |
+### 4. Campaign execution and reproducible benchmark evidence
+
+| Issue | Outcome |
 | --- | --- |
-| [PLAT-18](https://github.com/aradenac/AI-Compass/issues/18) | Reusable external-source library |
-| [PLAT-19](https://github.com/aradenac/AI-Compass/issues/19) | Watch hypotheses and source links |
-| [PLAT-20](https://github.com/aradenac/AI-Compass/issues/20) | Versioned theoretical forecasts |
-| [PLAT-21](https://github.com/aradenac/AI-Compass/issues/21) | Results and evaluation revisions |
-| [PLAT-22](https://github.com/aradenac/AI-Compass/issues/22) | Evidence-linked recommendations |
-| [PLAT-23](https://github.com/aradenac/AI-Compass/issues/23) | Feedback and discussion |
-| [PLAT-24](https://github.com/aradenac/AI-Compass/issues/24) | Attributable Activity Feed |
+| [#12](https://github.com/aradenac/AI-Compass/issues/12) | Campaigns, lifecycle, version-pinned extensible experimental method |
+| [#13](https://github.com/aradenac/AI-Compass/issues/13) | Framework campaign participant trios; depends on consolidated #6 |
+| [#14](https://github.com/aradenac/AI-Compass/issues/14) | Resumable, incrementally server-saved interactions and step state |
+| [#15](https://github.com/aradenac/AI-Compass/issues/15) | Immutable individual benchmark run with exact method/config/evidence snapshots |
+| [#16](https://github.com/aradenac/AI-Compass/issues/16) | Composite Framework runs; never assign team scores to an individual AI Solution |
 
-### 5. Schema evolution and autonomous maintenance
+### 5. Knowledge, forecasts, evaluation, recommendations and discussions
 
-| Issue | Usable increment |
+| Issue | Outcome |
 | --- | --- |
-| [PLAT-25](https://github.com/aradenac/AI-Compass/issues/25) | Backward-compatible schema v2 and safe UI |
-| [PLAT-26](https://github.com/aradenac/AI-Compass/issues/26) | Governed dry-run/apply/retry of data migration |
-| [PLAT-27](https://github.com/aradenac/AI-Compass/issues/27) | Maintenance dashboard, quality checks and issues |
-| [PLAT-28](https://github.com/aradenac/AI-Compass/issues/28) | Separate user administration |
+| [#18](https://github.com/aradenac/AI-Compass/issues/18) | **Consolidated** Research Source library + Technology Watch Entries and links (former #19) |
+| [#20](https://github.com/aradenac/AI-Compass/issues/20) | Versioned theoretical forecasts, distinct from observed runs |
+| [#21](https://github.com/aradenac/AI-Compass/issues/21) | Results Explorer and evaluations with frozen inputs/methods |
+| [#22](https://github.com/aradenac/AI-Compass/issues/22) | Reviewed, evidence-linked recommendations |
+| [#23](https://github.com/aradenac/AI-Compass/issues/23) | Attributed versioned feedback and threaded discussions |
+| [#24](https://github.com/aradenac/AI-Compass/issues/24) | **Can happen early**: generic Activity Feed from existing Model audit events; other domains emit events as they are delivered |
 
-### 6. Demonstrable disaster recovery and production readiness
+Former [#19](https://github.com/aradenac/AI-Compass/issues/19) was closed as **consolidated into #18**.
 
-| Issue | Usable increment |
+### 6. Operations and final acceptance
+
+| Issue | Outcome |
 | --- | --- |
-| [PLAT-29](https://github.com/aradenac/AI-Compass/issues/29) | Automated backup and isolated restore reports |
-| [PLAT-30](https://github.com/aradenac/AI-Compass/issues/30) | Verifiable portable export |
-| [PLAT-31](https://github.com/aradenac/AI-Compass/issues/31) | Restore/verify **native AI Compass** archives for recovery, not external-source ingestion |
-| [PLAT-32](https://github.com/aradenac/AI-Compass/issues/32) | Validate operational Server launch with an **empty business database**, Demo unchanged |
+| [#28](https://github.com/aradenac/AI-Compass/issues/28) | **Can happen early**: independent user administration built on #2, no dependency on health dashboard |
+| [#27](https://github.com/aradenac/AI-Compass/issues/27) | Data Health, reconciliation/triage and maintenance workspace |
+| [#29](https://github.com/aradenac/AI-Compass/issues/29) | **Can happen once #34/#17 are ready**: coordinated DB+file backup, independent destination, verified full-stack restore (advanced PITR deferred) |
+| [#30](https://github.com/aradenac/AI-Compass/issues/30) | Portable logical export with complete evidence/history/checksum manifest |
+| [#31](https://github.com/aradenac/AI-Compass/issues/31) | Restore native AI Compass archives; no fake Demo or external-source ingestion |
+| [#32](https://github.com/aradenac/AI-Compass/issues/32) | **Acceptance campaign only:** orchestrate already-delivered E2E, staging, recovery, Demo/Server and go/no-go checks; no wholesale feature rewrite |
 
-### 7. Only after production deployment is validated — real-source onboarding
+### 7. Only after validated production deployment
 
-| Issue | Usable increment |
+| Issue | Outcome |
 | --- | --- |
-| [PLAT-33](https://github.com/aradenac/AI-Compass/issues/33) | First deliberately selected **real external data source** (one domain/format per issue) with preview, provenance, idempotent import and audit |
+| [#33](https://github.com/aradenac/AI-Compass/issues/33) | First deliberately selected **real external-source import**, with preview/provenance/idempotency; never import fake Demo records |
 
-**Boundary:** External data ingestion is *not* a prerequisite for Server readiness. Source systems, representative formats and mapping are selected after the platform deployment is accepted.
+## Multi-agent PR workflow
 
-## Execution protocol for each conversation
+1. Freeze and record the **same exact baseline `main` commit SHA**, issue version and dependency state for all candidates. Give each agent an isolated branch/worktree and the same [AGENTS.md](../AGENTS.md), references and verification criteria.
+2. Agents may implement **the same issue independently in parallel**. Each produces a PR against `main` with diff, design choices, reproducible test commands/results and acknowledged limitations; never push straight to `main` or close the issue on submission.
+3. Run the **same project CI** on every PR and compare behavior/acceptance, immutability and data safety, resilience, maintenance complexity and change scope. Critical data loss or invalid recovery is disqualifying.
+4. Select/merge one PR, or carefully compose isolated fixes with a separate verification pass. Confirm all acceptance checks on the **final merged commit**, close the issue and update its evidence links. Do not mix competitors' code before their initial comparison.
+5. Work on **different issues in parallel only when their actual prerequisites are met**. Agents may overlap on one issue intentionally for competition; avoid simultaneous unrelated modifications to the same monolithic frontend without isolation.
 
-1. **Select one ready issue** (all referenced prerequisites accepted). Read the ticket and architecture/product contracts, then inspect the current code and relevant tests.
-2. **Protect data first:** keep a baseline export or restorable snapshot before a destructive-risk step; never silently rewrite historical revisions or discard unknown fields.
-3. **Implement the smallest integrated vertical flow:** API and storage plus the required existing UI where specified; avoid unrelated refactoring and speculative infrastructure.
-4. **Prove it in both modes:** positive/negative automated tests, permissions, compatibility, resilience and a clear manual smoke path. For migrations, show dry-run/rollback/retry evidence. The standalone Demo interface must remain usable without backend services.
-5. **Review the diff and document the outcome:** add minimal run instructions, actual test commands and risks. Commit directly to `main` without a PR and close the issue only after acceptance criteria pass.
-6. **Stop at the issue boundary.** Do not start another issue during the same exhausted conversation; record follow-up observations in a separate ticket.
+## Permanent safety and acceptance gates
 
-## Permanent data-safety gates
-
-- From **PLAT-01**, PostgreSQL backup/restore is demonstrable before switching any domain from localStorage.
-- From **PLAT-03**, all new catalog data uses immutable revision semantics and permanent UUIDv7 + HRID identities; no revision is overwritten.
-- **PLAT-04 is cancelled:** the seeded Demo dataset is intentionally fictitious and must never be automatically staged, migrated or reconciled into the Server database. A fresh Server must contain **zero business objects**, but required tables, schemas, permissions and accounts are allowed.
-- Each Server-mode domain uses **single-writer server authority** and creates its own real objects and HRIDs from scratch; no Demo ID mapping, hidden dual write, automatic fallback or synchronization. The same UI must continue to support independent Demo-mode `localStorage` persistence and seeded fake data.
-- From **PLAT-17**, document bytes are content-addressed, checked and referenced only once durable.
-- **PLAT-29–31** strengthen independent backup, native AI Compass archive portability and disaster recovery; they do **not** import business records from Demo or unrelated external sources.
-- **PLAT-32** establishes full **Server-mode readiness** and explicitly checks an empty business database on a fresh installation; Demo remains supported. **PLAT-33 starts later**, once production deployment has been validated, to import real data from identified external systems.
+- Demo is a permanent independent seeded-fake `localStorage` runtime. The **same frontend** in Server mode uses authenticated PostgreSQL, initially with no business records. Never implicitly copy, synchronize, mix or fall back.
+- Stable UUIDv7/HRIDs, immutable revisions, exact method/Test Case/run snapshots, preserved unknown JSON properties, relational links, append-only audit and content-addressed file evidence are non-negotiable.
+- Baseline DB recovery **#34** precedes substantive data growth. Evidence store **#17** is cross-domain; combined DB+file recovery **#29** verifies exact file/link consistency.
+- For a **data-changing migration**, use a verified recovery point; validate a versioned migration artifact in isolated staging **#35** with automated tests **and real frontend manual acceptance**; only then use separately governed **#26** production application. Rejections/retries and staging edits never mutate production. Never promote the staging database over current operational data.
+- Every issue adds **focused positive, negative and relevant non-regression tests** and short operator documentation; the final #32 orchestrates these already-existing suites. Splitting a large issue is acceptable **before** implementation, not by dropping acceptance.
+- [#4](https://github.com/aradenac/AI-Compass/issues/4), [#7](https://github.com/aradenac/AI-Compass/issues/7), [#8](https://github.com/aradenac/AI-Compass/issues/8) and [#19](https://github.com/aradenac/AI-Compass/issues/19) are closed without independent implementation.
 
 ## Next action
 
-**PLAT-01 is completed on main.** [GitHub Actions validation](https://github.com/aradenac/AI-Compass/actions/runs/37864857989) passed Docker startup, migrations, Django/API tests, isolated backup/restore, container recreation and independent standalone Demo HTTP serving. [PLAT-02](https://github.com/aradenac/AI-Compass/issues/2) is also **completed and verified** ([passing auth and recovery CI](https://github.com/aradenac/AI-Compass/actions/runs/37865692273)). [PLAT-03](https://github.com/aradenac/AI-Compass/issues/3) is also **completed** and documented in [Model Catalog Architecture](model-catalog-architecture.md); [PLAT-04](https://github.com/aradenac/AI-Compass/issues/4) has been cancelled as unnecessary. **Next: [PLAT-05](https://github.com/aradenac/AI-Compass/issues/5)**, connecting the same Models UI to an initially empty Server catalog while keeping seeded Demo data separate. Real external-source import is deliberately deferred to [PLAT-33](https://github.com/aradenac/AI-Compass/issues/33) after the production deployment is validated.
+**[#5](https://github.com/aradenac/AI-Compass/issues/5)** is the next ready frontend/backend delivery, via **competing independent PRs** if desired. Thereafter #34 secures persisted data, #25 generalizes schema compatibility, and parallel compatible deliveries are selected by their dependency contracts rather than historical issue numbering.
