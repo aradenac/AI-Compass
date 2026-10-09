@@ -16,6 +16,7 @@
     return;
   }
 
+  var maintenanceWorkspace = window.location.pathname === "/maintenance";
   var modelsUi = window.AICompassModels;
   var root = document.getElementById("app");
   if (!modelsUi) {
@@ -209,10 +210,10 @@
       return;
     }
     grants = data.permissions || [];
-    tasks.setAccess(grants.includes("business_read"), grants.includes("business_write"));
-    users.setAccess(grants.includes("users_manage"), grants.includes("platform_manage"));
-    activity.setAccess(grants.includes("business_read"), grants.includes("users_manage"));
-    health.setAccess(grants.includes("maintenance_view"), grants.includes("maintenance_triage"));
+    tasks.setAccess(!maintenanceWorkspace && grants.includes("business_read"), !maintenanceWorkspace && grants.includes("business_write"));
+    users.setAccess(!maintenanceWorkspace && grants.includes("users_manage"), !maintenanceWorkspace && grants.includes("platform_manage"));
+    activity.setAccess(!maintenanceWorkspace && grants.includes("business_read"), !maintenanceWorkspace && grants.includes("users_manage"));
+    health.setAccess(maintenanceWorkspace && grants.includes("maintenance_view"), maintenanceWorkspace && grants.includes("maintenance_triage"));
     document.getElementById("server-maintenance-nav").hidden = !grants.includes("maintenance_view");
     form.hidden = true;
     account.hidden = false;
@@ -226,7 +227,7 @@
     if (grants.includes("users_manage")) action("User administration check", "user-admin", "GET");
     if (grants.includes("platform_view")) action("Platform operations", "platform", "GET");
     status("Authenticated as " + data.username + ". Permissions are enforced by Django.", false);
-    catalog.hidden = !grants.includes("business_read");
+    catalog.hidden = maintenanceWorkspace || !grants.includes("business_read");
     if (!catalog.hidden) refreshModels();
   }
 
