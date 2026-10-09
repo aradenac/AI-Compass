@@ -31,6 +31,11 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+      - name: Validate recovery code and failure-path unit tests
+        run: |
+          python3 -m py_compile scripts/recovery.py scripts/install-backup-timer.py scripts/test_recovery.py
+          python3 -m unittest discover -s scripts -p 'test_recovery.py' -v
+          python3 scripts/install-backup-timer.py --destination "$PWD" --dry-run | grep 'ai-compass-backup.service'
       - name: Create isolated local credentials
         run: python3 scripts/init-env.py
       - name: Validate Compose configuration
