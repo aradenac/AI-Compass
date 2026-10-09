@@ -1,9 +1,13 @@
 from django.urls import path
 
-from . import auth_views, catalog_views, catalog_type_views, evidence_views, task_views, user_admin_views, activity_views, data_health_views, test_case_views
+from . import auth_views, catalog_views, catalog_type_views, evidence_views, task_views, user_admin_views, activity_views, data_health_views, test_case_views, setup_guide_views
 from .api import api
 
 urlpatterns = [
+    path("api/v1/guides", setup_guide_views.collection),
+    path("api/v1/guides/<slug:public_id>", setup_guide_views.detail),
+    path("api/v1/guides/<slug:public_id>/revisions", setup_guide_views.history),
+    path("api/v1/guides/<slug:public_id>/revisions/<int:number>", setup_guide_views.version),
     path("api/v1/test-cases", test_case_views.collection),
     path("api/v1/test-cases/<slug:public_id>", test_case_views.detail),
     path("api/v1/test-cases/<slug:public_id>/fork", test_case_views.fork_case),
