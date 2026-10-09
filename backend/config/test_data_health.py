@@ -194,6 +194,8 @@ class DataHealthTests(TestCase):
         self.client.force_login(self.admin)
         self.assertEqual(self.client.get(BASE+"/health").status_code,403)
         self.client.logout()
+        self.client.get("/api/v1/auth/csrf")
+        self.token = self.client.cookies["csrftoken"].value
         self.assertEqual(self.client.get(BASE+"/health").status_code,401)
         self.assertEqual(self.post("/scan").status_code,401)
 
