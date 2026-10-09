@@ -221,7 +221,8 @@ jobs:
           models = Path("model-catalog.js").read_text()
           assert '<script src="model-catalog.js"></script>' in page
           assert "ApiDataProvider" in models and "LocalStorageDataProvider" in models
-          assert 'get("mode") !== "server"' in page
+          assert 'window.location.pathname === "/maintenance"' in page
+          assert 'get("mode") !== "demo"' in page
           assert '<script src="server-mode.js"></script>' in page
           assert '<script src="server-tasks.js"></script>' in page
           assert '<script src="server-users.js"></script>' in page
