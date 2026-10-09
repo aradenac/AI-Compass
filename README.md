@@ -37,7 +37,7 @@ AI Compass intentionally maintains **two independent data modes using the same f
 - **Demo (standalone):** seeded fictitious records and simulated accounts persisted in browser `localStorage`. No Django, Docker or DB is required; this mode remains supported permanently.
 - **Server (progressively implemented):** shared real data via the Django Ninja API backed by PostgreSQL, server authentication, immutable history and evidence files.
 
-A common `DataProvider` abstraction will select the storage adapter at startup as domain APIs are delivered. Demo and Server never silently mix data or fall back to one another. **At the current prototype stage, business screens operate in Demo mode only; a health-only Server backend is the first planned increment.**
+A common `DataProvider` abstraction will select the storage adapter at startup as domain APIs are delivered. Demo and Server never silently mix data or fall back to one another. **PLAT-01 provides the Server infrastructure and health API, while all current business screens still operate in Demo mode until their API-backed implementations are delivered.**
 
 See **[Local Installation & Deployment](docs/local-installation.md)** and [Platform Architecture](docs/platform-architecture-and-data-governance.md).
 
@@ -48,8 +48,8 @@ See **[Local Installation & Deployment](docs/local-installation.md)** and [Platf
 To run it reliably with browser-local persistence, clone or download the repository and serve its root directory:
 
 ```bash
-python3 -m http.server 8080
-# Open http://localhost:8080/prototype.html
+python3 -m http.server 8090 --bind 127.0.0.1
+# Demo only: open http://127.0.0.1:8090/prototype.html
 ```
 
 The app uses **localStorage** for records and the selected demo account. Changes survive page reloads in the same browser/origin. **Export data JSON** saves the records visible to the current role; workgroup accounts can export/import the full dataset for sharing test scenarios. **Reset demo dataset** restores the initial mock records. Other devices, browsers, or origins do not share data automatically.
