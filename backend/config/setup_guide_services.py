@@ -30,7 +30,9 @@ def _validate(properties, schema):
     if not any(isinstance(result.get(k),str) and result[k].strip()
                for k in ("text","url")):
         raise InvalidModel("Guide requires procedure text, an HTTP(S) URL, or both")
-    if "text" in result and not result["text"].strip():
+    if "text" in result and (
+            not isinstance(result["text"],str) or not result["text"].strip()
+    ):
         raise InvalidModel("Guide text must not be whitespace-only")
     if "url" in result:
         url=result["url"]
