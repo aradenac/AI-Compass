@@ -15,7 +15,7 @@ async function main() {
 
   function row(id, name, number, properties) {
     return {id, uuid: "test-uuid", name, type: "model", revision: "r" + String(number).padStart(3, "0"),
-      schema_version: 1, properties, created_at: "2026-10-09T00:00:00+00:00", created_by: "contributor"};
+      schema_version: 2, compatibility: {status: "current", read_only: false, source_schema_version: 2, current_schema_version: 2}, properties, created_at: "2026-10-09T00:00:00+00:00", created_by: "contributor"};
   }
   const fetch = async (url, options) => {
     requests.push({url, options});
