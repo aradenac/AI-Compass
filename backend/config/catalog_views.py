@@ -1,7 +1,7 @@
 """Small, session-authenticated Model JSON API, deliberately independent of Demo data."""
 import json
 
-from django.http import JsonResponse
+from django.http import HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404
 from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_protect
@@ -140,3 +140,22 @@ def add_revision(request, public_id):
 def get_model_schema(request):
     version = model_schema()
     return json_no_store({"type": version.type_slug, "version": version.version, "schema": version.json_schema})
+
+
+
+def models_collection(request):
+    """REST collection: GET list, POST create."""
+    if request.method == "GET":
+        return list_models(request)
+    if request.method == "POST":
+        return add_model(request)
+    return HttpResponseNotAllowed(["GET", "POST"])
+
+
+def revisions_collection(request, public_id):
+    """REST history: GET all revisions, POST append with expected_revision."""
+    if request.method == "GET":
+        return model_revisions(request, public_id)
+    if request.method == "POST":
+        return add_revision(request, public_id)
+    return HttpResponseNotAllowed(["GET", "POST"])
