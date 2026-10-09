@@ -12,12 +12,14 @@ CATALOG_TYPES = {
     "provider": "prv",
     "harness": "hrn",
     "framework": "frm",
+    "setup_guide": "gui",
 }
 SUPPORTED_SCHEMA_VERSIONS = {
     "model": SUPPORTED_MODEL_VERSIONS,
     "provider": frozenset({1}),
     "harness": frozenset({1}),
     "framework": frozenset({1}),
+    "setup_guide": frozenset({1}),
 }
 
 
