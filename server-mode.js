@@ -72,7 +72,9 @@
     '<div id="server-task-list"></div>',
     '<section id="server-task-editor" class="server-card" hidden></section>',
     '<pre id="server-task-history" class="server-card" hidden style="white-space:pre-wrap;overflow-wrap:anywhere"></pre>',
-    '</section></main></div>'
+    '</section>',
+    '<section id="server-users" class="server-catalog" hidden></section>',
+    '</main></div>'
   ].join("");
 
   var state = document.getElementById("server-state");
@@ -97,6 +99,7 @@
   var adapter = modelsUi.ApiDataProvider(csrfFromCookie);
   var escapeHtml = modelsUi.escapeHtml;
   var tasks = window.AICompassServerTasks.mount(document.getElementById("server-task-tree"), csrfFromCookie, escapeHtml);
+  var users = window.AICompassServerUsers.mount(document.getElementById("server-users"), csrfFromCookie, escapeHtml);
 
   function status(message, isError) {
     state.textContent = message;
@@ -184,6 +187,7 @@
     if (!data.authenticated) {
       grants = [];
       tasks.setAccess(false, false);
+      users.setAccess(false, false);
       cachedModels = [];
       modelList.replaceChildren();
       catalog.hidden = true;
@@ -194,6 +198,7 @@
     }
     grants = data.permissions || [];
     tasks.setAccess(grants.includes("business_read"), grants.includes("business_write"));
+    users.setAccess(grants.includes("users_manage"), grants.includes("platform_manage"));
     form.hidden = true;
     account.hidden = false;
     document.getElementById("server-account-name").textContent = data.username;
@@ -569,6 +574,7 @@
       form.hidden = true;
       catalog.hidden = true;
       tasks.setAccess(false, false);
+      users.setAccess(false, false);
       status("Server unavailable. Demo data will NOT be loaded automatically. " + error.message, true);
     }
   })();
