@@ -44,12 +44,40 @@ A configured destination **must already exist**. An unavailable/unmounted direct
 
 Without an explicit destination, backups are stored in .local/backups and a warning is printed if they share a filesystem with the application. Retention defaults to the newest **14 verified snapshots**, configured with --keep N (N >= 1); pruning occurs only after successful capture and validation, preserves the last-good point and does not remove unknown or incomplete snapshots. Advisory file locking serializes backups targeting the same directory.
 
+## Additional evidence from the competing PR #40
+
+The selected #38 implementation remains the sole production recovery engine. A focused
+follow-up integrates two useful ideas from the rejected #40 **without inheriting its
+restore-to-live-cluster risks**:
+
+- Each completed recovery manifest now includes `restored_inspection.schema_hashes`:
+  one **SHA-256** digest for each registered type/version's canonical JSON Schema.
+  These are calculated from the **restored snapshot itself**, not from a query
+  executed later against a source database that may have changed. Repeat drills
+  recompute and compare the hashes alongside revision/identity fingerprints.
+- CI runs `scripts/smoke_recovery_domain.py` in a **new random Docker Compose
+  project**, with independent DB, network, data volume and credentials. It invokes
+  the real Django `create_model` and `revise_model` services, snapshots r001/r002,
+  then creates r003 and a second Model **only in this CI fixture DB**. Two fully
+  independent networkless PostgreSQL restores prove that r001/r002 (including
+  the exact JSON properties and pinned schema version) survived, while r003
+  and the post-snapshot Model are absent. The temporary source project and both
+  restored databases are destroyed even when checks fail.
+
+**Safety:** this domain fixture is refused outside GitHub Actions with its
+explicit `AI_COMPASS_ISOLATED_FIXTURE_CI=1` opt-in. It never uses the running
+`ai-compass` Compose project for fixture creation or performs production
+`dropdb`/`down --volumes`. The operator backup/restore CLI is unchanged.
+The CI workflow runs the new check alongside the original isolated-recovery,
+Django and independent Demo regressions. The work does **not** add a Model
+fixture command intended for operators.
+
 ## Failure recovery and verification
 
 1. Inspect status --json and the latest .failed.json or reports/drill-*.json after an unsuccessful run. A missing .complete marker or failed restore is **not** a valid snapshot.
 2. Repeat verify and drill on a protected backup copy. Never edit the original dump or replace the operational DB from this CLI.
 3. To test corruption, copy the full .dump/.json/.complete triplet to a temporary directory, flip a byte in the copied dump and check that verify/drill fails while the original stays valid.
-4. To test timing and non-interference, create test Model revisions, make backup A, add new synthetic data and drill A again: the original HRID/revision fingerprints must match A while post-backup production changes remain untouched.
+4. To test timing and non-interference **with real Models**, use the automated CI fixture described above. **Do not manually create fake Models on an operational database** to test backups. The existing operator smoke uses an independent synthetic SQL marker, and the recovery drill itself never mutates the source database.
 5. Stop migrations or major data changes if no verified recovery point exists. Only apply a registered migration following the later staging acceptance and production governance gates (#35/#26).
 
 ### Tests
