@@ -38,7 +38,8 @@ schemas = [{"type": s.type_slug, "version": s.version,
                 ensure_ascii=False, separators=(",", ":")).encode()).hexdigest()}
            for s in ObjectTypeVersion.objects.order_by("type_slug", "version")]
 print(json.dumps({"id": item.public_id, "uuid": str(item.pk),
-                  "schemas": schemas, "initial": initial, "later": later}))
+                  "schemas": schemas, "model_schema_version": item.current_revision.schema_version.version,
+                  "initial": initial, "later": later}))
 """
 
 AFTER = r"""
@@ -156,10 +157,10 @@ def main():
                 assert result["post_count"] == 0, "Post-snapshot Model leaked into recovery"
                 assert result["revisions"] == [
                     {"number": 1, "name": "Isolated CI r001",
-                     "schema_version": before["schemas"][0]["version"],
+                     "schema_version": before["model_schema_version"],
                      "properties": before["initial"]},
                     {"number": 2, "name": "Isolated CI r002",
-                     "schema_version": before["schemas"][0]["version"],
+                     "schema_version": before["model_schema_version"],
                      "properties": before["later"]},
                 ], "Historical Model revisions were not restored byte-for-byte in semantic JSON"
 
