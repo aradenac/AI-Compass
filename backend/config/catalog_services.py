@@ -3,6 +3,7 @@ from django.db import IntegrityError, transaction
 
 from .catalog_ids import new_public_id
 from .catalog_schemas import validate_model, InvalidModel
+from .catalog_compat import compatibility_for_revision
 from .models import CatalogItem, CatalogRevision, CatalogAuditEvent, ObjectTypeVersion
 
 
@@ -14,8 +15,16 @@ class ExhaustedIds(Exception):
     pass
 
 
-def model_schema():
-    return ObjectTypeVersion.objects.get(type_slug="model", version=1)
+class SchemaWriteBlocked(Exception):
+    """Historical data is readable but unsafe to revise with current capabilities."""
+    def __init__(self, compatibility):
+        super().__init__(compatibility["reason"] or "Schema is not safely editable")
+        self.compatibility = compatibility
+
+
+def model_schema(version=None):
+    schemas = ObjectTypeVersion.objects.filter(type_slug="model")
+    return schemas.get(version=version) if version is not None else schemas.order_by("-version").first()
 
 
 def create_model(*, actor, name, properties):
@@ -53,7 +62,12 @@ def revise_model(*, item, actor, expected_revision, name=None, properties=None):
         previous = locked.current_revision
         if not previous or expected_revision != f"r{previous.number:03d}":
             raise RevisionConflict("revision mismatch; reload before editing")
-        schema = model_schema()
+        # Never silently promote a historical revision to v2. A v1 name/edit
+        # remains validated and appended under its exact pinned v1 schema.
+        compatibility = compatibility_for_revision(locked, previous)
+        if compatibility["read_only"]:
+            raise SchemaWriteBlocked(compatibility)
+        schema = previous.schema_version
         updated_name = name if name is not None else previous.display_name
         updated_properties = properties if properties is not None else previous.properties
         updated_name = validate_model(updated_name, updated_properties, schema.json_schema)
