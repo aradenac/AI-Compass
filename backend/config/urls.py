@@ -1,11 +1,15 @@
 from django.urls import path
 
-from . import auth_views, catalog_views
+from . import auth_views, catalog_views, catalog_type_views
 from .api import api
 
 urlpatterns = [
     path("api/v1/catalog/schemas/<slug:type_slug>", catalog_views.catalog_schema),
     path("api/v1/catalog/items/<slug:public_id>", catalog_views.get_catalog_item),
+    path("api/v1/catalog/<slug:type_slug>", catalog_type_views.collection),
+    path("api/v1/catalog/<slug:type_slug>/<slug:public_id>", catalog_type_views.get_component),
+    path("api/v1/catalog/<slug:type_slug>/<slug:public_id>/revisions", catalog_type_views.revisions),
+    path("api/v1/catalog/<slug:type_slug>/<slug:public_id>/revisions/<int:number>", catalog_type_views.get_revision),
     path("api/v1/models", catalog_views.models_collection),
     path("api/v1/models/schema", catalog_views.get_model_schema),
     path("api/v1/models/<slug:public_id>", catalog_views.get_model),

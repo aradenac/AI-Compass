@@ -34,7 +34,7 @@
       publication: p.publication, status: p.status, accessible: p.accessible,
       properties: row.properties, revision: row.revision,
       schema_version: row.schema_version, compatibility: compatibility,
-      readOnly: row.type !== "model" || compatibility.read_only === true,
+      readOnly: compatibility.read_only === true,
       created_at: row.created_at, created_by: row.created_by
     };
   }
@@ -57,7 +57,13 @@
     };
   }
 
-  function ApiDataProvider(csrfToken) {
+  function ApiDataProvider(csrfToken, typeSlug) {
+    typeSlug = typeSlug || "model";
+    if (!["model", "provider", "harness", "framework"].includes(typeSlug)) {
+      throw new Error("Unregistered catalog adapter type");
+    }
+    var base = typeSlug === "model" ? "/api/v1/models" :
+      "/api/v1/catalog/" + typeSlug;
     async function request(path, method, payload) {
       var options = {method: method || "GET", credentials: "same-origin", cache: "no-store"};
       if (method === "POST") {
@@ -66,7 +72,7 @@
       }
       var response;
       try {
-        response = await root.fetch("/api/v1/models" + (path || ""), options);
+        response = await root.fetch(base + (path || ""), options);
       } catch (error) {
         throw new Error("Server unavailable. No Demo fallback or local save occurred.");
       }
@@ -86,7 +92,7 @@
     return {
       list: async function () {
         var result = await request("");
-        if (!Array.isArray(result.results)) throw new Error("Invalid Server Model list.");
+        if (!Array.isArray(result.results)) throw new Error("Invalid Server catalog list.");
         return result.results.map(modelFromApi);
       },
       get: async function (id) { return modelFromApi(await request(pathFor(id))); },
@@ -114,17 +120,25 @@
     options = options || {};
     var canWrite = options.canWrite !== false;
     var list = models.slice().sort(function (a, b) { return String(a.name || "").localeCompare(String(b.name || "")); });
-    var intro = "Versioned engines and capabilities";
-    return '<section class="card component-lane" data-catalog="model">' +
-      '<div class="card-head"><div><div class="eyebrow">model</div><h2>Models</h2></div>' +
-      (canWrite ? '<button class="btn sm" data-act="newComponentType" data-id="model">+ Add</button>' : "") +
+    var type = options.type || "model";
+    var titles = {model: "Models", provider: "Providers",
+      harness: "Harnesses", framework: "Frameworks"};
+    var intros = {model: "Versioned engines and capabilities",
+      provider: "Hosting, endpoints, access and pricing",
+      harness: "CLI, web, IDE and agent tool integrations",
+      framework: "Process and orchestration definitions; not measured AI Solutions"};
+    if (!titles[type]) throw new Error("Unregistered catalog lane");
+    var intro = intros[type];
+    return '<section class="card component-lane" data-catalog="' + type + '">' +
+      '<div class="card-head"><div><div class="eyebrow">' + type + '</div><h2>' + titles[type] + '</h2></div>' +
+      (canWrite ? '<button class="btn sm" data-act="newComponentType" data-id="' + type + '">+ Add</button>' : "") +
       '</div><p class="muted small" style="margin-bottom:14px">' + intro + '</p><div class="list">' +
       (list.length ? list.map(function (model) {
         var docLink = /^https?:\/\//i.test(model.url || "") ?
           '<p class="small"><a href="' + escapeHtml(model.url) +
           '" target="_blank" rel="noopener noreferrer">Documentation ↗</a></p>' : "";
         var compat = model.compatibility || null;
-        var rawOnly = compat && (compat.read_only || model.type !== "model");
+        var rawOnly = (compat && compat.read_only) || model.type !== type;
         var diag = compat ? '<div class="muted small">Schema v' +
           escapeHtml(model.schema_version == null ? "unknown" : model.schema_version) +
           ' · ' + badge(compat.status || "unsupported") +
@@ -135,9 +149,19 @@
           (compat.unknown_fields && compat.unknown_fields.length ?
             ' · Extensions: ' + escapeHtml(compat.unknown_fields.join(", ")) : "") +
           '</div><div class="muted small">' + escapeHtml(diagnosticSummary(model)) + '</div>' : "";
+        var facets = type === "provider" ? [model.properties && model.properties.hosting,
+            model.properties && model.properties.access, model.properties && model.properties.pricing] :
+          type === "harness" ? [model.properties && model.properties.interface,
+            model.properties && model.properties.integrations] :
+          type === "framework" ? [model.properties && model.properties.process,
+            model.properties && model.properties.orchestration] : [];
+        var facetText = facets.filter(function (value) { return value != null && value !== ""; })
+          .map(function (value) { return typeof value === "object" ? JSON.stringify(value) : String(value); }).join(" · ");
         return '<div class="list-row"><div class="short"><strong>' + escapeHtml(model.name || "(unnamed)") +
           '</strong><div class="muted small">' + escapeHtml(model.version || "Version not set") +
-          ' · ' + escapeHtml(model.testedCount || 0) + ' tested combinations</div>' +
+          (type === "framework" ? ' · ' + escapeHtml(model.linkedCount || 0) + ' linked campaigns' :
+            ' · ' + escapeHtml(model.testedCount || 0) + ' tested combinations') + '</div>' +
+          (facetText ? '<div class="muted small">' + escapeHtml(facetText) + '</div>' : "") +
           '<div class="tags" style="margin-top:5px">' +
           (model.publication != null ? badge(model.publication) : "") +
           (model.status != null ? badge(model.status) : "") +
@@ -154,8 +178,8 @@
             escapeHtml(model.id) + '">History</button>' +
             '<button class="btn sm" data-act="modelRaw" data-id="' +
             escapeHtml(model.id) + '">Original data</button>' : "") + '</div></div>';
-      }).join("") : '<div class="empty">No Models yet. ' +
-          (canWrite ? 'Create the first real Model to begin.' : 'Models will appear when a contributor adds one.') +
+      }).join("") : '<div class="empty">No ' + titles[type] + ' yet. ' +
+          (canWrite ? 'Add the first catalog item.' : 'Items will appear when a contributor adds one.') +
           '</div>') + '</div></section>';
   }
 

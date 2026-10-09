@@ -173,7 +173,7 @@ async function main() {
   const proto = fs.readFileSync("prototype.html", "utf8");
   const server = fs.readFileSync("server-mode.js", "utf8");
   assert(proto.includes('<script src="model-catalog.js"></script>'));
-  assert(proto.includes("demoModelProvider.list()"));
+  assert(proto.includes("demoCatalogProviders[type].list()"));
   assert(proto.includes("window.AICompassModels.renderLane"));
   assert(server.includes("modelsUi.renderLane"));
   assert(server.includes("modelsUi.ApiDataProvider"));
