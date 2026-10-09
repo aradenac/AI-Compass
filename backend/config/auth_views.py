@@ -2,7 +2,7 @@
 import json
 from functools import wraps
 
-from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth import authenticate, login, logout, get_user_model
 from django.http import JsonResponse
 from django.middleware.csrf import get_token
 from django.views.decorators.cache import never_cache
@@ -18,12 +18,18 @@ def json_no_store(payload, status=200):
     return response
 
 
+def active_identity(request):
+    """Always check the current account state, even for pre-existing sessions."""
+    return (request.user.is_authenticated and request.user.is_active and
+            get_user_model().objects.filter(pk=request.user.pk, is_active=True).exists())
+
+
 def capability(code):
     """Enforce permissions server-side on ALL HTTP paths (including direct API)."""
     def decorate(view):
         @wraps(view)
         def guarded(request, *args, **kwargs):
-            if not request.user.is_authenticated:
+            if not active_identity(request):
                 return json_no_store({"error": "authentication_required"}, status=401)
             if not request.user.has_perm(CAPABILITY_NAMESPACE + code):
                 return json_no_store({"error": "permission_denied"}, status=403)
@@ -55,7 +61,7 @@ def csrf_token(request):
 @require_GET
 @never_cache
 def account(request):
-    if not request.user.is_authenticated:
+    if not active_identity(request):
         return json_no_store({"authenticated": False, "roles": [], "permissions": []})
     return json_no_store(account_payload(request.user))
 
