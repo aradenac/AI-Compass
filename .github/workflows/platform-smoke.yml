@@ -1,0 +1,56 @@
+name: Platform foundation smoke
+
+on:
+  push:
+    paths:
+      - "backend/**"
+      - "scripts/**"
+      - "compose.yaml"
+      - "Caddyfile"
+      - "prototype.html"
+      - ".env.example"
+      - ".github/workflows/platform-smoke.yml"
+  workflow_dispatch:
+
+jobs:
+  demo-and-server:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create isolated local credentials
+        run: python3 scripts/init-env.py
+      - name: Validate Compose configuration
+        run: docker compose config --quiet
+      - name: Build and start server infrastructure
+        run: docker compose up -d --wait --build
+      - name: Initialize Django's baseline schema
+        run: docker compose run --rm api python manage.py migrate --noinput
+      - name: Run backend, persistence and backup/restore checks
+        run: bash scripts/smoke-platform.sh
+      - name: Verify the same frontend also runs without any backend
+        run: |
+          docker compose stop
+          python3 -m http.server 8090 --bind 127.0.0.1 --directory . &
+          demo_pid=$!
+          trap 'kill "$demo_pid" 2>/dev/null || true' EXIT
+          for i in $(seq 1 20); do
+            curl -fsS http://127.0.0.1:8090/prototype.html > /tmp/ai-compass-demo.html && break
+            sleep 1
+          done
+          cmp prototype.html /tmp/ai-compass-demo.html
+          grep -q "AI Compass" /tmp/ai-compass-demo.html
+      - name: Verify Docker volume survives container recreation
+        run: |
+          docker compose down
+          docker compose up -d --wait
+          marker=$(docker compose exec -T db sh -ec 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atqc "SELECT marker FROM ai_compass_smoke_marker LIMIT 1"' | tr -d '\r\n')
+          test "$marker" = "persistence-check"
+      - name: Inspect state on failure
+        if: failure()
+        run: |
+          docker compose ps || true
+          docker compose logs --tail 100 || true
+      - name: Stop containers (retain volumes until runner cleanup)
+        if: always()
+        run: docker compose down || true
