@@ -116,7 +116,7 @@ class PromotionHostTests(unittest.TestCase):
     def test_resume_reuses_first_signed_backup_without_recapturing_mutated_state(self):
         cid, folder, report, verdict = self.fixture()
         saved = promote.proof_path(cid)
-        saved.write_text(json.dumps({"proof":{"candidate_id":cid}, "signature":"saved"}))
+        saved.write_text(json.dumps({"proof":{"candidate_id":cid,"recovery_id":"original-point"}, "signature":"saved"}))
         saved.with_suffix(".recovery").write_text("/unused/original.dump\n")
         calls = []
         def docker(argv, **kwargs):
