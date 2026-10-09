@@ -84,7 +84,39 @@ curl --fail --show-error http://127.0.0.1:8080/api/v1/health
 
 The stack has three containers: `db` (PostgreSQL, persistent named volume `ai-compass_pgdata`, no host DB port), `api` (Django + Django Ninja + Gunicorn, private internal port) and `web` (Caddy static frontend and reverse proxy, bound to **127.0.0.1**). Django Python dependencies are installed **in the container** from `backend/requirements.txt`, not on the PC. Node.js and npm are not required for the current single-file frontend.
 
-## 5. Verify persistence, backups and safe recovery
+## 5. Create real Server identities and use the permission-gated workspace (PLAT-02)
+
+Run this after the first `migrate`. The first command is idempotent and creates six **independent** Django groups and permissions; it does not grant every role to a platform operator.
+
+```bash
+docker compose exec -T api python manage.py bootstrap_identity
+# Interactive account creation (do not place passwords in the command line):
+docker compose exec api python manage.py bootstrap_identity --username operator --role platform-admin
+docker compose exec api python manage.py bootstrap_identity --username maintainer --role data-maintainer
+docker compose exec api python manage.py bootstrap_identity --username reviewer --role reviewer
+docker compose exec api python manage.py bootstrap_identity --username contributor --role contributor
+docker compose exec api python manage.py bootstrap_identity --username users-admin --role user-admin
+```
+
+Every `bootstrap_identity --username` command prompts for and validates a unique strong password, creates an **ordinary** user (not an implicit Django superuser) and **refuses to overwrite** an existing account. To add more than one role during initial creation, repeat `--role`, for example `--role data-maintainer --role user-admin`. To seed roles only, omit the username.
+
+For controlled non-interactive provisioning, pipe a private secret into `--password-stdin`; never supply it as a command-line argument or log it. Provisioning or changing existing accounts remains an **operator CLI action** in this issue; a user-management web interface arrives in [PLAT-28](https://github.com/aradenac/AI-Compass/issues/28).
+
+**Open the same frontend explicitly in Server mode:**
+
+- **http://127.0.0.1:8080/prototype.html?mode=server** — real sign-in/out and role-gated landing.
+- **http://127.0.0.1:8080/prototype.html?mode=demo** — fake, locally stored demo records and simulated identities.
+- In Demo mode, the **Server sign-in** link switches explicitly to Server mode; the separate **Return to independent Demo mode** link switches back.
+
+In Server mode, the original Demo initialization is **skipped**, so the browser does not read or modify the fake dataset. If Django is offline, Server mode shows an **unavailable** message; it never falls back to fake records.
+
+After signing in, the Server page displays real account groups/capabilities and only the corresponding available functions. A Data Maintainer may access the Maintenance & Governance permission check, not protected business reads/writes or User Administration. A Contributor may read and update a **private session-only sandbox value**, not the future persistent catalog. A User Administrator may access the user-administration permission check, not maintenance. All permissions are rechecked by Django on direct HTTP access.
+
+**CSRF/session contract:** first request `GET /api/v1/auth/csrf` to receive a same-origin CSRF cookie; include that cookie's token in `X-CSRFToken` on `POST /api/v1/auth/login`, `logout` and protected sandbox writes. Django creates an HttpOnly session cookie and rotates CSRF on login. The frontend handles these steps automatically. The endpoints are intentionally same-origin (not cross-origin public APIs).
+
+**Security limitations:** local HTTP is bound to 127.0.0.1 only; do not expose the endpoint publicly until HTTPS, secure cookies and login rate limiting are configured. Current Server UI provides only identity and capability demonstrations; persistent Models, campaigns and evidence are **not** present yet.
+
+## 6. Verify persistence, backups and safe recovery
 
 ```bash
 bash scripts/smoke-platform.sh
@@ -114,7 +146,7 @@ docker compose exec -T db sh -ec \
 
 **Never execute `docker compose down -v` when you want to preserve real data.** That command deletes the named database volume.
 
-## 6. Stop, update, inspect
+## 7. Stop, update, inspect
 
 ```bash
 docker compose logs -f api
@@ -138,7 +170,7 @@ bash scripts/smoke-platform.sh
 
 Do not blindly run irreversible migrations after every restart. For a production upgrade, first take a **restorable** backup and read the release/migration notes.
 
-## 7. Troubleshooting
+## 8. Troubleshooting
 
 | Problem | Solution |
 | --- | --- |
@@ -151,9 +183,9 @@ Do not blindly run irreversible migrations after every restart. For a production
 | Existing `.env` rejects initialization | Safety feature: do not overwrite established DB credentials; inspect/rotate deliberately. |
 | Restore smoke test fails | Ensure migrations have run and the dump is nonempty; do not attempt to overwrite the real DB. |
 
-## 8. Boundaries and security
+## 9. Boundaries and security
 
-PLAT-01 is a **local development** stack, not a public production deployment. HTTP listens on loopback; server login, domain API persistence, document upload, production HTTPS, user-management permissions and independent backups are **not implemented yet**. Do **not** expose the current app to untrusted networks or upload confidential evidence. The Demo mode remains intentionally unauthenticated and uses fictional content.
+PLAT-01 is a **local development** stack, not a public production deployment. HTTP listens on loopback; server login and role separation **are implemented**, but domain API persistence, document upload, production HTTPS, the user-management web UI and independent backups are **not implemented yet**. Do **not** expose the current app to untrusted networks or upload confidential evidence. The Demo mode remains intentionally unauthenticated and uses fictional content.
 
 The directory layout is `prototype.html` + `compose.yaml` + `Caddyfile` + `backend/` + `scripts/` + `.env.example`; generated secrets in `.env`, local backups under `.local/backups/`, and server PostgreSQL data in the Docker named volume. Browser Demo `localStorage` is separate and not automatically imported or synchronized.
 
