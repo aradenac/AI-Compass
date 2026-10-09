@@ -6,7 +6,7 @@
 > **Related:** [Product Definition](product-definition.md) · [Non-Functional Requirements](non-functional-requirements.md) · [Benchmark Workflow](benchmark-workflow.md) · [Incremental Implementation Roadmap](platform-implementation-roadmap.md)  
 > **Principle:** *Preserve evidence first. Every transformation must be traceable, verifiable and recoverable.*
 
-This page consolidates the platform-level decisions following the transition from the standalone browser/localStorage prototype to a persistent multi-user system. It specifies architectural **intent and invariants**, not a claim that these capabilities are already implemented. The product definition remains authoritative for business workflows; this page is authoritative for the target technical direction.
+This page consolidates the platform-level decisions for a **permanent dual-mode platform**: the original standalone browser/localStorage demonstration and a persistent multi-user server deployment. Both modes must use **the same frontend** and the same business presentation; backend adoption must not remove the browser-only alternative. It specifies architectural **intent and invariants**, not a claim that these capabilities are already implemented. The product definition remains authoritative for business workflows; this page is authoritative for the target technical direction.
 
 ## 1. Architecture drivers and non-negotiable invariants
 
@@ -17,11 +17,27 @@ This page consolidates the platform-level decisions following the transition fro
 5. **Separate evidence from interpretation.** Original uploaded files, raw traces and observed measurements are preserved independently of extracted fields, analyses, scoring algorithms, recommendations and corrected views.
 6. **Recoverability is demonstrated.** Backups, snapshots, checksum verification, documented restore procedures and regular restore tests are part of the product, not operational afterthoughts.
 7. **Keep operations understandable.** Start with one modular backend and one database on a Linux host; introduce infrastructure only when required by measured load or reliability constraints.
+9. **Retain standalone Demo mode permanently.** The same frontend must work with realistic fake data held in browser `localStorage` without a backend, while Server mode uses PostgreSQL through APIs. Never silently mix, sync or fall back between the two.
 8. **Enforce least privilege.** Business contribution, publication, data stewardship, user administration and platform operations are independent capabilities.
 
 **Limit of guarantee:** No single database, local disk or backup scheme can guarantee literally zero data loss under all failures. The design minimizes and measures loss risk using transactional durability, immutability, independent copies and verified recovery.
 
-## 2. Selected technology stack
+## 2. Two permanent runtime modes and selected technology stack
+
+| Property | Demo mode | Server mode |
+| --- | --- | --- |
+| Frontend | Shared UI components | **Exactly the same** UI components |
+| Data provider | `LocalStorageDataProvider` with seeded, clearly fake fixtures | `ApiDataProvider` backed by Django Ninja and PostgreSQL |
+| Runtime | Static HTML/assets; no Docker, Python application server or database required | Caddy + Django + PostgreSQL via Docker Compose |
+| Authentication | Clearly simulated demo identities and privileges | Authenticated, enforced server-side permissions |
+| Persistence | Local to browser and origin, exportable/resettable | Shared database and immutable server evidence store |
+| Availability | Works independently/offline once static files are available | API/DB availability required; **never fall back to fake data** |
+| Data interchange | Explicit export/import or opt-in migration only | Explicit staged import with preview and reconciliation only |
+
+**Data-provider contract:** UI state and business operations should depend on a shared interface (list/get/create/revise and domain-specific actions), implemented by both adapters with compatible output contracts. No view should contain branching business logic such as `if (demo) localStorage... else fetch...`; mode resolution is centralized in the application bootstrap. Demo data and server data must remain separately namespaced and visibly labeled. Do not auto-copy fake demo records into Server mode, or live records into Demo mode. Provide explicit mode selection/configuration and prevent automatic fallback on HTTP/API errors. Maintain regression smoke tests for **both modes** for every frontend change. The current monolithic `prototype.html` remains the reference implementation for Demo mode until the common data-provider extraction is introduced incrementally.
+
+**Delivery ordering:** issue #1 keeps `prototype.html` fully functional in Demo mode and exposes health-only Server infrastructure. Server-mode catalog/business operations appear incrementally in subsequent issues; until then, those Server features are shown as not yet available, not silently populated from local fake data.
+
 
 | Layer | Baseline | Rationale / boundary |
 | --- | --- | --- |
@@ -36,7 +52,7 @@ This page consolidates the platform-level decisions following the transition fro
 | Containers | **Docker Compose** | Straightforward single-host deployment with persistent bind mounts/volumes. |
 | Reverse proxy / TLS | **Caddy** | HTTPS termination and frontend/API routing. |
 | Application server | **Gunicorn** | Serve Django behind the proxy. |
-| Frontend | **Retain the existing browser UI initially** | Replace localStorage persistence with a stable, versioned API; do not rewrite the product unnecessarily. |
+| Frontend | **Retain the existing browser UI, in both modes** | Introduce an adapter (`LocalStorageDataProvider` / `ApiDataProvider`) behind the same screens; preserve offline fake-data mode while adding server persistence incrementally. |
 
 **Not initially required:** Kubernetes, microservices, event brokers, Redis, Celery, MinIO/S3 services or a dedicated distributed workflow engine. Introduce a dedicated background worker when long-running data migrations, scans or file processing justify one; first use isolated management commands and scheduled jobs.
 
@@ -248,7 +264,7 @@ Requirements:
 - Disable only actions requiring absent/incompatible fields rather than crashing entire screens.
 - Migration logic resides in the backend. UI components must not embed the complete historical transformation rules.
 - Enforce access policy server-side; hiding a button or sidebar section is **not** authorization.
-- The current localStorage prototype is a migration **source**, not the authoritative future database. Import must preserve existing IDs/history as far as available, create a reconciliation report and retain the original export.
+- The localStorage prototype remains a **permanent, first-class Demo runtime**, not a temporary migration source. An opt-in import from its export into Server mode must preserve existing IDs/history as far as available, create a reconciliation report and retain the original export. Server mode alone is authoritative for shared production data; Demo mode alone is authoritative for its local fake dataset.
 
 ## 9. Durable document storage and secure upload
 
@@ -359,10 +375,10 @@ Run checks on creation, on schema release, after migration and periodically. Qua
 
 | Increment | Scope | Minimum verifiable outcome |
 | --- | --- | --- |
-| **1 — Durable foundation** | Django, Ninja, PostgreSQL, Docker Compose, server-side identity/RBAC baseline, HRIDs, initial schema registry, localStorage import, minimal audit and working backup/restore. | Restart/recreate stack and restore a separate instance without losing imported identities or records. |
+| **1 — Durable foundation** | Django, Ninja, PostgreSQL, Docker Compose, server health endpoint, independent Demo mode, minimal recovery procedure. Identity/RBAC and HRIDs follow in later issues. | Demo remains usable without Docker; Server infrastructure boots independently; recreate/restore test database without losing data. |
 | **2 — Immutable model and compatibility** | Revision store, historical run snapshots, frozen guide/configuration references, JSON Schema versions, read adapters, compatibility envelope, maintenance issue baseline. | Old objects still render; edits preserve previous revision; campaigns/runs retain exact past configuration. |
 | **3 — Evidence integrity & recovery** | Secure upload, hashed immutable blobs, reconciliation, automated coordinated backups, off-host copy, portable export/import, scheduled integrity checks. | Detect tamper/missing blobs; restore DB and documents together; verify hashes and links. |
-| **4 — Maintenance operations** | Dedicated maintenance dashboard, proactive checks, migration preview/execution/retries, quality workflow, permissioned user management and richer restore reporting. | Authorized maintainer can triage/migrate compatible data without business-workspace privileges or destroying source revisions. |
+| **4 — Maintenance operations** | Dedicated maintenance dashboard, proactive checks, migration preview/execution/retries, quality workflow, permissioned user management and richer restore reporting. | Authorized maintainer can triage/migrate compatible data without business-workspace privileges or destroying source revisions, while Demo mode still works with the same frontend. |
 
 Foundational safety applies from **increment 1**: introduce no production persistence without a recovery test, never write destructive migrations as a shortcut, and plan IDs/revisions before importing significant evidence. Individual increments may be subdivided into small, reviewable changes.
 
@@ -370,6 +386,8 @@ Foundational safety applies from **increment 1**: introduce no production persis
 
 | Scenario | Required behavior |
 | --- | --- |
+| Demo mode on standalone static server | Same frontend loads with fake fixtures/localStorage, no Django/Docker/database; persistence survives refresh. |
+| Server API unreachable | Clear offline/unavailable indication; **never** substitute Demo records silently. |
 | App/container recreation | Persistent DB, HRIDs, revisions and blobs remain available. |
 | Simultaneous object creation | HRIDs globally unique; atomic retries; no duplicate IDs. |
 | Display-name or object-type label change | Historical public ID and FK references remain stable. |
