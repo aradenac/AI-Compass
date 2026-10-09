@@ -18,7 +18,7 @@ Each issue contains: **user-visible outcome**, bounded **in-scope changes**, **a
 
 | Issue | Usable increment |
 | --- | --- |
-| [PLAT-01](https://github.com/aradenac/AI-Compass/issues/1) | Run Django/PostgreSQL and the unchanged prototype |
+| [PLAT-01](https://github.com/aradenac/AI-Compass/issues/1) | **Completed** — Django/PostgreSQL infrastructure, unchanged Demo frontend, tested restore and install guide |
 | [PLAT-02](https://github.com/aradenac/AI-Compass/issues/2) | Authenticate with independent roles |
 | [PLAT-03](https://github.com/aradenac/AI-Compass/issues/3) | Create immutable Model records through API |
 | [PLAT-04](https://github.com/aradenac/AI-Compass/issues/4) | Safely stage legacy localStorage exports |
@@ -97,4 +97,4 @@ Each issue contains: **user-visible outcome**, bounded **in-scope changes**, **a
 
 ## Next action
 
-Implement [PLAT-01](https://github.com/aradenac/AI-Compass/issues/1) in one dedicated conversation, demonstrate startup and tested restore, then move to [PLAT-02](https://github.com/aradenac/AI-Compass/issues/2).
+**PLAT-01 is completed on main.** [GitHub Actions validation](https://github.com/aradenac/AI-Compass/actions/runs/37864857989) passed Docker startup, migrations, Django/API tests, isolated backup/restore, container recreation and independent standalone Demo HTTP serving. Next: implement [PLAT-02](https://github.com/aradenac/AI-Compass/issues/2) while retaining the exact same Demo frontend.
