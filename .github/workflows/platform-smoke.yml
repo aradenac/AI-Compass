@@ -1,7 +1,17 @@
-name: Platform foundation smoke
+name: Platform Demo + Server smoke
 
 on:
   push:
+    paths:
+      - "backend/**"
+      - "scripts/**"
+      - "compose.yaml"
+      - "Caddyfile"
+      - "prototype.html"
+      - "server-mode.js"
+      - ".env.example"
+      - ".github/workflows/platform-smoke.yml"
+  pull_request:
     paths:
       - "backend/**"
       - "scripts/**"
