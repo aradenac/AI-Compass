@@ -280,7 +280,7 @@ def backup(args):
             metadata = {
                 "format": FORMAT, "status": "verified", "backup_id": identifier,
                 "dump_file": filename, "sha256": hash_file(partial),
-                "dump_bytes": partial.stat().st_size, "created_at": utc_now(),
+                "dump_bytes": partial.stat().st_size, "created_at": datetime.now(timezone.utc).isoformat(timespec="microseconds"),
                 "database": source_name, "postgres_version": pg_version,
                 "app_git_sha": app_revision, "schema_versions": inspection["schema_versions"],
                 "restored_at": utc_now(), "restored_inspection": inspection,
@@ -318,34 +318,35 @@ def subprocess_run_dump(cmd, output):
         raise RecoveryError("pg_dump failed: " + p.stderr.decode("utf-8", "replace")[-1000:])
 
 
+def verified_entries(directory):
+    """Use the verified manifest timestamp, never randomized filename order."""
+    entries = []
+    for path in directory.glob("ai-compass-*.dump"):
+        try:
+            metadata = verify(path)
+            entries.append((metadata, path))
+        except (RecoveryError, OSError, ValueError):
+            continue
+    entries.sort(key=lambda row: (row[0].get("created_at", ""), row[0]["backup_id"]), reverse=True)
+    return entries
+
+
 def retain(directory, keep):
     if keep < 1:
         raise RecoveryError("Retention must retain at least one last-good snapshot")
-    entries = sorted(directory.glob("ai-compass-*.dump"), reverse=True)
-    good = []
-    for path in entries:
-        try:
-            verify(path)
-            good.append(path)
-        except RecoveryError:
-            continue  # never delete or trust an unverified snapshot
-    for old in good[keep:]:
+    old_snapshots = verified_entries(directory)[keep:]
+    for _, old in old_snapshots:
         for file in (old, Path(str(old) + ".json"), Path(str(old) + ".complete")):
             file.unlink()
-    if good[keep:]:
+    if old_snapshots:
         fsync_dir(directory)
 
 
 def status(directory):
-    good = []
-    for path in sorted(directory.glob("ai-compass-*.dump"), reverse=True):
-        try:
-            good.append(verify(path))
-        except (RecoveryError, OSError, ValueError):
-            continue
+    good = verified_entries(directory)
     failures = sorted(directory.glob("ai-compass-*.failed.json"), reverse=True)
     return {"status": "ok" if good else "no-verified-recovery-point",
-            "last_good_backup": good[0] if good else None,
+            "last_good_backup": good[0][0] if good else None,
             "verified_count": len(good), "failed_backup_count": len(failures),
             "last_failure": json.loads(failures[0].read_text("utf-8")) if failures else None}
 
