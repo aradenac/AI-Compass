@@ -37,9 +37,15 @@ AI Compass intentionally maintains **two independent data modes using the same f
 - **Demo (standalone):** seeded fictitious records and simulated accounts persisted in browser `localStorage`. No Django, Docker or DB is required; this mode remains supported permanently.
 - **Server (progressively implemented):** starts with an **empty business database** (only required technical schemas/roles/accounts are initialized); real shared data is created by users via Django Ninja/PostgreSQL and will later be imported deliberately from external real-world sources **after production deployment validation**.
 
-A common `DataProvider` abstraction will select the storage adapter at startup as domain APIs are delivered. Demo and Server never silently mix data or fall back to one another. **Fake Demo fixtures are never imported into Server.** The cancelled [PLAT-04](https://github.com/aradenac/AI-Compass/issues/4) is no longer a prerequisite; real external-source onboarding is deferred to [PLAT-33](https://github.com/aradenac/AI-Compass/issues/33) after Server production validation. **PLAT-01 provides Server infrastructure; PLAT-02 adds Django login and independent roles; PLAT-03 adds a persistent, immutable Model REST API (`/api/v1/models`). The graphical catalog screens remain Demo-only until their Server data adapters arrive in later issues.**
+The Models interface now uses a shared `LocalStorageDataProvider` (Demo) or authenticated `ApiDataProvider` (Server), with the same Models card UI; other domains will adopt this pattern as their APIs arrive. Demo and Server never silently mix data or fall back to one another. **Fake Demo fixtures are never imported into Server.** The cancelled [PLAT-04](https://github.com/aradenac/AI-Compass/issues/4) is no longer a prerequisite; real external-source onboarding is deferred to [PLAT-33](https://github.com/aradenac/AI-Compass/issues/33) after Server production validation. **PLAT-01–03 provide the persistent stack, identity and versioned Model API; PLAT-05 connects the graphical Models screen in Server mode. Providers, Harnesses, Frameworks, tasks, campaigns and other modules await their own Server integrations.**
 
 See **[Local Installation & Deployment](docs/local-installation.md)** for setup and Server login, **[Model Catalog Architecture & API](docs/model-catalog-architecture.md)** for the versioned Model API, and [Platform Architecture](docs/platform-architecture-and-data-governance.md).
+
+### First real Model in Server mode
+
+Start the Docker stack and create a Django Contributor as described in [Local Installation](docs/local-installation.md). Open **http://127.0.0.1:8080/prototype.html?mode=server**, sign in, and select **+ Add** in the Models lane. Save, then open the same page in another authenticated browser to confirm the Model is shared. **Edit** appends r002; **History** shows r001 and later revisions without rewriting them. View-only roles can list/history but cannot mutate. Backend/CSRF/permission errors show explicitly and never switch to Demo data.
+
+The same visual Models lane remains operational in `?mode=demo` with independent fictional browser data. **No Model, ID or fixture is transferred between runtimes.** For JavaScript adapter tests, run `node scripts/test-model-catalog.js` (no npm install).
 
 ## Interactive prototype
 

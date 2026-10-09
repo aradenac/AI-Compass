@@ -9,6 +9,7 @@ on:
       - "Caddyfile"
       - "prototype.html"
       - "server-mode.js"
+      - "model-catalog.js"
       - ".env.example"
       - ".github/workflows/platform-smoke.yml"
   pull_request:
@@ -19,6 +20,7 @@ on:
       - "Caddyfile"
       - "prototype.html"
       - "server-mode.js"
+      - "model-catalog.js"
       - ".env.example"
       - ".github/workflows/platform-smoke.yml"
   workflow_dispatch:
@@ -59,15 +61,22 @@ jobs:
       - name: Check shared frontend modes and client syntax
         run: |
           node --check server-mode.js
+          node --check model-catalog.js
+          node --check scripts/test-model-catalog.js
+          node scripts/test-model-catalog.js
           python3 - <<'PY'
           from pathlib import Path
           page = Path("prototype.html").read_text()
           script = Path("server-mode.js").read_text()
+          models = Path("model-catalog.js").read_text()
+          assert '<script src="model-catalog.js"></script>' in page
+          assert "ApiDataProvider" in models and "LocalStorageDataProvider" in models
           assert 'get("mode") !== "server"' in page
           assert '<script src="server-mode.js"></script>' in page
           assert 'localStorage' not in script or 'localStorage' in script.splitlines()[0]  # only explanatory comments may mention it
           PY
           curl -fsS http://127.0.0.1:8080/server-mode.js | cmp - server-mode.js
+          curl -fsS http://127.0.0.1:8080/model-catalog.js | cmp - model-catalog.js
 
       - name: Verify the same frontend also runs without any backend
         run: |

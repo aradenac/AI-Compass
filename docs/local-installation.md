@@ -10,7 +10,7 @@
 | --- | --- | --- |
 | UI | `prototype.html` | The **same** `prototype.html` |
 | Data source | Seeded fake records in browser `localStorage` | Django Ninja API + PostgreSQL, added by domain incrementally |
-| Business screens | Demo has built-in fake examples | Server begins **without any business records**; the Models REST API is live, and graphical Server catalog integration arrives in PLAT-05 |
+| Business screens | Demo has built-in fake examples | Server begins **without any business records**; the Model REST API and graphical Models catalog are connected to PostgreSQL in PLAT-05 |
 | Browser authentication | Simulated test accounts | Real Django authentication and separate roles are available (PLAT-02) |
 | Docker / SQL DB | Not required | Required |
 | Data sharing | Not shared across origins/browsers | Shared, **when the relevant business APIs are implemented** |
@@ -114,9 +114,9 @@ After signing in, the Server page displays real account groups/capabilities and 
 
 **CSRF/session contract:** first request `GET /api/v1/auth/csrf` to receive a same-origin CSRF cookie; include that cookie's token in `X-CSRFToken` on `POST /api/v1/auth/login`, `logout` and protected sandbox writes. Django creates an HttpOnly session cookie and rotates CSRF on login. The frontend handles these steps automatically. The endpoints are intentionally same-origin (not cross-origin public APIs).
 
-**Security limitations:** local HTTP is bound to 127.0.0.1 only; do not expose the endpoint publicly until HTTPS, secure cookies and login rate limiting are configured. Current Server UI provides only identity and capability demonstrations; persistent Models, campaigns and evidence are **not** present yet.
+**Security limitations:** local HTTP is bound to 127.0.0.1 only; do not expose the endpoint publicly until HTTPS, secure cookies and login rate limiting are configured. Current Server UI supports real identity, role capabilities and a persistent **Models catalog**. Campaigns, evidence and other business domains are **not** connected yet.
 
-## 6. Model Catalog API: first persistent business object (PLAT-03)
+## 6. Model Catalog API and shared Models UI (PLAT-03 + PLAT-05)
 
 The database now contains a **versioned Model schema and immutable revisions**; see [Model Catalog Architecture](model-catalog-architecture.md) for the exact data model, HTTP endpoints and error conditions.
 
@@ -136,7 +136,7 @@ docker compose exec api python manage.py bootstrap_identity \
   --username model-editor --role contributor
 ```
 
-The command prompts for a password; no fake demo login is accepted by this API. The Server interface at `?mode=server` provides real account login and access checks, but the graphical **Models screen is not yet API-connected** (planned in [PLAT-05](https://github.com/aradenac/AI-Compass/issues/5)).
+The command prompts for a password; no fake demo login is accepted by this API. The Server interface at `?mode=server` now provides real account login and the graphical **Models** list/create/edit/history UI. This screen connects only to `/api/v1/models`, never Demo `localStorage`.
 
 For a minimal curl example, use cookies/CSRF and read the exact ID returned by the POST. Avoid putting the password on a persistent shell command line; the following reads it in a hidden terminal prompt:
 
@@ -161,6 +161,10 @@ curl -fsS -b "$COOKIE_JAR" -c "$COOKIE_JAR" \
 curl -fsS -b "$COOKIE_JAR" "$BASE/api/v1/models"
 rm -f "$COOKIE_JAR"
 ```
+
+**Graphical smoke:** with a Contributor account, open `http://127.0.0.1:8080/prototype.html?mode=server`, confirm **zero real Models** on a fresh database, choose **+ Add** in the Models card, fill Model name/version/notes and save. Open another browser as a contributor or reader: the real Model appears after login. Edit in the first browser (r002), open **History** in the second and expand r001: previous data persists. A stale concurrent edit returns HTTP 409 in the form without overwriting the draft; refresh the Model list before retrying. Unknown extension properties may be entered as JSON and survive each revision. A Reader can see versions but cannot create or edit. Server connectivity errors never show Demo Models.
+
+**Browser adapter smoke:** `node scripts/test-model-catalog.js` validates identical Models card rendering, both providers, CSRF, error handling, historical reads, stale writes and mode isolation without npm dependencies. `node --check server-mode.js` and `node --check model-catalog.js` verify script syntax.
 
 **Shell detail:** the temporary password is exported only for the JSON-building subprocess, streamed through stdin rather than placed on the curl command line, and immediately cleared. Avoid shell tracing (`set -x`) or sharing the shell environment while using this example. A simpler alternative is to sign in through the Server-mode UI and use a same-origin authenticated browser client.
 

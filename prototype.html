@@ -104,6 +104,7 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;b
 </head>
 <body>
 <div id="app"></div><div id="toast" aria-live="polite"></div>
+<script src="model-catalog.js"></script>
 <script>
 "use strict";
 
@@ -213,6 +214,16 @@ return {
 var db;
 try{var saved=localStorage.getItem(KEY);db=saved?JSON.parse(saved):seed();if(!db||!db.tasks||!db.solutions)throw Error("Invalid data");}catch(ex){db=seed();}
 function persist(){localStorage.setItem(KEY,JSON.stringify(db));}
+/* The real Demo Model data provider retains the existing localStorage source of truth.
+ * Its API shape is shared with the Server Model adapter; it never calls Django. */
+var demoModelProvider=window.AICompassModels.LocalStorageDataProvider({
+ list:function(){return db.components.filter(function(c){return c.type==="model";});},
+ get:function(id){return db.components.find(function(c){return c.id===id&&c.type==="model";});},
+ create:function(values){var comp=Object.assign({id:next("component"),type:"model"},values);db.components.push(comp);return comp;},
+ revise:function(id,values){var comp=db.components.find(function(c){return c.id===id&&c.type==="model";});if(!comp)throw Error("Unknown Demo model");
+  var before=JSON.parse(JSON.stringify(comp));Object.assign(comp,values);revision("Component",id,before,comp);return comp;},
+ revisions:function(id){return db.revisions.filter(function(r){return r.type==="Component"&&r.objectId===id;});}
+});
 if(!localStorage.getItem(KEY))persist();
 function ensureDefaults(){
 if(!db.components){
@@ -860,6 +871,10 @@ return '<article class="card solution-card"><div class="solution-title"><div cla
 }
 
 function componentCatalogueType(type){
+ if(type==="model"){
+  var rows=demoModelProvider.list().map(function(c){return Object.assign({},c,{testedCount:db.solutions.filter(function(s){return s.componentRefs?.model===c.id&&db.runs.some(function(r){return r.solution===s.id;});}).length});});
+  return window.AICompassModels.renderLane(rows,{canWrite:true});
+ }
  var title={model:"Models",provider:"Providers",harness:"Harnesses",framework:"Frameworks"}[type];
  var list=db.components.filter(function(c){return c.type===type;}).sort(function(a,b){return a.name.localeCompare(b.name);});
  return '<section class="card component-lane"><div class="card-head"><div><div class="eyebrow">'+E(type)+'</div><h2>'+E(title)+'</h2></div>'+btn("+ Add","newComponentType",type,"sm")+'</div>'+
@@ -2388,8 +2403,13 @@ if(kind==="task"||kind==="taskEdit"){
  db.guides.some(function(g){return g.framework===comp.id;}))){
   toast("Referenced components cannot change type; create a new catalog component.");return;
  }
- Object.assign(comp,{type:d.type,name:req(d.name,"Component name"),version:d.version,url:d.url||"",details:d.details,publication:d.publication,accessible:d.accessible==="yes",status:d.status||"active"});
- if(!id)db.components.push(comp);else revision("Component",id,prevComp,comp);
+ var values={type:d.type,name:req(d.name,"Component name"),version:d.version,url:d.url||"",details:d.details,publication:d.publication,accessible:d.accessible==="yes",status:d.status||"active"};
+ if(d.type==="model"&&(!prevComp||prevComp.type==="model")){
+  comp=id?demoModelProvider.revise(id,values):demoModelProvider.create(values);
+ }else{
+  Object.assign(comp,values);
+  if(!id)db.components.push(comp);else revision("Component",id,prevComp,comp);
+ }
  if(form.dataset.watch){var signal=rec("watch",form.dataset.watch);if(signal){signal.component=comp.id;signal.status="reviewed";}}
  ui.page="solutions";ui.solutionView="components";event("Catalog",(id?"Updated":"Registered")+" "+comp.type+": "+comp.name);
 }
