@@ -1,4 +1,4 @@
-/* PLAT-09: Server taxonomy workspace. No Demo data access or localStorage calls. */
+/* PLAT-09: Server taxonomy workspace. No access to Demo's browser data provider. */
 (function () {
   "use strict";
 
