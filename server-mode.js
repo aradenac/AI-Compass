@@ -465,7 +465,7 @@
           await showEvidence(id);
         } catch (error) {
           message.textContent = "Upload refused: " + error.message +
-            ". No Demo/localStorage save was performed.";
+            ". No Demo data was saved.";
           button.disabled = false;
         }
       });
