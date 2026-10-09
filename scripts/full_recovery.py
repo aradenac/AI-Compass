@@ -297,10 +297,14 @@ def full_entries(directory):
 def full_backup(args):
     if not args.destination:
         fail("A pre-existing independent --destination is required for full recovery")
+    ci_exception = (args.allow_local_ci and os.environ.get("GITHUB_ACTIONS") == "true"
+                    and os.environ.get("AI_COMPASS_FULL_RECOVERY_CI") == "1")
+    if args.allow_local_ci and not ci_exception:
+        fail("Local-filesystem exception is permitted only for isolated CI")
+    args.require_external = not ci_exception
     directory = db.destinations(args, for_backup=True)
-    if directory.stat().st_dev == db.ROOT.stat().st_dev:
-        if not args.allow_local_ci or os.environ.get("GITHUB_ACTIONS") != "true":
-            fail("Coordinated backups require an independent mounted filesystem")
+    if directory.stat().st_dev == db.ROOT.stat().st_dev and not ci_exception:
+        fail("Coordinated backups require an independent mounted filesystem")
     with open(directory / ".ai-compass-full.lock", "a+b") as lock:
         fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
         recovery_id = _new_id()
