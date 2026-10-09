@@ -4,12 +4,10 @@ from . import auth_views, catalog_views
 from .api import api
 
 urlpatterns = [
-    path("api/v1/models", catalog_views.list_models),
-    path("api/v1/models/create", catalog_views.add_model),
+    path("api/v1/models", catalog_views.models_collection),
     path("api/v1/models/schema", catalog_views.get_model_schema),
     path("api/v1/models/<slug:public_id>", catalog_views.get_model),
-    path("api/v1/models/<slug:public_id>/revisions", catalog_views.model_revisions),
-    path("api/v1/models/<slug:public_id>/revisions/create", catalog_views.add_revision),
+    path("api/v1/models/<slug:public_id>/revisions", catalog_views.revisions_collection),
     path("api/v1/models/<slug:public_id>/revisions/<int:number>", catalog_views.get_revision),
     path("api/v1/auth/csrf", auth_views.csrf_token),
     path("api/v1/auth/me", auth_views.account),
