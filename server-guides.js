@@ -65,7 +65,7 @@
         else if(btn.dataset.action==="edit"&&write)edit(item);
       });
       var panel=find("#guide-inline");
-      mountInline(panel,csrf,escapeHtml,function(chosen){
+      inline=mountInline(panel,csrf,escapeHtml,function(chosen){
         selected=chosen;
         status("Selected reusable guide "+chosen.id+" · "+chosen.revision+
           " (ready for attachment in a benchmark campaign).");
