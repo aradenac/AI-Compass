@@ -20,6 +20,7 @@ import recovery as db
 
 REGISTRY = {stage.MIGRATION: stage.MIGRATION_FILE}
 MAX_BATCHES = 10000
+PROMOTION_ROOT = db.ROOT / ".local" / "promotions"
 
 
 def fail(message):
@@ -138,26 +139,81 @@ def preview(candidate, operator):
             "production": info}
 
 
+def proof_path(candidate):
+    if not stage.CANDIDATE.fullmatch(candidate):
+        fail("Invalid promotion state identifier")
+    for directory in (db.ROOT / ".local", PROMOTION_ROOT):
+        if directory.is_symlink():
+            fail("Symlinked promotion state directory is forbidden")
+        directory.mkdir(parents=True, mode=0o700, exist_ok=True)
+        directory.chmod(0o700)
+    return PROMOTION_ROOT / (candidate + ".approval.json")
+
+
+def signed_recovery(envelope, report, verdict_hash, operator):
+    """On retry, use the original verified point, not a post-migration backup."""
+    from pathlib import Path
+    proof = envelope.get("proof", {})
+    signature = envelope.get("signature", "")
+    if not isinstance(proof, dict) or not isinstance(signature, str):
+        fail("Corrupt saved approval proof")
+    if proof.get("candidate_id") != report["candidate_id"] or (
+        proof.get("migration_sha256") != report["migration_sha256"]
+    ) or proof.get("app_commit") != report["application_commit"] or (
+        proof.get("approved_report_sha256") != verdict_hash
+    ) or proof.get("operator") != operator:
+        fail("Saved approval no longer matches exact accepted staging candidate")
+    expected = __import__("hmac").new(
+        production_secret().encode(),
+        json.dumps(proof, sort_keys=True, separators=(",", ":"),
+                   ensure_ascii=False).encode(), hashlib.sha256).hexdigest()
+    if not __import__("hmac").compare_digest(signature, expected):
+        fail("Saved signed approval is corrupt")
+    # The recovery point path is kept separately alongside the signed envelope.
+    recovery_file = proof_path(report["candidate_id"]).with_suffix(".recovery")
+    if recovery_file.is_symlink() or not recovery_file.is_file():
+        fail("Missing original verified recovery-point location")
+    dump = Path(recovery_file.read_text("utf-8").strip())
+    verified = full.verified_manifest(dump)
+    if (verified["backup_id"] != proof.get("recovery_id") or
+        file_sha(full.sibling(dump, ".full.json")) != proof.get("recovery_manifest_sha256")):
+        fail("Original recovery point no longer verifies; promotion blocked")
+    return verified
+
+
 def apply(candidate, operator, confirm_candidate, destination, *, allow_ci=False):
     if confirm_candidate != candidate:
         fail("Explicit --confirm-candidate must equal the accepted candidate ID")
     report, _, verdict_hash = approval(candidate)
-    before = backend_preview(operator)
-    if before["blocked_count"]:
-        fail("Ambiguous production records require human review; no mutation permitted")
-    # Full backup requires an already-existing independently mounted filesystem.
-    args = argparse.Namespace(destination=destination, allow_local_ci=allow_ci,
-                              require_external=True, keep=14)
-    dump = full.full_backup(args)  # verifies an independent restore and original hashes
-    backup = full.verified_manifest(dump)
-    backup["_dump_path"] = str(dump)
-    if backup.get("restored_inspection", {}).get("schema_versions") != report.get("source_schema_versions"):
-        fail("Production object schema differs from accepted staging source")
-    envelope = prepare_proof(report, verdict_hash, operator, backup)
+    state = proof_path(candidate)
+    if state.exists():
+        if state.is_symlink() or not state.is_file():
+            fail("Unsafe saved promotion proof")
+        envelope = json.loads(state.read_text("utf-8"))
+        backup = signed_recovery(envelope, report, verdict_hash, operator)
+        # A failed batch may have migrated part of the database. The Django
+        # service reconstructs and checks the *original* snapshot fingerprint.
+    else:
+        before = backend_preview(operator)
+        if before["blocked_count"]:
+            fail("Ambiguous production records require human review; no mutation permitted")
+        # Full backup requires an already-existing independently mounted filesystem.
+        args = argparse.Namespace(destination=destination, allow_local_ci=allow_ci,
+                                  require_external=True, keep=14)
+        dump = full.full_backup(args)
+        backup = full.verified_manifest(dump)
+        backup["_dump_path"] = str(dump)
+        if backup.get("restored_inspection", {}).get("schema_versions") != report.get("source_schema_versions"):
+            fail("Production object schema differs from accepted staging source")
+        envelope = prepare_proof(report, verdict_hash, operator, backup)
+        # Persist and fsync both files BEFORE any production stop or change.
+        db.durable_write(state, db.json_bytes(envelope))
+        state.chmod(0o600)
+        recovery_file = state.with_suffix(".recovery")
+        db.durable_write(recovery_file, str(dump.resolve()) + "\\n")
+        recovery_file.chmod(0o600)
     result = {"status":"applying", "candidate_id":candidate,
-              "recovery_id":backup["backup_id"], "changed":0, "batches":0}
-    # The service stays frozen if an unknown error requires manual intervention.
-    # A verified recovery point is already safely off-host before the freeze.
+              "recovery_id":envelope["proof"]["recovery_id"], "changed":0, "batches":0}
     docker_cmd(["stop", "api"], timeout=90)
     try:
         with tempfile.TemporaryDirectory(prefix="aic-promotion-") as temp:
@@ -188,9 +244,8 @@ def apply(candidate, operator, confirm_candidate, destination, *, allow_ci=False
         docker_cmd(["start", "api"], timeout=180)
         return result
     except Exception:
-        # Intentionally do not resume a potentially inconsistent Server.
-        # Investigate/retry against the SAME signed recovery proof or restore
-        # verified DB+evidence snapshot, never a staging DB.
+        # Leave potentially partial production Server frozen. Reuse the same
+        # signed recovery point for safe retry or verified full restoration.
         raise
 
 
