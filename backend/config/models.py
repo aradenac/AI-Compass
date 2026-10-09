@@ -154,3 +154,43 @@ class ProductionMigrationReceipt(models.Model):
 
     class Meta:
         ordering = ["created_at", "id"]
+
+
+class DataHealthIssue(models.Model):
+    """Mutable triage projection; all status changes have immutable linked events."""
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    public_id = models.CharField(max_length=120, unique=True)
+    dedupe_key = models.CharField(max_length=64, unique=True)
+    category = models.CharField(max_length=48)
+    severity = models.CharField(max_length=16)
+    subject_type = models.CharField(max_length=32)
+    subject_ref = models.CharField(max_length=120)  # private for restricted evidence
+    summary = models.CharField(max_length=240)
+    status = models.CharField(max_length=16, default="open")
+    assigned_to = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
+                                    on_delete=models.PROTECT, related_name="data_health_assignments")
+    exception_rationale = models.TextField(blank=True)
+    review_after = models.DateField(null=True, blank=True)
+    first_detected_at = models.DateTimeField(auto_now_add=True)
+    last_detected_at = models.DateTimeField(auto_now_add=True)
+    last_scan_id = models.UUIDField(null=True, blank=True)
+    detection_count = models.PositiveIntegerField(default=1)
+    check_version = models.CharField(max_length=48, default="data-health@1")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-last_detected_at", "public_id"]
+
+
+class DataHealthEvent(models.Model):
+    """Append-only issue provenance, state changes, and attributable decisions."""
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    issue = models.ForeignKey(DataHealthIssue, on_delete=models.PROTECT, related_name="events")
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
+                              on_delete=models.PROTECT, related_name="+")
+    action = models.CharField(max_length=32)
+    detail = models.JSONField(default=dict)  # never includes blob bytes or credentials
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at", "id"]

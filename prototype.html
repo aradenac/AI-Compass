@@ -109,7 +109,9 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;b
 "use strict";
 
 /* Explicit Server mode: do not load, read or modify fake Demo localStorage. */
-if (new URLSearchParams(window.location.search).get("mode") !== "server") {
+if (!(new URLSearchParams(window.location.search).get("mode") === "server" ||
+  (window.location.pathname === "/maintenance" &&
+   new URLSearchParams(window.location.search).get("mode") !== "demo"))) {
 
 var KEY="ai-compass-demo-v1", SESSION="ai-compass-demo-user";
 var TODAY="2026-10-08";
@@ -2663,6 +2665,7 @@ render();
 <script src="server-tasks.js"></script>
 <script src="server-users.js"></script>
 <script src="server-activity.js"></script>
+<script src="server-data-health.js"></script>
 <script src="server-mode.js"></script>
 </body>
 </html>

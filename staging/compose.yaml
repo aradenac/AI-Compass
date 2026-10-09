@@ -50,6 +50,7 @@ services:
       - ../server-tasks.js:/srv/frontend/server-tasks.js:ro
       - ../server-users.js:/srv/frontend/server-users.js:ro
       - ../server-activity.js:/srv/frontend/server-activity.js:ro
+      - ../server-data-health.js:/srv/frontend/server-data-health.js:ro
       - ../model-catalog.js:/srv/frontend/model-catalog.js:ro
       - ./banner.js:/srv/frontend/banner.js:ro
     depends_on:

@@ -9,7 +9,7 @@ const page = fs.readFileSync("prototype.html", "utf8");
 const mode = fs.readFileSync("server-mode.js", "utf8");
 assert(page.includes('<script src="server-activity.js"></script>'));
 assert(mode.includes("AICompassServerActivity.mount"));
-assert(mode.includes('activity.setAccess(grants.includes("business_read"), grants.includes("users_manage"))'));
+assert(mode.includes('activity.setAccess(!maintenanceWorkspace && grants.includes("business_read"), !maintenanceWorkspace && grants.includes("users_manage"))'));
 assert(!script.includes("localStorage"), "Server feed must never read Demo state");
 
 const nodes = new Map();
