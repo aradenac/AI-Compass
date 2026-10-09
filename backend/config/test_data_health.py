@@ -199,6 +199,18 @@ class DataHealthTests(TestCase):
         self.assertEqual(self.client.get(BASE+"/health").status_code,401)
         self.assertEqual(self.post("/scan").status_code,401)
 
+    def test_future_diagnostic_ownership_is_not_auto_resolved(self):
+        row = DataHealthIssue.objects.create(
+            public_id=new_public_id("mnt"),dedupe_key="f"*64,
+            category="future_engineering_check",severity="medium",
+            subject_type="future",subject_ref="restricted",
+            summary="Future module finding",check_version="external-check@2")
+        self.assertEqual(self.post("/scan").status_code,201)
+        row.refresh_from_db()
+        self.assertEqual(row.status,"open")
+        self.assertEqual(row.check_version,"external-check@2")
+        self.assertEqual(row.events.count(),0)
+
     def test_invalid_filter_and_incomplete_scan_rolls_back(self):
         self.blob()
         self.assertEqual(self.client.get(BASE+"/issues?status=surprise").status_code,400)
