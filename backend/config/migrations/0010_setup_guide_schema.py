@@ -6,7 +6,7 @@ SCHEMA = {
     "type": "object",
     "properties": {
         "text": {"type":"string","maxLength":32768},
-        "url": {"type":"string","maxLength":2048,"pattern":r"^https?://[^\\s]+$"},
+        "url": {"type":"string","maxLength":2048,"pattern":r"^https?://[^\s]+$"},
         "description": {"type":"string","maxLength":4000},
         "publication": {"type":"string","enum":["draft","published","archived"]},
     },
