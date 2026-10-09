@@ -19,6 +19,7 @@ from .models import (
 )
 
 CHECK_VERSION = "data-health@1"
+_UNSET = object()
 LOCK = 270027
 SEVERITIES = {"schema_invalid":"high", "schema_missing":"high", "schema_obsolete":"medium",
               "relation_invalid":"critical", "blob_missing":"critical",
@@ -181,16 +182,17 @@ def scan(*, actor=None):
                 "findings":len(findings), **counts}
 
 
-def triage(issue, *, actor, status=None, assignee=None, rationale=None, review_after=None):
+def triage(issue, *, actor, status=None, assignee=_UNSET, rationale=None, review_after=None):
     with transaction.atomic():
         row = DataHealthIssue.objects.select_for_update().get(pk=issue.pk)
         changes = {}
         if status is not None and status != row.status:
             changes["status"] = {"from":row.status,"to":status}
             row.status = status
-        if assignee is not None and assignee != row.assigned_to_id:
-            changes["assignee"] = {"from":row.assigned_to_id,"to":assignee}
-            row.assigned_to_id = assignee
+        new_assignee_id = (assignee.pk if assignee is not None else None) if assignee is not _UNSET else row.assigned_to_id
+        if assignee is not _UNSET and new_assignee_id != row.assigned_to_id:
+            changes["assignee"] = {"from":row.assigned_to_id,"to":new_assignee_id}
+            row.assigned_to_id = new_assignee_id
         if status == "exception":
             if not rationale or not review_after:
                 raise ValueError("Exceptions require a rationale and review date")
