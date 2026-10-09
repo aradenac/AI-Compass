@@ -15,7 +15,7 @@ from .evidence_store import (
 from .models import CatalogItem, CatalogRevision, EvidenceLink
 from django.conf import settings
 
-REVISION = re.compile(r"^r([1-9][0-9]{0,8})$")
+REVISION = re.compile(r"^r(0*[1-9][0-9]{0,8})$")
 
 
 def _item(public_id):
@@ -84,7 +84,7 @@ def upload_evidence(request, public_id):
         revision = None
         if requested:
             match = REVISION.fullmatch(requested)
-            if not match:
+            if not match or requested != f"r{int(match.group(1)):03d}":
                 raise EvidenceError("Revision must be an exact r001-style identifier")
             revision = get_object_or_404(CatalogRevision, item=item, number=int(match.group(1)))
         link = attach(
