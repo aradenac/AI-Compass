@@ -53,6 +53,7 @@ services:
       - ./prototype.html:/srv/frontend/prototype.html:ro
       - ./server-mode.js:/srv/frontend/server-mode.js:ro
       - ./server-tasks.js:/srv/frontend/server-tasks.js:ro
+      - ./server-test-cases.js:/srv/frontend/server-test-cases.js:ro
       - ./server-users.js:/srv/frontend/server-users.js:ro
       - ./server-activity.js:/srv/frontend/server-activity.js:ro
       - ./server-data-health.js:/srv/frontend/server-data-health.js:ro
