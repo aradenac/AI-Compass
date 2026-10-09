@@ -9,7 +9,7 @@ const html = fs.readFileSync("prototype.html","utf8");
 const mode = fs.readFileSync("server-mode.js","utf8");
 assert(html.includes('<script src="server-data-health.js"></script>'));
 assert(html.includes('window.location.pathname === "/maintenance"'));
-assert(mode.includes('health.setAccess(grants.includes("maintenance_view"), grants.includes("maintenance_triage"))'));
+assert(mode.includes('health.setAccess(maintenanceWorkspace && grants.includes("maintenance_view"), maintenanceWorkspace && grants.includes("maintenance_triage"))'));
 assert(!source.includes("localStorage"));
 const elements = new Map();
 function node(key) {
