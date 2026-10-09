@@ -63,10 +63,11 @@ jobs:
           done
       - name: Validate recovery code and failure-path unit tests
         run: |
-          python3 -m py_compile scripts/recovery.py scripts/install-backup-timer.py scripts/test_recovery.py scripts/smoke_recovery_domain.py scripts/smoke_catalog.py scripts/smoke_evidence.py
+          python3 -m py_compile scripts/recovery.py scripts/install-backup-timer.py scripts/test_recovery.py scripts/smoke_recovery_domain.py scripts/smoke_catalog.py scripts/smoke_evidence.py scripts/migration_promote.py scripts/test_migration_promote.py
           python3 -m unittest discover -s scripts -p 'test_recovery.py' -v
           python3 -m unittest discover -s scripts -p 'test_full_recovery.py' -v
           python3 -m unittest discover -s scripts -p 'test_migration_stage.py' -v
+          python3 -m unittest discover -s scripts -p 'test_migration_promote.py' -v
           python3 scripts/install-backup-timer.py --destination "$PWD" --dry-run | grep 'ai-compass-backup.service'
       - name: Create isolated local credentials
         run: python3 scripts/init-env.py
@@ -100,6 +101,8 @@ jobs:
         run: docker compose exec -T api python manage.py test config.test_migration_staging -v 1
       - name: Verify Users & Access permission, CSRF and audit boundaries
         run: docker compose exec -T api python manage.py test config.test_user_admin -v 2
+      - name: Verify production migration gate, immutable receipts and crash-safe replay
+        run: docker compose exec -T api python manage.py test config.test_schema_promotion -v 2
       - name: Verify Activity Feed permissions, audit correlation and exports
         run: docker compose exec -T api python manage.py test config.test_activity -v 2
       - name: Verify task taxonomy ancestry, version history and permissions

@@ -134,3 +134,23 @@ class UserAccessAuditEvent(models.Model):
 
     class Meta:
         ordering = ["created_at", "id"]
+
+
+class ProductionMigrationReceipt(models.Model):
+    """Append-only per-object production migration receipt with pinned provenance."""
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    item = models.ForeignKey(CatalogItem, on_delete=models.PROTECT, related_name="migration_receipts")
+    source_revision = models.ForeignKey(CatalogRevision, on_delete=models.PROTECT, related_name="+")
+    target_revision = models.OneToOneField(CatalogRevision, on_delete=models.PROTECT, related_name="+")
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    candidate_id = models.CharField(max_length=16)
+    migration_key = models.CharField(max_length=80)
+    migration_sha256 = models.CharField(max_length=64)
+    app_commit = models.CharField(max_length=40)
+    recovery_id = models.CharField(max_length=80)
+    recovery_manifest_sha256 = models.CharField(max_length=64)
+    approved_report_sha256 = models.CharField(max_length=64)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at", "id"]
