@@ -40,6 +40,13 @@ def _error(exc):
     return json_no_store({"error":"invalid_guide","detail":str(exc)},400)
 
 
+def _guide(item,revision=None):
+    result=serialize(item,revision=revision)
+    current=revision if revision is not None else item.current_revision
+    result["revision_id"]=str(current.pk) if current else None
+    return result
+
+
 def _item(public_id):
     if not public_id.startswith("gui-"):
         from django.http import Http404
@@ -66,7 +73,7 @@ def list_guides(request):
         from django.db.models import Q
         items=items.filter(Q(public_id__icontains=q.strip())|
                            Q(current_revision__display_name__icontains=q.strip()))
-    return json_no_store({"results":[serialize(item) for item in items[:501]]})
+    return json_no_store({"results":[_guide(item) for item in items[:501]]})
 
 
 @require_POST
@@ -80,7 +87,7 @@ def add_guide(request):
                     properties=payload.get("properties",{}))
     except (InvalidModel,RevisionConflict,SchemaWriteBlocked,ExhaustedIds) as exc:
         return _error(exc)
-    response=json_no_store(serialize(item),201)
+    response=json_no_store(_guide(item),201)
     response["Location"]="/api/v1/guides/"+item.public_id
     return response
 
@@ -108,7 +115,7 @@ def patch_guide(request,public_id):
                                properties=payload.get("properties"))
     except (InvalidModel,RevisionConflict,SchemaWriteBlocked,ExhaustedIds) as exc:
         return _error(exc)
-    return json_no_store({"guide":serialize(updated),"changed":changed})
+    return json_no_store({"guide":_guide(updated),"changed":changed})
 
 
 @require_GET
@@ -119,7 +126,7 @@ def history(request,public_id):
     revisions=CatalogRevision.objects.filter(item=item).select_related(
         "schema_version","created_by").order_by("number")
     return json_no_store({"id":item.public_id,
-                          "revisions":[serialize(item,revision=r) for r in revisions]})
+                          "revisions":[_guide(item,revision=r) for r in revisions]})
 
 
 @require_GET
@@ -129,7 +136,7 @@ def version(request,public_id,number):
     item=_item(public_id)
     rev=get_object_or_404(CatalogRevision.objects.select_related(
         "schema_version","created_by"),item=item,number=number)
-    return json_no_store(serialize(item,revision=rev))
+    return json_no_store(_guide(item,revision=rev))
 
 
 def collection(request):
