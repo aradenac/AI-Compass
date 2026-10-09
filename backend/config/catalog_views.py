@@ -9,8 +9,9 @@ from django.views.decorators.http import require_GET, require_POST
 
 from .auth_views import capability, json_no_store
 from .catalog_schemas import InvalidModel
-from .catalog_services import create_model, model_schema, revise_model, RevisionConflict, ExhaustedIds
-from .models import CatalogItem, CatalogRevision
+from .catalog_services import create_model, model_schema, revise_model, RevisionConflict, ExhaustedIds, SchemaWriteBlocked
+from .catalog_compat import compatibility_for_revision, registry_for_types
+from .models import CatalogItem, CatalogRevision, ObjectTypeVersion
 
 
 def read_payload(request):
@@ -25,18 +26,34 @@ def read_payload(request):
     return data
 
 
-def serialize(item, revision=None):
-    rev = revision or item.current_revision
+def serialize(item, revision=None, registries=None):
+    """Never project or mutate original JSON; classify its pinned schema.
+
+    Generic read-only metadata also works for future type slugs and unknown
+    schema versions. Invalid/partial records must be inspectable, not crash
+    the entire catalog list.
+    """
+    rev = revision if revision is not None else item.current_revision
+    versions = registries.get(item.type_slug, {}) if registries is not None else None
+    state = compatibility_for_revision(item, rev, registry=versions)
+    if rev is None:
+        return {
+            "id": item.public_id, "uuid": str(item.pk), "type": item.type_slug,
+            "name": None, "properties": None, "schema_version": None,
+            "revision": None, "created_at": item.created_at.isoformat(),
+            "created_by": None, "compatibility": state,
+        }
     return {
         "id": item.public_id,
         "uuid": str(item.pk),
         "type": item.type_slug,
         "name": rev.display_name,
-        "properties": rev.properties,
+        "properties": rev.properties,  # exact original, including unknown/null
         "schema_version": rev.schema_version.version,
         "revision": f"r{rev.number:03d}",
         "created_at": rev.created_at.isoformat(),
         "created_by": rev.created_by.get_username(),
+        "compatibility": state,
     }
 
 
@@ -54,7 +71,8 @@ def list_models(request):
     items = CatalogItem.objects.filter(type_slug="model").select_related(
         "current_revision__schema_version", "current_revision__created_by"
     ).order_by("created_at")
-    return json_no_store({"results": [serialize(item) for item in items]})
+    registry = registry_for_types(["model"])
+    return json_no_store({"results": [serialize(item, registries=registry) for item in items]})
 
 
 @require_POST
@@ -131,6 +149,11 @@ def add_revision(request, public_id):
         return json_no_store({"error": "invalid_model", "detail": str(exc)}, status=400)
     except RevisionConflict as exc:
         return json_no_store({"error": "revision_conflict", "detail": str(exc)}, status=409)
+    except SchemaWriteBlocked as exc:
+        return json_no_store({
+            "error": "schema_write_blocked", "detail": str(exc),
+            "compatibility": exc.compatibility,
+        }, status=409)
     return json_no_store(serialize(revised), status=201)
 
 
@@ -138,8 +161,45 @@ def add_revision(request, public_id):
 @capability("business_read")
 @never_cache
 def get_model_schema(request):
-    version = model_schema()
-    return json_no_store({"type": version.type_slug, "version": version.version, "schema": version.json_schema})
+    requested = request.GET.get("version")
+    if requested is not None and (not requested.isdecimal() or int(requested) < 1):
+        return json_no_store({"error": "invalid_version"}, status=400)
+    version_number = int(requested) if requested else None
+    version = model_schema(version=version_number) if version_number else model_schema()
+    return json_no_store({
+        "type": version.type_slug, "version": version.version, "schema": version.json_schema
+    })
+
+
+@require_GET
+@capability("business_read")
+@never_cache
+def catalog_schema(request, type_slug):
+    """Generic future-type registry endpoint; no writable schema editor."""
+    requested = request.GET.get("version")
+    if requested is not None and (not requested.isdecimal() or int(requested) < 1):
+        return json_no_store({"error": "invalid_version"}, status=400)
+    schemas = ObjectTypeVersion.objects.filter(type_slug=type_slug)
+    if requested:
+        schema = get_object_or_404(schemas, version=int(requested))
+    else:
+        schema = get_object_or_404(schemas.order_by("-version"))
+    return json_no_store({
+        "type": schema.type_slug, "version": schema.version, "schema": schema.json_schema
+    })
+
+
+@require_GET
+@capability("business_read")
+@never_cache
+def get_catalog_item(request, public_id):
+    """Controlled raw metadata view, including unsupported future type/version."""
+    item = get_object_or_404(
+        CatalogItem.objects.select_related(
+            "current_revision__schema_version", "current_revision__created_by"
+        ), public_id=public_id
+    )
+    return json_no_store(serialize(item))
 
 
 
