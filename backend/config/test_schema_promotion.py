@@ -102,6 +102,23 @@ class PromotionTests(TestCase):
         with self.assertRaises(DatabaseError):
             with transaction.atomic():
                 ProductionMigrationReceipt.objects.filter(pk=receipt.pk).delete()
+        # PostgreSQL also refuses a fabricated cross-item receipt even when
+        # both foreign keys independently point to existing valid revisions.
+        other = self.make_legacy(8)
+        other_v2 = CatalogRevision.objects.create(
+            item=other, number=2, schema_version=ObjectTypeVersion.objects.get(
+                type_slug="model", version=2),
+            display_name="Other", properties={}, created_by=self.actor)
+        with self.assertRaises(DatabaseError):
+            with transaction.atomic():
+                ProductionMigrationReceipt.objects.create(
+                    item=row, source_revision=original, target_revision=other_v2,
+                    actor=self.actor, candidate_id="0123456789abcdef",
+                    migration_key=promo.MIGRATION_KEY, migration_sha256="a"*64,
+                    app_commit="b"*40, recovery_id="backup-ref-1234",
+                    recovery_manifest_sha256="c"*64,
+                    approved_report_sha256="d"*64)
+        self.assertEqual(ProductionMigrationReceipt.objects.count(), 1)
 
     def test_recovery_after_bounded_batch_keeps_exact_source_fingerprint(self):
         for i in range(103):
