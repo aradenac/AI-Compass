@@ -48,6 +48,7 @@ services:
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - ./prototype.html:/srv/frontend/prototype.html:ro
+      - ./server-mode.js:/srv/frontend/server-mode.js:ro
     depends_on:
       api:
         condition: service_healthy
