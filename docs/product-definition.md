@@ -5,6 +5,8 @@
 > **Scope:** Internal web platform, extensible across business units (BUs)  
 > **Purpose of this document:** Record product decisions agreed during initial scoping. It describes *what* the platform must achieve, not a frozen UI, technology stack, database schema, or scoring algorithm.
 
+**Technical direction:** The selected platform architecture, persistence, immutable revision strategy, identifiers, recovery and independent maintenance permissions are documented in [Platform Architecture & Data Governance](platform-architecture-and-data-governance.md). This document continues to define business capabilities and workflows.
+
 ## 1. Product vision
 
 **AI Compass is an evidence-driven, continuously updated decision-support platform for selecting, comparing, qualifying, and sharing AI solutions for engineering tasks.**
@@ -71,6 +73,7 @@ These are agreed decisions:
 - Results form **one shared knowledge base** across BUs. BUs do not have separate recommendation universes or result silos.
 - User accounts can identify BU affiliation and contribution provenance. Access rules may use these attributes where needed.
 - The platform should support roles/permissions and an audit history of published changes.
+- An independent **Maintenance & Governance** workspace is reserved for data integrity, quality, schema compatibility and migration stewardship; its **Data Maintainer** role need not grant access to campaign execution or unrelated business functions. **User Administrator** account/permission management and **Platform Administrator** operations are separate, composable capabilities (see the [architecture baseline](platform-architecture-and-data-governance.md)).
 
 Exact identity-provider/SSO implementation and finer-grained access policies remain technical design choices.
 
@@ -543,7 +546,7 @@ The following have **not** been specified or mandated yet:
 - Inheritance and override semantics for task properties, including historical version snapshots.
 - Exact qualification maturity labels, feedback triage statuses, and contribution moderation policy.
 - Information-density measurement methodology and handling of unreliable external benchmark claims.
-- Final UX, page structure, data storage, stack, deployment topology, or integration architecture.
+- Final UX, page structure and detailed integration architecture. The selected backend/database/deployment baseline and data-governance principles are now specified in [Platform Architecture & Data Governance](platform-architecture-and-data-governance.md); detailed physical schema and operational targets remain open.
 - Exact role/identity technical implementation and confidential artifact access policy.
 - Instrumentation for adoption measurement, automated benchmarking, and cost capture.
 - Detailed retention rules for large or sensitive evidence artifacts.
