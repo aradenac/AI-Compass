@@ -51,7 +51,8 @@ class StagingTests(unittest.TestCase):
         before = {"item_count": 1, "model_count": 1, "schema_versions": ["model:1", "model:2"],
                   "schema_hashes": ["h"], "hrid_digest": "stable",
                   "evidence_db_references": {"blob_count": 1, "sha256": ["hash"], "link_count": 2},
-                  "revision_count": 1, "audit_count": 1}
+                  "revision_count": 1, "audit_count": 1,
+                  "invalid_ids": 0, "invalid_revision_links": 0, "orphan_revisions": 0}
         after = {**before, "revision_count": 2, "audit_count": 2}
         old = {"identities": [["uuid", "mdl-simple-tree-lake", "model"]],
                "history": [["rev-original", "digest"]]}
