@@ -117,7 +117,7 @@ def _apply_order(nodes, parent, actor, special=None, name=None, properties=None)
         is_special = special is not None and node.pk == special.pk
         old = node.item.current_revision if is_special else None
         changed_fields = is_special and (
-            (name is not None and name.strip() != old.display_name)
+            (name is not None and (not isinstance(name, str) or name.strip() != old.display_name))
             or (properties is not None and any(old.properties.get(k) != v for k, v in properties.items()))
         )
         if moved:
