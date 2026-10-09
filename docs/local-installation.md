@@ -146,6 +146,7 @@ COOKIE_JAR=$(mktemp)
 chmod 600 "$COOKIE_JAR"
 curl -fsS -c "$COOKIE_JAR" "$BASE/api/v1/auth/csrf" >/dev/null
 read -rsp 'Server account password: ' PW; echo
+export PW
 CSRF=$(awk '$6=="csrftoken"{print $7}' "$COOKIE_JAR")
 curl -fsS -b "$COOKIE_JAR" -c "$COOKIE_JAR" \
   -H 'Content-Type: application/json' -H "X-CSRFToken: $CSRF" \
@@ -161,7 +162,7 @@ curl -fsS -b "$COOKIE_JAR" "$BASE/api/v1/models"
 rm -f "$COOKIE_JAR"
 ```
 
-**Shell detail:** if you use the example above, export `PW` with `export PW` after the `read` so the child Python process can access it, or generate the JSON entirely inside your shell using a safely escaped helper. A simpler alternative is to use the Server-mode sign-in UI and call the API from an authenticated same-origin browser client.
+**Shell detail:** the temporary password is exported only for the JSON-building subprocess and immediately cleared. Avoid shell tracing (`set -x`) or sharing the shell environment while using this example. A simpler alternative is to sign in through the Server-mode UI and use a same-origin authenticated browser client.
 
 Each POST yields `mdl-word-word-word` plus revision `r001`. To append a revision, POST a JSON object with `expected_revision` and modified fields to `/api/v1/models/{id}/revisions`. Old revisions remain available at `/revisions/1`. The API enforces authenticated roles and CSRF, not the demo identities.
 
