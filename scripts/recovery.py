@@ -198,7 +198,8 @@ def restore_isolated(dump):
         started = True
         for _ in range(45):
             try:
-                run(["docker", "exec", container, "pg_isready", "-U", RESTORE_USER, "-d", RESTORE_DB], timeout=8)
+                run(["docker", "exec", container, "psql", "-X", "-v", "ON_ERROR_STOP=1",
+                     "-U", RESTORE_USER, "-d", RESTORE_DB, "-Atqc", "SELECT 1"], timeout=8)
                 break
             except RecoveryError:
                 time.sleep(1)
