@@ -181,6 +181,8 @@ class ModelCatalogTests(TestCase):
     def post(self, path, payload, csrf=True):
         kwargs = {}
         if csrf:
+            if "csrftoken" not in self.client.cookies:
+                self.client.get(BASE + "csrf")
             kwargs["HTTP_X_CSRFTOKEN"] = self.client.cookies["csrftoken"].value
         return self.client.post(path, json.dumps(payload), content_type="application/json", **kwargs)
 
@@ -222,7 +224,7 @@ class ModelCatalogTests(TestCase):
         self.assertEqual(self.create(properties={"context_window": -2}).status_code, 400)
         self.assertEqual(CatalogItem.objects.count(), 0)
         item = self.create().json()
-        url = f"/api/v1/models/{item['id']}/revisions/create"
+        url = f"/api/v1/models/{item['id']}/revisions"
         self.assertEqual(self.post(url, {"expected_revision": "r999", "name": "stale"}).status_code, 409)
         self.assertEqual(self.post(url, {"expected_revision": "r001", "properties": {"supports_tools": "yes"}}).status_code, 400)
         self.assertEqual(CatalogRevision.objects.count(), 1)
@@ -259,12 +261,12 @@ class ModelCatalogTests(TestCase):
     def test_requires_server_roles_and_csrf_not_fake_demo_accounts(self):
         self.client.logout()
         self.assertEqual(self.client.get("/api/v1/models").status_code, 401)
-        self.assertEqual(self.post("/api/v1/models/create", {"name": "X"}).status_code, 401)
+        self.assertEqual(self.post("/api/v1/models", {"name": "X"}).status_code, 401)
         self.client.force_login(self.maintainer)
         self.assertEqual(self.client.get("/api/v1/models").status_code, 403)
-        self.assertEqual(self.post("/api/v1/models/create", {"name": "X"}).status_code, 403)
+        self.assertEqual(self.post("/api/v1/models", {"name": "X"}).status_code, 403)
         self.client.force_login(self.editor)
-        self.assertEqual(self.post("/api/v1/models/create", {"name": "X"}, csrf=False).status_code, 403)
+        self.assertEqual(self.post("/api/v1/models", {"name": "X"}, csrf=False).status_code, 403)
 
     def test_schema_registry_endpoint(self):
         data = self.client.get("/api/v1/models/schema").json()
