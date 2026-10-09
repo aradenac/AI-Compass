@@ -6,7 +6,7 @@
 
 ## Operating principle
 
-**One issue = one focused coding conversation = one independently testable vertical increment = one reviewable PR.** This is a sizing heuristic, **not** a guaranteed wall-clock or token budget. `S` and `M` effort labels are relative only. If an increment cannot be completed with its tests and safety checks in one conversation, **split it before implementing**, keeping a smaller observable end-to-end outcome rather than dropping tests or losing history.
+**One issue = one focused coding conversation = one independently testable vertical increment = one direct, reviewable commit on `main` (no PR).** This is a sizing heuristic, **not** a guaranteed wall-clock or token budget. `S` and `M` effort labels are relative only. If an increment cannot be completed with its tests and safety checks in one conversation, **split it before implementing**, keeping a smaller observable end-to-end outcome rather than dropping tests or losing history.
 
 Start at [PLAT-01](https://github.com/aradenac/AI-Compass/issues/1). The labels `PLAT-01`...`PLAT-32` indicate recommended presentation order; the real prerequisites are the linked **Depends on** issue references inside each ticket. Some catalog slices can run independently after their common foundation, but process only one issue at a time when working with a coding assistant.
 
@@ -22,7 +22,7 @@ Each issue contains: **user-visible outcome**, bounded **in-scope changes**, **a
 | [PLAT-02](https://github.com/aradenac/AI-Compass/issues/2) | Authenticate with independent roles |
 | [PLAT-03](https://github.com/aradenac/AI-Compass/issues/3) | Create immutable Model records through API |
 | [PLAT-04](https://github.com/aradenac/AI-Compass/issues/4) | Safely stage legacy localStorage exports |
-| [PLAT-05](https://github.com/aradenac/AI-Compass/issues/5) | Switch Models UI to server persistence |
+| [PLAT-05](https://github.com/aradenac/AI-Compass/issues/5) | Enable API-backed Models in Server mode without removing the local Demo provider |
 
 ### 2. Persist the rest of the catalog and design assets
 
@@ -81,8 +81,8 @@ Each issue contains: **user-visible outcome**, bounded **in-scope changes**, **a
 1. **Select one ready issue** (all referenced prerequisites accepted). Read the ticket and architecture/product contracts, then inspect the current code and relevant tests.
 2. **Protect data first:** keep a baseline export or restorable snapshot before a destructive-risk step; never silently rewrite historical revisions or discard unknown fields.
 3. **Implement the smallest integrated vertical flow:** API and storage plus the required existing UI where specified; avoid unrelated refactoring and speculative infrastructure.
-4. **Prove it:** positive/negative automated tests, permissions, compatibility, resilience and a clear manual smoke path. For migrations, show dry-run/rollback/retry evidence.
-5. **Review the diff and document the outcome:** add minimal run instructions, actual test commands and risks. Open one focused PR and close the issue only after criteria pass.
+4. **Prove it in both modes:** positive/negative automated tests, permissions, compatibility, resilience and a clear manual smoke path. For migrations, show dry-run/rollback/retry evidence. The standalone Demo interface must remain usable without backend services.
+5. **Review the diff and document the outcome:** add minimal run instructions, actual test commands and risks. Commit directly to `main` without a PR and close the issue only after acceptance criteria pass.
 6. **Stop at the issue boundary.** Do not start another issue during the same exhausted conversation; record follow-up observations in a separate ticket.
 
 ## Permanent data-safety gates
@@ -90,10 +90,10 @@ Each issue contains: **user-visible outcome**, bounded **in-scope changes**, **a
 - From **PLAT-01**, PostgreSQL backup/restore is demonstrable before switching any domain from localStorage.
 - From **PLAT-03**, all new catalog data uses immutable revision semantics and permanent UUIDv7 + HRID identities; no revision is overwritten.
 - From **PLAT-04**, a lossless raw legacy snapshot exists before domain-specific promotion; reconciliation must remain auditable.
-- Each domain switch uses **single-writer server authority for that domain**, explicit old-ID mapping and no hidden dual-write source of truth.
+- Each Server-mode domain uses **single-writer server authority**, explicit old-ID mapping and no hidden dual-write source of truth. The same UI must continue to support independent Demo-mode `localStorage` persistence and seeded fake data, without implicit fallback, synchronization or irreversible cutover.
 - From **PLAT-17**, document bytes are content-addressed, checked and referenced only once durable.
 - **PLAT-29–31** strengthen independent backup, portable interchange and recovery; they do not excuse weak baseline backups earlier.
-- **PLAT-32** blocks final cutover if unreconciled legacy or evidence records remain without an explicitly recorded disposition.
+- **PLAT-32** establishes full **Server-mode readiness**, not deletion of Demo mode. Server adoption is blocked if unreconciled live-source records remain without a recorded disposition. Demo mode remains an ongoing supported runtime.
 
 ## Next action
 
