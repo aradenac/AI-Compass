@@ -1,4 +1,4 @@
-/* PLAT-10: Server Test Design, never seeded Demo or localStorage. */
+/* PLAT-10: Server Test Design, strictly isolated from fake Demo records. */
 (function () {
   "use strict";
   var FIELDS = [
