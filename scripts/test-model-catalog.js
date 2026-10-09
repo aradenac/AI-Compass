@@ -101,6 +101,62 @@ async function main() {
   assert(card.includes("&lt;img"));
   assert(!card.includes("<img"));
   assert(!card.includes("Fake Demo model"));
+  // Older objects and unsupported/invalid records are still readable.
+  // Never silently insert defaults or expose unsafe edit controls.
+  const legacyRaw = row("mdl-old-quiet-tree", "Historic", 1, {
+    release_channel: "unknown <script>", context_window: 4096,
+    extra: null
+  });
+  legacyRaw.schema_version = 1;
+  legacyRaw.compatibility = {
+    status: "needs_review", read_only: true, source_schema_version: 1,
+    current_schema_version: 2, null_fields: ["extra"],
+    missing_fields: ["supports_tools"], unknown_fields: ["extra"],
+    incompatible_fields: ["release_channel"], reason: "Manual review required"
+  };
+  const oldModel = library.modelFromApi(legacyRaw);
+  assert.equal(oldModel.readOnly, true);
+  assert.equal(oldModel.schema_version, 1);
+  assert.equal(oldModel.properties.release_channel, "unknown <script>");
+  const oldCard = library.renderLane([oldModel], {canWrite: true, showRevisions: true});
+  assert(oldCard.includes("needs_review"));
+  assert(oldCard.includes("Missing: supports_tools"));
+  assert(oldCard.includes("Null: extra"));
+  assert(oldCard.includes("Incompatible: release_channel"));
+  assert(oldCard.includes('data-act="modelRaw"'));
+  assert(oldCard.includes('data-act="modelHistory"'));
+  assert(!oldCard.includes('data-act="editComponent"'));
+  assert(!oldCard.includes("<script>"));
+  const unsupported = library.modelFromApi({
+    id: "other-unknown-002", type: "futuretype", name: "Unknown",
+    revision: "r001", schema_version: 99,
+    properties: [1, null, {raw: true}],
+    compatibility: {status: "unsupported", read_only: true}
+  });
+  assert.equal(unsupported.properties.length, 3);
+  assert(unsupported.readOnly);
+  assert(!library.renderLane([unsupported], {canWrite: true, showRevisions: true})
+    .includes('data-act="editComponent"'));
+  const noRevision = library.modelFromApi({
+    id: "other-missing-003", type: "futuretype", name: null,
+    revision: null, schema_version: null, properties: null,
+    compatibility: {status: "unsupported", read_only: true}
+  });
+  assert.equal(noRevision.name, "");
+  assert.equal(noRevision.properties, null);
+  assert(library.renderLane([noRevision], {canWrite: false, showRevisions: true})
+    .includes("Original data"));
+  assert(serverModeSourceSupportsRawInspector());
+
+  function serverModeSourceSupportsRawInspector() {
+    const source = fs.readFileSync("server-mode.js", "utf8");
+    return source.includes("server-inspect-catalog-form") &&
+      source.includes("/api/v1/catalog/items/") &&
+      source.includes("Original catalog data") &&
+      source.includes("if (item && item.readOnly)") &&
+      !source.includes("localStorage");
+  }
+
   const empty = library.renderLane([], {canWrite: true});
   assert(empty.includes("No Models yet"));
   const viewer = library.renderLane([second], {canWrite: false, showRevisions: true});
