@@ -10,12 +10,12 @@
 | --- | --- | --- |
 | UI | `prototype.html` | The **same** `prototype.html` |
 | Data source | Seeded fake records in browser `localStorage` | Django Ninja API + PostgreSQL, added by domain incrementally |
-| Current PLAT-01 business screens | Demo works | **Still use Demo data**; only a server health API exists so far |
-| Browser authentication | Simulated test accounts | Real server identity is planned in PLAT-02 |
+| Business screens | Demo has built-in fake examples | Server begins **without any business records**; the Models REST API is live, and graphical Server catalog integration arrives in PLAT-05 |
+| Browser authentication | Simulated test accounts | Real Django authentication and separate roles are available (PLAT-02) |
 | Docker / SQL DB | Not required | Required |
 | Data sharing | Not shared across origins/browsers | Shared, **when the relevant business APIs are implemented** |
 
-**No implicit fallback or synchronization.** When Server business data becomes available, a shared frontend `DataProvider` contract will route the same UI to either a `LocalStorageDataProvider` or `ApiDataProvider`. Failure to reach the backend must show an error, not fictitious records.
+**Fresh Server baseline:** applying Django migrations installs technical SQL tables and versioned JSON schemas, and identity bootstrap configures roles/accounts; **no fake Models, Providers, Harnesses, Frameworks, tasks, Test Cases, campaigns, runs or evidence are seeded**. There is **no Demo-to-Server import, fallback or synchronization**. The shared frontend `DataProvider` contract will select either `LocalStorageDataProvider` (fake Demo fixtures) or `ApiDataProvider` (initially empty real Server catalog) as each graphical domain is connected. Failure to reach the backend must show an error, not fictitious records. Real external-source import is [PLAT-33](https://github.com/aradenac/AI-Compass/issues/33), only after production deployment validation.
 
 ## 2. Demo mode: installation without Docker
 
@@ -245,6 +245,6 @@ Do not blindly run irreversible migrations after every restart. For a production
 
 PLAT-01 is a **local development** stack, not a public production deployment. HTTP listens on loopback; server login and role separation **are implemented**, but most domain APIs (except the versioned Model REST API), document upload, production HTTPS, the user-management web UI and independent backups are **not implemented yet**. Do **not** expose the current app to untrusted networks or upload confidential evidence. The Demo mode remains intentionally unauthenticated and uses fictional content.
 
-The directory layout is `prototype.html` + `compose.yaml` + `Caddyfile` + `backend/` + `scripts/` + `.env.example`; generated secrets in `.env`, local backups under `.local/backups/`, and server PostgreSQL data in the Docker named volume. Browser Demo `localStorage` is separate and not automatically imported or synchronized.
+The directory layout is `prototype.html` + `compose.yaml` + `Caddyfile` + `backend/` + `scripts/` + `.env.example`; generated secrets in `.env`, local backups under `.local/backups/`, and server PostgreSQL data in the Docker named volume. Browser Demo `localStorage` is **never** used to initialize Server. Native-archive restore for disaster recovery (#31) and post-deployment onboarding of actual external data (#33) are separate capabilities.
 
 **Official references:** [Docker Engine Ubuntu](https://docs.docker.com/engine/install/ubuntu/) · [Docker Compose](https://docs.docker.com/compose/install/linux/) · [Django 5.2](https://docs.djangoproject.com/en/5.2/) · [AI Compass architecture](platform-architecture-and-data-governance.md).
