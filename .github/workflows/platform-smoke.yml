@@ -34,6 +34,7 @@ jobs:
           maintainer_pw=$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')
           printf '%s\n' "$operator_pw" | docker compose exec -T api python manage.py bootstrap_identity --username ci-operator --role platform-admin --password-stdin
           printf '%s\n' "$maintainer_pw" | docker compose exec -T api python manage.py bootstrap_identity --username ci-maintainer --role data-maintainer --password-stdin
+          AI_COMPASS_TEST_PASSWORD="$maintainer_pw" python3 scripts/smoke-auth.py ci-maintainer
       - name: Run backend, persistence and backup/restore checks
         run: bash scripts/smoke-platform.sh
       - name: Check shared frontend modes and client syntax
