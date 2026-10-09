@@ -171,7 +171,8 @@ def scan(*, actor=None):
                                          "detection_count","summary","status",
                                          "exception_rationale","review_after","updated_at"])
         for row in DataHealthIssue.objects.select_for_update().filter(
-                status="open").exclude(last_scan_id=run):
+                status="open", check_version=CHECK_VERSION,
+                category__in=CATEGORIES).exclude(last_scan_id=run):
             row.status = "resolved"
             row.save(update_fields=["status","updated_at"])
             DataHealthEvent.objects.create(
