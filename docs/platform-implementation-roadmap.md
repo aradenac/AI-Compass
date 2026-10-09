@@ -20,7 +20,7 @@ Each issue contains: **user-visible outcome**, bounded **in-scope changes**, **a
 | --- | --- |
 | [PLAT-01](https://github.com/aradenac/AI-Compass/issues/1) | **Completed** — Django/PostgreSQL infrastructure, unchanged Demo frontend, tested restore and install guide |
 | [PLAT-02](https://github.com/aradenac/AI-Compass/issues/2) | **Completed** — real Django session login, CSRF, six independent roles, Demo/Server switching |
-| [PLAT-03](https://github.com/aradenac/AI-Compass/issues/3) | Create immutable Model records through API |
+| [PLAT-03](https://github.com/aradenac/AI-Compass/issues/3) | **Completed** — UUIDv7 + HRIDs, versioned JSON Schema, immutable Model revisions, audit and authorized REST API |
 | [PLAT-04](https://github.com/aradenac/AI-Compass/issues/4) | Safely stage legacy localStorage exports |
 | [PLAT-05](https://github.com/aradenac/AI-Compass/issues/5) | Enable API-backed Models in Server mode without removing the local Demo provider |
 
@@ -97,4 +97,4 @@ Each issue contains: **user-visible outcome**, bounded **in-scope changes**, **a
 
 ## Next action
 
-**PLAT-01 is completed on main.** [GitHub Actions validation](https://github.com/aradenac/AI-Compass/actions/runs/37864857989) passed Docker startup, migrations, Django/API tests, isolated backup/restore, container recreation and independent standalone Demo HTTP serving. [PLAT-02](https://github.com/aradenac/AI-Compass/issues/2) is also **completed and verified** ([passing auth and recovery CI](https://github.com/aradenac/AI-Compass/actions/runs/37865692273)). Next: implement [PLAT-03](https://github.com/aradenac/AI-Compass/issues/3) for immutable Model identifiers and revisions, retaining Demo mode.
+**PLAT-01 is completed on main.** [GitHub Actions validation](https://github.com/aradenac/AI-Compass/actions/runs/37864857989) passed Docker startup, migrations, Django/API tests, isolated backup/restore, container recreation and independent standalone Demo HTTP serving. [PLAT-02](https://github.com/aradenac/AI-Compass/issues/2) is also **completed and verified** ([passing auth and recovery CI](https://github.com/aradenac/AI-Compass/actions/runs/37865692273)). [PLAT-03](https://github.com/aradenac/AI-Compass/issues/3) is also **completed** and documented in [Model Catalog Architecture](model-catalog-architecture.md); next is [PLAT-04](https://github.com/aradenac/AI-Compass/issues/4), safe opt-in staging of Demo exports, while Demo remains a permanent supported runtime.
