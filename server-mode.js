@@ -29,10 +29,10 @@
     '<aside class="server-sidebar"><div style="font-size:23px;font-weight:750;margin-bottom:12px">AI Compass</div>',
     '<strong>Server mode</strong><p style="margin:14px 0">Authenticated shared backend</p>',
     '<a href="?mode=demo">Return to independent Demo mode</a>',
-    '<p style="margin-top:25px;font-size:12px">Real Models are stored in PostgreSQL; fake Demo records are never copied.</p>',
+    '<p style="margin-top:25px;font-size:12px">Real technology records are stored in PostgreSQL; fake Demo records are never copied.</p>',
     '</aside>',
     '<main class="server-main"><h1>Technology catalog</h1>',
-    '<p style="margin-bottom:20px;color:#64748b">Real Django session · shared persistent Models · independent Demo</p>',
+    '<p style="margin-bottom:20px;color:#64748b">Real Django session · persistent technology catalog · independent Demo</p>',
     '<div class="server-card">',
     '<p id="server-state" class="server-status" role="status" aria-live="polite">Connecting to backend…</p>',
     '<form id="server-login-form" hidden>',
@@ -47,7 +47,7 @@
     '<div class="server-actions" id="server-actions"></div><button id="server-logout">Sign out</button></section>',
     '</div>',
     '<section id="server-model-catalog" class="server-catalog" hidden>',
-    '<div class="server-model-toolbar"><div><h2>Models</h2><p class="muted small">Persistent catalog · versions and original revisions</p></div>',
+    '<div class="server-model-toolbar"><div><h2>Models · Providers · Harnesses · Frameworks</h2><p class="muted small">Persistent catalog · versions and original revisions</p></div>',
     '<button type="button" class="btn" id="server-model-refresh">Refresh from Server</button></div>',
     '<p id="server-model-state" class="server-status" role="status" aria-live="polite"></p>',
     '<div id="server-model-list"></div>',
@@ -60,7 +60,7 @@
     '<input id="server-inspect-id" name="object_id" required maxlength="120" placeholder="mdl-word-word-word">',
     '<button type="submit">Inspect original record</button></form>',
     '<section id="server-catalog-raw" class="server-card" style="margin-top:12px" hidden></section>',
-    '<div class="note" style="margin-top:14px">Providers, Harnesses and Frameworks are not yet persistent in Server mode; these follow in PLAT-06.</div>',
+    '<div class="note" style="margin-top:14px">Frameworks describe orchestration and are not benchmarked AI Solutions.</div>',
     '</section></main></div>'
   ].join("");
 
@@ -75,6 +75,10 @@
   var history = document.getElementById("server-model-history");
   var raw = document.getElementById("server-catalog-raw");
   var cachedModels = [];
+  var TYPES = ["model","provider","harness","framework"];
+  var adapters = Object.fromEntries(TYPES.map(function (type) {
+    return [type, modelsUi.ApiDataProvider(csrfFromCookie, type)];
+  }));
   var grants = [];
   var refreshGeneration = 0;
   var adapter = modelsUi.ApiDataProvider(csrfFromCookie);
@@ -132,20 +136,22 @@
   }
 
   function renderModels() {
-    modelList.innerHTML = modelsUi.renderLane(cachedModels, {
-      canWrite: grants.includes("business_write"), showRevisions: true
-    });
+    modelList.innerHTML = TYPES.map(function (type) {
+      return modelsUi.renderLane(cachedModels.filter(function (item) { return item.type === type; }), {
+        type: type, canWrite: grants.includes("business_write"), showRevisions: true
+      });
+    }).join("");
   }
 
   async function refreshModels() {
     var generation = ++refreshGeneration;
     catalogStatus("Loading real Models from Server…", false);
     try {
-      var rows = await adapter.list();
+      var rowsByType = await Promise.all(TYPES.map(function (type) { return adapters[type].list(); }));
       if (generation !== refreshGeneration || catalog.hidden) return;
-      cachedModels = rows;
+      cachedModels = rowsByType.flat();
       renderModels();
-      catalogStatus(rows.length + " real Model(s) stored in the shared Server catalog.", false);
+      catalogStatus(cachedModels.length + " real catalog item(s) stored in PostgreSQL.", false);
     } catch (error) {
       if (generation !== refreshGeneration || catalog.hidden) return;
       cachedModels = [];
@@ -206,21 +212,37 @@
       }).join("") + "</select></div>";
   }
 
-  function showEditor(item) {
+  function showEditor(item, requestedType) {
     if (!grants.includes("business_write")) return;
     if (item && item.readOnly) {
       showRaw(item);
-      catalogStatus("Editing blocked: historical or unsupported Model requires schema review. Original data is preserved.", true);
+      catalogStatus("Editing blocked: historical or unsupported catalog item requires schema review. Original data is preserved.", true);
       return;
     }
     history.hidden = true;
     var p = (item && item.properties) || {};
     var extras = {};
     Object.keys(p).forEach(function (key) {
-      if (!["version", "url", "details", "publication", "status", "accessible"].includes(key)) extras[key] = p[key];
+      if (!["version", "url", "details", "publication", "status", "accessible",
+        "hosting","access","pricing","endpoint","interface","integrations","process","orchestration","stages"].includes(key)) extras[key] = p[key];
     });
     editor.hidden = false;
-    editor.innerHTML = '<h2>' + (item ? "Edit Model" : "Create Model") + '</h2>' +
+    var type = item ? item.type : (requestedType || "model");
+    if (!TYPES.includes(type)) throw new Error("Unsupported catalog component");
+    var typeFields = {
+      provider: [["hosting","Hosting"],["access","Access / API terms"],
+        ["pricing","Pricing description"],["endpoint","Endpoint"]],
+      harness: [["interface","Interface (cli / ide / web / agent / multi)"],
+        ["integrations","Integrations (comma-separated)"]],
+      framework: [["process","Process / methodology"],["orchestration","Orchestration design"],
+        ["stages","Stages (comma-separated)"]]
+    };
+    var typedFields = (typeFields[type] || []).map(function (entry) {
+      var value = p[entry[0]] == null ? "" : p[entry[0]];
+      return field(entry[0], entry[1], Array.isArray(value) ? value.join(", ") : value);
+    }).join("");
+    editor.innerHTML = '<h2>' + (item ? "Edit " : "Create ") +
+      escapeHtml(type.charAt(0).toUpperCase() + type.slice(1)) + '</h2>' +
       '<p class="muted small">' + (item ?
         'Editing ' + escapeHtml(item.id) + ' · ' + escapeHtml(item.revision) +
         '. Saving appends a new immutable revision.' :
@@ -235,6 +257,7 @@
       select("status", "Technology lifecycle", [["active","Active"],["watching","Watch candidate"],["retired","Retired"]], p.status || "active") +
       field("url", "Official project URL (optional)", p.url || "", "url", "full") +
       field("details", "Notes, capabilities, limitations", p.details || "", "textarea", "full") +
+      typedFields +
       field("extras", "Other schema properties (JSON object; preserved verbatim)", JSON.stringify(extras, null, 2), "textarea", "full") +
       '</div><button type="submit" id="server-model-save">Save Model to Server</button>' +
       '<button type="button" id="server-model-cancel">Cancel</button></form>';
@@ -243,12 +266,12 @@
     });
     editor.querySelector("#server-model-form").addEventListener("submit", function (event) {
       event.preventDefault();
-      submitModel(event.target, item);
+      submitModel(event.target, item, type);
     });
     editor.scrollIntoView({block: "nearest", behavior: "smooth"});
   }
 
-  function modelProperties(formElement, previous) {
+  function modelProperties(formElement, previous, type) {
     var values = Object.fromEntries(new FormData(formElement).entries());
     var extras;
     try { extras = JSON.parse(values.extras || "{}"); }
@@ -257,6 +280,14 @@
       throw new Error("Other properties must be a JSON object.");
     }
     var p = Object.assign({}, previous ? previous.properties : {}, extras);
+    var typeKeys = {provider: ["hosting","access","pricing","endpoint"],
+      harness: ["interface","integrations"],
+      framework: ["process","orchestration","stages"]};
+    (typeKeys[type] || []).forEach(function (key) {
+      if (["integrations","stages"].includes(key))
+        p[key] = (values[key] || "").split(",").map(function (v) { return v.trim(); }).filter(Boolean);
+      else if (values[key] !== undefined) p[key] = values[key];
+    });
     p.version = values.version || "";
     p.details = values.details || "";
     p.url = values.url || "";
@@ -272,19 +303,20 @@
     return {name: values.name.trim(), properties: p};
   }
 
-  async function submitModel(formElement, original) {
+  async function submitModel(formElement, original, type) {
     var saveButton = formElement.querySelector("#server-model-save");
     var message = editor.querySelector("#server-editor-status");
     saveButton.disabled = true;
     message.textContent = "Saving to Server…";
     message.className = "server-status";
     try {
-      var next = modelProperties(formElement, original);
+      var next = modelProperties(formElement, original, type);
+      var typedAdapter = adapters[type];
       if (original) {
         next.expected_revision = original.revision;
-        await adapter.revise(original.id, next);
+        await typedAdapter.revise(original.id, next);
       } else {
-        await adapter.create(next);
+        await typedAdapter.create(next);
       }
       editor.hidden = true;
       await refreshModels();
@@ -301,9 +333,11 @@
     history.hidden = false;
     raw.hidden = true;
     history.classList.remove("server-error");
-    history.textContent = "Loading immutable Model revisions…";
+    history.textContent = "Loading immutable catalog revisions…";
     try {
-      var versions = await adapter.revisions(id);
+      var item = cachedModels.find(function (row) { return row.id === id; });
+      if (!item) throw new Error("Unknown catalog item");
+      var versions = await adapters[item.type].revisions(id);
       if (history.hidden) return;
       history.innerHTML = '<h2>Model revision history</h2><p class="muted small">' +
         escapeHtml(id) + ' · ' + versions.length + ' revision(s) · read only</p>' +
@@ -375,7 +409,7 @@
     var button = event.target.closest("button[data-act]");
     if (!button) return;
     var act = button.dataset.act, id = button.dataset.id;
-    if (act === "newComponentType" && id === "model") showEditor(null);
+    if (act === "newComponentType" && TYPES.includes(id)) showEditor(null, id);
     if (act === "editComponent") {
       var model = cachedModels.find(function (item) { return item.id === id; });
       if (model) showEditor(model);
