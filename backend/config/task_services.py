@@ -10,8 +10,9 @@ from .catalog_compat import compatibility_for_revision
 from .catalog_ids import new_public_id
 from .catalog_schemas import InvalidModel, validate_model
 from .catalog_services import ExhaustedIds, RevisionConflict
+from .activity_services import record_catalog_event
 from .models import (
-    CatalogAuditEvent, CatalogItem, CatalogRevision, ObjectTypeVersion,
+    CatalogItem, CatalogRevision, ObjectTypeVersion,
     TaskNode, TaskStructureRevision,
 )
 
@@ -89,7 +90,7 @@ def _append(node, actor, *, name=None, properties=None, action="revised"):
     )
     item.current_revision = row
     item.save(update_fields=["current_revision"])
-    CatalogAuditEvent.objects.create(item=item, revision=row, actor=actor, action=action)
+    record_catalog_event(item=item, revision=row, actor=actor, action=action)
 
 
 def _siblings(nodes, parent):
@@ -159,7 +160,7 @@ def create_task(*, actor, name, properties=None, parent_id=None, before=None):
                 TaskStructureRevision.objects.create(
                     revision=revision, task=node, parent=parent, position=index
                 )
-                CatalogAuditEvent.objects.create(item=item, revision=revision, actor=actor, action="created")
+                record_catalog_event(item=item, revision=revision, actor=actor, action="created")
                 destination.insert(index, node)
                 for i, sibling in enumerate(destination):
                     if sibling.pk == node.pk:

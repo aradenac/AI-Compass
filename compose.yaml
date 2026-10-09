@@ -54,6 +54,7 @@ services:
       - ./server-mode.js:/srv/frontend/server-mode.js:ro
       - ./server-tasks.js:/srv/frontend/server-tasks.js:ro
       - ./server-users.js:/srv/frontend/server-users.js:ro
+      - ./server-activity.js:/srv/frontend/server-activity.js:ro
       - ./model-catalog.js:/srv/frontend/model-catalog.js:ro
     depends_on:
       api:
