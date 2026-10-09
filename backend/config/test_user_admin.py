@@ -3,6 +3,7 @@ import json
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
+from django.contrib.sessions.models import Session
 from django.db import DatabaseError, transaction
 from django.test import Client, TestCase
 
@@ -73,11 +74,13 @@ class UserAdministrationTests(TestCase):
         self.assertTrue(result.json()["changed"])
         self.assertEqual(session.get("/api/v1/models").status_code, 403)
         self.assertEqual(session.get("/api/v1/auth/maintenance").status_code, 200)
+        original_session_key = session.session.session_key
+        self.assertTrue(Session.objects.filter(session_key=original_session_key).exists())
         self.assertEqual(self.patch(engineer.pk, {"active": False}).status_code, 200)
+        self.assertFalse(Session.objects.filter(session_key=original_session_key).exists())
         self.assertFalse(get_user_model().objects.get(pk=engineer.pk).is_active)
         denied = session.get("/api/v1/auth/maintenance")
-        self.assertEqual(denied.status_code, 401,
-            f"denied={denied.content!r} me={session.get('/api/v1/auth/me').content!r} session={dict(session.session)!r}")
+        self.assertEqual(denied.status_code, 401, denied.content)
         self.assertFalse(session.get("/api/v1/auth/me").json()["authenticated"])
         self.assertEqual(self.client.get(BASE + "?status=inactive&search=engineer").json()["total"], 1)
         self.assertEqual(self.patch(engineer.pk, {"active": True, "roles": ["user"]}).status_code, 200)
