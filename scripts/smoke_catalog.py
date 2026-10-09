@@ -35,7 +35,10 @@ def call(opener, jar, path, data=None, status=200):
         response = opener.open(request, timeout=12)
     except urllib.error.HTTPError as error:
         response = error
-    body = json.load(response)
+    try:
+        body = json.load(response)
+    except (ValueError, UnicodeDecodeError):
+        body = {"status": response.status}  # Django renders 404 as HTML with DEBUG=False
     assert response.status == status, (path, response.status, status, body)
     return body
 
@@ -78,7 +81,7 @@ for kind, properties in kinds.items():
     }, 409)
     assert conflict["error"] == "revision_conflict"
     wrong_kind = "provider" if kind != "provider" else "harness"
-    assert call(first, cookies, "catalog/" + wrong_kind + "/" + ident, status=404)["detail"] == "Not found."
+    assert call(first, cookies, "catalog/" + wrong_kind + "/" + ident, status=404)["status"] == 404
     assert call(first, cookies, uri, {
         "name": "Invalid", "properties": {"accessible": "yes"}
     }, 400)["error"] == "invalid_catalog_item"
