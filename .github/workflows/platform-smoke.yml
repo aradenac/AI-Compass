@@ -14,6 +14,7 @@ on:
       - "server-tasks.js"
       - "server-users.js"
       - "server-activity.js"
+      - "server-data-health.js"
       - "model-catalog.js"
       - ".env.example"
       - ".github/workflows/platform-smoke.yml"
@@ -28,6 +29,7 @@ on:
       - "server-tasks.js"
       - "server-users.js"
       - "server-activity.js"
+      - "server-data-health.js"
       - "model-catalog.js"
       - ".env.example"
       - ".github/workflows/platform-smoke.yml"
@@ -105,6 +107,8 @@ jobs:
         run: docker compose exec -T api python manage.py test config.test_schema_promotion -v 2
       - name: Verify Activity Feed permissions, audit correlation and exports
         run: docker compose exec -T api python manage.py test config.test_activity -v 2
+      - name: Verify maintenance-only health scans, access isolation and immutable triage
+        run: docker compose exec -T api python manage.py test config.test_data_health -v 2
       - name: Verify task taxonomy ancestry, version history and permissions
         run: docker compose exec -T api python manage.py test config.test_tasks -v 2
       - name: Run backend, persistence and backup/restore checks
@@ -169,6 +173,7 @@ jobs:
           curl -fsS http://127.0.0.1:18081/server-tasks.js | cmp - server-tasks.js
           curl -fsS http://127.0.0.1:18081/server-users.js | cmp - server-users.js
           curl -fsS http://127.0.0.1:18081/server-activity.js | cmp - server-activity.js
+          curl -fsS http://127.0.0.1:18081/server-data-health.js | cmp - server-data-health.js
           curl -fsS http://127.0.0.1:18081/api/v1/health | python3 -c 'import json,sys; x=json.load(sys.stdin); assert x["status"]=="ok" and x["database"]=="ok"'
           if python3 scripts/migration_stage.py verdict "$candidate" accepted --notes "Missing manual frontend acceptance"; then
             echo "UNREVIEWED STAGE ACCEPTED" >&2; exit 1
@@ -200,6 +205,8 @@ jobs:
           node --check server-users.js
           node scripts/test-server-users.js
           node --check server-activity.js
+          node --check server-data-health.js
+          node scripts/test-server-data-health.js
           node scripts/test-server-activity.js
           node scripts/test-server-tasks.js
           node --check model-catalog.js
@@ -219,12 +226,14 @@ jobs:
           assert '<script src="server-tasks.js"></script>' in page
           assert '<script src="server-users.js"></script>' in page
           assert '<script src="server-activity.js"></script>' in page
+          assert '<script src="server-data-health.js"></script>' in page
           assert 'localStorage' not in script or 'localStorage' in script.splitlines()[0]  # only explanatory comments may mention it
           PY
           curl -fsS http://127.0.0.1:8080/server-mode.js | cmp - server-mode.js
           curl -fsS http://127.0.0.1:8080/server-tasks.js | cmp - server-tasks.js
           curl -fsS http://127.0.0.1:8080/server-users.js | cmp - server-users.js
           curl -fsS http://127.0.0.1:8080/server-activity.js | cmp - server-activity.js
+          curl -fsS http://127.0.0.1:8080/server-data-health.js | cmp - server-data-health.js
           curl -fsS http://127.0.0.1:8080/model-catalog.js | cmp - model-catalog.js
 
       - name: Verify the same frontend also runs without any backend
