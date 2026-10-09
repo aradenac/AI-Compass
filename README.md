@@ -39,6 +39,15 @@ python3 -m http.server 8080
 
 The app uses **localStorage** for records and the selected demo account. Changes survive page reloads in the same browser/origin. **Export data JSON** saves the records visible to the current role; workgroup accounts can export/import the full dataset for sharing test scenarios. **Reset demo dataset** restores the initial mock records. Other devices, browsers, or origins do not share data automatically.
 
+### Runtime modes — Demo vs Server
+
+The same prototype runs in two explicitly selected runtime modes. Switch between them from the sidebar's mode button (top bar shows **LOCAL DEMO** or **SERVER MODE**). Switching reloads the page and selects the matching data provider at boot; **data is never copied, migrated, synchronized or auto-fallen-back between the two modes.**
+
+- **Demo mode** (default): fake fixtures live in this browser's `localStorage`. The Technology catalog keeps its seeded Models/Providers/Harnesses/Frameworks, runnable with no backend. Create/edit writes only to `localStorage`.
+- **Server mode**: the **Models** catalog is governed by an authenticated backend (`/api/models/`) and the server is authoritative. A fresh Server environment starts with **no Models** until a real one is created; other catalog types (Providers, Harnesses, Frameworks) and all other records still use `localStorage`. Server-mode never reads or writes `localStorage` for Models: if the backend is unreachable it shows a clear error and an empty Models list rather than falling back to Demo data.
+
+In both modes the **same Models UI** (list, create, edit) is used; only the data provider behind it differs.
+
 ### Mock accounts — choose one on the login screen
 
 | Test user | Simulated role | Suggested journey |
@@ -173,4 +182,4 @@ All changes are persisted in `localStorage`; node IDs remain stable, and prior b
 
 Runs retain a **snapshot of their Test Case and AI solution**, together with the campaign's linked technological signals, as created, so later changes do not rewrite the historical experimental setup. Recommendation and catalog edits are tracked in prototype revision records.
 
-> **Prototype limitations:** Demo data, accounts, scores, costs, adoption figures, artifacts and transcripts are synthetic. Evidence filenames are illustrative text, not real uploaded files. Local role guards can be bypassed by someone with browser developer tools; confidential material must not be entered. No real AI model calls, automated execution, centralized multi-user synchronization or production authentication exist yet.
+> **Prototype limitations:** Demo data, accounts, scores, costs, adoption figures, artifacts and transcripts are synthetic. Evidence filenames are illustrative text, not real uploaded files. Local role guards can be bypassed by someone with browser developer tools; confidential material must not be entered. No real AI model calls, automated execution, centralized multi-user synchronization or production authentication exist yet. **Server mode** wires the Models catalog to an expected `/api/models/` backend, but no Django/PostgreSQL backend is included in this repository: without a backend, Server mode reports the backend as unavailable and never substitutes Demo data.

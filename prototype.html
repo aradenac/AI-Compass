@@ -107,8 +107,13 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;b
 <script>
 "use strict";
 
-var KEY="ai-compass-demo-v1", SESSION="ai-compass-demo-user";
+var KEY="ai-compass-demo-v1", SESSION="ai-compass-demo-user", MODE_KEY="ai-compass-runtime-mode";
 var TODAY="2026-10-08";
+// Explicit runtime mode: "demo" (browser localStorage, fake fixtures) or "server" (authenticated API).
+// The mode is selected at boot and never auto-fallbacks, auto-imports or migrates between the two.
+var runtimeMode=(function(){var m=null;try{m=localStorage.getItem(MODE_KEY);}catch(e){}return m==="server"?"server":"demo";})();
+function isServerMode(){return runtimeMode==="server";}
+function setRuntimeMode(m){runtimeMode=(m==="server")?"server":"demo";try{localStorage.setItem(MODE_KEY,runtimeMode);}catch(e){}}
 var seed=function(){
 return {
  version:1,
@@ -211,6 +216,71 @@ var db;
 try{var saved=localStorage.getItem(KEY);db=saved?JSON.parse(saved):seed();if(!db||!db.tasks||!db.solutions)throw Error("Invalid data");}catch(ex){db=seed();}
 function persist(){localStorage.setItem(KEY,JSON.stringify(db));}
 if(!localStorage.getItem(KEY))persist();
+
+/* ── PLAT-05 · Models data-provider contract ──────────────────────────────────
+   The same Models UI works in two runtime modes:
+     • Demo   → LocalStorageModelsProvider (fake fixtures in this browser's localStorage)
+     • Server → ApiModelsProvider          (authenticated /api/models over HTTP)
+   Only Models (db.components with type==="model") route through the provider.
+   Providers, Harnesses and Frameworks keep using the existing db/persist() path.
+   The mode is explicit: never auto-fallback, auto-import or migrate between modes.
+   ──────────────────────────────────────────────────────────────────────────── */
+function modelDataToComponent(d,id){return {id:id||("model_"+Date.now().toString(36)),type:"model",name:String(d?.name||""),version:String(d?.version||""),url:String(d?.url||""),details:String(d?.details||""),publication:d?.publication||"published",accessible:!!d?.accessible,status:d?.status||"active"};}
+
+// Demo provider: wraps the existing db.components behavior for type==="model", bit-for-bit.
+function LocalStorageModelsProvider(){}
+LocalStorageModelsProvider.prototype.list=function(){return Promise.resolve({items:db.components.filter(function(c){return c.type==="model";}).slice(),error:""});};
+LocalStorageModelsProvider.prototype.get=function(id){var c=rec("components",id);return Promise.resolve(c&&c.type==="model"?c:null);};
+LocalStorageModelsProvider.prototype.create=function(d){
+ var comp=modelDataToComponent({name:d.name,version:d.version,url:d.url,details:d.details,publication:d.publication,accessible:d.accessible,status:d.status},next("model"));
+ db.components.push(comp);persist();
+ return Promise.resolve(comp);
+};
+LocalStorageModelsProvider.prototype.update=function(id,d){
+ var comp=rec("components",id);if(!comp||comp.type!=="model")return Promise.reject(new Error("Model not found"));
+ Object.assign(comp,{name:d.name,version:d.version,url:d.url||"",details:d.details,publication:d.publication,accessible:!!d.accessible,status:d.status||"active"});
+ persist();
+ return Promise.resolve(comp);
+};
+
+// Server provider: real HTTP client against the authenticated Django/PostgreSQL API.
+// Never reads or writes localStorage for Models; never falls back to Demo data.
+var MODELS_API_BASE="/api/models/";
+function handleApi(res){
+ if(res.status===401||res.status===403)return res.text().then(function(t){return {ok:false,status:res.status,error:"permission"};});
+ if(res.status===404)return {ok:false,status:404,error:"notfound"};
+ if(!res.ok)return {ok:false,status:res.status,error:"http"};
+ return res.json().then(function(data){return {ok:true,data:data};}).catch(function(){return {ok:false,status:res.status,error:"parse"};});
+}
+function apiModelError(r){return r.error==="permission"?"You do not have permission to manage Models on the server.":r.error==="notfound"?"Model not found on the server.":r.error==="parse"?"Server returned unreadable model data.":"Server mode needs the backend ("+MODELS_API_BASE+"). It is unavailable (HTTP "+(r.status||"?")+"). Demo data is never used in Server mode.";}
+function fromApiModel(m){return modelDataToComponent({name:m.name,version:m.version,url:m.url,details:m.details,publication:m.publication,accessible:m.accessible,status:m.status},m.id);}
+function toApiModel(d){return {name:d.name,version:d.version,url:d.url||"",details:d.details,publication:d.publication,accessible:!!d.accessible,status:d.status||"active"};}
+function ApiModelsProvider(){}
+ApiModelsProvider.prototype.list=function(){
+ return fetch(MODELS_API_BASE,{credentials:"include",headers:{"Accept":"application/json"}}).then(function(res){return handleApi(res);}).then(function(r){
+  if(!r.ok)return {error:apiModelError(r),items:[]};
+  var arr=Array.isArray(r.data)?r.data:(r.data&&Array.isArray(r.data.results)?r.data.results:[]);
+  return {items:arr.map(fromApiModel),error:""};
+ }).catch(function(){return {items:[],error:"Server mode needs the backend ("+MODELS_API_BASE+"). It is unreachable. Demo data is never used in Server mode."};});
+};
+ApiModelsProvider.prototype.get=function(id){
+ return fetch(MODELS_API_BASE+encodeURIComponent(id)+"/",{credentials:"include",headers:{"Accept":"application/json"}}).then(handleApi).then(function(r){
+  if(!r.ok)throw new Error(apiModelError(r));return fromApiModel(r.data);
+ }).catch(function(e){throw new Error(e&&e.message?e.message:"Server mode is unavailable.");});
+};
+ApiModelsProvider.prototype.create=function(d){
+ return fetch(MODELS_API_BASE,{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify(toApiModel(d))}).then(handleApi).then(function(r){
+  if(!r.ok)throw new Error(apiModelError(r));return fromApiModel(r.data);
+ });
+};
+ApiModelsProvider.prototype.update=function(id,d){
+ return fetch(MODELS_API_BASE+encodeURIComponent(id)+"/",{method:"PATCH",credentials:"include",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify(toApiModel(d))}).then(handleApi).then(function(r){
+  if(!r.ok)throw new Error(apiModelError(r));return fromApiModel(r.data);
+ });
+};
+var modelsProvider=isServerMode()?new ApiModelsProvider():new LocalStorageModelsProvider();
+function refreshModels(){ui.modelsCache.loading=true;return modelsProvider.list().then(function(res){ui.modelsCache.items=res.items||[];ui.modelsCache.error=res.error||"";ui.modelsCache.loading=false;render();}).catch(function(e){ui.modelsCache.items=[];ui.modelsCache.error=e&&e.message?e.message:"Server mode is unavailable.";ui.modelsCache.loading=false;render();});}
+
 function ensureDefaults(){
 if(!db.components){
  db.components=[];
@@ -393,7 +463,7 @@ db.runs.forEach(function(r,i){
 }
 ensureDefaults();persist();
 var currentUser=localStorage.getItem(SESSION)||"";
-var ui={page:"dashboard",task:"t5",solution:"s1",solutionView:"solutions",bench:"runs",matrix:"task",matrixTarget:"t5",filters:{},expanded:{},modal:"",detail:"",selectedCompare:["s1","s2","s3"],adminTab:"queue",taskView:"browse",editingTask:"",inlineDraft:null,draggedTask:""};
+var ui={page:"dashboard",task:"t5",solution:"s1",solutionView:"solutions",bench:"runs",matrix:"task",matrixTarget:"t5",filters:{},expanded:{},modal:"",detail:"",selectedCompare:["s1","s2","s3"],adminTab:"queue",taskView:"browse",editingTask:"",inlineDraft:null,draggedTask:"",modelsCache:{items:[],loading:false,error:""}};
 function user(){return db.users.find(function(x){return x.id===currentUser;});}
 function canEdit(){return !!user()&&user().role==="workgroup";}
 function canContribute(){return !!user();}
@@ -608,7 +678,7 @@ var navigation=canEdit()?
 '<div class="nav-group"><div class="nav-label">Discover</div>'+navButton("dashboard","◈","Overview")+navButton("tasks","▤","Task explorer")+navButton("solutions","◇","AI solutions")+navButton("recommendations","✧","Recommendations")+'</div>'+
 '<div class="nav-group"><div class="nav-label">Evaluate</div>'+navButton("results","◫","Benchmark results")+navButton("knowledge","▣","Guides & charter")+navButton("watch","◉","Technology watch")+'</div>'+
 '<div class="nav-group"><div class="nav-label">Collaborate</div>'+navButton("feedback","♧","Feedback & ideas")+navButton("activity","◷","Activity feed")+navButton("management","▥","Management view")+'</div>';
-document.getElementById("app").innerHTML='<div class="app"><aside class="sidebar"><div class="brand"><div class="brand-mark">✦</div><div><div class="brand-name">AI Compass</div><div class="brand-note">Evidence workspace</div></div></div><div class="nav-area">'+navigation+'</div><div class="side-foot"><div class="demo">INTERACTIVE PROTOTYPE<br>All records are simulated and saved only in this browser.</div><button data-act="export">↓ Export data JSON</button>'+(canEdit()?'<button data-act="import">↑ Import data JSON</button>':'')+'<input id="importFile" type="file" accept=".json,application/json" style="display:none"><button data-act="reset">↺ Reset demo dataset</button></div></aside><section class="main"><header class="topbar"><div class="top-label"><span class="crumb">Workspace</span><span class="muted">/</span><strong>'+E(title)+'</strong></div><div class="top-actions"><span class="tag blue">LOCAL DEMO</span><button class="account" data-act="switch"><span class="avatar">'+E(u.initials)+'</span><span><strong>'+E(u.name)+'</strong><span class="tiny-role">'+E(u.role)+" · "+E(u.bu)+'</span></span><span class="muted">⌄</span></button></div></header><main class="content">'+inner+'</main></section></div>'+modal();
+document.getElementById("app").innerHTML='<div class="app"><aside class="sidebar"><div class="brand"><div class="brand-mark">✦</div><div><div class="brand-name">AI Compass</div><div class="brand-note">Evidence workspace</div></div></div><div class="nav-area">'+navigation+'</div><div class="side-foot"><div class="demo">'+(isServerMode()?"SERVER MODE<br>Models persist on the shared backend; other records stay in this browser.":"INTERACTIVE PROTOTYPE<br>All records are simulated and saved only in this browser.")+'</div><button data-act="switchMode">'+(isServerMode()?"↩ Switch to Demo mode":"⚙ Switch to Server mode")+'</button><button data-act="export">↓ Export data JSON</button>'+(canEdit()?'<button data-act="import">↑ Import data JSON</button>':'')+'<input id="importFile" type="file" accept=".json,application/json" style="display:none"><button data-act="reset">↺ Reset demo dataset</button></div></aside><section class="main"><header class="topbar"><div class="top-label"><span class="crumb">Workspace</span><span class="muted">/</span><strong>'+E(title)+'</strong></div><div class="top-actions"><span class="tag '+(isServerMode()?"teal":"blue")+'">'+(isServerMode()?"SERVER MODE":"LOCAL DEMO")+'</span><button class="account" data-act="switch"><span class="avatar">'+E(u.initials)+'</span><span><strong>'+E(u.name)+'</strong><span class="tiny-role">'+E(u.role)+" · "+E(u.bu)+'</span></span><span class="muted">⌄</span></button></div></header><main class="content">'+inner+'</main></section></div>'+modal();
 }
 function heading(eyebrow,title,desc,actions){return '<div class="page-head"><div><div class="eyebrow">'+E(eyebrow)+'</div><h1>'+E(title)+'</h1><p class="lead">'+E(desc)+'</p></div><div class="head-actions">'+(actions||"")+'</div></div>';}
 function stat(label,value,foot){return '<div class="card"><div class="stat-label">'+E(label)+'</div><div class="stat-value">'+E(value)+'</div><div class="stat-foot">'+E(foot||"")+'</div></div>';}
@@ -625,7 +695,7 @@ return '<div class="event"><div class="row-between"><strong>'+E(x.text)+'</stron
 }).join("")+'</div>';}
 function render(){var pages={dashboard:dashboardPage,tasks:tasksPage,solutions:solutionsPage,recommendations:recommendationsPage,benchmark:benchmarkPage,results:resultsPage,testdesign:testDesignPage,knowledge:knowledgePage,watch:watchPage,feedback:feedbackPage,activity:activityPage,management:managementPage,workgroup:benchmarkPage};
 var labels={dashboard:canEdit()?"Dashboard":"Overview",tasks:canEdit()?"Task management":"Task explorer",solutions:canEdit()?"Technology catalog":"AI solutions",recommendations:"Recommendations",benchmark:"Benchmark workspace",results:"Results explorer",testdesign:"Test design",knowledge:"Guides & charter",watch:"Technology watch",feedback:"Feedback & discussions",activity:"Activity feed",management:"Management view",workgroup:"Benchmark workspace"};
-if(!user()){login();return;}if(ui.page==="workgroup")ui.page=canEdit()?"benchmark":"dashboard";if((ui.page==="benchmark"||ui.page==="testdesign")&&!canEdit())ui.page="results";if(canEdit()&&ui.page==="solutions")ui.solutionView="components";shell((pages[ui.page]||dashboardPage)(),labels[ui.page]);}
+if(!user()){login();return;}if(ui.page==="workgroup")ui.page=canEdit()?"benchmark":"dashboard";if((ui.page==="benchmark"||ui.page==="testdesign")&&!canEdit())ui.page="results";if(canEdit()&&ui.page==="solutions"){ui.solutionView="components";if(!ui.modelsCache.loading&&!ui.modelsCache.error&&!ui.modelsCache.items.length)refreshModels();}shell((pages[ui.page]||dashboardPage)(),labels[ui.page]);}
 function login(){document.getElementById("app").innerHTML='<div class="login-wall"><div class="login-box"><div class="row"><div class="brand-mark">✦</div><div><h1>AI Compass</h1><p class="muted">Interactive product workflow prototype</p></div></div><p class="lead">Select a simulated account to explore role-specific journeys. No password or server authentication is used; all data stays in this browser.</p><div class="login-users">'+db.users.map(function(u){return '<button class="login-user" data-act="login" data-id="'+E(u.id)+'"><span class="avatar">'+E(u.initials)+'</span><span><strong>'+E(u.name)+'</strong><span class="tiny-role">'+E(u.role)+' · '+E(u.bu)+'</span></span></button>';}).join("")+'</div><hr class="divider"><div class="row-between"><span class="muted small">Mock accounts · no real security · shared local data</span>'+btn("Reset demo dataset","reset","","sm")+'</div></div></div>';}
 function modal(){if(!ui.modal)return "";return '<div class="modal-backdrop" id="backdrop"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="dialog-title"><div class="modal-header"><h2 id="dialog-title">'+E(ui.modalTitle||"Details")+'</h2><button class="x" data-act="close" aria-label="Close dialog">×</button></div><div class="modal-body">'+(ui.modalBody||"")+'</div>'+(ui.modalFooter?'<div class="modal-footer">'+ui.modalFooter+'</div>':"")+'</div></div>';}
 function openModal(title,body,footer){ui.modal="shown";ui.modalTitle=title;ui.modalBody=body;ui.modalFooter=footer||"";render();}
@@ -858,10 +928,19 @@ return '<article class="card solution-card"><div class="solution-title"><div cla
 
 function componentCatalogueType(type){
  var title={model:"Models",provider:"Providers",harness:"Harnesses",framework:"Frameworks"}[type];
- var list=db.components.filter(function(c){return c.type===type;}).sort(function(a,b){return a.name.localeCompare(b.name);});
- return '<section class="card component-lane"><div class="card-head"><div><div class="eyebrow">'+E(type)+'</div><h2>'+E(title)+'</h2></div>'+btn("+ Add","newComponentType",type,"sm")+'</div>'+
- '<p class="muted small" style="margin-bottom:14px">'+E(({model:"Versioned engines and capabilities",provider:"Hosting, endpoints, access and pricing",harness:"CLI, web, IDE and agent tool integrations",framework:"Multi-agent process and orchestration; multiple configured trios per campaign"})[type])+'</p>'+
- '<div class="list">'+list.map(function(c){
+ // Models route through the data-provider contract (localStorage in Demo, API in Server).
+ var isModelLane=type==="model";
+ var cache=ui.modelsCache;
+ var list=isModelLane?cache.items.slice().sort(function(a,b){return a.name.localeCompare(b.name);}):db.components.filter(function(c){return c.type===type;}).sort(function(a,b){return a.name.localeCompare(b.name);});
+ var laneBody='';
+ if(isModelLane&&cache.loading){
+  laneBody='<div class="empty">Loading Models…</div>';
+ }else if(isModelLane&&cache.error){
+  laneBody='<div class="note warn" style="margin-bottom:10px">'+E(cache.error)+'</div><div class="empty">Models could not be loaded from the server.</div>';
+ }else if(!list.length){
+  laneBody='<div class="empty">'+(isModelLane?'No Models yet — create the first one.':'No '+title.toLowerCase()+' yet.')+'</div>';
+ }else{
+  laneBody=list.map(function(c){
   var count=type==="framework"?db.campaigns.filter(function(x){return x.frameworkId===c.id;}).length:
    db.solutions.filter(function(sol){return sol.componentRefs?.[type]===c.id&&db.runs.some(function(r){return r.solution===sol.id;});}).length;
   return '<div class="list-row"><div class="short"><strong>'+E(c.name)+'</strong>'+
@@ -870,10 +949,17 @@ function componentCatalogueType(type){
    '<p class="muted small">'+E((c.details||"").slice(0,180))+'</p>'+
    (c.url&&validSetupUrl(c.url)?'<p class="small"><a href="'+E(c.url)+'" target="_blank" rel="noopener noreferrer">Documentation ↗</a></p>':"")+
    '</div>'+btn("Edit","editComponent",c.id,"sm")+'</div>';
- }).join("")+'</div></section>';
+ }).join('');
+ }
+ return '<section class="card component-lane"><div class="card-head"><div><div class="eyebrow">'+E(type)+'</div><h2>'+E(title)+'</h2></div>'+btn("+ Add","newComponentType",type,"sm")+'</div>'+
+ '<p class="muted small" style="margin-bottom:14px">'+E(({model:"Versioned engines and capabilities",provider:"Hosting, endpoints, access and pricing",harness:"CLI, web, IDE and agent tool integrations",framework:"Multi-agent process and orchestration; multiple configured trios per campaign"})[type])+'</p>'+
+ '<div class="list">'+laneBody+'</div></section>';
 }
 function componentCatalog(){
- var count=db.components.length;
+ // Models may live on the server (Server mode); count them from the provider cache.
+ var modelCount=ui.modelsCache.items.length;
+ var otherCount=db.components.filter(function(c){return c.type!=="model";}).length;
+ var count=isServerMode()?modelCount+otherCount:db.components.length;
  return '<div class="note" style="margin-bottom:17px"><strong>Catalog model:</strong> Models, Providers and Harnesses define individual AI configurations. A Framework orchestrates <strong>one or more</strong> separately configured trios within a benchmark campaign. An AI Solution is registered only after actual benchmark execution.</div>'+
  '<div class="grid g2">'+["model","provider","harness","framework"].map(componentCatalogueType).join("")+'</div>'+
  '<div class="row-between" style="margin-top:16px"><span class="muted small">'+count+' catalog components · '+db.solutions.filter(function(sol){return db.runs.some(function(r){return r.solution===sol.id;});}).length+' measured configurations</span><span class="muted small">Catalog ≠ measured evidence</span></div>';
@@ -1210,7 +1296,17 @@ field("desc","Problem / scope",old?.desc||"","textarea","full")+
 field("criteria","Expected outcomes / Definition of Done",old?.criteria||"","textarea","full"),existing||"",old?"Save task node":"Create task");
 }
 function dialogComponent(id,prefType,watchId){
-var c=rec("components",id),fromWatch=rec("watch",watchId);
+// In Server mode the model may not be in db.components; resolve from the provider cache too.
+var c=rec("components",id);
+if(!c&&id&&ui.modelsCache.items){c=ui.modelsCache.items.find(function(m){return m.id===id;})||null;}
+// If still unresolved and this is a Server-mode model, fetch it from the API then reopen.
+if(!c&&id&&isServerMode()){
+ modelsProvider.get(id).then(function(model){ui._serverModel=model;dialogComponent(id,prefType,watchId);})
+ .catch(function(ex){toast(ex&&ex.message?ex.message:"Model not found.");});
+ return;
+}
+if(ui._serverModel){c=ui._serverModel;ui._serverModel=null;}
+var fromWatch=rec("watch",watchId);
 openForm(c?"Edit catalog component":"Register catalog component",c?"componentEdit":"component",
 selectField("type","Object type",[["model","Model"],["provider","Provider"],["harness","Harness"],["framework","Framework"]],c?.type||prefType||"model")+
 selectField("publication","Publication status",[["draft","Draft"],["published","Published"]],c?.publication||"published")+
@@ -1239,7 +1335,14 @@ function dialogCase(task,fromCase){
  field("dod","Specific acceptance conditions (DoD)",from?.dod||"","textarea","full"),"","Create Test Case");
 }
 function comboComponentOptions(type,chosen){
-return [["","Select "+type]].concat(db.components.filter(function(c){return c.type===type&&c.status!=="retired";}).map(function(c){return[c.id,c.name+(c.version?" · "+c.version:"")+(c.accessible?"":" (not accessible)")];}));
+// Merge server-sourced Models (Server mode) with local db components so a benchmark
+// run can select a real Model created on the backend.
+var local=db.components.filter(function(c){return c.type===type&&c.status!=="retired";});
+if(type==="model"&&isServerMode()){
+ var seen={};local.forEach(function(c){seen[c.id]=true;});
+ local=local.concat(ui.modelsCache.items.filter(function(c){return c.status!=="retired"&&!seen[c.id];}));
+}
+return [["","Select "+type]].concat(local.map(function(c){return[c.id,c.name+(c.version?" · "+c.version:"")+(c.accessible?"":" (not accessible)")];}));
 }
 function dialogRun(preCase,preSolution,repeat,qualificationId,forecastId){
 var q=rec("qualifications",qualificationId),projection=rec("proposals",forecastId),orig=rec("runs",repeat),
@@ -2376,8 +2479,40 @@ if(kind==="task"||kind==="taskEdit"){
  }
  ui.page="watch";event("Research",(kind==="research"?"Registered":"Updated")+" external evidence: "+item.title,true);
 }else if(kind==="component"||kind==="componentEdit"){
- var comp=id?rec("components",id):{id:next("component")},prevComp=id?JSON.parse(JSON.stringify(comp)):null;
  if(!validSetupUrl(d.url)){toast("Catalog URL must be HTTP or HTTPS.");return;}
+ var isModel=d.type==="model",modelPayload={type:"model",name:req(d.name,"Component name"),version:d.version,url:d.url||"",details:d.details,publication:d.publication,accessible:d.accessible==="yes",status:d.status||"active"};
+ if(isModel){
+  // Models route through the data-provider contract (localStorage Demo / API Server).
+  var closeModelForm=function(){ui.modal="";persist();render();};
+  if(!id){
+   modelsProvider.create(modelPayload).then(function(created){
+    // Demo: LocalStorageModelsProvider.create already pushed + persisted.
+    // Server: the API is authoritative; mirror the created model into the cache only.
+    if(isServerMode()){if(!ui.modelsCache.items.some(function(m){return m.id===created.id;}))ui.modelsCache.items.push(created);}
+    if(form.dataset.watch){var signal=rec("watch",form.dataset.watch);if(signal){signal.component=created.id;signal.status="reviewed";}}
+    ui.page="solutions";ui.solutionView="components";event("Catalog","Registered model: "+created.name);
+    toast(isServerMode()?"Model created on the server.":"Changes saved in this browser.");
+    refreshModels();
+   }).catch(function(ex){toast(ex&&ex.message?ex.message:"Could not create the Model.");closeModelForm();});
+   return;
+  }
+  // Edit existing model: resolve from db (Demo) or the provider cache (Server).
+  var existingModel=rec("components",id)||ui.modelsCache.items.find(function(m){return m.id===id;})||null;
+  if(!existingModel){toast("Model not found.");return;}
+  modelsProvider.update(id,modelPayload).then(function(updated){
+   var prevComp=JSON.parse(JSON.stringify(existingModel));
+   // Update the local mirror if present (Demo); in Server mode the API is authoritative.
+   Object.assign(existingModel,{name:updated.name,version:updated.version,url:updated.url||"",details:updated.details,publication:updated.publication,accessible:updated.accessible,status:updated.status||"active"});
+   if(db.components.indexOf(existingModel)>=0)revision("Component",id,prevComp,existingModel);persist();
+   if(form.dataset.watch){var sig=rec("watch",form.dataset.watch);if(sig){sig.component=id;sig.status="reviewed";}}
+   ui.page="solutions";ui.solutionView="components";event("Catalog","Updated model: "+existingModel.name);
+   toast(isServerMode()?"Model updated on the server.":"Changes saved in this browser.");
+   refreshModels();
+  }).catch(function(ex){toast(ex&&ex.message?ex.message:"Could not update the Model.");closeModelForm();});
+  return;
+ }
+ // Non-model types (provider/harness/framework) keep the existing localStorage path.
+ var comp=id?rec("components",id):{id:next("component")},prevComp=id?JSON.parse(JSON.stringify(comp)):null;
  if(prevComp&&prevComp.type!==d.type&&(
  db.solutions.some(function(sol){return sol.componentRefs?.[prevComp.type]===comp.id;})||
  db.campaigns.some(function(c){return c.frameworkId===comp.id||
@@ -2387,7 +2522,7 @@ if(kind==="task"||kind==="taskEdit"){
  }
  Object.assign(comp,{type:d.type,name:req(d.name,"Component name"),version:d.version,url:d.url||"",details:d.details,publication:d.publication,accessible:d.accessible==="yes",status:d.status||"active"});
  if(!id)db.components.push(comp);else revision("Component",id,prevComp,comp);
- if(form.dataset.watch){var signal=rec("watch",form.dataset.watch);if(signal){signal.component=comp.id;signal.status="reviewed";}}
+ if(form.dataset.watch){var signal2=rec("watch",form.dataset.watch);if(signal2){signal2.component=comp.id;signal2.status="reviewed";}}
  ui.page="solutions";ui.solutionView="components";event("Catalog",(id?"Updated":"Registered")+" "+comp.type+": "+comp.name);
 }
 ui.modal="";persist();render();toast("Changes saved in this browser.");
@@ -2446,6 +2581,7 @@ var b=ev.target.closest("[data-act]");if(!b)return;
 var act=b.dataset.act,id=b.dataset.id||"";
 if(act==="login"){currentUser=id;localStorage.setItem(SESSION,id);ui.page="dashboard";render();return;}
 if(act==="switch"){currentUser="";localStorage.removeItem(SESSION);ui.modal="";render();return;}
+if(act==="switchMode"){var nextMode=isServerMode()?"demo":"server";var msg=nextMode==="server"?"Switch to Server mode? Models will load from the shared backend (empty until a real Model is created); other records stay in this browser. No data is copied from Demo.":"Switch to Demo mode? Models will use this browser's fake fixtures again. Server Models are left untouched on the backend. No data is copied from Server.";if(confirm(msg)){setRuntimeMode(nextMode);location.reload();}return;}
 if(act==="close"){closeModal();return;}
 if(act==="nav"){ui.page=id;ui.modal="";render();window.scrollTo(0,0);return;}
 if(act==="task"){ui.task=id;ui.matrixTarget=id;ui.modal="";ui.page="tasks";render();return;}
