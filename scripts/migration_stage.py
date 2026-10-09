@@ -133,7 +133,7 @@ def docker_volume_label(volume):
                             cwd=db.ROOT, env=environment, capture_output=True,
                             timeout=20, check=False)
     if result.returncode:
-        if b"No such volume" in result.stderr:
+        if b"no such volume" in result.stderr.lower():
             return None
         fail("Cannot inspect Docker volume: " + result.stderr.decode("utf-8", "replace")[-500:])
     return result.stdout.decode("utf-8", "replace").strip()
