@@ -148,10 +148,10 @@ curl -fsS -c "$COOKIE_JAR" "$BASE/api/v1/auth/csrf" >/dev/null
 read -rsp 'Server account password: ' PW; echo
 export PW
 CSRF=$(awk '$6=="csrftoken"{print $7}' "$COOKIE_JAR")
-curl -fsS -b "$COOKIE_JAR" -c "$COOKIE_JAR" \
-  -H 'Content-Type: application/json' -H "X-CSRFToken: $CSRF" \
-  -d "$(python3 -c 'import json,os;print(json.dumps({"username":"model-editor","password":os.environ["PW"]}))')" \
-  "$BASE/api/v1/auth/login"
+python3 -c 'import json,os;print(json.dumps({"username":"model-editor","password":os.environ["PW"]}))' | \
+  curl -fsS -b "$COOKIE_JAR" -c "$COOKIE_JAR" \
+    -H 'Content-Type: application/json' -H "X-CSRFToken: $CSRF" \
+    --data-binary @- "$BASE/api/v1/auth/login"
 unset PW
 CSRF=$(awk '$6=="csrftoken"{print $7}' "$COOKIE_JAR")
 curl -fsS -b "$COOKIE_JAR" -c "$COOKIE_JAR" \
@@ -162,7 +162,7 @@ curl -fsS -b "$COOKIE_JAR" "$BASE/api/v1/models"
 rm -f "$COOKIE_JAR"
 ```
 
-**Shell detail:** the temporary password is exported only for the JSON-building subprocess and immediately cleared. Avoid shell tracing (`set -x`) or sharing the shell environment while using this example. A simpler alternative is to sign in through the Server-mode UI and use a same-origin authenticated browser client.
+**Shell detail:** the temporary password is exported only for the JSON-building subprocess, streamed through stdin rather than placed on the curl command line, and immediately cleared. Avoid shell tracing (`set -x`) or sharing the shell environment while using this example. A simpler alternative is to sign in through the Server-mode UI and use a same-origin authenticated browser client.
 
 Each POST yields `mdl-word-word-word` plus revision `r001`. To append a revision, POST a JSON object with `expected_revision` and modified fields to `/api/v1/models/{id}/revisions`. Old revisions remain available at `/revisions/1`. The API enforces authenticated roles and CSRF, not the demo identities.
 
