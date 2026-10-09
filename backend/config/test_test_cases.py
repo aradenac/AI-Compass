@@ -79,6 +79,13 @@ class TestCaseApiTests(TestCase):
         _,modified=update_task(public_id=self.task.item.public_id,actor=self.user,
                                expected_revision="r001",name="Renamed SPI/Ethernet driver")
         self.assertTrue(modified)
+        # Reparent the task too: Test Cases must follow permanent FK identity,
+        # not mutable taxonomy ancestry or labels.
+        new_parent=create_task(actor=self.user,name="Embedded software domain")
+        _, moved=update_task(public_id=self.task.item.public_id,actor=self.user,
+                             expected_revision="r002",
+                             parent_id_marker=new_parent.item.public_id)
+        self.assertTrue(moved)
         loaded=Client();loaded.force_login(self.reader)
         from_disk=loaded.get(URL+"/"+created["id"]).json()
         self.assertEqual(from_disk["task_id"],self.task.item.public_id)
