@@ -29,6 +29,8 @@ class SchemaCompatibilityTests(TestCase):
         self.client.force_login(self.editor)
 
     def post(self, path, payload, csrf=True):
+        if csrf and "csrftoken" not in self.client.cookies:
+            self.client.get("/api/v1/auth/csrf")
         kwargs = {"HTTP_X_CSRFTOKEN": self.client.cookies["csrftoken"].value} if csrf else {}
         return self.client.post(path, json.dumps(payload), content_type="application/json", **kwargs)
 
