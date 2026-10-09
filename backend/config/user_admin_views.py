@@ -4,6 +4,7 @@ This API is intentionally independent of business_read and maintenance_view.
 """
 from django.contrib.auth import get_user_model, password_validation
 from django.contrib.auth.models import Group
+from django.contrib.sessions.models import Session
 from django.db import IntegrityError, transaction, connection
 from django.http import HttpResponseNotAllowed
 from django.views.decorators.cache import never_cache
@@ -63,6 +64,16 @@ def _lock():
     # One lock for create/edit: last active account with users.manage can never be disabled.
     with connection.cursor() as cursor:
         cursor.execute("SELECT pg_advisory_xact_lock(%s)", [ADMIN_LOCK])
+
+
+def _revoke_sessions(user_id):
+    """Destroy existing DB-backed sessions, preventing revival after reactivation."""
+    revoked = 0
+    for session in Session.objects.all().iterator(chunk_size=200):
+        if session.get_decoded().get("_auth_user_id") == str(user_id):
+            session.delete()
+            revoked += 1
+    return revoked
 
 
 def _has_active_admin(excluding=None):
@@ -185,6 +196,8 @@ def detail(request, user_id):
             if not changes:
                 return json_no_store({"user": _record(target), "changed": False})
             target.save()
+            if "active" in changes and not new_active:
+                changes["sessions_revoked"] = _revoke_sessions(target.pk)
             if "roles" in changes:
                 _set_roles(target, roles)
             UserAccessAuditEvent.objects.create(actor=request.user, subject=target,
