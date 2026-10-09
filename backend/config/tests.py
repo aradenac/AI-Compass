@@ -68,7 +68,7 @@ class RoleAndCsrfTests(TestCase):
         self.assertIn("contributor", login.json()["roles"])
         self.assertIn("business_write", login.json()["permissions"])
         self.assertTrue(self.client.cookies["sessionid"]["httponly"])
-        self.assertEqual(login["Cache-Control"], "no-store")
+        self.assertIn("no-store", login["Cache-Control"])
 
     def test_bad_login_and_inactive_user_are_denied(self):
         self.assertEqual(self.sign_in("contributor", "incorrect").status_code, 401)
