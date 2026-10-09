@@ -9,8 +9,8 @@ if [[ -f .env ]]; then
   [[ -z "$configured" ]] || port="$configured"
 fi
 
-curl --fail --silent --show-error "http://127.0.0.1:$port/api/v1/health" | grep -q '"status": "ok"\|"status":"ok"'
-curl --fail --silent --show-error "http://127.0.0.1:$port/prototype.html" | grep -q "AI Compass"
+curl --fail --silent --show-error "http://127.0.0.1:$port/api/v1/health" | grep '"status": "ok"\|"status":"ok"' > /dev/null
+curl --fail --silent --show-error "http://127.0.0.1:$port/prototype.html" | grep "AI Compass" > /dev/null
 docker compose exec -T api python manage.py test config --verbosity 1
 docker compose exec -T db sh -ec 'exec psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
 CREATE TABLE IF NOT EXISTS public.ai_compass_smoke_marker (marker text PRIMARY KEY);
