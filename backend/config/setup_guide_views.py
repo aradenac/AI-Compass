@@ -96,7 +96,7 @@ def add_guide(request):
 @capability("business_read")
 @never_cache
 def get_guide(request,public_id):
-    return json_no_store(serialize(_item(public_id)))
+    return json_no_store(_guide(_item(public_id)))
 
 
 @require_http_methods(["PATCH"])
