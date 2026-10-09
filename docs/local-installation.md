@@ -116,7 +116,64 @@ After signing in, the Server page displays real account groups/capabilities and 
 
 **Security limitations:** local HTTP is bound to 127.0.0.1 only; do not expose the endpoint publicly until HTTPS, secure cookies and login rate limiting are configured. Current Server UI provides only identity and capability demonstrations; persistent Models, campaigns and evidence are **not** present yet.
 
-## 6. Verify persistence, backups and safe recovery
+## 6. Model Catalog API: first persistent business object (PLAT-03)
+
+The database now contains a **versioned Model schema and immutable revisions**; see [Model Catalog Architecture](model-catalog-architecture.md) for the exact data model, HTTP endpoints and error conditions.
+
+On an **existing installation**, take a logical backup first, then apply the new SQL/schema migration (never delete your database volume):
+
+```bash
+bash scripts/backup-db.sh
+docker compose up -d --build
+docker compose run --rm api python manage.py migrate --noinput
+docker compose exec -T api python manage.py bootstrap_identity
+```
+
+Create a user authorized to **read and write Server Models**:
+
+```bash
+docker compose exec api python manage.py bootstrap_identity \
+  --username model-editor --role contributor
+```
+
+The command prompts for a password; no fake demo login is accepted by this API. The Server interface at `?mode=server` provides real account login and access checks, but the graphical **Models screen is not yet API-connected** (planned in [PLAT-05](https://github.com/aradenac/AI-Compass/issues/5)).
+
+For a minimal curl example, use cookies/CSRF and read the exact ID returned by the POST. Avoid putting the password on a persistent shell command line; the following reads it in a hidden terminal prompt:
+
+```bash
+BASE=http://127.0.0.1:8080
+COOKIE_JAR=$(mktemp)
+chmod 600 "$COOKIE_JAR"
+curl -fsS -c "$COOKIE_JAR" "$BASE/api/v1/auth/csrf" >/dev/null
+read -rsp 'Server account password: ' PW; echo
+CSRF=$(awk '$6=="csrftoken"{print $7}' "$COOKIE_JAR")
+curl -fsS -b "$COOKIE_JAR" -c "$COOKIE_JAR" \
+  -H 'Content-Type: application/json' -H "X-CSRFToken: $CSRF" \
+  -d "$(python3 -c 'import json,os;print(json.dumps({"username":"model-editor","password":os.environ["PW"]}))')" \
+  "$BASE/api/v1/auth/login"
+unset PW
+CSRF=$(awk '$6=="csrftoken"{print $7}' "$COOKIE_JAR")
+curl -fsS -b "$COOKIE_JAR" -c "$COOKIE_JAR" \
+  -H 'Content-Type: application/json' -H "X-CSRFToken: $CSRF" \
+  -d '{"name":"GLM-5.2","properties":{"context_window":262144,"supports_tools":true}}' \
+  "$BASE/api/v1/models"
+curl -fsS -b "$COOKIE_JAR" "$BASE/api/v1/models"
+rm -f "$COOKIE_JAR"
+```
+
+**Shell detail:** if you use the example above, export `PW` with `export PW` after the `read` so the child Python process can access it, or generate the JSON entirely inside your shell using a safely escaped helper. A simpler alternative is to use the Server-mode sign-in UI and call the API from an authenticated same-origin browser client.
+
+Each POST yields `mdl-word-word-word` plus revision `r001`. To append a revision, POST a JSON object with `expected_revision` and modified fields to `/api/v1/models/{id}/revisions`. Old revisions remain available at `/revisions/1`. The API enforces authenticated roles and CSRF, not the demo identities.
+
+For the automated smoke and non-regression checks:
+
+```bash
+docker compose exec -T api python manage.py makemigrations --check --dry-run
+docker compose exec -T api python manage.py test config --verbosity 1
+bash scripts/smoke-platform.sh
+```
+
+## 7. Verify persistence, backups and safe recovery
 
 ```bash
 bash scripts/smoke-platform.sh
@@ -146,7 +203,7 @@ docker compose exec -T db sh -ec \
 
 **Never execute `docker compose down -v` when you want to preserve real data.** That command deletes the named database volume.
 
-## 7. Stop, update, inspect
+## 8. Stop, update, inspect
 
 ```bash
 docker compose logs -f api
@@ -170,7 +227,7 @@ bash scripts/smoke-platform.sh
 
 Do not blindly run irreversible migrations after every restart. For a production upgrade, first take a **restorable** backup and read the release/migration notes.
 
-## 8. Troubleshooting
+## 9. Troubleshooting
 
 | Problem | Solution |
 | --- | --- |
@@ -183,9 +240,9 @@ Do not blindly run irreversible migrations after every restart. For a production
 | Existing `.env` rejects initialization | Safety feature: do not overwrite established DB credentials; inspect/rotate deliberately. |
 | Restore smoke test fails | Ensure migrations have run and the dump is nonempty; do not attempt to overwrite the real DB. |
 
-## 9. Boundaries and security
+## 10. Boundaries and security
 
-PLAT-01 is a **local development** stack, not a public production deployment. HTTP listens on loopback; server login and role separation **are implemented**, but domain API persistence, document upload, production HTTPS, the user-management web UI and independent backups are **not implemented yet**. Do **not** expose the current app to untrusted networks or upload confidential evidence. The Demo mode remains intentionally unauthenticated and uses fictional content.
+PLAT-01 is a **local development** stack, not a public production deployment. HTTP listens on loopback; server login and role separation **are implemented**, but most domain APIs (except the versioned Model REST API), document upload, production HTTPS, the user-management web UI and independent backups are **not implemented yet**. Do **not** expose the current app to untrusted networks or upload confidential evidence. The Demo mode remains intentionally unauthenticated and uses fictional content.
 
 The directory layout is `prototype.html` + `compose.yaml` + `Caddyfile` + `backend/` + `scripts/` + `.env.example`; generated secrets in `.env`, local backups under `.local/backups/`, and server PostgreSQL data in the Docker named volume. Browser Demo `localStorage` is separate and not automatically imported or synchronized.
 
