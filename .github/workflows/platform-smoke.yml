@@ -133,6 +133,7 @@ jobs:
         env:
           AI_COMPASS_FULL_RECOVERY_CI: "1"
         run: |
+          set -x
           # A historical v1 record remains unmodified on the original operational CI Server.
           docker compose exec -T api python manage.py shell -c '
           from django.contrib.auth import get_user_model
@@ -150,7 +151,7 @@ jobs:
           curl -fsS "http://127.0.0.1:18081/?mode=server" | grep -q '/banner.js'
           curl -fsS http://127.0.0.1:18081/banner.js | grep -q "NOT PRODUCTION"
           curl -fsS http://127.0.0.1:18081/server-mode.js | cmp - server-mode.js
-          curl -fsS http://127.0.0.1:18081/api/v1/health | grep -q '"status":"ok"'
+          curl -fsS http://127.0.0.1:18081/api/v1/health | python3 -c 'import json,sys; x=json.load(sys.stdin); assert x["status"]=="ok" and x["database"]=="ok"'
           if python3 scripts/migration_stage.py verdict "$candidate" accepted --notes "Missing manual frontend acceptance"; then
             echo "UNREVIEWED STAGE ACCEPTED" >&2; exit 1
           fi
