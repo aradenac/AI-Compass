@@ -33,7 +33,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Validate recovery code and failure-path unit tests
         run: |
-          python3 -m py_compile scripts/recovery.py scripts/install-backup-timer.py scripts/test_recovery.py scripts/smoke_recovery_domain.py
+          python3 -m py_compile scripts/recovery.py scripts/install-backup-timer.py scripts/test_recovery.py scripts/smoke_recovery_domain.py scripts/smoke_catalog.py
           python3 -m unittest discover -s scripts -p 'test_recovery.py' -v
           python3 scripts/install-backup-timer.py --destination "$PWD" --dry-run | grep 'ai-compass-backup.service'
       - name: Create isolated local credentials
@@ -59,6 +59,7 @@ jobs:
           contributor_pw=$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')
           printf '%s\n' "$contributor_pw" | docker compose exec -T api python manage.py bootstrap_identity --username ci-contributor --role contributor --password-stdin
           AI_COMPASS_TEST_PASSWORD="$contributor_pw" python3 scripts/smoke-models.py ci-contributor
+          AI_COMPASS_TEST_PASSWORD="$contributor_pw" python3 scripts/smoke_catalog.py ci-contributor
       - name: Check that catalog ORM models match checked-in migrations
         run: docker compose exec -T api python manage.py makemigrations --check --dry-run
       - name: Run backend, persistence and backup/restore checks
@@ -72,7 +73,9 @@ jobs:
           node --check server-mode.js
           node --check model-catalog.js
           node --check scripts/test-model-catalog.js
+          node --check scripts/test-catalog-types.js
           node scripts/test-model-catalog.js
+          node scripts/test-catalog-types.js
           python3 - <<'PY'
           from pathlib import Path
           page = Path("prototype.html").read_text()
