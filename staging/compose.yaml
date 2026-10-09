@@ -47,6 +47,7 @@ services:
       - ../Caddyfile:/etc/caddy/Caddyfile:ro
       - ${STAGING_PAGE:?Missing labeled page}:/srv/frontend/prototype.html:ro
       - ../server-mode.js:/srv/frontend/server-mode.js:ro
+      - ../server-tasks.js:/srv/frontend/server-tasks.js:ro
       - ../model-catalog.js:/srv/frontend/model-catalog.js:ro
       - ./banner.js:/srv/frontend/banner.js:ro
     depends_on:
