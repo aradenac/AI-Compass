@@ -74,6 +74,7 @@ class UserAdministrationTests(TestCase):
         self.assertEqual(session.get("/api/v1/models").status_code, 403)
         self.assertEqual(session.get("/api/v1/auth/maintenance").status_code, 200)
         self.assertEqual(self.patch(engineer.pk, {"active": False}).status_code, 200)
+        self.assertFalse(get_user_model().objects.get(pk=engineer.pk).is_active)
         self.assertEqual(session.get("/api/v1/auth/maintenance").status_code, 401)
         self.assertFalse(session.get("/api/v1/auth/me").json()["authenticated"])
         self.assertEqual(self.client.get(BASE + "?status=inactive&search=engineer").json()["total"], 1)
@@ -99,6 +100,8 @@ class UserAdministrationTests(TestCase):
         self.assertEqual(self.client.get(BASE).status_code, 403)
         self.assertEqual(self.patch(self.member.pk, {"roles": ["platform-admin"]}).status_code, 403)
         self.client.logout()
+        self.client.get("/api/v1/auth/csrf")
+        self.csrf = self.client.cookies["csrftoken"].value
         self.assertEqual(self.client.get(BASE).status_code, 401)
         self.assertEqual(self.client.get(BASE + "/audit").status_code, 401)
         self.assertEqual(self.patch(self.member.pk, {"active": False}).status_code, 401)
