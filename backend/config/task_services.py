@@ -115,7 +115,11 @@ def _apply_order(nodes, parent, actor, special=None, name=None, properties=None)
     for index, node in enumerate(nodes):
         moved = node.parent_id != (parent.pk if parent else None) or node.position != index
         is_special = special is not None and node.pk == special.pk
-        changed_fields = is_special and (name is not None or properties is not None)
+        old = node.item.current_revision if is_special else None
+        changed_fields = is_special and (
+            (name is not None and name.strip() != old.display_name)
+            or (properties is not None and any(old.properties.get(k) != v for k, v in properties.items()))
+        )
         if moved:
             node.parent = parent
             node.position = index
@@ -192,9 +196,7 @@ def update_task(*, public_id, expected_revision, actor,
             ancestor = ancestor.parent
         old_siblings = [n for n in _siblings(nodes, node.parent) if n.pk != node.pk]
         before = None if before_marker is Ellipsis else before_marker
-        if before_marker is Ellipsis and parent.pk if parent is not None else False:
-            pass
-        if before_marker is Ellipsis and parent.pk == node.parent_id if parent is not None else (node.parent_id is None):
+        if before_marker is Ellipsis and (parent.pk if parent else None) == node.parent_id:
             # Preserve relative placement when only editing name/properties.
             dest = [n for n in _siblings(nodes, parent) if n.pk != node.pk]
             insert_index = min(node.position, len(dest))
