@@ -68,8 +68,10 @@ audit counts; and invokes an authenticated original-byte Django download
 against the staged evidence volume. Failed checks cannot lead to acceptance.
 
 The new Compose project is named ai-compass-stage-<candidate_id>, with its
-own private Docker network, staging volumes and credentials. The network is
-internal and Caddy binds only to 127.0.0.1 on the dedicated port. The existing
+own staging volumes and credentials. PostgreSQL and Django connect **only** to
+an internal Docker network that blocks outbound traffic; Caddy alone also
+joins an edge bridge needed for the published loopback port. Caddy binds
+only to 127.0.0.1 on the dedicated port. The existing
 Server frontend and Django code are served unchanged apart from the clearly
 labelled staging banner. There is no import from, export to or fallback to
 seeded browser Demo localStorage.
