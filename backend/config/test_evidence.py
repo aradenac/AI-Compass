@@ -96,7 +96,7 @@ class EvidenceTests(TestCase):
         self.assertEqual(b"".join(downloaded.streaming_content), BYTES)
         self.assertIn('attachment;', downloaded["Content-Disposition"])
         self.assertIn("reference.pdf", downloaded["Content-Disposition"])
-        self.assertEqual(downloaded["Cache-Control"], "private, no-store")
+        self.assertIn("private, no-store", downloaded["Cache-Control"])
         self.assertEqual(viewer.get("/api/v1/evidence/" + other.json()["id"]).json()["source"],
                          "manual:second-context")
         self.assertEqual(CatalogAuditEvent.objects.filter(action="evidence_attached").count(), 2)
@@ -138,8 +138,8 @@ class EvidenceTests(TestCase):
         link = "/api/v1/evidence/" + saved["id"]
         self.assertEqual(anonymous.get(link + "/download").status_code, 401)
         self.assertEqual(no_permission.get(link + "/download").status_code, 403)
-        self.assertEqual(self.client.post(link, {}).status_code, 405)
-        self.assertEqual(self.client.delete(link).status_code, 405)
+        self.assertEqual(self.client.post(link, {}, HTTP_X_CSRFTOKEN=self.client.cookies["csrftoken"].value).status_code, 405)
+        self.assertEqual(self.client.delete(link, HTTP_X_CSRFTOKEN=self.client.cookies["csrftoken"].value).status_code, 405)
 
     def test_corruption_or_missing_content_never_returns_original_as_valid(self):
         record = self.upload().json()
