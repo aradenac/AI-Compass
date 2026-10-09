@@ -27,9 +27,12 @@ def uuid7():
     return uuid.UUID(int=bits)
 
 
+PREFIXES = frozenset({"mdl", "prv", "hrn", "frm"})
+
+
 def new_public_id(prefix="mdl"):
-    if prefix != "mdl":
-        raise ValueError("Only registered Model prefix is supported in PLAT-03")
+    if prefix not in PREFIXES:
+        raise ValueError("Unregistered catalog public ID prefix")
     return "-".join((
         prefix,
         secrets.choice(ADJECTIVES),
