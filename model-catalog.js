@@ -177,7 +177,9 @@
           (options.showRevisions ? '<button class="btn sm" data-act="modelHistory" data-id="' +
             escapeHtml(model.id) + '">History</button>' +
             '<button class="btn sm" data-act="modelRaw" data-id="' +
-            escapeHtml(model.id) + '">Original data</button>' : "") + '</div></div>';
+            escapeHtml(model.id) + '">Original data</button>' +
+            '<button class="btn sm" data-act="catalogEvidence" data-id="' +
+            escapeHtml(model.id) + '">Evidence</button>' : "") + '</div></div>';
       }).join("") : '<div class="empty">No ' + titles[type] + ' yet. ' +
           (canWrite ? 'Add the first catalog item.' : 'Items will appear when a contributor adds one.') +
           '</div>') + '</div></section>';
