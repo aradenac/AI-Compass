@@ -45,7 +45,7 @@ def _validate_roles(value, actor):
 def _can_modify_target(actor, target, new_roles):
     if actor.pk == target.pk:
         raise PermissionError("cannot_manage_own_account")
-    if target.is_staff or target.is_superuser:
+    if target.is_staff or target.is_superuser or target.user_permissions.exists():
         raise PermissionError("privileged_django_account_protected")
     current = _roles(target)
     if any(r not in ROLES for r in current):
@@ -118,7 +118,7 @@ def collection(request):
         return _error(str(exc), 403)
     candidate = User(username=username, email=email)
     try:
-        candidate.full_clean(exclude=["password"])
+        candidate.full_clean(exclude=["password"], validate_unique=False)
         password_validation.validate_password(password, candidate)
     except Exception as exc:
         from django.core.exceptions import ValidationError
