@@ -184,7 +184,9 @@ def catalog_schema(request, type_slug):
     if requested:
         schema = get_object_or_404(schemas, version=int(requested))
     else:
-        schema = get_object_or_404(schemas.order_by("-version"))
+        schema = schemas.order_by("-version").first()
+        if schema is None:
+            return json_no_store({"error": "unknown_schema_type"}, status=404)
     return json_no_store({
         "type": schema.type_slug, "version": schema.version, "schema": schema.json_schema
     })
