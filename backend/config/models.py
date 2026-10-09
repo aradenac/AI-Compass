@@ -120,3 +120,17 @@ class TaskStructureRevision(models.Model):
         TaskNode, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
     )
     position = models.PositiveIntegerField()
+
+
+class UserAccessAuditEvent(models.Model):
+    """Immutable record of account lifecycle and role/credential administration."""
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
+    subject = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+                                related_name="access_audit_events")
+    action = models.CharField(max_length=32)
+    details = models.JSONField(default=dict)  # Includes no plaintext or hashed credentials.
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at", "id"]
