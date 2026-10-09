@@ -202,6 +202,21 @@ def inspect_restored(container):
                                  "-U", RESTORE_USER, "-d", RESTORE_DB, "-Atqc",
                                  "SELECT marker FROM public.ai_compass_smoke_marker ORDER BY marker LIMIT 1"])
                             if marker_table == "t" else None)
+    # PLAT-17: detect DB references to out-of-band immutable file content.
+    # Old pre-evidence snapshots have no tables; retain their original
+    # inspection shape so historical recovery points remain verifiable.
+    has_evidence = run(["docker", "exec", container, "psql", "-X", "-v",
+                        "ON_ERROR_STOP=1", "-U", RESTORE_USER, "-d", RESTORE_DB,
+                        "-Atqc", "SELECT to_regclass('public.config_evidenceblob') IS NOT NULL"])
+    if has_evidence == "t":
+        evidence = run(["docker", "exec", container, "psql", "-X", "-v",
+                        "ON_ERROR_STOP=1", "-U", RESTORE_USER, "-d", RESTORE_DB, "-Atqc",
+                        """SELECT json_build_object(
+                        'link_count', (SELECT count(*) FROM config_evidencelink),
+                        'blob_count', (SELECT count(*) FROM config_evidenceblob),
+                        'sha256', (SELECT coalesce(json_agg(sha256 ORDER BY sha256), '[]'::json)
+                                   FROM config_evidenceblob))::text"""])
+        info["evidence_db_references"] = json.loads(evidence)
     return info
 
 
@@ -308,8 +323,16 @@ def backup(args):
                 "database": source_name, "postgres_version": pg_version,
                 "app_git_sha": app_revision, "schema_versions": inspection["schema_versions"],
                 "restored_at": utc_now(), "restored_inspection": inspection,
-                "evidence": {"included": False, "generation": None, "blob_hashes": None,
-                             "future_contract": "coordinated-db-evidence-v2 (#17/#29)"}
+                "evidence": {
+                    "included": False, "generation": None,
+                    "blob_hashes": inspection.get("evidence_db_references", {}).get("sha256", []),
+                    "blob_count": inspection.get("evidence_db_references", {}).get("blob_count", 0),
+                    "link_count": inspection.get("evidence_db_references", {}).get("link_count", 0),
+                    "requires_coordinated_restore": bool(
+                        inspection.get("evidence_db_references", {}).get("link_count", 0)
+                    ),
+                    "future_contract": "coordinated-db-evidence-v2 (#29)",
+                }
             }
             os.replace(partial, target)
             durable_write(manifest_path, json_bytes(metadata))
@@ -317,6 +340,12 @@ def backup(args):
             fsync_dir(directory)
             # A second independent offline read proves committed metadata and checksum.
             verify(target)
+            if metadata["evidence"]["requires_coordinated_restore"]:
+                print("WARNING: DATABASE-ONLY recovery point references " +
+                      str(metadata["evidence"]["link_count"]) +
+                      " evidence links; file bytes are NOT in this archive. " +
+                      "Preserve independent evidence volume until coordinated backups (#29).",
+                      file=sys.stderr)
             retain(directory, args.keep)
             return target
         except (RecoveryError, OSError, ValueError, subprocess.SubprocessError) as error:
