@@ -194,3 +194,24 @@ class DataHealthEvent(models.Model):
 
     class Meta:
         ordering = ["created_at", "id"]
+
+
+class TestCase(models.Model):
+    """Reusable experimental challenge, NOT a node in the engineering task tree."""
+    item = models.OneToOneField(CatalogItem, primary_key=True, on_delete=models.PROTECT,
+                                related_name="test_case")
+    task = models.ForeignKey(TaskNode, on_delete=models.PROTECT, related_name="test_cases")
+    task_revision_at_creation = models.ForeignKey(CatalogRevision, on_delete=models.PROTECT,
+                                                  related_name="+")
+    fork_parent = models.ForeignKey("self", null=True, blank=True, on_delete=models.PROTECT,
+                                    related_name="forks")
+    fork_source_revision = models.ForeignKey(CatalogRevision, null=True, blank=True,
+                                              on_delete=models.PROTECT, related_name="+")
+    case_version = models.CharField(max_length=160)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["fork_parent", "case_version"],
+                                    name="uniq_test_case_fork_version"),
+        ]
+        ordering = ["item__public_id"]
