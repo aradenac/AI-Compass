@@ -270,5 +270,5 @@ class ModelCatalogTests(TestCase):
 
     def test_schema_registry_endpoint(self):
         data = self.client.get("/api/v1/models/schema").json()
-        self.assertEqual((data["type"], data["version"]), ("model", 1))
+        self.assertEqual((data["type"], data["version"]), ("model", 2))
         self.assertTrue(data["schema"]["additionalProperties"])
