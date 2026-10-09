@@ -35,7 +35,7 @@ class FullRecoveryTests(unittest.TestCase):
         self.record = {
             "format": f.FORMAT, "status": "verified",
             "backup_id": "20261009T220000Z-012345abcdef",
-            "created_at": "2026-10-09T22:00:00+00:00",
+            "created_at": "2020-10-09T22:00:00+00:00",
             "dump_file": self.dump.name, "blobs_file": self.archive.name,
             "database": {"sha256": db.hash_file(self.dump), "bytes": self.dump.stat().st_size},
             "evidence_archive": {"sha256": db.hash_file(self.archive), "bytes": self.archive.stat().st_size},
