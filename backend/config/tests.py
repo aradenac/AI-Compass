@@ -195,7 +195,7 @@ class ModelCatalogTests(TestCase):
         first = created.json()
         self.assertTrue(first["id"].startswith("mdl-"))
         self.assertEqual(first["revision"], "r001")
-        self.assertEqual(first["schema_version"], 1)
+        self.assertEqual(first["schema_version"], 2)
         item = CatalogItem.objects.get(public_id=first["id"])
         self.assertEqual(item.id.version, 7)
         self.assertEqual(item.id.variant, RFC_4122)
