@@ -2,7 +2,9 @@
  * The Demo runtime is owned by prototype.html and is NEVER read here. */
 (function () {
   "use strict";
-  var serverMode = new URLSearchParams(window.location.search).get("mode") === "server";
+  var serverMode = new URLSearchParams(window.location.search).get("mode") === "server" ||
+    (window.location.pathname === "/maintenance" &&
+     new URLSearchParams(window.location.search).get("mode") !== "demo");
   if (!serverMode) {
     var link = document.createElement("a");
     link.href = "?mode=server";
@@ -28,10 +30,13 @@
     '<div class="server-page">',
     '<aside class="server-sidebar"><div style="font-size:23px;font-weight:750;margin-bottom:12px">AI Compass</div>',
     '<strong>Server mode</strong><p style="margin:14px 0">Authenticated shared backend</p>',
-    '<a href="?mode=demo">Return to independent Demo mode</a>',
+    '<a href="/?mode=demo">Return to independent Demo mode</a>',
+    '<p id="server-maintenance-nav" hidden><a href="/maintenance">Maintenance & Data Health</a></p>',
     '<p style="margin-top:25px;font-size:12px">Real technology records are stored in PostgreSQL; fake Demo records are never copied.</p>',
     '</aside>',
-    '<main class="server-main"><h1>Technology catalog</h1>',
+    '<main class="server-main"><h1>' +
+      (window.location.pathname === "/maintenance" ? "Maintenance & Governance" : "Technology catalog") +
+      '</h1>',
     '<p style="margin-bottom:20px;color:#64748b">Real Django session · persistent technology catalog · independent Demo</p>',
     '<div class="server-card">',
     '<p id="server-state" class="server-status" role="status" aria-live="polite">Connecting to backend…</p>',
@@ -75,6 +80,7 @@
     '</section>',
     '<section id="server-users" class="server-catalog" hidden></section>',
     '<section id="server-activity" class="server-catalog" hidden></section>',
+    '<section id="server-data-health" class="server-catalog" hidden></section>',
     '</main></div>'
   ].join("");
 
@@ -102,6 +108,7 @@
   var tasks = window.AICompassServerTasks.mount(document.getElementById("server-task-tree"), csrfFromCookie, escapeHtml);
   var users = window.AICompassServerUsers.mount(document.getElementById("server-users"), csrfFromCookie, escapeHtml);
   var activity = window.AICompassServerActivity.mount(document.getElementById("server-activity"), escapeHtml);
+  var health = window.AICompassServerDataHealth.mount(document.getElementById("server-data-health"), csrfFromCookie, escapeHtml);
 
   function status(message, isError) {
     state.textContent = message;
@@ -191,6 +198,8 @@
       tasks.setAccess(false, false);
       users.setAccess(false, false);
       activity.setAccess(false, false);
+      health.setAccess(false, false);
+      document.getElementById("server-maintenance-nav").hidden = true;
       cachedModels = [];
       modelList.replaceChildren();
       catalog.hidden = true;
@@ -203,6 +212,8 @@
     tasks.setAccess(grants.includes("business_read"), grants.includes("business_write"));
     users.setAccess(grants.includes("users_manage"), grants.includes("platform_manage"));
     activity.setAccess(grants.includes("business_read"), grants.includes("users_manage"));
+    health.setAccess(grants.includes("maintenance_view"), grants.includes("maintenance_triage"));
+    document.getElementById("server-maintenance-nav").hidden = !grants.includes("maintenance_view");
     form.hidden = true;
     account.hidden = false;
     document.getElementById("server-account-name").textContent = data.username;
@@ -580,6 +591,8 @@
       tasks.setAccess(false, false);
       users.setAccess(false, false);
       activity.setAccess(false, false);
+      health.setAccess(false, false);
+      document.getElementById("server-maintenance-nav").hidden = true;
       status("Server unavailable. Demo data will NOT be loaded automatically. " + error.message, true);
     }
   })();
