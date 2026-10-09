@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Install a user-level systemd timer for PLAT-34 verified daily backups.
+"""Install a user-level systemd timer for PLAT-29 full daily backups.
 
 Example: python3 scripts/install-backup-timer.py --destination /mnt/secure-backups --require-external
 """
@@ -19,7 +19,7 @@ def quote(value):
     return '"' + text.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
-def create_units(destination, calendar, keep, require_external):
+def create_units(destination, calendar, keep, require_external, db_only=False):
     if not destination.is_absolute() or not destination.is_dir():
         raise ValueError("Use an existing absolute destination directory")
     if keep < 1:
@@ -27,11 +27,11 @@ def create_units(destination, calendar, keep, require_external):
     if not calendar.strip() or any(char in calendar for char in "\r\n\0%"):
         raise ValueError("Unsafe OnCalendar expression")
     python = quote(sys.executable)
-    script = quote(ROOT / "scripts/recovery.py")
+    script = quote(ROOT / ("scripts/recovery.py" if db_only else "scripts/full_recovery.py"))
     target = quote(destination)
     external = "--require-external " if require_external else ""
     service = (
-        "[Unit]\nDescription=AI Compass verified PostgreSQL snapshot and restore drill\n"
+        "[Unit]\nDescription=AI Compass verified " + ("DB-only" if db_only else "DB plus evidence") + " backup and isolated restore drill\n"
         "ConditionPathIsDirectory=" + str(ROOT) + "\n\n"
         "[Service]\nType=oneshot\nWorkingDirectory=" + quote(ROOT) +
         "\nExecStart=" + python + " " + script + " --destination " + target + " " +
@@ -54,10 +54,11 @@ def main():
     parser.add_argument("--calendar", default="daily", help="systemd OnCalendar expression (default: daily)")
     parser.add_argument("--keep", type=int, default=14, help="Number of last verified snapshots retained (default: 14)")
     parser.add_argument("--dry-run", action="store_true", help="Print units without writing or enabling")
+    parser.add_argument("--db-only", action="store_true", help="Explicit legacy PLAT-34 DB-only timer; default protects evidence too")
     args = parser.parse_args()
     try:
         destination = Path(args.destination).expanduser()
-        service, timer = create_units(destination, args.calendar, args.keep, args.require_external)
+        service, timer = create_units(destination, args.calendar, args.keep, args.require_external, db_only=args.db_only)
         if args.dry_run:
             print("----- ai-compass-backup.service -----\n" + service)
             print("----- ai-compass-backup.timer -----\n" + timer)
