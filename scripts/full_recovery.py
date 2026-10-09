@@ -254,8 +254,10 @@ def evidence_source():
         fail("Operational evidence volume is missing or not owned by the expected Compose project")
     # Ensure the immutable blob directory exists on the actual mounted API volume.
     db.run(db.COMPOSE + ["exec", "-T", "api", "python", "-c",
-                        "from config.evidence_store import store_root; "
-                        "(store_root()/'blobs').mkdir(mode=0o700,exist_ok=True)"])
+                        "from pathlib import Path; import os; "
+                        "root=Path(os.environ['AI_COMPASS_EVIDENCE_ROOT']); "
+                        "assert root.is_dir() and not root.is_symlink(), 'Evidence volume unavailable'; "
+                        "(root/'blobs').mkdir(mode=0o700,exist_ok=True)"])
 
 
 def capture_db_and_evidence(dump_tmp, blobs_tmp):
