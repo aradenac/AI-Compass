@@ -75,7 +75,9 @@ class UserAdministrationTests(TestCase):
         self.assertEqual(session.get("/api/v1/auth/maintenance").status_code, 200)
         self.assertEqual(self.patch(engineer.pk, {"active": False}).status_code, 200)
         self.assertFalse(get_user_model().objects.get(pk=engineer.pk).is_active)
-        self.assertEqual(session.get("/api/v1/auth/maintenance").status_code, 401)
+        denied = session.get("/api/v1/auth/maintenance")
+        self.assertEqual(denied.status_code, 401,
+            f"denied={denied.content!r} me={session.get('/api/v1/auth/me').content!r} session={dict(session.session)!r}")
         self.assertFalse(session.get("/api/v1/auth/me").json()["authenticated"])
         self.assertEqual(self.client.get(BASE + "?status=inactive&search=engineer").json()["total"], 1)
         self.assertEqual(self.patch(engineer.pk, {"active": True, "roles": ["user"]}).status_code, 200)
