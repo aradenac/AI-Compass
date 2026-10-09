@@ -165,7 +165,8 @@ def get_model_schema(request):
     if requested is not None and (not requested.isdecimal() or int(requested) < 1):
         return json_no_store({"error": "invalid_version"}, status=400)
     version_number = int(requested) if requested else None
-    version = model_schema(version=version_number) if version_number else model_schema()
+    version = (get_object_or_404(ObjectTypeVersion, type_slug="model", version=version_number)
+               if version_number else model_schema())
     return json_no_store({
         "type": version.type_slug, "version": version.version, "schema": version.json_schema
     })
