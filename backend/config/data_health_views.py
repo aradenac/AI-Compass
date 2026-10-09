@@ -9,7 +9,7 @@ from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 
 from .auth_views import capability, json_no_store, read_json
-from .data_health_services import CATEGORIES, STATUSES, HealthScanInProgress, scan, triage
+from .data_health_services import CATEGORIES, SEVERITIES, STATUSES, HealthScanInProgress, scan, triage
 from .models import DataHealthIssue
 
 RESTRICTED_SUBJECTS = {"evidence-blob", "evidence-link", "migration-receipt"}
@@ -60,7 +60,7 @@ def issues(request):
     severity = request.GET.get("severity","all")
     category = request.GET.get("category","all")
     if (status not in STATUSES | {"all"}
-            or severity not in set(__import__("config.data_health_services", fromlist=["SEVERITIES"]).SEVERITIES.values()) | {"all"}
+            or severity not in set(SEVERITIES.values()) | {"all"}
             or category not in CATEGORIES | {"all"}):
         return json_no_store({"error":"invalid_filter"},400)
     try:
