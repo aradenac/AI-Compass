@@ -27,6 +27,10 @@ jobs:
         run: docker compose up -d --wait --build
       - name: Initialize Django's baseline schema
         run: docker compose run --rm api python manage.py migrate --noinput
+      - name: Assert fresh Server has no seeded business data
+        run: |
+          docker compose exec -T api python manage.py shell -c \
+            'from config.models import CatalogItem, CatalogRevision, CatalogAuditEvent; assert CatalogItem.objects.count() == 0 and CatalogRevision.objects.count() == 0 and CatalogAuditEvent.objects.count() == 0, "Fresh Server must not seed any Models or revisions"'
       - name: Initialize separate operator and maintainer roles
         run: |
           docker compose exec -T api python manage.py bootstrap_identity
