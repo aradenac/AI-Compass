@@ -24,9 +24,10 @@ def create_model(*, actor, name, properties):
     # A DB unique constraint is the source of truth. Savepoints allow retries
     # without poisoning an outer transaction in PostgreSQL.
     for _ in range(12):
+        candidate = new_public_id()
         try:
             with transaction.atomic():
-                item = CatalogItem.objects.create(public_id=new_public_id(), type_slug="model")
+                item = CatalogItem.objects.create(public_id=candidate, type_slug="model")
                 revision = CatalogRevision.objects.create(
                     item=item, number=1, schema_version=schema,
                     display_name=name, properties=properties, created_by=actor,
@@ -40,7 +41,7 @@ def create_model(*, actor, name, properties):
         except IntegrityError:
             # The retry is limited to a unique public-ID conflict: other DB
             # integrity failures must propagate rather than being concealed.
-            if CatalogItem.objects.filter(public_id=item.public_id).exists():
+            if CatalogItem.objects.filter(public_id=candidate).exists():
                 continue
             raise
     raise ExhaustedIds("could not reserve a unique public ID")
