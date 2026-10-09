@@ -184,7 +184,7 @@ bash scripts/smoke-platform.sh
 bash scripts/smoke-platform.sh
 ```
 
-The script checks HTTP/HTML, the Django API/tests, writes a harmless SQL persistence marker, takes a custom-format `pg_dump`, and restores it into a **disposable database** (`ai_compass_restore_smoke`). It verifies the marker was recovered; it never drops the real DB.
+The script checks HTTP/UI and Django API/tests, takes a custom PostgreSQL snapshot and **fully restores it into a temporary, networkless PostgreSQL container with no production volume or DB credentials**. It verifies original Model IDs, revisions, schema versions and a synthetic marker, checks corruption/missing destinations, and leaves the live database unchanged. See [Verified Backup & Recovery Runbook](backup-and-recovery.md).
 
 Independent manual operations:
 
@@ -194,7 +194,7 @@ bash scripts/backup-db.sh
 bash scripts/restore-db-smoke.sh .local/backups/ACTUAL_FILENAME.dump
 ```
 
-Use the actual filename output by the backup command. The backup is excluded from Git but is **on the same PC**, so it is **not** a disaster-recovery backup. Copy it to a physically independent, protected location. Automated off-host and coordinated document recovery is planned in [PLAT-29](https://github.com/aradenac/AI-Compass/issues/29).
+Use the actual filename output by the backup command. **Every new backup receives a manifest, SHA-256 integrity check, completion marker and a full isolated restore drill before becoming last-good.** The default location is still on the same PC and is **not** protection against host/disk loss. Configure an existing independently mounted destination and the daily systemd timer via the [runbook](backup-and-recovery.md). Automatic off-host coordination and document recovery are planned in [PLAT-29](https://github.com/aradenac/AI-Compass/issues/29).
 
 Verify container recreation without wiping volumes:
 
@@ -243,11 +243,11 @@ Do not blindly run irreversible migrations after every restart. For a production
 | Django DisallowedHost | Check `DJANGO_ALLOWED_HOSTS` in `.env`; loopback names are configured by default. |
 | Browser changes not shared | Expected **Demo mode**: different origins have independent `localStorage`. |
 | Existing `.env` rejects initialization | Safety feature: do not overwrite established DB credentials; inspect/rotate deliberately. |
-| Restore smoke test fails | Ensure migrations have run and the dump is nonempty; do not attempt to overwrite the real DB. |
+| Restore smoke test fails | Inspect the recovery report, checksum and container readiness; isolated drill never overwrites the live DB. See the recovery runbook. |
 
 ## 10. Boundaries and security
 
-PLAT-01 is a **local development** stack, not a public production deployment. HTTP listens on loopback; server login and role separation **are implemented**, but most domain APIs (except the versioned Model REST API), document upload, production HTTPS, the user-management web UI and independent backups are **not implemented yet**. Do **not** expose the current app to untrusted networks or upload confidential evidence. The Demo mode remains intentionally unauthenticated and uses fictional content.
+PLAT-01 is a **local development** stack, not a public production deployment. HTTP listens on loopback; server login and role separation **are implemented**, but most domain APIs (except the versioned Model REST API), document upload, production HTTPS, the user-management web UI and **coordinated DB+evidence/off-host backups** are not implemented yet. DB-only verified snapshots and independent restore drills are available (PLAT-34). Do **not** expose the current app to untrusted networks or upload confidential evidence. The Demo mode remains intentionally unauthenticated and uses fictional content.
 
 The directory layout is `prototype.html` + `compose.yaml` + `Caddyfile` + `backend/` + `scripts/` + `.env.example`; generated secrets in `.env`, local backups under `.local/backups/`, and server PostgreSQL data in the Docker named volume. Browser Demo `localStorage` is **never** used to initialize Server. Native-archive restore for disaster recovery (#31) and post-deployment onboarding of actual external data (#33) are separate capabilities.
 
