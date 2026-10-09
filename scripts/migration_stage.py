@@ -42,7 +42,7 @@ def protected_root():
     for path in (db.ROOT / ".local", STATE_ROOT):
         if path.is_symlink():
             fail("Unsafe staging state directory symlink")
-        path.mkdir(mode=0o700, exist_ok=True)
+        path.mkdir(mode=0o700, parents=True, exist_ok=True)
         path.chmod(0o700)
     return STATE_ROOT
 
@@ -261,6 +261,8 @@ def create(snapshot, *, port=18081):
     dump, backup = snapshot_for(snapshot)
     commit = build_identity()
     identifier = secrets.token_hex(8)
+    if not 1024 <= port <= 65535 or port == 8080:
+        fail("Stage port must be a dedicated non-production loopback port")
     validate_environment(identifier)
     folder = candidate_dir(identifier)
     folder.mkdir(mode=0o700, exist_ok=False)
