@@ -1,4 +1,4 @@
-"""Minimal AI Compass server foundation. No business data is migrated in PLAT-01."""
+"""Minimal AI Compass backend: local-only RBAC sessions, not yet domain persistence."""
 import os
 from pathlib import Path
 
@@ -55,3 +55,18 @@ TIME_ZONE = "UTC"
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SAMESITE = "Lax"
+
+# Local HTTP only. Before exposing HTTPS externally, enable secure cookies and
+# configure the proxy, origin and trusted hosts appropriately.
+SESSION_COOKIE_SECURE = False
+CSRF_COOKIE_SECURE = False
+SESSION_COOKIE_AGE = 8 * 60 * 60
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = "DENY"
+AUTH_PASSWORD_VALIDATORS = [
+    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
+    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
+    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
+]
