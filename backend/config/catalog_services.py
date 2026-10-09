@@ -24,7 +24,10 @@ class SchemaWriteBlocked(Exception):
 
 def model_schema(version=None):
     schemas = ObjectTypeVersion.objects.filter(type_slug="model")
-    return schemas.get(version=version) if version is not None else schemas.order_by("-version").first()
+    # Future schema registrations must not silently change the write contract.
+    from .catalog_compat import SUPPORTED_MODEL_VERSIONS
+    return (schemas.get(version=version) if version is not None
+            else schemas.filter(version__in=SUPPORTED_MODEL_VERSIONS).order_by("-version").first())
 
 
 def create_model(*, actor, name, properties):
