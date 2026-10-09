@@ -168,7 +168,7 @@ jobs:
           assert item.current_revision.number==1 and item.current_revision.schema_version.version==1
           assert item.current_revision.properties["vendor_extension"]=={"unknown":None}
           '
-          python3 -c 'from pathlib import Path; import json; p=Path(".local/staging"); r=json.loads((p/next(x.name for x in p.iterdir() if x.name==json.load(open("'"$RUNNER_TEMP"'/stage1.json"))["candidate_id"])/"report.json").read_text()); assert r["status"]=="discarded" and r["verdict"]["decision"]=="rejected"'
+          python3 -c 'from pathlib import Path; import json,sys; r=json.loads((Path(".local/staging")/sys.argv[1]/"report.json").read_text()); assert r["status"]=="discarded" and r["verdict"]["decision"]=="rejected"' "$candidate"
           python3 scripts/full_recovery.py verify "$dump" > /dev/null
       - name: Restore real Models from an entirely disposable CI database
         env:
