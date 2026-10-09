@@ -18,7 +18,8 @@ INSERT INTO public.ai_compass_smoke_marker (marker) VALUES ('persistence-check')
 SQL
 
 backup="$(bash scripts/backup-db.sh)"
-bash scripts/restore-db-smoke.sh "$backup"
-marker="$(docker compose exec -T db sh -ec 'psql -U "$POSTGRES_USER" -d ai_compass_restore_smoke -Atqc "SELECT marker FROM public.ai_compass_smoke_marker LIMIT 1"' | tr -d '\r\n')"
+restore_db="$(bash scripts/restore-db-smoke.sh "$backup")"
+marker="$(docker compose exec -T db sh -ec 'psql -U "$POSTGRES_USER" -d "$1" -Atqc "SELECT marker FROM public.ai_compass_smoke_marker LIMIT 1"' _ "$restore_db" | tr -d '\r\n')"
 test "$marker" = "persistence-check"
+docker compose exec -T db sh -ec 'dropdb --if-exists -U "$POSTGRES_USER" "$1"' _ "$restore_db" 2>/dev/null || true
 echo "Platform checks PASSED: HTTP/UI, Django tests, PostgreSQL dump/restore and marker integrity"

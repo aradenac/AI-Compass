@@ -184,17 +184,23 @@ bash scripts/smoke-platform.sh
 bash scripts/smoke-platform.sh
 ```
 
-The script checks HTTP/HTML, the Django API/tests, writes a harmless SQL persistence marker, takes a custom-format `pg_dump`, and restores it into a **disposable database** (`ai_compass_restore_smoke`). It verifies the marker was recovered; it never drops the real DB.
+The script checks HTTP/HTML, the Django API/tests, writes a harmless SQL persistence marker, takes a custom-format `pg_dump`, and restores it into a **uniquely named disposable database** (`ai_compass_restore_drill_*`). It verifies the marker was recovered; it never drops the real DB.
 
-Independent manual operations:
+Independent manual operations (full details and scheduled-invocation examples in the [Recovery Runbook](recovery-runbook.md)):
 
 ```bash
 bash scripts/backup-db.sh
-# Note the printed .local/backups/ai-compass-....dump path
-bash scripts/restore-db-smoke.sh .local/backups/ACTUAL_FILENAME.dump
+# Note the printed .local/backups/ai-compass-....dump path (stdout); progress is on stderr.
+# A good snapshot is the triplet .dump + .sha256 + .manifest.json; a partial dump
+# produces no manifest and is never last-good.
+bash scripts/verify-snapshot.sh .local/backups/ACTUAL_FILENAME.dump   # offline checksum+manifest check
+bash scripts/restore-db-smoke.sh .local/backups/ACTUAL_FILENAME.dump    # default restore + table check
+bash scripts/restore-db-smoke.sh --strict .local/backups/ACTUAL_FILENAME.dump   # also assert catalog/IDs/schema/FK reproduce
+bash scripts/smoke-recovery.sh                                         # full deterministic point-in-time drill
+bash scripts/schedule-backup.sh                                        # backup + verify, append to backup.log
 ```
 
-Use the actual filename output by the backup command. The backup is excluded from Git but is **on the same PC**, so it is **not** a disaster-recovery backup. Copy it to a physically independent, protected location. Automated off-host and coordinated document recovery is planned in [PLAT-29](https://github.com/aradenac/AI-Compass/issues/29).
+Use the actual filename output by the backup command. The backup is excluded from Git but is **on the same PC**, so it is **not** a disaster-recovery backup. For real protection, point `AI_COMPASS_BACKUP_DIR` at a different physical disk or an off-host mount and set `AI_COMPASS_BACKUP_REQUIRE_MOUNT=1` so backups fail loudly if that destination is unavailable. Automated off-host and coordinated DB+blob recovery is planned in [PLAT-29](https://github.com/aradenac/AI-Compass/issues/29).
 
 Verify container recreation without wiping volumes:
 
