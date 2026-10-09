@@ -20,6 +20,8 @@ Cross-cutting interaction, slider and tooltip rules: **[Non-Functional Requireme
 
 See **[Product Definition](docs/product-definition.md)** for the agreed product scope, roles, task hierarchy, benchmarking model, evidence and scoring principles, publishing workflow, and evolution roadmap.
 
+See **[Platform Architecture & Data Governance](docs/platform-architecture-and-data-governance.md)** for the target backend, persistence, immutable revisions, human-readable IDs, migration strategy, evidence storage, backup/recovery, deployment and independent Maintenance & Governance workspace.
+
 See **[Non-Functional Requirements](docs/non-functional-requirements.md)** for system-wide interaction and quality rules, including the modal form dismissal policy (**NFR-UX-001**). Forms can only be dismissed through explicit controls, while read-only modals retain backdrop/Escape dismissal.
 
 **Guiding principle:** *Measure and preserve evidence first; derive explainable recommendations from it.*
