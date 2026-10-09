@@ -35,9 +35,9 @@ For the benchmarker's guided campaign workflow, see **[Benchmark Campaign Workfl
 AI Compass intentionally maintains **two independent data modes using the same frontend**:
 
 - **Demo (standalone):** seeded fictitious records and simulated accounts persisted in browser `localStorage`. No Django, Docker or DB is required; this mode remains supported permanently.
-- **Server (progressively implemented):** shared real data via the Django Ninja API backed by PostgreSQL, server authentication, immutable history and evidence files.
+- **Server (progressively implemented):** starts with an **empty business database** (only required technical schemas/roles/accounts are initialized); real shared data is created by users via Django Ninja/PostgreSQL and will later be imported deliberately from external real-world sources **after production deployment validation**.
 
-A common `DataProvider` abstraction will select the storage adapter at startup as domain APIs are delivered. Demo and Server never silently mix data or fall back to one another. **PLAT-01 provides Server infrastructure; PLAT-02 adds Django login and independent roles; PLAT-03 adds a persistent, immutable Model REST API (`/api/v1/models`). The graphical catalog screens remain Demo-only until their Server data adapters arrive in later issues.**
+A common `DataProvider` abstraction will select the storage adapter at startup as domain APIs are delivered. Demo and Server never silently mix data or fall back to one another. **Fake Demo fixtures are never imported into Server.** The cancelled [PLAT-04](https://github.com/aradenac/AI-Compass/issues/4) is no longer a prerequisite; real external-source onboarding is deferred to [PLAT-33](https://github.com/aradenac/AI-Compass/issues/33) after Server production validation. **PLAT-01 provides Server infrastructure; PLAT-02 adds Django login and independent roles; PLAT-03 adds a persistent, immutable Model REST API (`/api/v1/models`). The graphical catalog screens remain Demo-only until their Server data adapters arrive in later issues.**
 
 See **[Local Installation & Deployment](docs/local-installation.md)** for setup and Server login, **[Model Catalog Architecture & API](docs/model-catalog-architecture.md)** for the versioned Model API, and [Platform Architecture](docs/platform-architecture-and-data-governance.md).
 
