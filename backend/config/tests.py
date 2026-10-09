@@ -195,7 +195,7 @@ class ModelCatalogTests(TestCase):
         first = created.json()
         self.assertTrue(first["id"].startswith("mdl-"))
         self.assertEqual(first["revision"], "r001")
-        self.assertEqual(first["schema_version"], 1)
+        self.assertEqual(first["schema_version"], 2)
         item = CatalogItem.objects.get(public_id=first["id"])
         self.assertEqual(item.id.version, 7)
         self.assertEqual(item.id.variant, RFC_4122)
@@ -270,5 +270,5 @@ class ModelCatalogTests(TestCase):
 
     def test_schema_registry_endpoint(self):
         data = self.client.get("/api/v1/models/schema").json()
-        self.assertEqual((data["type"], data["version"]), ("model", 1))
+        self.assertEqual((data["type"], data["version"]), ("model", 2))
         self.assertTrue(data["schema"]["additionalProperties"])

@@ -53,6 +53,13 @@
     '<div id="server-model-list"></div>',
     '<section id="server-model-editor" class="server-card" hidden></section>',
     '<section id="server-model-history" class="server-card server-model-history" hidden></section>',
+    '<form id="server-inspect-catalog-form" class="server-card" style="margin-top:16px">',
+    '<h3>Inspect original catalog record</h3>',
+    '<p class="muted small">Authorized read-only inspection of unsupported types, schema versions and raw fields.</p>',
+    '<label for="server-inspect-id">Permanent object ID</label>',
+    '<input id="server-inspect-id" name="object_id" required maxlength="120" placeholder="mdl-word-word-word">',
+    '<button type="submit">Inspect original record</button></form>',
+    '<section id="server-catalog-raw" class="server-card" style="margin-top:12px" hidden></section>',
     '<div class="note" style="margin-top:14px">Providers, Harnesses and Frameworks are not yet persistent in Server mode; these follow in PLAT-06.</div>',
     '</section></main></div>'
   ].join("");
@@ -66,6 +73,7 @@
   var modelState = document.getElementById("server-model-state");
   var editor = document.getElementById("server-model-editor");
   var history = document.getElementById("server-model-history");
+  var raw = document.getElementById("server-catalog-raw");
   var cachedModels = [];
   var grants = [];
   var refreshGeneration = 0;
@@ -150,6 +158,7 @@
     ++refreshGeneration;
     editor.hidden = true;
     history.hidden = true;
+    raw.hidden = true;
     if (!data.authenticated) {
       grants = [];
       cachedModels = [];
@@ -199,6 +208,11 @@
 
   function showEditor(item) {
     if (!grants.includes("business_write")) return;
+    if (item && item.readOnly) {
+      showRaw(item);
+      catalogStatus("Editing blocked: historical or unsupported Model requires schema review. Original data is preserved.", true);
+      return;
+    }
     history.hidden = true;
     var p = (item && item.properties) || {};
     var extras = {};
@@ -285,6 +299,8 @@
   async function showHistory(id) {
     editor.hidden = true;
     history.hidden = false;
+    raw.hidden = true;
+    history.classList.remove("server-error");
     history.textContent = "Loading immutable Model revisions…";
     try {
       var versions = await adapter.revisions(id);
@@ -295,7 +311,11 @@
           return '<details' + (row === versions[versions.length - 1] ? " open" : "") +
             '><summary><strong>' + escapeHtml(row.revision) + ' · ' +
             escapeHtml(row.name) + '</strong> · ' + escapeHtml(row.created_by) +
-            ' · ' + escapeHtml(row.created_at) + '</summary><pre>' +
+            ' · ' + escapeHtml(row.created_at) + '</summary><div class="muted small">Schema v' +
+            escapeHtml(row.schema_version == null ? "unknown" : row.schema_version) +
+            ' · ' + escapeHtml(row.compatibility && row.compatibility.status || "unsupported") +
+            ' · ' + escapeHtml(row.compatibility && row.compatibility.reason || "") +
+            '</div><pre>' +
             escapeHtml(JSON.stringify(row.properties, null, 2)) + '</pre></details>';
         }).join("") +
         '<button type="button" id="server-model-close-history">Close history</button>';
@@ -308,6 +328,49 @@
     }
   }
 
+  function showRaw(record) {
+    editor.hidden = true;
+    history.hidden = true;
+    raw.hidden = false;
+    var diagnostic = record.compatibility || {status: "unsupported", read_only: true};
+    var metadata = {
+      id: record.id, type: record.type, revision: record.revision,
+      schema_version: record.schema_version,
+      created_at: record.created_at, created_by: record.created_by,
+      name: record.name, compatibility: diagnostic,
+      original_properties: record.properties
+    };
+    raw.innerHTML = '<h2>Original catalog data — read only</h2>' +
+      '<p class="muted small">No defaults or conversions are applied to this source snapshot.</p>' +
+      '<pre style="white-space:pre-wrap;overflow-wrap:anywhere;background:#f4f6fa;padding:12px">' +
+      escapeHtml(JSON.stringify(metadata, null, 2)) + '</pre>' +
+      '<button type="button" id="server-close-raw">Close</button>';
+    raw.querySelector("#server-close-raw").addEventListener("click", function () {
+      raw.hidden = true;
+    });
+    raw.scrollIntoView({block: "nearest", behavior: "smooth"});
+  }
+
+  document.getElementById("server-inspect-catalog-form").addEventListener("submit", async function (event) {
+    event.preventDefault();
+    if (!grants.includes("business_read")) return;
+    var target = document.getElementById("server-inspect-id").value.trim();
+    if (!/^[A-Za-z0-9_-]{1,120}$/.test(target)) {
+      catalogStatus("Invalid catalog identifier format.", true);
+      return;
+    }
+    try {
+      var response = await fetch("/api/v1/catalog/items/" + encodeURIComponent(target),
+        {credentials: "same-origin", cache: "no-store"});
+      if (!response.ok) throw new Error("Read denied or catalog record not found (HTTP " + response.status + ")");
+      var row = await response.json();
+      showRaw(modelsUi.modelFromApi(row));
+      catalogStatus("Showing exact original catalog fields; unsupported schemas are read only.", false);
+    } catch (error) {
+      catalogStatus("Cannot inspect record: " + error.message, true);
+    }
+  });
+
   modelList.addEventListener("click", function (event) {
     var button = event.target.closest("button[data-act]");
     if (!button) return;
@@ -318,10 +381,15 @@
       if (model) showEditor(model);
     }
     if (act === "modelHistory") showHistory(id);
+    if (act === "modelRaw") {
+      var record = cachedModels.find(function (item) { return item.id === id; });
+      if (record) showRaw(record);
+    }
   });
   document.getElementById("server-model-refresh").addEventListener("click", function () {
     editor.hidden = true;
     history.hidden = true;
+    raw.hidden = true;
     refreshModels();
   });
 

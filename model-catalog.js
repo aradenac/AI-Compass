@@ -20,18 +20,29 @@
   }
 
   function modelFromApi(row) {
-    if (!row || row.type !== "model" || !row.id || !row.revision ||
-        !row.properties || typeof row.properties !== "object" || Array.isArray(row.properties)) {
-      throw new Error("The Server returned an invalid Model record.");
+    if (!row || typeof row !== "object" || !row.id || !row.type) {
+      throw new Error("The Server returned invalid catalog metadata.");
     }
-    var p = row.properties;
+    var p = row.properties && typeof row.properties === "object" &&
+      !Array.isArray(row.properties) ? row.properties : {};
+    var compatibility = row.compatibility || {
+      status: "unsupported", read_only: true, reason: "Compatibility metadata unavailable"
+    };
     return {
-      id: row.id, name: row.name, type: "model", version: p.version || "",
-      url: p.url || "", details: p.details || "", publication: p.publication || "draft",
-      status: p.status || "active", accessible: p.accessible === true,
-      properties: p, revision: row.revision, schema_version: row.schema_version,
+      id: row.id, name: row.name == null ? "" : String(row.name), type: row.type,
+      version: p.version, url: p.url, details: p.details,
+      publication: p.publication, status: p.status, accessible: p.accessible,
+      properties: row.properties, revision: row.revision,
+      schema_version: row.schema_version, compatibility: compatibility,
+      readOnly: row.type !== "model" || compatibility.read_only === true,
       created_at: row.created_at, created_by: row.created_by
     };
+  }
+
+  function diagnosticSummary(model) {
+    var c = model.compatibility || {};
+    return [c.reason, c.incompatible_fields && c.incompatible_fields.length ?
+      "Incompatible: " + c.incompatible_fields.join(", ") : null].filter(Boolean).join(" · ");
   }
 
   /* Same domain methods: list/get/create/revise/revisions.
@@ -102,7 +113,7 @@
   function renderLane(models, options) {
     options = options || {};
     var canWrite = options.canWrite !== false;
-    var list = models.slice().sort(function (a, b) { return a.name.localeCompare(b.name); });
+    var list = models.slice().sort(function (a, b) { return String(a.name || "").localeCompare(String(b.name || "")); });
     var intro = "Versioned engines and capabilities";
     return '<section class="card component-lane" data-catalog="model">' +
       '<div class="card-head"><div><div class="eyebrow">model</div><h2>Models</h2></div>' +
@@ -112,21 +123,37 @@
         var docLink = /^https?:\/\//i.test(model.url || "") ?
           '<p class="small"><a href="' + escapeHtml(model.url) +
           '" target="_blank" rel="noopener noreferrer">Documentation ↗</a></p>' : "";
-        return '<div class="list-row"><div class="short"><strong>' + escapeHtml(model.name) +
+        var compat = model.compatibility || null;
+        var rawOnly = compat && (compat.read_only || model.type !== "model");
+        var diag = compat ? '<div class="muted small">Schema v' +
+          escapeHtml(model.schema_version == null ? "unknown" : model.schema_version) +
+          ' · ' + badge(compat.status || "unsupported") +
+          (compat.missing_fields && compat.missing_fields.length ?
+            ' · Missing: ' + escapeHtml(compat.missing_fields.join(", ")) : "") +
+          (compat.null_fields && compat.null_fields.length ?
+            ' · Null: ' + escapeHtml(compat.null_fields.join(", ")) : "") +
+          (compat.unknown_fields && compat.unknown_fields.length ?
+            ' · Extensions: ' + escapeHtml(compat.unknown_fields.join(", ")) : "") +
+          '</div><div class="muted small">' + escapeHtml(diagnosticSummary(model)) + '</div>' : "";
+        return '<div class="list-row"><div class="short"><strong>' + escapeHtml(model.name || "(unnamed)") +
           '</strong><div class="muted small">' + escapeHtml(model.version || "Version not set") +
           ' · ' + escapeHtml(model.testedCount || 0) + ' tested combinations</div>' +
           '<div class="tags" style="margin-top:5px">' +
-          badge(model.publication || "published") + badge(model.status || "active") +
-          badge(model.accessible ? "Accessible" : "Not accessible") + '</div>' +
-          '<p class="muted small">' + escapeHtml((model.details || "").slice(0, 180)) + '</p>' +
+          (model.publication != null ? badge(model.publication) : "") +
+          (model.status != null ? badge(model.status) : "") +
+          (typeof model.accessible === "boolean" ? badge(model.accessible ? "Accessible" : "Not accessible") : "") + '</div>' +
+          '<p class="muted small">' + escapeHtml(String(model.details == null ? "" : model.details).slice(0, 180)) + '</p>' +
+          diag +
           docLink + (options.showRevisions && model.revision ?
             '<div class="muted small">' + escapeHtml(model.id) + ' · ' +
             escapeHtml(model.revision) + '</div>' : "") +
           '</div><div class="server-model-actions">' +
-          (canWrite ? '<button class="btn sm" data-act="editComponent" data-id="' +
+          (canWrite && !rawOnly ? '<button class="btn sm" data-act="editComponent" data-id="' +
             escapeHtml(model.id) + '">Edit</button>' : "") +
           (options.showRevisions ? '<button class="btn sm" data-act="modelHistory" data-id="' +
-            escapeHtml(model.id) + '">History</button>' : "") + '</div></div>';
+            escapeHtml(model.id) + '">History</button>' +
+            '<button class="btn sm" data-act="modelRaw" data-id="' +
+            escapeHtml(model.id) + '">Original data</button>' : "") + '</div></div>';
       }).join("") : '<div class="empty">No Models yet. ' +
           (canWrite ? 'Create the first real Model to begin.' : 'Models will appear when a contributor adds one.') +
           '</div>') + '</div></section>';
