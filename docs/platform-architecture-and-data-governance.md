@@ -32,9 +32,9 @@ This page consolidates the platform-level decisions for a **permanent dual-mode 
 | Authentication | Clearly simulated demo identities and privileges | Authenticated, enforced server-side permissions |
 | Persistence | Local to browser and origin, exportable/resettable | Shared database and immutable server evidence store |
 | Availability | Works independently/offline once static files are available | API/DB availability required; **never fall back to fake data** |
-| Data interchange | Explicit export/import or opt-in migration only | Explicit staged import with preview and reconciliation only |
+| Data interchange | Fake-data fixtures stay local; optional Demo backup/reset is Demo-only | **Initially empty business DB**; real external-source ingestion is enabled only later, after deployment validation, with preview, provenance and explicit confirmation |
 
-**Data-provider contract:** UI state and business operations should depend on a shared interface (list/get/create/revise and domain-specific actions), implemented by both adapters with compatible output contracts. No view should contain branching business logic such as `if (demo) localStorage... else fetch...`; mode resolution is centralized in the application bootstrap. Demo data and server data must remain separately namespaced and visibly labeled. Do not auto-copy fake demo records into Server mode, or live records into Demo mode. Provide explicit mode selection/configuration and prevent automatic fallback on HTTP/API errors. Maintain regression smoke tests for **both modes** for every frontend change. The current monolithic `prototype.html` remains the reference implementation for Demo mode until the common data-provider extraction is introduced incrementally.
+**Data-provider contract:** UI state and business operations should depend on a shared interface (list/get/create/revise and domain-specific actions), implemented by both adapters with compatible output contracts. No view should contain branching business logic such as `if (demo) localStorage... else fetch...`; mode resolution is centralized in the application bootstrap. Demo data and server data must remain separately namespaced and visibly labeled. **Never import or map seeded Demo records into Server mode.** New Server installations must have empty business catalogs (technical schema and identity bootstrap only). Real sources are selected and imported independently after production deployment acceptance; never auto-copy real records into Demo. Provide explicit mode selection/configuration and prevent automatic fallback on HTTP/API errors. Maintain regression smoke tests for **both modes** for every frontend change. The current monolithic `prototype.html` remains the reference implementation for Demo mode until the common data-provider extraction is introduced incrementally.
 
 **Delivery ordering:** issue #1 keeps `prototype.html` fully functional in Demo mode and exposes health-only Server infrastructure. Server-mode catalog/business operations appear incrementally in subsequent issues; until then, those Server features are shown as not yet available, not silently populated from local fake data.
 
@@ -264,7 +264,7 @@ Requirements:
 - Disable only actions requiring absent/incompatible fields rather than crashing entire screens.
 - Migration logic resides in the backend. UI components must not embed the complete historical transformation rules.
 - Enforce access policy server-side; hiding a button or sidebar section is **not** authorization.
-- The localStorage prototype remains a **permanent, first-class Demo runtime**, not a temporary migration source. An opt-in import from its export into Server mode must preserve existing IDs/history as far as available, create a reconciliation report and retain the original export. Server mode alone is authoritative for shared production data; Demo mode alone is authoritative for its local fake dataset.
+- The localStorage prototype remains a **permanent, first-class Demo runtime**, never a seed or migration source for production. **Initial Server business data is empty**; only required SQL schema definitions, permissions and authorized accounts may be created. Real business records are entered deliberately or imported from **separate, authentic external sources after the deployed platform is validated**. Such later imports require source traceability, validation, preview, conflict reporting and authorized execution. Server alone is authoritative for production data; Demo alone is authoritative for its fake local dataset.
 
 ## 9. Durable document storage and secure upload
 
@@ -387,6 +387,8 @@ Foundational safety applies from **increment 1**: introduce no production persis
 | Scenario | Required behavior |
 | --- | --- |
 | Demo mode on standalone static server | Same frontend loads with fake fixtures/localStorage, no Django/Docker/database; persistence survives refresh. |
+| Fresh Server deployment | **Zero seeded business records** across catalog, tasks, guides, campaigns, runs, evidence and recommendations; technical schema and user/group metadata exist as needed. |
+| Demo records after Server setup | Never imported, mapped or copied into Server; both datasets are isolated. |
 | Server API unreachable | Clear offline/unavailable indication; **never** substitute Demo records silently. |
 | App/container recreation | Persistent DB, HRIDs, revisions and blobs remain available. |
 | Simultaneous object creation | HRIDs globally unique; atomic retries; no duplicate IDs. |
@@ -401,7 +403,8 @@ Foundational safety applies from **increment 1**: introduce no production persis
 | Backup/restore to clean machine | Object counts, history, links, documents and manifests reconcile; checksum checks pass. |
 | Maintenance-only account | Can view/triage permitted health issues but cannot call business mutating endpoints or view forbidden evidence. |
 | Data Maintainer without `users.manage` | Cannot manage accounts/roles; assigning additional role works as granted. |
-| Export/import from legacy and current versions | Explicit provenance, schema mappings and collision reports; no silent data loss. |
+| Native AI Compass backup/archive import | Recovery/portability preserves identities, history, schema definitions, relations and evidence, separate from initial business seeding. |
+| Post-deployment external-source onboarding | Only after Server deployment validation: real source/provenance, explicit mapping, dry-run, idempotent import and review; never Demo fixtures. |
 | Review or score recomputation | New derived revision; prior analysis and evidence unchanged. |
 
 Automate these tests in CI as features arrive and include periodic real restore drills.
