@@ -41,7 +41,18 @@ jobs:
           docker info --format '{{json .RegistryConfig.Mirrors}}'
           # Explicit public ECR pulls avoid Docker Hub rate-limit fallback.
           for image in postgres:17-alpine caddy:2-alpine python:3.12-slim busybox:1.36; do
-            docker pull "public.ecr.aws/docker/library/$image"
+            success=false
+            for attempt in 1 2 3 4 5; do
+              if docker pull "public.ecr.aws/docker/library/$image"; then
+                success=true
+                break
+              fi
+              sleep $((attempt * 6))
+            done
+            if test "$success" != true; then
+              echo "ECR pull failed for $image after retries" >&2
+              exit 1
+            fi
             docker tag "public.ecr.aws/docker/library/$image" "$image"
           done
       - name: Validate recovery code and failure-path unit tests
