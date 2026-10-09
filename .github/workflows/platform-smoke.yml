@@ -8,6 +8,7 @@ on:
       - "compose.yaml"
       - "Caddyfile"
       - "prototype.html"
+      - "server-mode.js"
       - ".env.example"
       - ".github/workflows/platform-smoke.yml"
   workflow_dispatch:
@@ -26,8 +27,28 @@ jobs:
         run: docker compose up -d --wait --build
       - name: Initialize Django's baseline schema
         run: docker compose run --rm api python manage.py migrate --noinput
+      - name: Initialize separate operator and maintainer roles
+        run: |
+          docker compose exec -T api python manage.py bootstrap_identity
+          operator_pw=$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')
+          maintainer_pw=$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')
+          printf '%s\n' "$operator_pw" | docker compose exec -T api python manage.py bootstrap_identity --username ci-operator --role platform-admin --password-stdin
+          printf '%s\n' "$maintainer_pw" | docker compose exec -T api python manage.py bootstrap_identity --username ci-maintainer --role data-maintainer --password-stdin
       - name: Run backend, persistence and backup/restore checks
         run: bash scripts/smoke-platform.sh
+      - name: Check shared frontend modes and client syntax
+        run: |
+          node --check server-mode.js
+          python3 - <<'PY'
+          from pathlib import Path
+          page = Path("prototype.html").read_text()
+          script = Path("server-mode.js").read_text()
+          assert 'get("mode") !== "server"' in page
+          assert '<script src="server-mode.js"></script>' in page
+          assert 'localStorage' not in script or 'localStorage' in script.splitlines()[0]  # only explanatory comments may mention it
+          PY
+          curl -fsS http://127.0.0.1:8080/server-mode.js | cmp - server-mode.js
+
       - name: Verify the same frontend also runs without any backend
         run: |
           docker compose stop
