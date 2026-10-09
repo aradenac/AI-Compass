@@ -33,7 +33,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Validate recovery code and failure-path unit tests
         run: |
-          python3 -m py_compile scripts/recovery.py scripts/install-backup-timer.py scripts/test_recovery.py
+          python3 -m py_compile scripts/recovery.py scripts/install-backup-timer.py scripts/test_recovery.py scripts/smoke_recovery_domain.py
           python3 -m unittest discover -s scripts -p 'test_recovery.py' -v
           python3 scripts/install-backup-timer.py --destination "$PWD" --dry-run | grep 'ai-compass-backup.service'
       - name: Create isolated local credentials
@@ -63,6 +63,10 @@ jobs:
         run: docker compose exec -T api python manage.py makemigrations --check --dry-run
       - name: Run backend, persistence and backup/restore checks
         run: bash scripts/smoke-platform.sh
+      - name: Restore real Models from an entirely disposable CI database
+        env:
+          AI_COMPASS_ISOLATED_FIXTURE_CI: "1"
+        run: python3 scripts/smoke_recovery_domain.py
       - name: Check shared frontend modes and client syntax
         run: |
           node --check server-mode.js
