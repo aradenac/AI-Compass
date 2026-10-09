@@ -13,6 +13,7 @@ on:
       - "server-mode.js"
       - "server-tasks.js"
       - "server-test-cases.js"
+      - "server-guides.js"
       - "server-users.js"
       - "server-activity.js"
       - "server-data-health.js"
@@ -29,6 +30,7 @@ on:
       - "server-mode.js"
       - "server-tasks.js"
       - "server-test-cases.js"
+      - "server-guides.js"
       - "server-users.js"
       - "server-activity.js"
       - "server-data-health.js"
@@ -115,6 +117,8 @@ jobs:
         run: docker compose exec -T api python manage.py test config.test_tasks -v 2
       - name: Verify persistent Test Case forks, version history, task links and permissions
         run: docker compose exec -T api python manage.py test config.test_test_cases -v 2
+      - name: Verify reusable text and URL guides, immutable history and permissions
+        run: docker compose exec -T api python manage.py test config.test_setup_guides -v 2
       - name: Run backend, persistence and backup/restore checks
         run: bash scripts/smoke-platform.sh
       - name: Verify DB-only recovery manifest flags uncovered evidence files
@@ -176,6 +180,7 @@ jobs:
           curl -fsS http://127.0.0.1:18081/server-mode.js | cmp - server-mode.js
           curl -fsS http://127.0.0.1:18081/server-tasks.js | cmp - server-tasks.js
           curl -fsS http://127.0.0.1:18081/server-test-cases.js | cmp - server-test-cases.js
+          curl -fsS http://127.0.0.1:18081/server-guides.js | cmp - server-guides.js
           curl -fsS http://127.0.0.1:18081/server-users.js | cmp - server-users.js
           curl -fsS http://127.0.0.1:18081/server-activity.js | cmp - server-activity.js
           curl -fsS http://127.0.0.1:18081/server-data-health.js | cmp - server-data-health.js
@@ -208,6 +213,8 @@ jobs:
           node --check server-mode.js
           node --check server-tasks.js
           node --check server-test-cases.js
+          node --check server-guides.js
+          node scripts/test-server-guides.js
           node scripts/test-server-test-cases.js
           node --check server-users.js
           node scripts/test-server-users.js
@@ -233,6 +240,7 @@ jobs:
           assert '<script src="server-mode.js"></script>' in page
           assert '<script src="server-tasks.js"></script>' in page
           assert '<script src="server-test-cases.js"></script>' in page
+          assert '<script src="server-guides.js"></script>' in page
           assert '<script src="server-users.js"></script>' in page
           assert '<script src="server-activity.js"></script>' in page
           assert '<script src="server-data-health.js"></script>' in page
@@ -241,6 +249,7 @@ jobs:
           curl -fsS http://127.0.0.1:8080/server-mode.js | cmp - server-mode.js
           curl -fsS http://127.0.0.1:8080/server-tasks.js | cmp - server-tasks.js
           curl -fsS http://127.0.0.1:8080/server-test-cases.js | cmp - server-test-cases.js
+          curl -fsS http://127.0.0.1:8080/server-guides.js | cmp - server-guides.js
           curl -fsS http://127.0.0.1:8080/server-users.js | cmp - server-users.js
           curl -fsS http://127.0.0.1:8080/server-activity.js | cmp - server-activity.js
           curl -fsS http://127.0.0.1:8080/server-data-health.js | cmp - server-data-health.js
