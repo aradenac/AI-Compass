@@ -25,6 +25,9 @@ PG_IMAGE = "postgres:17-alpine"
 DUMP_PATTERN = re.compile(r"^ai-compass-\d{8}T\d{6}Z-[0-9a-f]{12}\.dump$")
 RESTORE_DB = "ai_compass_restore_verify"
 RESTORE_USER = "ai_compass_restore"
+# Pin the exact repository Compose project instead of trusting caller cwd/env flags.
+COMPOSE = ["docker", "compose", "--project-directory", str(ROOT),
+           "-f", str(ROOT / "compose.yaml"), "-p", "ai-compass"]
 INSPECT_SQL = """
 SELECT json_build_object(
  'model_count', (SELECT count(*) FROM config_catalogitem WHERE type_slug='model'),
@@ -57,7 +60,7 @@ def run(cmd, *, input_file=None, timeout=600, capture=True):
         with (open(input_file, "rb") if input_file is not None else contextlib.nullcontext()) as stream:
             result = subprocess.run(
                 cmd, stdin=stream, stdout=subprocess.PIPE if capture else None,
-                stderr=subprocess.PIPE, timeout=timeout, check=False
+                stderr=subprocess.PIPE, timeout=timeout, check=False, cwd=ROOT
             )
     except (OSError, subprocess.TimeoutExpired) as error:
         raise RecoveryError("Command unavailable or timed out: " + str(error)) from error
@@ -157,8 +160,8 @@ def verify(path):
 
 
 def database_metadata():
-    name = run(["docker", "compose", "exec", "-T", "db", "sh", "-ec", 'printf %s "$POSTGRES_DB"'])
-    version = run(["docker", "compose", "exec", "-T", "db", "sh", "-ec",
+    name = run(COMPOSE + ["exec", "-T", "db", "sh", "-ec", 'printf %s "$POSTGRES_DB"'])
+    version = run(COMPOSE + ["exec", "-T", "db", "sh", "-ec",
                    'exec psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atqc "SHOW server_version"'])
     if not name or len(name) > 100:
         raise RecoveryError("Cannot identify source database")
@@ -263,7 +266,7 @@ def backup(args):
             with open(partial, "xb") as output:
                 output.flush()
                 os.fchmod(output.fileno(), 0o600)
-                command = ["docker", "compose", "exec", "-T", "db", "sh", "-ec",
+                command = COMPOSE + ["exec", "-T", "db", "sh", "-ec",
                            'exec pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --format=custom']
                 subprocess_run_dump(command, output)
                 output.flush()
@@ -312,7 +315,7 @@ def backup(args):
 
 def subprocess_run_dump(cmd, output):
     try:
-        p = subprocess.run(cmd, stdout=output, stderr=subprocess.PIPE, timeout=600, check=False)
+        p = subprocess.run(cmd, stdout=output, stderr=subprocess.PIPE, timeout=600, check=False, cwd=ROOT)
     except (OSError, subprocess.TimeoutExpired) as error:
         raise RecoveryError("pg_dump unavailable or timed out: " + str(error)) from error
     if p.returncode:
