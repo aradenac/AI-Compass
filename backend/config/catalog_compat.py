@@ -40,6 +40,9 @@ def classify(type_slug, schema_type, source_version, properties, versions):
         "unknown_fields": [], "missing_fields": [], "null_fields": [],
         "incompatible_fields": [], "reason": None,
     }
+    if source_version is None:
+        base["reason"] = "Catalog record has no current revision"
+        return base
     if schema_type != type_slug:
         base["reason"] = "Revision references a schema for a different object type"
         return base
