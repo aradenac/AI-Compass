@@ -181,7 +181,7 @@ def apply_batch(envelope, *, expected_migration_sha):
             cursor.execute("SELECT pg_advisory_xact_lock(%s)", [LOCK])
         _validate_backup(proof)
         target = ObjectTypeVersion.objects.get(type_slug="model", version=2)
-        rows = list(CatalogItem.objects.select_for_update().filter(type_slug="model")
+        rows = list(CatalogItem.objects.select_for_update(of=("self",)).filter(type_slug="model")
                     .select_related("current_revision__schema_version").order_by("pk"))
         pending = []
         for item in rows:
