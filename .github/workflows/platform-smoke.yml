@@ -33,6 +33,12 @@ jobs:
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
+      - name: Use cached public image mirror on hosted CI
+        run: |
+          sudo install -d -m 0755 /etc/docker
+          echo '{"registry-mirrors":["https://mirror.gcr.io"]}' | sudo tee /etc/docker/daemon.json
+          sudo systemctl restart docker
+          docker info --format '{{json .RegistryConfig.Mirrors}}'
       - name: Validate recovery code and failure-path unit tests
         run: |
           python3 -m py_compile scripts/recovery.py scripts/install-backup-timer.py scripts/test_recovery.py scripts/smoke_recovery_domain.py scripts/smoke_catalog.py scripts/smoke_evidence.py
