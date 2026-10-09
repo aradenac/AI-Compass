@@ -88,3 +88,35 @@ class EvidenceLink(models.Model):
 
     class Meta:
         ordering = ["created_at", "id"]
+
+
+class TaskNode(models.Model):
+    """Current relational placement for a versioned engineering taxonomy node.
+
+    CatalogItem owns permanent tsk-* identity and immutable content revisions.
+    The current placement is materialized for fast tree and FK queries; every
+    changed placement is preserved by TaskStructureRevision.
+    """
+    item = models.OneToOneField(
+        CatalogItem, primary_key=True, on_delete=models.PROTECT, related_name="task_node"
+    )
+    parent = models.ForeignKey(
+        "self", null=True, blank=True, on_delete=models.PROTECT, related_name="children"
+    )
+    position = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["position", "item_id"]
+
+
+class TaskStructureRevision(models.Model):
+    """Append-only parent/order snapshot associated with a CatalogRevision."""
+    revision = models.OneToOneField(
+        CatalogRevision, primary_key=True, on_delete=models.PROTECT,
+        related_name="task_structure",
+    )
+    task = models.ForeignKey(TaskNode, on_delete=models.PROTECT, related_name="structure_history")
+    parent = models.ForeignKey(
+        TaskNode, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
+    position = models.PositiveIntegerField()
