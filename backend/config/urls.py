@@ -4,6 +4,8 @@ from . import auth_views, catalog_views
 from .api import api
 
 urlpatterns = [
+    path("api/v1/catalog/schemas/<slug:type_slug>", catalog_views.catalog_schema),
+    path("api/v1/catalog/items/<slug:public_id>", catalog_views.get_catalog_item),
     path("api/v1/models", catalog_views.models_collection),
     path("api/v1/models/schema", catalog_views.get_model_schema),
     path("api/v1/models/<slug:public_id>", catalog_views.get_model),
