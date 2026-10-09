@@ -35,6 +35,9 @@ SELECT json_build_object(
  'revision_count', (SELECT count(*) FROM config_catalogrevision),
  'audit_count', (SELECT count(*) FROM config_catalogauditevent),
  'schema_versions', (SELECT coalesce(json_agg(type_slug || ':' || version ORDER BY type_slug, version), '[]'::json) FROM config_objecttypeversion),
+ 'schema_definitions', (SELECT coalesce(json_agg(json_build_object(
+   'type', type_slug, 'version', version, 'schema', json_schema)
+   ORDER BY type_slug, version), '[]'::json) FROM config_objecttypeversion),
  'migration_count', (SELECT count(*) FROM django_migrations),
  'hrid_digest', (SELECT md5(coalesce(string_agg(public_id, '|' ORDER BY public_id), '')) FROM config_catalogitem),
  'revision_digest', (SELECT md5(coalesce(string_agg(r.id::text || ':' || r.number::text || ':' || r.schema_version_id::text || ':' || r.display_name || ':' || r.properties::text, '|' ORDER BY r.id::text), '')) FROM config_catalogrevision r),
@@ -175,6 +178,20 @@ def inspect_restored(container):
         info = json.loads(query)
     except ValueError as error:
         raise RecoveryError("Cannot parse isolated recovery integrity query") from error
+    # Individual SHA-256 digests are derived from the *restored* point-in-time
+    # database, never from a subsequent query against the live source. Thus an
+    # active Model/schema change after pg_dump cannot skew the manifest.
+    definitions = info.pop("schema_definitions", [])
+    if not isinstance(definitions, list):
+        raise RecoveryError("Invalid restored schema definition list")
+    info["schema_hashes"] = [
+        {"type": entry["type"], "version": entry["version"],
+         "sha256": hashlib.sha256(json.dumps(
+             entry["schema"], sort_keys=True, ensure_ascii=False,
+             separators=(",", ":")
+         ).encode("utf-8")).hexdigest()}
+        for entry in definitions
+    ]
     for check in ("invalid_ids", "invalid_revision_links", "orphan_revisions"):
         if info[check] != 0:
             raise RecoveryError("Restored catalog integrity failed: " + check + "=" + str(info[check]))
@@ -188,8 +205,8 @@ def inspect_restored(container):
     return info
 
 
-def restore_isolated(dump):
-    """No prod volumes, no published ports, no prod credentials, no network."""
+def restore_isolated(dump, *, verifier=None):
+    """No prod volumes/network; optional CI-only verifier sees disposable DB before cleanup."""
     container = "ai-compass-drill-" + secrets.token_hex(10)
     password = secrets.token_urlsafe(30)
     started = False
@@ -211,7 +228,10 @@ def restore_isolated(dump):
         run(["docker", "exec", "-i", container, "pg_restore", "--exit-on-error",
              "--single-transaction", "--no-owner", "--no-privileges",
              "-U", RESTORE_USER, "-d", RESTORE_DB], input_file=dump)
-        return inspect_restored(container)
+        inspection = inspect_restored(container)
+        if verifier is not None:
+            verifier(container, inspection)  # errors still force-remove the temporary DB
+        return inspection
     finally:
         if started:
             try:
