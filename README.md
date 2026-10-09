@@ -20,6 +20,8 @@ Cross-cutting interaction, slider and tooltip rules: **[Non-Functional Requireme
 
 See **[Product Definition](docs/product-definition.md)** for the agreed product scope, roles, task hierarchy, benchmarking model, evidence and scoring principles, publishing workflow, and evolution roadmap.
 
+For operational database protection, see the **[Verified Backup & Recovery Runbook](docs/backup-and-recovery.md)** (PLAT-34): automated snapshots, isolated restore drills, integrity reports and retention.
+
 See **[Platform Architecture & Data Governance](docs/platform-architecture-and-data-governance.md)** for the target backend, persistence, immutable revisions, human-readable IDs, migration strategy, evidence storage, backup/recovery, deployment and independent Maintenance & Governance workspace.
 
 See **[Incremental Platform Implementation Roadmap](docs/platform-implementation-roadmap.md)** for the ordered, one-conversation-sized GitHub issues delivering this architecture in independently usable increments.
