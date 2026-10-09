@@ -45,7 +45,7 @@ call("auth/csrf")  # CSRF cookie rotates at login.
 assert call("models")["results"] == [], "Fresh Server was not empty"
 
 schema = call("models/schema")
-assert schema["type"] == "model" and schema["version"] == 1
+assert schema["type"] == "model" and schema["version"] == 2
 
 created = call("models", {"name": "Smoke Model", "properties": {"context_window": 12000, "future_flag": 7}}, 201)
 public_id = created["id"]
