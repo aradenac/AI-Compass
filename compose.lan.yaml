@@ -1,0 +1,17 @@
+# Only use after scripts/check_deployment_profile.py --env .env succeeds.
+# Base Compose stays bound to loopback for development and CI.
+# Use: docker compose -f compose.yaml -f compose.lan.yaml up -d --build
+services:
+  api:
+    environment:
+      AI_COMPASS_PROFILE: lan
+      AI_COMPASS_LAN_BIND: ${AI_COMPASS_LAN_BIND:?Set private LAN IPv4}
+      AI_COMPASS_TLS_PROXY: "1"
+      DJANGO_CSRF_TRUSTED_ORIGINS: ${DJANGO_CSRF_TRUSTED_ORIGINS:?Set https trusted LAN origin}
+  web:
+    ports:
+      - "${AI_COMPASS_LAN_BIND:?Set private LAN IPv4}:443:443"
+    volumes:
+      - ./Caddyfile.lan:/etc/caddy/Caddyfile:ro
+      - ./secrets/lan.crt:/etc/caddy/tls/lan.crt:ro
+      - ./secrets/lan.key:/etc/caddy/tls/lan.key:ro
