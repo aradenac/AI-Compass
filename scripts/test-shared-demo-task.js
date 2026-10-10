@@ -18,6 +18,9 @@ for (const type of ["model", "provider", "harness", "framework"]) {
 const context = {
   db, demoCatalogProviders: catalog, window: {AICompassRuntime: {
     createProviders: (mode, local) => {assert.equal(mode, "demo"); return {data: local};}
+  }, AICompassEnvironment: {
+    // FUT-06's Demo environment adapter is outside the Task provider's scope.
+    demoProvider: () => ({})
   }},
   canEdit: () => writable, next: () => "t" + (++nextId),
   revision: (type, id, before, after) => db.revisions.push({
