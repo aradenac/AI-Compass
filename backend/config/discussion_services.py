@@ -235,7 +235,7 @@ def create_message(actor,thread,data):
 def revise_message(actor,identifier,expected_revision,properties):
     with transaction.atomic():
         msg=_message(identifier)
-        item=CatalogItem.objects.select_for_update().select_related("current_revision__schema_version").get(pk=msg.item_id)
+        item=CatalogItem.objects.select_for_update(of=("self",)).select_related("current_revision__schema_version").get(pk=msg.item_id)
         current=item.current_revision
         if expected_revision!=f"r{current.number:03d}":
             raise RevisionConflict("Message changed; reload")
