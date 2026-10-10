@@ -32,20 +32,26 @@ def _owned_link(link_id):
 
 
 def _watch_evidence_published(item, revision):
-    from .watch_services import serialize
+    if item.type_slug=="forecast":
+        from .forecast_services import serialize
+    else:
+        from .watch_services import serialize
     return (revision is not None and serialize(item,rev=revision,reader=True) is not None)
 
 
 def _watch_readable(request, item, revision=None):
     """Never disclose unpublished source/watch files by guessing stable evidence UUIDs."""
-    if item.type_slug not in ("research_source","watch_entry"):
+    if item.type_slug not in ("research_source","watch_entry","forecast"):
         return
     if request.user.has_perm("auth.business_write") or request.user.has_perm("auth.publication_review"):
         return
     from django.http import Http404
-    from .watch_services import serialize
+    if item.type_slug=="forecast":
+        from .forecast_services import serialize
+    else:
+        from .watch_services import serialize
     data=serialize(item,rev=revision,reader=True)
-    if revision is None and item.type_slug in ("research_source","watch_entry"):
+    if revision is None and item.type_slug in ("research_source","watch_entry","forecast"):
         # Old links without a precise revision must never be made public by
         # a later change of visibility.
         data=None
@@ -67,17 +73,20 @@ def _checked(link):
 @never_cache
 def list_evidence(request, public_id):
     item = _item(public_id)
-    if item.type_slug in ("research_source","watch_entry") and not (
+    if item.type_slug in ("research_source","watch_entry","forecast") and not (
             request.user.has_perm("auth.business_write") or
             request.user.has_perm("auth.publication_review")):
         from django.http import Http404
-        from .watch_services import serialize
+        if item.type_slug=="forecast":
+            from .forecast_services import serialize
+        else:
+            from .watch_services import serialize
         if serialize(item,reader=True) is None:
             raise Http404("Private Research Source / Watch evidence")
     rows = EvidenceLink.objects.filter(item=item).select_related(
         "blob", "revision", "uploaded_by", "item"
     ).order_by("created_at", "id")
-    if item.type_slug in ("research_source","watch_entry") and not (
+    if item.type_slug in ("research_source","watch_entry","forecast") and not (
             request.user.has_perm("auth.business_write") or
             request.user.has_perm("auth.publication_review")):
         rows = [link for link in rows if link.revision_id is not None and
@@ -116,7 +125,7 @@ def upload_evidence(request, public_id):
         if not isinstance(provenance, dict):
             raise EvidenceError("Provenance must be a JSON object")
         requested = request.POST.get("revision", "")
-        if item.type_slug in ("research_source","watch_entry") and not requested:
+        if item.type_slug in ("research_source","watch_entry","forecast") and not requested:
             raise EvidenceError("Source and Watch evidence must pin an exact revision")
         revision = None
         if requested:

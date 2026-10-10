@@ -1,9 +1,15 @@
 from django.urls import path
 
-from . import auth_views, catalog_views, catalog_type_views, evidence_views, task_views, user_admin_views, activity_views, data_health_views, test_case_views, setup_guide_views, campaign_views, session_views, run_views, watch_views
+from . import auth_views, catalog_views, catalog_type_views, evidence_views, task_views, user_admin_views, activity_views, data_health_views, test_case_views, setup_guide_views, campaign_views, session_views, run_views, watch_views, forecast_views
 from .api import api
 
 urlpatterns = [
+    path("api/v1/forecasts", forecast_views.collection),
+    path("api/v1/forecasts/<slug:public_id>", forecast_views.detail),
+    path("api/v1/forecasts/<slug:public_id>/revisions", forecast_views.history),
+    path("api/v1/forecasts/<slug:public_id>/revisions/<int:number>", forecast_views.version),
+    path("api/v1/forecasts/<slug:public_id>/actions/<slug:action>", forecast_views.action),
+    path("api/v1/forecasts/<slug:public_id>/campaigns", forecast_views.start_campaign),
     path("api/v1/sources", watch_views.sources),
     path("api/v1/sources/<slug:public_id>", watch_views.source),
     path("api/v1/sources/<slug:public_id>/revisions", watch_views.source_history),

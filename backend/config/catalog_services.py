@@ -15,6 +15,7 @@ CATALOG_TYPES = {
     "setup_guide": "gui",
     "research_source": "src",
     "watch_entry": "wat",
+    "forecast": "fct",
 }
 SUPPORTED_SCHEMA_VERSIONS = {
     "model": SUPPORTED_MODEL_VERSIONS,
@@ -24,6 +25,7 @@ SUPPORTED_SCHEMA_VERSIONS = {
     "setup_guide": frozenset({1}),
     "research_source": frozenset({1}),
     "watch_entry": frozenset({1}),
+    "forecast": frozenset({1}),
 }
 
 

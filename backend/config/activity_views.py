@@ -129,7 +129,7 @@ def _events(perms, filters):
         # business records. Do not leak titles, author or stable IDs through
         # the generic Activity Feed. A future scoped Watch activity projection
         # can admit only explicitly public revisions.
-        q = q.exclude(item__type_slug__in=("research_source", "watch_entry"))
+        q = q.exclude(item__type_slug__in=("research_source", "watch_entry", "forecast"))
         if kind != "all":
             q = q.filter(item__type_slug=kind)
         if actor:

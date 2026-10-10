@@ -474,3 +474,54 @@ class WatchSourcePin(models.Model):
         constraints = [
             models.UniqueConstraint(fields=("entry_revision", "source"), name="uniq_watch_source_revision"),
         ]
+
+
+class ForecastSnapshot(models.Model):
+    """Immutable theoretical setup tied to one forecast revision, never a measured Solution."""
+    revision = models.OneToOneField(CatalogRevision, primary_key=True, on_delete=models.PROTECT,
+                                    related_name="forecast_snapshot")
+    task = models.ForeignKey(TaskNode, on_delete=models.PROTECT, related_name="+")
+    task_revision = models.ForeignKey(CatalogRevision, on_delete=models.PROTECT, related_name="+")
+    model = models.ForeignKey(CatalogItem, on_delete=models.PROTECT, related_name="+")
+    model_revision = models.ForeignKey(CatalogRevision, on_delete=models.PROTECT, related_name="+")
+    provider = models.ForeignKey(CatalogItem, on_delete=models.PROTECT, related_name="+")
+    provider_revision = models.ForeignKey(CatalogRevision, on_delete=models.PROTECT, related_name="+")
+    harness = models.ForeignKey(CatalogItem, on_delete=models.PROTECT, related_name="+")
+    harness_revision = models.ForeignKey(CatalogRevision, on_delete=models.PROTECT, related_name="+")
+    configuration = models.JSONField(default=dict)
+
+
+class ForecastWatchPin(models.Model):
+    """Exact Watch Entry revision explicitly supporting one immutable forecast."""
+    id = models.BigAutoField(primary_key=True)
+    snapshot = models.ForeignKey(ForecastSnapshot, on_delete=models.PROTECT,
+                                 related_name="watch_pins")
+    watch = models.ForeignKey(CatalogItem, on_delete=models.PROTECT, related_name="+")
+    watch_revision = models.ForeignKey(CatalogRevision, on_delete=models.PROTECT, related_name="+")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=("snapshot", "watch"), name="uniq_forecast_watch"),
+        ]
+
+
+class CampaignForecastOrigin(models.Model):
+    """Never infer observed measurements from this historical forecasting origin."""
+    campaign_snapshot = models.OneToOneField(CampaignSnapshot, primary_key=True,
+        on_delete=models.PROTECT, related_name="forecast_origin")
+    forecast_snapshot = models.ForeignKey(ForecastSnapshot, on_delete=models.PROTECT,
+        related_name="validation_campaigns")
+
+
+class CampaignForecastWatchPin(models.Model):
+    """Immutable preselected signals, copied when a Campaign revision is appended."""
+    id = models.BigAutoField(primary_key=True)
+    origin = models.ForeignKey(CampaignForecastOrigin, on_delete=models.PROTECT,
+        related_name="watch_pins")
+    watch = models.ForeignKey(CatalogItem, on_delete=models.PROTECT, related_name="+")
+    watch_revision = models.ForeignKey(CatalogRevision, on_delete=models.PROTECT, related_name="+")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=("origin", "watch"), name="uniq_campaign_forecast_watch"),
+        ]
