@@ -131,6 +131,10 @@ jobs:
         run: docker compose exec -T api python manage.py test config.test_sessions -v 2
       - name: Verify permanent individual runs, measured solution dedupe and historical evidence
         run: docker compose exec -T api python manage.py test config.test_runs -v 2
+      - name: Verify composite Framework runs, frozen member revisions and absence of individual score attribution
+        run: docker compose exec -T api python manage.py test config.test_composite_runs -v 2
+      - name: Verify Server composite Results and read-only Run UI without Demo fallback
+        run: node scripts/test-server-composite-runs.js
       - name: Verify guided individual Run close/read frontend without Demo fallback
         run: node scripts/test-server-runs.js
       - name: Verify guided Server-only session UI and frozen method adapter
