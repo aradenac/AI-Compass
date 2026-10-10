@@ -1,6 +1,6 @@
 # Future evolution — Role-Based User Experience & Guided Navigation
 
-> **Status:** Proposed product/UX evolution; decisions recorded, implementation and issue breakdown **not approved or started by this document**.  
+> **Status (2026-10-10):** Product-owner-approved product/UX specification with bounded delivery [FUT-03 #77](https://github.com/aradenac/AI-Compass/issues/77) and [FUT-04 #78](https://github.com/aradenac/AI-Compass/issues/78). This document continues to specify future Engineer/Management and evaluation UX owned by later FUT issues; do not assume all described features are implemented.  
 > **Decision context:** October 2026 refinement.  
 > **Primary scope:** Role-adapted application entry points; one Workgroup knowledge-map/navigation hub; personalized engineer discovery; management entry point; independent governance entry; solution details; contextual navigation, breadcrumbs, steppers, local unsaved drafts and pragmatic concurrent editing.  
 > **Separate future proposal:** [OS Compatibility & User Environment](os-compatibility-and-user-environment.md). This UX proposal **consumes** OS compatibility information; it does not define its technical catalog schema.  
