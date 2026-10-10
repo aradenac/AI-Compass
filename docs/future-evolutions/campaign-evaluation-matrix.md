@@ -43,12 +43,12 @@ The exact behavior of bulk Task-tree selection (including descendants), Test Cas
 
 ## 4. Three distinct decisions; execution is a separate dimension
 
-| State / decision | Meaning | Justification | Blocks completion/closure? | Matrix presentation |
+| State / decision | Meaning | Justification | Blocks full-plan completion? | Matrix presentation |
 | --- | --- | --- | --- | --- |
 | **Not Selected** | Candidate combination intentionally left out of the evaluation scope. No Test Run is expected. | Optional | **No** | Discreet / muted, but visible |
-| **Planned / Pending** | Combination selected; its required Test Run(s) have not been completed. | Not applicable | **Yes** | Prominent outstanding obligation |
+| **Planned / Pending** | Combination selected; its required Test Run(s) have not been completed. | Not applicable | **Yes for full plan**; does not block a partial publication of other valid Runs | Prominent outstanding obligation |
 | **Waived** | A previously selected combination is **explicitly released from its execution obligation**, for example because it is no longer promising. | **Mandatory explanation** | **No** | Distinct waiver status and reason |
-| **In Progress** | A selected combination has an active attempt but has not fulfilled the completion criterion. | Not applicable | **Yes** | Progress indicator |
+| **In Progress** | A selected combination has an active attempt but has not fulfilled the completion criterion. | Not applicable | **Yes for full plan**; not a reason to publish its incomplete attempt | Progress indicator |
 | **Evaluated / Completed** | The defined minimum execution obligation is fulfilled and recorded. This is **not** equivalent to an AI Solution passing the Test Case or being recommended. | Run evidence / outcome | **No** | Completion indicator and run links |
 
 **Critical distinction:** Deselecting *before or during planning* is not a waiver. **Waived** is an auditable, motivated decision to stop expecting an evaluation **previously included in the plan**. If runs already exist, their outcomes and immutable evidence remain available after a waiver.
@@ -68,14 +68,14 @@ Model **selection/waiver decisions independently of execution status** where pra
 
 ¹ **Waiver explanation — TC2 × Solution B:** “Early evidence from comparable trials suggests limited promise; additional evaluation cost is not justified.”
 
-**Campaign cannot close:** TC1 × Solution B remains a selected, pending obligation. Not Selected and Waived do **not** block closure.
+**Full evaluation plan remains incomplete:** TC1 × Solution B is pending. A reviewed **partial publication** can nevertheless include the already complete, properly documented Runs of other selected combinations. Pending Runs are not published or counted as evaluated. Not Selected and Waived have no execution obligation.
 
 Frontend behavior to retain:
 - Always provide an intelligible view of all candidate combinations, including muted **Not Selected** cells (with optional visibility controls for large matrices).
 - Click/open a cell to view associated Test Runs, measurements/evidence, decision history and any waiver justification.
 - Provide explicit actions to **select/deselect**, **waive with mandatory justification**, **reinstate**, and launch/add Test Runs where permitted.
 - Support **adding AI Solutions and Test Cases at any time**, multi-Task grouping, filters, bulk actions where useful, and highlighting of **new combinations** after a plan revision.
-- Clearly surface **blocking Pending/In Progress** obligations and campaign readiness to close; do not mark a waived or unselected cell as a completed experiment.
+- Clearly surface outstanding **Pending/In Progress** obligations and **full-plan completion** separately from **publishable Run subset** readiness; an incomplete combination must not prevent publication of independent eligible results. Do not mark a waived, unselected or incomplete cell as a completed experiment.
 - Distinguish candidate coverage, selected obligations, executed evaluations, outstanding evaluations, and waived evaluations in counts and reporting.
 - Keep the operational editing UI in **Benchmark Workspace**; the **Dashboard remains read-only** under the existing information architecture.
 
@@ -83,9 +83,9 @@ Frontend behavior to retain:
 
 Report, at minimum, separate counts for **all candidate combinations**, **Not Selected**, **selected and pending**, **In Progress**, **Evaluated**, and **Waived**. Do not inflate experimental coverage by counting waived or non-selected cells as measured results. A useful distinction is theoretical candidate coverage versus fulfillment of the **selected plan**; both metrics need explicit denominators.
 
-An eligible combination is **closure-ready** only when it has fulfilled its defined minimum run obligation **or** has an active, justified waiver. A Not Selected combination has no obligation. Closing a campaign is **blocked** while any selected, unwaived combination is still Pending/In Progress.
+An eligible selected combination counts toward **full-plan completion** only when the defined minimum Run obligation is fulfilled **or** an active justified waiver exists. A Not Selected combination has no execution obligation. **Full-plan completion is independent of the ability to publish a complete, documented subset of Runs**. Pending/incomplete attempts remain durably editable and **excluded from the published result set**; no published completeness count may imply the whole plan was evaluated.
 
-Existing product publication/review permissions and lifecycle checks still apply. Which existing transition enforces this additional matrix-completeness gate (Close → Under review and/or Publish) should be specified during implementation; **do not equate a published review state with proof that an AI Solution passed its tests**.
+Existing workgroup publication/review permissions remain. The publication action must validate the **explicitly selected subset of completed Run evidence**, including the compatible Setup Guides, regardless of other pending attempts in the same plan. An implementation must adapt the existing Close → Under review → Publish transitions as needed to support a **partial campaign publication without falsely declaring full-plan completion**. **A published failed-DoD complete Run remains negative evidence, never proof that a solution passed its test.** See [Publication & Information Lifecycle](publication-and-information-lifecycle.md).
 
 ## 6. Campaigns evolve after closure
 
@@ -145,7 +145,7 @@ Rules:
 - Should bulk defaults be configurable, and should changing a Task's Test Case catalog offer opt-in/automatic inclusion for already active campaigns? Newly **explicitly added** Test Cases are proposed as selected by default.
 - How should **Framework multi-participant collaborative evaluations** and composite runs appear in matrix columns and obligations?
 - Who can authorize **Waived** decisions (campaign owner, contributors, designated reviewer)? Is additional approval ever required?
-- Is the closure gate at **Close → Under review**, **Publish**, or both, given the existing review lifecycle and distinction between draft and published results?
+- Which existing Close → Under review / Publish transitions need adjustment to support **partial publication of eligible Run membership** while the Campaign still contains pending obligations? This is an implementation detail; **all-or-nothing campaign publication is no longer the desired product rule**.
 - Is one recorded, finalized Test Run always sufficient, or can a campaign prescribe repetitions or stricter completion requirements?
 - How are matrix dimensions and bulk actions displayed efficiently at very large cardinality?
 - How should existing historical campaigns with a fixed task/solution mode be projected into the new matrix without semantic reinterpretation?
@@ -153,3 +153,9 @@ Rules:
 ## 10. Boundaries
 
 This page is a **future feature specification**, not an implemented behavior, a migration instruction, or authorization to alter the current campaign workflow. It records the decisions reached in the conversation and marks remaining design questions as open. Implement it through separate issues/PRs, while preserving existing architecture, identity, audit, permission and evidence guarantees.
+
+## 11. Integration and source-of-truth boundary (consolidated)
+
+This document owns **campaign planning and the Test Case × candidate configuration matrix**: selection, deselection, waiver, pending, in-progress, evaluated and **full-plan completion**. Its historic snapshots and exact Run refs remain immutable. A **configuration candidate before first Run** is a versioned selection/configuration reference, **not yet a measured AI Solution ID**; first controlled Run may register the measured Solution identity while preserving the candidate link. Collaborative Framework metrics remain composite.
+
+The cross-cutting [Publication & Information Lifecycle](publication-and-information-lifecycle.md) owns **publication membership and partial release**, Run-level withdrawal/revocation, corrections and read-model visibility. The plan can remain incomplete even when a reviewed, documented subset of finalized Runs is published. Selected Pricing Offers drive the dynamic Run consumption fields (see [Technology Accessibility & Pricing](technology-accessibility-and-pricing.md)); [Composable Setup Guides](composable-setup-guides.md) validates the exact configurations **included in each publication**, not abandoned/unpublished attempts. These contracts supersede the older all-or-nothing closure/publication wording but do **not** erase waiver history or lower the standard for Runs that are actually published.
