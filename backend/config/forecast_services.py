@@ -261,8 +261,15 @@ def change(*,actor,identifier,data,action=None):
             props.update(status="draft",reviewer=None,review_notes="")
             event="revised"
         else:
-            if set(data)!={"expected_revision"}:
-                raise ForecastInvalid("Review actions accept expected_revision only")
+            keys=set(data)
+            allowed_keys=({"expected_revision","review_notes"} if action=="review"
+                          else {"expected_revision"})
+            if keys-allowed_keys or "expected_revision" not in keys:
+                raise ForecastInvalid("Unexpected review action fields")
+            if action=="review":
+                note=data.get("review_notes")
+                if not isinstance(note,str) or not note.strip() or len(note)>10000:
+                    raise ForecastInvalid("A substantive reviewer rationale is required")
             allowed={"stage":("draft","staged"),
                      "review":("staged","reviewed"),
                      "publish":("reviewed","published"),
@@ -272,7 +279,9 @@ def change(*,actor,identifier,data,action=None):
                 raise ForecastInvalid("Invalid forecast lifecycle transition")
             props=copy.deepcopy(old.properties)
             props["status"]=allowed[action][1]
-            if action=="review":props["reviewer"]=actor.get_username()
+            if action=="review":
+                props["reviewer"]=actor.get_username()
+                props["review_notes"]=data["review_notes"].strip()
             if action in ("rework","unpublish"):props.update(reviewer=None,review_notes="")
             if action in ("stage","review","publish"):
                 _qualified(_pins(previous,{})[4],public=action=="publish")
