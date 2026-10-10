@@ -161,6 +161,8 @@ def build_native_export():
                     schema["models"].append(spec)
                 _add(archive, files, "schema.json", schema, budget)
                 original_count = _original_bytes(archive, files, budget)
+                if len(files) + 1 > 10000:
+                    raise ArchiveError("Export exceeds offline verifier ZIP member limit")
                 manifest = {
                     "format": FORMAT, "version": VERSION, "complete": True,
                     "snapshot": {"isolation": "repeatable_read", "boundary": boundary},
