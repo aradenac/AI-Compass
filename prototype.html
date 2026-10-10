@@ -108,6 +108,7 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;b
 <script src="model-catalog.js"></script>
 <script src="shared-runtime.js"></script>
 <script src="shared-catalog.js"></script>
+<script src="shared-environment.js"></script>
 <script src="shared-pricing.js"></script>
 <script src="shared-workgroup.js"></script>
 <script src="shared-drafts.js"></script>
@@ -411,6 +412,8 @@ var demoPricingAdapter={
    });
  }
 };
+var demoEnvironment=window.AICompassEnvironment.demoProvider(db,
+ function(){return currentUser;},persist);
 var demoDomain=window.AICompassRuntime.createProviders("demo", {
  catalog:demoSharedCatalog,tasks:demoTaskProvider
 }, null).data;
@@ -852,6 +855,13 @@ var requested=new URLSearchParams(window.location.search).get("workspace");
 var persona=runtime.choosePersona(user(), "demo", requested);
 var target=document.querySelector(".content");
 if(target)target.insertAdjacentHTML("afterbegin",runtime.renderPersonaLinks(user(),"demo",persona&&persona.id));
+if(target){
+ target.insertAdjacentHTML("afterbegin",
+   '<section id="demo-environment-profile" class="card" role="region" aria-label="My OS environment"></section>');
+ window.AICompassEnvironment.mount(
+   document.getElementById("demo-environment-profile"),demoEnvironment,"demo").setAccess(true);
+}
+
 if(initialWorkspace==="workgroup" && initialSection && window.AICompassWorkgroup.STABLE[initialSection]&&canEdit()) {
   var source=document.querySelector(".content");
   if(source){
