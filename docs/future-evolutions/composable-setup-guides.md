@@ -78,7 +78,7 @@ The end user's guide is rendered at **AI Solution/configuration level**, regardl
 2. **Who:** **any authorized AI workgroup member**, including its author; there is no requirement for independent second-person review.
 3. **Granularity:** the guide/recipe must cover the exact **combination + versions + environment** relevant to the actual evaluation.
 
-A campaign may be planned, run tests and gather evidence **while setup documentation is incomplete**. Its *Publish* action is blocked when any evaluated configuration **included in the proposed publication** lacks an appropriately complete, initially validated setup procedure.
+A campaign may be planned, run tests and gather evidence **while setup documentation is incomplete**. Its *Publish* action is blocked **only for a proposed subset containing an evaluated configuration** that lacks an appropriately complete, initially validated setup procedure. A reviewed [partial publication](publication-and-information-lifecycle.md) of other eligible, documented Runs is permitted; pending/incomplete attempts are not included. The Workgroup must not present such a partial release as full plan completion.
 
 This documentary gate is separate from experimental outcome:
 - A Run with failed acceptance criteria is still a real Run; negative findings may be published with **accurate reproducibility documentation of the attempted setup**, not a false claim that the installation succeeded.
@@ -156,3 +156,11 @@ Avoid secret leakage: guides should describe credential acquisition, required pe
 ## 11. Boundaries
 
 This page specifies **Setup Guides only**. It does not redefine generic data editing, platform-wide audit policy, permissions, global revision requirements, benchmark scoring, or unrelated governance. It records a future functional direction, **not a claim that modular recipes or documentary publication gates have already been implemented**.
+
+## 12. Cross-feature ownership: published subset and corrected guides
+
+This feature owns **reusable Setup Modules/Recipes, matching exact configurations/environment and initial validation of documentation**. The cross-cutting [Publication & Information Lifecycle](publication-and-information-lifecycle.md) owns **which complete Runs are in the current effective published subset**, its later correction/withdrawal and any physical deletion rules. Initial documentary readiness applies **only to exact evaluated setups in the proposed published subset**, not incomplete or abandoned sessions. A complete Run with a failed DoD may be published if its attempted setup is documented accurately; failure is not a reason to fabricate installation success.
+
+**Later guide changes are not retrospective invalidation:** a reused guide may acquire improved steps, newer modules or corrections in subsequent Campaigns. Prior Campaigns and Runs retain their exact originally pinned guide/recipe revisions and stay historically valid; no cascading republish, mandatory re-review or rewriting of earlier evidence. Current solution detail may navigate to the newest applicable instructions, clearly distinct from the historically used setup.
+
+[OS Compatibility](os-compatibility-and-user-environment.md) owns coarse Windows/Linux declarations for Harnesses/Frameworks; this Guide feature owns **environment-specific installation instructions** even when capabilities are declared equivalent across the two systems.
