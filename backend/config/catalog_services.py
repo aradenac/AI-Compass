@@ -17,6 +17,7 @@ CATALOG_TYPES = {
     "watch_entry": "wat",
     "forecast": "fct",
     "evaluation": "evl",
+    "recommendation": "rec",
 }
 SUPPORTED_SCHEMA_VERSIONS = {
     "model": SUPPORTED_MODEL_VERSIONS,
@@ -28,6 +29,7 @@ SUPPORTED_SCHEMA_VERSIONS = {
     "watch_entry": frozenset({1}),
     "forecast": frozenset({1}),
     "evaluation": frozenset({1}),
+    "recommendation": frozenset({1}),
 }
 
 

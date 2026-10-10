@@ -53,6 +53,7 @@ services:
       - ../server-watch.js:/srv/frontend/server-watch.js:ro
       - ../server-forecasts.js:/srv/frontend/server-forecasts.js:ro
       - ../server-results.js:/srv/frontend/server-results.js:ro
+      - ../server-recommendations.js:/srv/frontend/server-recommendations.js:ro
       - ../server-campaigns.js:/srv/frontend/server-campaigns.js:ro
       - ../server-sessions.js:/srv/frontend/server-sessions.js:ro
       - ../server-users.js:/srv/frontend/server-users.js:ro
