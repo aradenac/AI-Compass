@@ -105,7 +105,7 @@ A workgroup member selects the **actual pricing offer(s)** used for each evaluat
 1. Compose or choose the Model + Provider + Harness technical setup, optionally with a Framework and multiple participants.
 2. Display eligible commercial offers for each **distinct billable component/charge**, with source and applicability.
 3. Require the workgroup to select all applicable offers **manually**; the system can suggest compatible plans but must not silently select an offer in place of the member.
-4. Validate that the chosen offers, meter types, currencies, required rates, tiers and conditions are complete **before the Test Run starts**.
+4. Validate that the chosen offers, meter types, currencies, required rates, tiers and conditions are complete **before the Test Run starts**. The **Run's consumption-input form is then generated from the chosen offer's actual metering rules** — credits only where billed in credits; input/output/reasoning/cache tokens only where relevant; calls/time/other units only if required; no irrelevant consumption field for a flat-rate-only offer.
 5. Pin exact offer revisions and economic assumptions to the intended run/configuration. A later catalog price edit must not retroactively switch the selection.
 6. Execute the Run, capture relevant usage, then calculate and store the result with a transparent per-line breakdown.
 
@@ -134,7 +134,7 @@ The full calculation must know the **unit and its conversion factor** (e.g. pric
 | Fixed subscription, annual contract or per-seat fee | **Displayed separately**; **not amortized across Runs** for marginal profitability. |
 | Valued human time | Remains a separate part of existing economic/value analyses. |
 | Shared free quota or pooled prepaid credits | **No global utilization tracking and no campaign-level allocation/deduction.** |
-| Unknown usage/missing metering | Do not silently represent as zero; see unresolved run-completion edge case. |
+| Unknown usage/missing metering | **Preserve the incomplete Run/session as pending**, not as a zero-cost finalized result. Its evidence is retained but **not eligible for publication** until the selected offer's required measured units become available. Independent complete Runs can be published in a partial Campaign release. |
 | Historical bill/invoice actuals | Do not conflate with a price-derived reference amount. |
 
 Examples: an API model charged per million **input** tokens and per million **output** tokens needs separate usage quantities. A single total-token count is not sufficient to reproduce this split. Some tariffs additionally need cached/reasoning tokens, requests, minutes or other counters.
@@ -207,7 +207,7 @@ Accessibility, offer availability, and component lifecycle also evolve independe
 
 These were **not** finally decided in the discussion:
 
-- **Missing consumption after the Run has started:** if an attempt fails or the Provider does not expose all meters, should closure be blocked, or may it close with a flagged uncalculable cost while preserving the failed experimental result? The agreed block applies to **incomplete tariff setup before Run start**, not an explicitly agreed post-execution closure rule.
+- **Missing consumption after the Run has started — now resolved at product level:** preserve all entered setup, interactions, artifacts and measurements as an **incomplete/pending execution**; do not finalize or publish **that Run** without the required billable meter data. Allow **partial Campaign publication** of other complete, adequately documented Runs. A **failed-DoD but complete** experiment remains valid publishable negative evidence. Exact resumed-session/Run status mapping remains implementation design. See [Publication & Information Lifecycle](publication-and-information-lifecycle.md).
 - **Currency handling:** reporting base currency, FX rate source, rate timestamp, and tax-inclusive/exclusive presentation.
 - **Tier/overage policy:** which per-Run thresholds are deterministic without tracking globally shared quotas, and how should unavailable overage data be represented?
 - **Meter acquisition:** manually entered usage quantities vs provider usage metadata/imports; how to handle cache categories, reasoning tokens and non-token usage without forcing unsupported fields.
@@ -224,3 +224,9 @@ This feature does **not** implement corporate invoicing, prepaid credit-wallet r
 It remains separate from the future [Composable Setup Guides](composable-setup-guides.md) and [Data Governance Audit Explorer](data-governance-audit-explorer.md), while reusing shared versioning and business permission foundations.
 
 **This document captures the agreed future feature and impact assessment. It is not a claim that the APIs, pricing calculation engine, or publication/readiness UI already exist.**
+
+## 13. Harmonized integration contract — selected offer drives the Run
+
+**This is the authoritative home for pricing offers and meter declarations**, distinct from the Campaign/Run lifecycle. At preparation, the Workgroup **manually selects** applicable offer revisions for actual billable sources, while the application automatically derives the Run's required consumption inputs and resulting reference variable cost. Do not ask a user to reselect a commercial mode or manually type a final EUR cost already determined by selected tariff × observed consumption. Flat-rate license/subscription remains reported separately; a genuinely fully fixed offer requires no irrelevant per-Run variable field. Hybrid offers may expose only their applicable variable meter lines.
+
+Required meters unknown **after execution** leave that Run **pending**, preserve all work and original data, and do **not** block a versioned [partial Campaign publication](publication-and-information-lifecycle.md) containing other finalized Runs. Retain exact recorded costs and offer revisions for historical Runs; current hypothetical revaluation at newer tariffs is a separate projection. This page does not own the publish/revoke/delete state machine or the physical purge policy.
