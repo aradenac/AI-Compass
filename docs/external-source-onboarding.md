@@ -1,102 +1,130 @@
-# PLAT-33 — External real-data onboarding: source discovery
+# PLAT-33 — External onboarding, with isolated mock adapter
 
-**Status:** first safe source-discovery tool delivered. **No real source, business
-entity, origin permissions or production deployment is approved yet.** This is
-a non-mutating prerequisite for PLAT-33, **not** a completed import adapter,
-business-level dry run or ticket acceptance. #33 remains open until one
-concrete source and object type are chosen and end-to-end imported.
+**Implementation status:** mock-contract backend is implemented and CI-tested.
+**Operational status:** NO-GO for ingesting real data. The real origin,
+data-sharing permission, source format, mapping and production release are
+still unselected/unapproved. The simulated connector is NEVER a substitute
+for approving/ingesting a real source, and it cannot run on the normal Server.
 
-The empty Server has NO fake Demo business objects. Native AI Compass
-archives are handled by PLAT-31 for isolated restoration, **not** by the
-external import pipeline. Neither Demo localStorage nor historical recovery
-snapshots may be used as external real business sources.
+## Safe prototype contract
 
-## Step 1 — Obtain an approved representative real source
+The first target type is **Model**, using an isolated source identifier
+\`mock-model-catalog-v1\` and a stable \`source_key\` supplied by a *synthetic*
+test provider. This is **not** the browser Demo/localStorage dataset.
 
-The source owner must identify:
+The backend reuses existing versioned \`CatalogItem\`, \`CatalogRevision\`,
+\`CatalogAuditEvent\`, active \`ObjectTypeVersion\` and immutable
+\`EvidenceBlob\`/\`EvidenceLink\`. Additive tables keep:
+- \`ExternalImportBinding\`: durable source-system + source-key → Model
+  identity and latest source-controlled revision, with conflict detection.
+- \`ExternalImportBatch\`: immutable digest-keyed run, operator and timestamp.
+- \`ExternalImportEvent\`: immutable per-row action, original row hash,
+  referenced revision and evidence link.
 
-- Exact source system, origin URL/export identifier and contact/ownership
-  (not a guessed or scrape-derived source);
-- Written permission/usage scope and data classification; appropriate
-  redaction for personal/confidential fields;
-- An actual bounded CSV or newline-delimited JSON (JSONL) representative
-  sample, including edge cases and missing values; never check real source
-  data, passwords or customer names into Git or attach them to public CI;
-- The **first one** intended target business object type, the source's
-  stable per-record key, update/conflict rules, known/unknown field mapping
-  and expected evidence/provenance policy;
-- A genuinely accepted operational Server deployment and reviewer.
+A Model is created only for a previously unseen source key. Subsequent
+**different** content creates a new immutable revision. Identical content
+does not revise an object; an exact previously applied batch returns the
+same batch ID without new objects, events or evidence. If someone edits the
+target Model outside import, the next import reports a **conflict** and
+refuses to silently overwrite their changes. All rows apply within one
+atomic PostgreSQL transaction and serialize through an advisory lock.
 
-Do not fabricate sources or copy the prototype's seeded Demo records to
-satisfy this step. The input format is explicitly selected at discovery
-time; a real domain import adapter can be designed only after source
-ownership, representative samples and target type have been approved.
+Each changed row is attached to its resulting revision as a content-addressed
+immutable **canonical mock JSON row**. This is explicitly labeled synthetic
+mock evidence; no real document or original external bytes are claimed.
+The existing evidence download path independently verifies the SHA-256 and
+original bytes. Ordinary users are not given import permissions.
 
-## Step 2 — Perform local read-only source discovery
+## Deliberately gated disposable staging
 
-On a trusted machine with the actual permitted source exported locally:
+The import endpoints are **disabled in production**, not merely hidden.
+They are enabled only if *all* conditions are met:
 
-    python3 scripts/external_source_preflight.py \
-      --file /private/location/authorized-export.csv \
-      --format csv \
-      --origin "https://company.example/source-system/export" \
-      --owner "Responsible data owner" \
-      --permission-basis "Reference the internal data sharing approval" \
-      --classification confidential \
-      --real-source-attested \
-      > /private/location/source-intake-inventory.json
+- \`AI_COMPASS_MOCK_IMPORT_ENABLED=1\` explicitly;
+- \`AI_COMPASS_STAGING=1\`;
+- \`AI_COMPASS_STAGING_CANDIDATE\` is exactly 16 lowercase hexadecimal digits;
+- PostgreSQL database/user/host are exactly
+  \`ai_compass_restore_verify\` / \`ai_compass_restore\` / \`db\`.
 
-Use \`--format jsonl\` for newline-delimited JSON objects, not an arbitrary
-single JSON document or an AI Compass ZIP. The tool never connects to
-PostgreSQL, authenticates a website, applies an import or creates a
-CatalogItem. It reads **at most 10 MiB and 2,000 rows**. Filenames, owner
-and source are explicit, and a human must attest they are real and
-authorized. This declaration is not independently verified.
+The default is disabled; configuring an ordinary Server as a staging target
+must never share its original DB, evidence directory or credentials.
 
-The output is a reviewable source inventory containing the original
-file's SHA-256, byte and row counts, field names, observed type counts,
-missing-value counts and identical-duplicate-row count. **No source record
-values** are included in the JSON. Keep the report private: field names
-and source origin can still be sensitive. The output also includes these
-machine-enforced, explicit gates:
+For a disposable, explicitly named staging instance use
+[staging/compose.yaml](../staging/compose.yaml) and the
+[staging isolation runbook](migration-staging.md). Before starting it,
+set \`AI_COMPASS_MOCK_IMPORT_ENABLED=1\` (in the operator's *staging-only*
+shell, not a production \`.env\`). After verified provisioning, run:
 
-    "status": "source_discovered_mapping_pending"
-    "approved_for_apply": false
-    "production_ready": false
-    "mapping_gate": {
-      "target_business_type": null,
-      "stable_source_key_field": null,
-      "selected_adapter": null,
-      ...
-    }
+    docker compose -f staging/compose.yaml -p "$RESTORE_PROJECT" \
+      exec -T api python manage.py migrate --noinput
+    docker compose -f staging/compose.yaml -p "$RESTORE_PROJECT" \
+      exec -T api python manage.py bootstrap_identity
+    docker compose -f staging/compose.yaml -p "$RESTORE_PROJECT" \
+      exec api python manage.py bootstrap_identity \
+      --username test-import-operator --role import-operator
 
-Malformed CSV/JSONL, repeated columns/JSON keys, unsafe or oversized
-files, symlinks, Demo/fixture identifiers and ZIP data are refused.
-A successful inventory is NOT evidence that its semantic business mapping,
-authorization, validity or production readiness are approved.
+Use the real Django CSRF cookie/token plus the operator's authenticated
+session; there is NO anonymous/admin bypass. An import operator is not
+implicitly a business writer, maintenance operator or user administrator.
 
-## Step 3 — Future implementation, NOT yet authorized
+## Authenticated mock API
 
-When the real data owner has approved the format, target entity and stable
-source key, implement one narrow immutable import adapter with:
-read-only **target-schema-aware** dry-run, stable external-key mapping,
-row-level error and duplicate reporting, explicit reviewed apply, immutable
-new revisions (unchanged rows remain unchanged), exact original evidence
-hashes, import batch attribution, permissions and crash-safe retry.
-The adapter must not infer unknown values, copy Demo fixtures or silently
-merge conflicting records.
+| Endpoint | Method | Rights | Result |
+|---|---|---|---|
+| \`/api/v1/imports/mock-models/preview\` | POST | \`import_preview\` | Schema-aware planned actions and short-lived, actor-bound signed token |
+| \`/api/v1/imports/mock-models/apply\` | POST | \`import_apply\` | Atomic explicitly reviewed application with audit receipt |
+| \`/api/v1/imports/mock-models/batches/<UUID>\` | GET | \`import_preview\` | Immutable batch-level result and source hashes |
 
-**This adapter is not present in this increment.** Do not claim #33
-satisfied, do not run an import into a production database before deployment
-acceptance and do not close #33 until a selected real-source fixture has
-been previewed/applied/retried on the approved target.
+To exercise from an authenticated client in *disposable staging only*,
+POST [scripts/fixtures/mock_model_catalog_v1.json](../scripts/fixtures/mock_model_catalog_v1.json)
+to \`preview\` (Content-Type application/json, CSRF header and session).
+It must yield actions \`created\` for both records on an empty staging
+Server, no data mutation and a \`preview_token\`. POST the **same object**
+plus \`preview_token\` to \`apply\`. Never fabricate a token or bypass the
+review. Repeat preview+apply identically: the second response returns
+\`already_imported:true\` and the same batch ID.
 
-## Tests
+Changing Model Alpha's \`context_window\` to 16384 in the fixture
+(not in a real system) yields \`revised\` for Alpha and \`unchanged\`
+for Beta. Its first revision stays byte-exact. The signed preview expires
+after 15 minutes, is bound to the operator, exact request SHA-256, each
+row checksum and current target revision. New source data, a concurrent
+manual change or a different operator require another preview.
+Invalid/unsupported source rows produce explicit \`invalid\` or
+\`conflict\` results with no authorization to apply.
 
-    python3 -m py_compile scripts/external_source_preflight.py
-    python3 -m unittest discover -s scripts -p 'test_external_source_preflight.py' -v
+The batch's original evidence is **synthetic** and only present in this
+isolated stack. The independent seeded Demo browser runtime remains
+unchanged; its localStorage is never imported or synced.
 
-The full GitHub platform smoke CI adds this suite to all existing Demo/
-Server migration, staging, recovery and original-data integrity tests.
-Tests use synthetic **unit fixtures only**, not a real data source; those
-fixtures are never passed into a production importer.
+## Separate local preflight for actual source discovery
+
+The existing \`scripts/external_source_preflight.py\` checks a bounded real
+CSV or JSONL export in a read-only manner. It requires source ownership,
+permission basis and explicit human attestation and produces only a
+checksum/field inventory, with \`approved_for_apply=false\`. It does not
+connect to the DB or call the synthetic adapter.
+
+## Next step when a real source exists
+
+Before a genuine import, obtain the first real source's origin, owner,
+representative examples, permissible fields, source key, expected Model
+mapping and exact original evidence contract. Separately implement/review
+an **explicit real-source adapter**, not a renamed mock source ID or a
+turning on of the mock API. Its deployment is subject to the still deferred
+real staging, controlled production migration and GO/NO-GO release gates.
+
+## Checks
+
+    docker compose exec -T api python manage.py makemigrations --check --dry-run
+    docker compose exec -T api python manage.py test config.test_external_mock_import -v 2
+    python3 -m unittest discover -s scripts -p test_external_source_preflight.py -v
+
+CI runs these checks plus the cross-role real Server journey, immutable
+history/native archive, full DB+evidence restore and standalone Demo.
+
+**Ticket completion policy:** when this mock implementation is merged,
+the owner may close #33 as a **mocked development milestone**, leaving
+real source selection, human operational release and future defects
+explicitly deferred. A green simulated test is not a real-source
+onboarding certification.

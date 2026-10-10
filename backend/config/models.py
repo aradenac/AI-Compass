@@ -675,3 +675,55 @@ class WorkloadAllocation(models.Model):
             models.UniqueConstraint(fields=["revision", "task"], name="uniq_workload_revision_task"),
         ]
         ordering = ["task__item__public_id"]
+
+
+class ExternalImportBinding(models.Model):
+    """Stable external identity map; its last-import pointer advances on new revisions."""
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    source_system = models.CharField(max_length=80)
+    source_key = models.CharField(max_length=128)
+    item = models.ForeignKey(CatalogItem, on_delete=models.PROTECT,
+                             related_name="external_import_bindings")
+    last_import_revision = models.ForeignKey(
+        CatalogRevision, on_delete=models.PROTECT, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["source_system", "source_key"],
+                                               name="uniq_external_source_record")]
+
+
+class ExternalImportBatch(models.Model):
+    """Durable exact-input idempotency journal, never mutated/deleted."""
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    source_system = models.CharField(max_length=80)
+    input_sha256 = models.CharField(max_length=64, unique=True)
+    row_count = models.PositiveIntegerField()
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class ExternalImportEvent(models.Model):
+    """Immutable per-row result linking target revision and retained source bytes."""
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    batch = models.ForeignKey(ExternalImportBatch, on_delete=models.PROTECT,
+                              related_name="events")
+    binding = models.ForeignKey(ExternalImportBinding, on_delete=models.PROTECT,
+                                related_name="events")
+    item = models.ForeignKey(CatalogItem, on_delete=models.PROTECT,
+                             related_name="external_import_events")
+    revision = models.ForeignKey(CatalogRevision, on_delete=models.PROTECT,
+                                 related_name="external_import_events")
+    evidence = models.ForeignKey(EvidenceLink, null=True, blank=True,
+                                 on_delete=models.PROTECT, related_name="+")
+    source_key = models.CharField(max_length=128)
+    row_sha256 = models.CharField(max_length=64)
+    action = models.CharField(max_length=12, choices=[
+        ("created", "Created"), ("revised", "Revised"), ("unchanged", "Unchanged")
+    ])
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["batch", "source_key"],
+                                               name="uniq_external_import_batch_row")]
+        ordering = ["created_at", "id"]

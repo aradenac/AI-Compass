@@ -1,0 +1,22 @@
+{
+  "source_id": "mock-model-catalog-v1",
+  "rows": [
+    {
+      "source_key": "mock-provider/model-alpha",
+      "name": "Synthetic Model Alpha",
+      "properties": {
+        "context_window": 4096,
+        "supports_tools": true,
+        "mock_annotation": {"not_observed": null}
+      }
+    },
+    {
+      "source_key": "mock-provider/model-beta",
+      "name": "Synthetic Model Beta",
+      "properties": {
+        "context_window": 8192,
+        "supports_tools": false
+      }
+    }
+  ]
+}
