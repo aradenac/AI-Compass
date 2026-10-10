@@ -27,7 +27,7 @@ def uuid7():
     return uuid.UUID(int=bits)
 
 
-PREFIXES = frozenset({"mdl", "prv", "hrn", "frm", "tsk", "mnt", "tcs", "gui", "cmp", "ptp", "ses", "run", "sol", "src", "wat", "fct"})
+PREFIXES = frozenset({"mdl", "prv", "hrn", "frm", "tsk", "mnt", "tcs", "gui", "cmp", "ptp", "ses", "run", "sol", "src", "wat", "fct", "evl"})
 
 
 def new_public_id(prefix="mdl"):
