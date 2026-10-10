@@ -31,7 +31,7 @@
       reason:"No OS-dependent component in this configuration"};
     sources.forEach(r=>{
       if(r.supported_os===null)unknown.push(r.id);
-      else r.supported_os.forEach(x=>{}),OS.filter(x=>!r.supported_os.includes(x)).forEach(x=>intersection.delete(x));
+      else OS.filter(x=>!r.supported_os.includes(x)).forEach(x=>intersection.delete(x));
     });
     var shared=OS.filter(x=>intersection.has(x));
     if(!shared.length)return {status:"unsupported_combination",supported_os:[],
