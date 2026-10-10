@@ -289,10 +289,15 @@ def pricing_status(snapshot):
             reasons.extend(pin.source_key+": "+msg for msg in s["reasons"])
         meters.extend(dict(m,source_key=pin.source_key) for m in s["required_meters"])
         fixed.extend(dict(f,source_key=pin.source_key) for f in s["fixed_commitments"])
-    if not required:
+    needs_session = (not required and snapshot.revision.properties.get("mode") ==
+                     "task_centred" and not snapshot.framework_id)
+    if needs_session:
+        reasons.append("Tariffs are selected with each individual Task-centred session")
+    elif not required:
         reasons.append("No explicit technical configuration priced")
     return {"complete":not reasons,"reasons":reasons,
             "required_sources":required, "missing_sources":missing,
+            "requires_session_pricing":needs_session,
             "required_meters":meters,"fixed_commitments":fixed,
             "currency_set":sorted({p.offer_revision.properties["currency"] for p in pins})}
 
