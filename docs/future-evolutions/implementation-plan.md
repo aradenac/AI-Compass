@@ -1,9 +1,9 @@
 # Future evolutions — outcome-led implementation plan
 
-> **Status:** Proposed sequencing for owner review; **not yet approved for implementation**.
+> **Status:** Owner-approved **GitHub implementation backlog** (21 open issues created 2026-10-10); **no new feature code implemented yet**. Issues authorize delivery scope but do not waive release/production gates.
 > **Prepared:** 2026-10-10.
 > **Authority:** Planning and coverage index only. Detailed requirements remain in the linked source specifications.
-> **Not in scope here:** GitHub issue creation, implementation tasks/estimates, code changes, production GO, or repository-wide documentation restructuring.
+> **Implementation scope:** Phase plan and coarse, maximal coherent GitHub issues. This document does not implement code, approve production GO, estimate time or restructure repository-wide docs.
 
 ## Goal and execution strategy
 
@@ -32,6 +32,38 @@ Deliver useful, trustworthy AI Compass outcomes as early as possible, without re
 | **P7 — Govern, retain and operate at scale** | Complete the passive Governance Audit Explorer, controlled soft deletion / orphan preview and privileged purge/retention policy; deliver secured resumable native/full archive transfer, operations policies/capacity warnings and remaining exposure profiles. | [Audit explorer](data-governance-audit-explorer.md), [Publication lifecycle](publication-and-information-lifecycle.md), [Secure operations](secure-operations-and-capacity.md), [Shared frontend/release](shared-frontend-and-release-lifecycle.md) | An authorized maintainer can inspect exact who/what/when/diffs without new business-user forms; a separately privileged operator can dry-run and safely purge genuinely unreferenced content; large verified archives transfer over authenticated HTTP(S); wider exposure only after its own security acceptance. |
 
 **Early value checkpoints:** P1 = first shared usable UI; P3 = first planned, fully recorded evaluation; **P4 = first end-to-end published recommendation path**; P5 = first quantified, explainable management decision. Do not wait for P6/P7 to show P4 value. The release process may publish intermediate compatible builds, but no build is implicitly production-approved.
+
+## Approved GitHub implementation backlog — maximal coherent issue slices
+
+**Owner decision (2026-10-10):** Create and queue the following **21 independently testable, end-to-end issues**; this issue plan supersedes prior "not yet planned" statements, but **does not constitute completed implementation or operational GO**. Each issue references its phase here and the original authoritative feature specification(s). Workload is calibrated to be the **largest coherent implementation increment realistically addressable in one agent conversation**, rather than a list of microtasks. One issue = one focused PR and verifiable outcome. If a dependency or acceptance criterion cannot fit safely, document evidence and seek explicit re-scoping rather than quietly discarding requirements.
+
+| Phase | GitHub issue | Outcome | Depends on (must be merged first) |
+| --- | --- | --- | --- |
+| **P0** | [#75](https://github.com/aradenac/AI-Compass/issues/75) | Release manifest, CI and contracts | Existing PLAT baseline |
+| **P0** | [#76](https://github.com/aradenac/AI-Compass/issues/76) | Local/LAN security and archive safeguards | Existing PLAT baseline |
+| **P1** | [#77](https://github.com/aradenac/AI-Compass/issues/77) | Shared Demo/Server frontend and role entry | [#75](https://github.com/aradenac/AI-Compass/issues/75) |
+| **P1** | [#78](https://github.com/aradenac/AI-Compass/issues/78) | Workgroup Studio and stable shared screens | [#77](https://github.com/aradenac/AI-Compass/issues/77) |
+| **P2** | [#79](https://github.com/aradenac/AI-Compass/issues/79) | Accessibility and pricing offers | [#77](https://github.com/aradenac/AI-Compass/issues/77) |
+| **P2** | [#80](https://github.com/aradenac/AI-Compass/issues/80) | Windows/Linux compatibility | [#77](https://github.com/aradenac/AI-Compass/issues/77) |
+| **P2** | [#81](https://github.com/aradenac/AI-Compass/issues/81) | Composable Setup Guides | [#77](https://github.com/aradenac/AI-Compass/issues/77), [#80](https://github.com/aradenac/AI-Compass/issues/80) |
+| **P3** | [#82](https://github.com/aradenac/AI-Compass/issues/82) | Campaign Evaluation Matrix | [#77](https://github.com/aradenac/AI-Compass/issues/77), [#79](https://github.com/aradenac/AI-Compass/issues/79) |
+| **P3** | [#83](https://github.com/aradenac/AI-Compass/issues/83) | Tariff-driven Runs and Framework provenance | [#78](https://github.com/aradenac/AI-Compass/issues/78), [#79](https://github.com/aradenac/AI-Compass/issues/79), [#81](https://github.com/aradenac/AI-Compass/issues/81), [#82](https://github.com/aradenac/AI-Compass/issues/82) |
+| **P4** | [#84](https://github.com/aradenac/AI-Compass/issues/84) | Partial publication and guide readiness | [#81](https://github.com/aradenac/AI-Compass/issues/81), [#82](https://github.com/aradenac/AI-Compass/issues/82), [#83](https://github.com/aradenac/AI-Compass/issues/83) |
+| **P4** | [#85](https://github.com/aradenac/AI-Compass/issues/85) | Run correction/withdrawal and active evidence | [#84](https://github.com/aradenac/AI-Compass/issues/84) |
+| **P4** | [#86](https://github.com/aradenac/AI-Compass/issues/86) | Engineer My AI Workspace | [#78](https://github.com/aradenac/AI-Compass/issues/78), [#80](https://github.com/aradenac/AI-Compass/issues/80), [#81](https://github.com/aradenac/AI-Compass/issues/81), [#85](https://github.com/aradenac/AI-Compass/issues/85) |
+| **P5** | [#87](https://github.com/aradenac/AI-Compass/issues/87) | DAP economic engine and three annual slices | [#79](https://github.com/aradenac/AI-Compass/issues/79), [#85](https://github.com/aradenac/AI-Compass/issues/85) |
+| **P5** | [#88](https://github.com/aradenac/AI-Compass/issues/88) | Heatmap, history, provenance and Management Insights | [#86](https://github.com/aradenac/AI-Compass/issues/86), [#87](https://github.com/aradenac/AI-Compass/issues/87) |
+| **P6** | [#89](https://github.com/aradenac/AI-Compass/issues/89) | Deployment entitlements and first use | [#80](https://github.com/aradenac/AI-Compass/issues/80), [#81](https://github.com/aradenac/AI-Compass/issues/81), [#88](https://github.com/aradenac/AI-Compass/issues/88) |
+| **P6** | [#90](https://github.com/aradenac/AI-Compass/issues/90) | Pilot/rollout/active-usage budgets | [#79](https://github.com/aradenac/AI-Compass/issues/79), [#87](https://github.com/aradenac/AI-Compass/issues/87), [#89](https://github.com/aradenac/AI-Compass/issues/89) |
+| **P7** | [#91](https://github.com/aradenac/AI-Compass/issues/91) | Data Governance Audit Explorer | [#85](https://github.com/aradenac/AI-Compass/issues/85) |
+| **P7** | [#92](https://github.com/aradenac/AI-Compass/issues/92) | Logical retirement and safe privileged GC | [#76](https://github.com/aradenac/AI-Compass/issues/76), [#85](https://github.com/aradenac/AI-Compass/issues/85), [#91](https://github.com/aradenac/AI-Compass/issues/91) |
+| **P7** | [#93](https://github.com/aradenac/AI-Compass/issues/93) | Resumable secure native/full archives | [#75](https://github.com/aradenac/AI-Compass/issues/75), [#76](https://github.com/aradenac/AI-Compass/issues/76) |
+| **P7** | [#94](https://github.com/aradenac/AI-Compass/issues/94) | Capacity policies and Internet deployment profile | [#76](https://github.com/aradenac/AI-Compass/issues/76), [#91](https://github.com/aradenac/AI-Compass/issues/91), [#93](https://github.com/aradenac/AI-Compass/issues/93) |
+| **P7** | [#95](https://github.com/aradenac/AI-Compass/issues/95) | Guided release upgrades and recovery | [#75](https://github.com/aradenac/AI-Compass/issues/75), [#76](https://github.com/aradenac/AI-Compass/issues/76), [#93](https://github.com/aradenac/AI-Compass/issues/93) |
+
+**Default execution order:** start [#75](https://github.com/aradenac/AI-Compass/issues/75) and [#76](https://github.com/aradenac/AI-Compass/issues/76) independently; follow [#77](https://github.com/aradenac/AI-Compass/issues/77) → [#78](https://github.com/aradenac/AI-Compass/issues/78) as the shared Workgroup path. After [#77](https://github.com/aradenac/AI-Compass/issues/77), [#79](https://github.com/aradenac/AI-Compass/issues/79) and [#80](https://github.com/aradenac/AI-Compass/issues/80) can progress in parallel; [#81](https://github.com/aradenac/AI-Compass/issues/81) consumes [#80](https://github.com/aradenac/AI-Compass/issues/80). The **fastest complete business path** continues via [#82](https://github.com/aradenac/AI-Compass/issues/82) → [#83](https://github.com/aradenac/AI-Compass/issues/83) → [#84](https://github.com/aradenac/AI-Compass/issues/84) → [#85](https://github.com/aradenac/AI-Compass/issues/85) → [#86](https://github.com/aradenac/AI-Compass/issues/86). Subsequent economic and adoption outcomes: [#87](https://github.com/aradenac/AI-Compass/issues/87) → [#88](https://github.com/aradenac/AI-Compass/issues/88) → [#89](https://github.com/aradenac/AI-Compass/issues/89) → [#90](https://github.com/aradenac/AI-Compass/issues/90), respecting each issue's full dependency list. The governance/operations issues [#91](https://github.com/aradenac/AI-Compass/issues/91)–[#95](https://github.com/aradenac/AI-Compass/issues/95) may progress off the main value path when their prerequisites are merged. **No dependence on live commercial API credentials:** use mocks, seeded fictional Demo and disposable Server fixtures.
+
+**Each issue is agent-self-contained:** goal, phase link, original detailed specs, merged prerequisites, bounded coherent scope, acceptance checklist and quality/security invariants. Never interpret issue numbers alone as execution priority; use explicit dependencies and end-user outcomes. Preserve [AGENTS.md](../../AGENTS.md), [PLAT release readiness](../release-readiness.md) and the still-unchanged production **NO-GO**. New implementation issues are opened but not merged by creating this backlog.
 
 ## Essential phase contracts and dependencies
 
@@ -110,15 +142,15 @@ Source: [Technical Debt & Deferred Engineering Checks](../technical-debt.md).
 
 This file is the **single high-level plan**, not a duplicate feature specification or technical issue backlog. The [domain register](README.md) remains the functional inventory; [features ledger](../features/README.md) remains the approval record; [PLAT roadmap](../platform-implementation-roadmap.md) describes the **already delivered** platform implementation history.
 
-| Phase | Planning state | Implementation status | Evidence/issue references |
+| Phase | Planning state | Implementation status | Approved issue links |
 | --- | --- | --- | --- |
-| P0 | Proposed | Not started as this future plan | — |
-| P1 | Proposed | Not started as this future plan | — |
-| P2 | Proposed | Not started as this future plan | — |
-| P3 | Proposed | Not started as this future plan | — |
-| P4 | Proposed | Not started as this future plan | — |
-| P5 | Proposed (DAP-01 baseline already delivered) | Remaining feature scope not started | [DAP-01](../workload-planning.md) |
-| P6 | Proposed | Not started as this future plan | — |
-| P7 | Proposed | Not started as this future plan | — |
+| P0 | **Approved issues** | Open, not implemented | [#75](https://github.com/aradenac/AI-Compass/issues/75), [#76](https://github.com/aradenac/AI-Compass/issues/76) |
+| P1 | **Approved issues** | Open, not implemented | [#77](https://github.com/aradenac/AI-Compass/issues/77), [#78](https://github.com/aradenac/AI-Compass/issues/78) |
+| P2 | **Approved issues** | Open, not implemented | [#79](https://github.com/aradenac/AI-Compass/issues/79), [#80](https://github.com/aradenac/AI-Compass/issues/80), [#81](https://github.com/aradenac/AI-Compass/issues/81) |
+| P3 | **Approved issues** | Open, not implemented | [#82](https://github.com/aradenac/AI-Compass/issues/82), [#83](https://github.com/aradenac/AI-Compass/issues/83) |
+| P4 | **Approved issues** | Open, not implemented | [#84](https://github.com/aradenac/AI-Compass/issues/84), [#85](https://github.com/aradenac/AI-Compass/issues/85), [#86](https://github.com/aradenac/AI-Compass/issues/86) |
+| P5 | **Approved issues; DAP-01 already delivered** | Further scope open, not implemented | [#87](https://github.com/aradenac/AI-Compass/issues/87), [#88](https://github.com/aradenac/AI-Compass/issues/88); [DAP-01](../workload-planning.md) |
+| P6 | **Approved issues** | Open, not implemented | [#89](https://github.com/aradenac/AI-Compass/issues/89), [#90](https://github.com/aradenac/AI-Compass/issues/90) |
+| P7 | **Approved issues** | Open, not implemented | [#91](https://github.com/aradenac/AI-Compass/issues/91), [#92](https://github.com/aradenac/AI-Compass/issues/92), [#93](https://github.com/aradenac/AI-Compass/issues/93), [#94](https://github.com/aradenac/AI-Compass/issues/94), [#95](https://github.com/aradenac/AI-Compass/issues/95) |
 
-**Update protocol:** When the owner accepts/reorders this plan, record that decision and the change rationale here, keep all source links intact, and *only later* derive appropriately bounded implementation issues with dependencies and acceptance evidence. A phase is complete only when the described end-user/operator outcome, applicable invariants and evidence are demonstrated, not merely when its code or a prototype exists. No GitHub issues are created by this plan.
+**Update protocol:** When ordering or scope changes, record owner decision/rationale here and keep source specifications traceable. Update individual issues and this phase-to-issue table together; keep acceptance/test evidence in the PR/issue. A phase is complete only when the promised end-user/operator outcome, applicable invariants and evidence are demonstrably merged, not merely when a prototype/PR exists. Release GO still requires separately witnessed PLAT operational acceptance.
