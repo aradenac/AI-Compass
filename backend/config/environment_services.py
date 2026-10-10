@@ -46,9 +46,7 @@ def validate_component_os(type_slug, properties):
     usable = (properties.get("publication") == "published" or
               properties.get("status") in ("active", "usable", "supported", "enabled"))
     if declared or usable:
-        value = validate_os(properties.get("supported_os"))
-        if value != properties["supported_os"]:
-            raise InvalidEnvironment("supported_os must be canonical [windows, linux] order")
+        validate_os(properties.get("supported_os"))
     # No implicit value for an older or unfinished draft.
 
 
