@@ -235,6 +235,10 @@ class CampaignSnapshot(models.Model):
     guide_revision = models.ForeignKey(CatalogRevision, null=True, blank=True,
                                        on_delete=models.PROTECT, related_name="+")
     configuration = models.JSONField(default=dict)
+    framework = models.ForeignKey(CatalogItem, null=True, blank=True, on_delete=models.PROTECT,
+                                  related_name="+")
+    framework_revision = models.ForeignKey(CatalogRevision, null=True, blank=True,
+                                           on_delete=models.PROTECT, related_name="+")
 
 
 class CampaignCasePin(models.Model):
@@ -258,3 +262,40 @@ class CampaignComponentPin(models.Model):
     class Meta:
         constraints = [models.UniqueConstraint(
             fields=["snapshot", "kind"], name="uniq_campaign_snapshot_component")]
+
+class CampaignParticipantIdentity(models.Model):
+    """Permanent, immutable participant identity owned by exactly one campaign."""
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    public_id = models.CharField(max_length=120, unique=True)
+    campaign = models.ForeignKey(CatalogItem, on_delete=models.PROTECT,
+                                 related_name="participant_identities")
+
+
+class CampaignParticipantPin(models.Model):
+    """One exact configuration of a participant in an immutable campaign revision."""
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    snapshot = models.ForeignKey(CampaignSnapshot, on_delete=models.PROTECT,
+                                 related_name="participant_pins")
+    participant = models.ForeignKey(CampaignParticipantIdentity, on_delete=models.PROTECT,
+                                    related_name="snapshots")
+    position = models.PositiveIntegerField()
+    label = models.CharField(max_length=160)
+    role = models.CharField(max_length=160)
+    model = models.ForeignKey(CatalogItem, on_delete=models.PROTECT, related_name="+")
+    model_revision = models.ForeignKey(CatalogRevision, on_delete=models.PROTECT, related_name="+")
+    provider = models.ForeignKey(CatalogItem, on_delete=models.PROTECT, related_name="+")
+    provider_revision = models.ForeignKey(CatalogRevision, on_delete=models.PROTECT, related_name="+")
+    harness = models.ForeignKey(CatalogItem, on_delete=models.PROTECT, related_name="+")
+    harness_revision = models.ForeignKey(CatalogRevision, on_delete=models.PROTECT, related_name="+")
+    configuration_version = models.CharField(max_length=160)
+    settings = models.JSONField(default=dict)
+    properties = models.JSONField(default=dict)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["snapshot", "participant"],
+                                    name="uniq_campaign_participant_revision"),
+            models.UniqueConstraint(fields=["snapshot", "position"],
+                                    name="uniq_campaign_participant_order"),
+        ]
+        ordering = ["position", "participant__public_id"]
