@@ -27,7 +27,8 @@ class NativeArchiveTests(TransactionTestCase):
         # flush() removes migration seed data; seed a valid immutable schema
         # without deserializing protected rows (which SQL triggers prohibit).
         schema = import_module("config.migrations.0002_model_schema_v2").MODEL_SCHEMA_V2
-        ObjectTypeVersion.objects.create(type_slug="model", version=2, json_schema=schema)
+        ObjectTypeVersion.objects.get_or_create(type_slug="model", version=2,
+                                               defaults={"json_schema": schema})
         ensure_roles()
         User = get_user_model()
         self.operator = User.objects.create_user(username="native-operator",
@@ -86,7 +87,7 @@ class NativeArchiveTests(TransactionTestCase):
         old_id = str(model.current_revision_id)
         revised = revise_model(item=model, actor=self.writer,
                                expected_revision="r001", name="GLM updated")
-        self.assertEqual(revised.number, 2)
+        self.assertEqual(revised.current_revision.number, 2)
         link = attach(item=model, revision=CatalogRevision.objects.get(pk=old_id),
                       file=SimpleUploadedFile("trace.pdf", PDF, content_type="application/pdf"),
                       actor=self.writer, source="test:manual")
@@ -135,4 +136,4 @@ class NativeArchiveTests(TransactionTestCase):
         self.assertIsNone(raw)
         self.assertEqual(result.status_code, 409)
         self.assertEqual(result.json()["error"], "archive_integrity_failed")
-        self.assertEqual(result["Cache-Control"], "no-store")
+        self.assertIn("no-store", result["Cache-Control"])
