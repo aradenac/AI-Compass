@@ -39,6 +39,8 @@
       (window.location.pathname === "/maintenance" ? "Maintenance & Governance" : "Technology catalog") +
       '</h1>',
     '<div id="server-personas" class="server-card" style="margin:12px 0" hidden></div>',
+    '<section id="server-workgroup-home" class="server-catalog" hidden></section>',
+    '<section id="server-workgroup-summary" class="server-catalog" hidden></section>',
     '<p style="margin-bottom:20px;color:#64748b">Real Django session · persistent technology catalog · independent Demo</p>',
     '<div class="server-card">',
     '<p id="server-state" class="server-status" role="status" aria-live="polite">Connecting to backend…</p>',
@@ -265,6 +267,9 @@
     ++evidenceGeneration;
     if (!data.authenticated) {
       grants = [];
+      window.AICompassDraftAccount = "";
+      document.getElementById("server-workgroup-home").hidden = true;
+      document.getElementById("server-workgroup-summary").hidden = true;
       sharedCatalog.setAccess(false, false);
       personas.replaceChildren(); personas.hidden = true;
       tasks.setAccess(false, false);
@@ -290,9 +295,12 @@
       return;
     }
     grants = data.permissions || [];
+    window.AICompassDraftAccount = data.username;
     var requestedPersona = new URLSearchParams(window.location.search).get("workspace");
     var activePersona = window.AICompassRuntime.choosePersona(data, "server", requestedPersona);
     var personaId = maintenanceWorkspace ? "maintenance" : activePersona && activePersona.id;
+    if (!maintenanceWorkspace && !requestedPersona && grants.includes("business_write"))
+      personaId = "workgroup";
     personas.innerHTML = window.AICompassRuntime.renderPersonaLinks(data, "server", personaId);
     personas.hidden = !personas.textContent.trim();
     sharedCatalog.setAccess(!maintenanceWorkspace &&
@@ -344,6 +352,67 @@
       });
     }
     if (!catalog.hidden) refreshModels();
+    // FUT-04 one categorized Workgroup home and deep-linked context. The
+    // legacy domain editors remain exactly the same authorized controllers.
+    var group = window.AICompassWorkgroup;
+    var home = document.getElementById("server-workgroup-home");
+    var summary = document.getElementById("server-workgroup-summary");
+    home.hidden = true; summary.hidden = true;
+    if (!maintenanceWorkspace && personaId === "workgroup" &&
+        grants.includes("business_write") && group) {
+      var section = new URLSearchParams(window.location.search).get("section") || "studio";
+      if (section !== "studio" && !group.canVisit(section, grants, "server", true))
+        section = "studio";
+      var ids = Object.keys(group.SECTION_TO_SERVER).map(function(x){return group.SECTION_TO_SERVER[x];});
+      ids.forEach(function(id){var el=document.getElementById(id);if(el)el.hidden = true;});
+      catalog.hidden = true;
+      home.hidden = false;
+      function showHome(counts) {
+        home.innerHTML = group.breadcrumbs("server", section) +
+          (section === "studio" ?
+            group.renderMap("server", data, grants, true, counts) :
+            '<div class="server-card"><h2>' + modelsUi.escapeHtml(section.replaceAll("-"," ")) +
+            '</h2><p class="muted">Real Server data, exact revision history and authorized actions.</p>' +
+            '<button type="button" id="workgroup-show-editor">Open full workspace / edit / history</button></div>');
+        if (section !== "studio") {
+          document.getElementById("workgroup-show-editor").onclick = function() {
+            var target=document.getElementById(group.SECTION_TO_SERVER[section]);
+            if(target){target.hidden=false;summary.hidden=true;this.disabled=true;}
+          };
+        }
+      }
+      showHome({});
+      if (section === "studio") {
+        var api = window.AICompassRuntime.ServerTransport(fetch, csrfFromCookie);
+        Promise.allSettled(["campaigns", "forecasts", "recommendations"].map(function(id) {
+          return api.request("/api/v1/" + id);
+        })).then(function(results){
+          if(home.hidden)return;
+          var counters={};
+          ["benchmark", "forecasts", "recommendations"].forEach(function(section,i){
+            var result=results[i];
+            if(result.status==="fulfilled")
+              counters[section]=group.attention(section,result.value.results);
+          });
+          showHome(counters);
+        });
+      } else {
+        var target=document.getElementById(group.SECTION_TO_SERVER[section]);
+        if(target && group.STABLE[section]) {
+          summary.hidden=false;
+          summary.innerHTML='<div id="server-shared-summary"></div>';
+          var summaryProvider=group.serverProvider(
+            window.AICompassRuntime.ServerTransport(fetch,csrfFromCookie));
+          group.mountSummary(document.getElementById("server-shared-summary"),
+            summaryProvider,section,"server",{
+              link:function(id){return group.href("server",section)+
+                "&record="+encodeURIComponent(id);}
+            }).show().catch(function(){ /* visible error is already fail-closed */ });
+        } else if(target) {
+          target.hidden=false;
+        }
+      }
+    }
   }
 
   function field(name, title, value, type, extra) {
@@ -707,6 +776,8 @@
       account.hidden = true;
       form.hidden = true;
       catalog.hidden = true;
+      document.getElementById("server-workgroup-home").hidden = true;
+      document.getElementById("server-workgroup-summary").hidden = true;
       sharedCatalog.setAccess(false, false);
       tasks.setAccess(false, false);
       testCases.setAccess(false, false);
