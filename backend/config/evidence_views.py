@@ -29,6 +29,20 @@ def _owned_link(link_id):
     )
 
 
+
+
+def _watch_readable(request, item, revision=None):
+    """Never disclose unpublished source/watch files by guessing stable evidence UUIDs."""
+    if item.type_slug not in ("research_source","watch_entry"):
+        return
+    if request.user.has_perm("auth.business_write") or request.user.has_perm("auth.publication_review"):
+        return
+    from django.http import Http404
+    from .watch_services import serialize
+    data=serialize(item,rev=revision,reader=True)
+    if data is None:
+        raise Http404("Private Research Source / Watch evidence")
+
 def _checked(link):
     row = serialize(link)
     try:
@@ -44,6 +58,7 @@ def _checked(link):
 @never_cache
 def list_evidence(request, public_id):
     item = _item(public_id)
+    _watch_readable(request,item)
     rows = EvidenceLink.objects.filter(item=item).select_related(
         "blob", "revision", "uploaded_by", "item"
     ).order_by("created_at", "id")
@@ -102,7 +117,9 @@ def upload_evidence(request, public_id):
 @capability("business_read")
 @never_cache
 def evidence_detail(request, link_id):
-    return json_no_store(_checked(_owned_link(link_id)))
+    link=_owned_link(link_id)
+    _watch_readable(request,link.item,link.revision)
+    return json_no_store(_checked(link))
 
 
 @require_GET
@@ -110,6 +127,7 @@ def evidence_detail(request, link_id):
 @never_cache
 def evidence_download(request, link_id):
     link = _owned_link(link_id)
+    _watch_readable(request,link.item,link.revision)
     try:
         path = verify_bytes(link.blob_id, size=link.blob.size)
         payload = path.open("rb")
