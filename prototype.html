@@ -351,6 +351,16 @@ function demoCatalogVersion(id){
  var isCreated=records.length&&Object.keys(records[0].before||{}).length===0;
  return "r"+String(Math.max(1,records.length+(isCreated?0:1))).padStart(3,"0");
 }
+function validateDemoOS(type,properties){
+ if(!["harness","framework"].includes(type))return;
+ var scope=window.AICompassEnvironment;
+ var active=properties&&(
+    properties.publication==="published" ||
+    ["active","usable","enabled","supported"].includes(properties.status));
+ var declared=properties&&Object.prototype.hasOwnProperty.call(properties,"supported_os");
+ if((declared||active)&&!scope.normalize(properties.supported_os))
+   throw Error("Choose at least Windows or Linux for a usable fictional Harness/Framework");
+}
 var demoSharedCatalog = {};
 ["model","provider","harness","framework"].forEach(function(type){
  var base=demoCatalogProviders[type];
@@ -359,12 +369,13 @@ var demoSharedCatalog = {};
      revision:demoCatalogVersion(x.id),
      properties:Object.assign({},x.properties||{version:x.version||"",details:x.details||""})
    },x,{type:type});});},
-   create:function(data){var x=base.create({name:data.name,properties:data.properties,
+   create:function(data){validateDemoOS(type,data.properties);var x=base.create({name:data.name,properties:data.properties,
      version:data.properties.version,details:data.properties.details});
      revision("Component",x.id,{},x);persist();return x;},
    revise:function(id,data){
      var old=demoSharedCatalog[type].list().find(function(x){return x.id===id;});
      if(!old||old.revision!==data.expected_revision){var err=Error("revision_conflict");err.status=409;throw err;}
+     validateDemoOS(type,data.properties);
      var x=base.revise(id,{name:data.name,properties:data.properties,
        version:data.properties.version,details:data.properties.details});
      persist();return x;},
@@ -427,6 +438,21 @@ if(!db.components){
  });});
 }
 
+// Synthetic Demo-only examples for OS discovery; never migrate into Server.
+if(!db.environmentFixturesInitialized){
+ var synthetic=[
+  {type:"harness",name:"Windows-only Harness (fictional)",supported_os:["windows"]},
+  {type:"harness",name:"Linux-only Harness (fictional)",supported_os:["linux"]},
+  {type:"framework",name:"Cross-platform Framework (fictional)",supported_os:["windows","linux"]}
+ ];
+ synthetic.forEach(function(f){
+  if(!db.components.some(function(c){return c.name===f.name;}))
+   db.components.push({id:next("demo-os"),type:f.type,name:f.name,
+     version:"0.1-fictional",details:"Synthetic OS-compatibility example",
+     properties:{supported_os:f.supported_os,publication:"draft"}});
+ });
+ db.environmentFixturesInitialized=true;persist();
+}
 if(!Array.isArray(db.qualifications)){
  db.qualifications=[
   {id:"q1",title:"Assess NextCoder Preview",solution:"s5",task:"t13",stage:"to_qualify",owner:"u1",priority:"high",due:"2026-10-15",updatedAt:"2026-10-07",sourceWatch:"w1",notes:"Confirm access, tooling support and test methodology before running controlled cases.",conclusion:""},
