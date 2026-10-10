@@ -142,6 +142,30 @@
     return row ? decodeURIComponent(row.substring("csrftoken=".length)) : "";
   }
 
+  // FUT-01: negotiate additive v1 API contract BEFORE any authenticated
+  // business request. Old v1 frontends keep using existing routes unchanged.
+  function checkReleaseCompatibility(doc) {
+    if (!doc || doc.schema !== "ai-compass/api-contract@1" ||
+        doc.api_major !== 1 || !Array.isArray(doc.supported_client_api_majors) ||
+        !doc.supported_client_api_majors.includes(1) ||
+        (doc.min_client_api_major != null && doc.min_client_api_major > 1) ||
+        (doc.max_client_api_major != null && doc.max_client_api_major < 1)) {
+      throw new Error("Incompatible Server API contract; this frontend requires API major v1.");
+    }
+    return true;
+  }
+
+  async function ensureReleaseCompatibility() {
+    var response = await fetch("/api/v1/contract", {
+      method: "GET", credentials: "same-origin", cache: "no-store"
+    });
+    if (!response.ok) throw new Error("Server API contract unavailable (HTTP " + response.status + ").");
+    var doc;
+    try { doc = await response.json(); }
+    catch (error) { throw new Error("Server API contract is not valid JSON."); }
+    return checkReleaseCompatibility(doc);
+  }
+
   async function authRequest(path, method, body) {
     var options = {method: method || "GET", credentials: "same-origin", cache: "no-store"};
     if (method === "POST") {
@@ -619,6 +643,7 @@
 
   (async function boot() {
     try {
+      await ensureReleaseCompatibility();
       await authRequest("csrf");
       displayIdentity(await authRequest("me"));
     } catch (error) {
