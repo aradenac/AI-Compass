@@ -11,7 +11,7 @@
   };
   function mount(root, csrf, escapeHtml) {
     var allowed=false,canWrite=false,canReview=false,ticket=0,campaigns=[],methods=[],tasks=[],cases=[],guides=[];
-    var catalog={model:[],provider:[],harness:[],framework:[]};
+    var catalog={model:[],provider:[],harness:[],framework:[]},sessionWorkspace=null;
     function el(selector){return root.querySelector(selector);}
     function esc(value){return escapeHtml(value==null?"":String(value));}
     function status(message,error){
@@ -39,7 +39,10 @@
         (canWrite?'<button type="button" id="campaign-add">+ Create campaign</button>':'')+
         '<div id="campaign-list" class="server-card"></div>'+
         '<section id="campaign-editor" class="server-card" hidden></section>'+
-        '<section id="campaign-detail" class="server-card" hidden></section>';
+        '<section id="campaign-detail" class="server-card" hidden></section>'+
+        '<section id="campaign-session-area" class="server-card" hidden></section>';
+      sessionWorkspace=window.AICompassServerSessions.mount(el("#campaign-session-area"),api,esc);
+      sessionWorkspace.setAccess(allowed,canWrite);
       el("#campaign-refresh").addEventListener("click",refresh);
       if(canWrite)el("#campaign-add").addEventListener("click",function(){editor(null);});
       el("#campaign-list").addEventListener("click",function(e){
@@ -47,7 +50,8 @@
         if(!btn)return;
         var row=campaigns.find(function(c){return c.id===btn.dataset.id;});
         if(!row)return;
-        if(btn.dataset.action==="history")history(row);
+        if(btn.dataset.action==="sessions"&&sessionWorkspace)sessionWorkspace.openCampaign(row);
+        else if(btn.dataset.action==="history")history(row);
         else if(canWrite&&btn.dataset.action==="edit")editor(row);
         else if(canWrite&&btn.dataset.action)transition(row,btn.dataset.action);
       });
@@ -73,6 +77,7 @@
           ' · '+x.test_case_ids.length+' Test Case(s)'+
           (x.framework_id?' · Framework '+esc(x.framework_id)+' · '+(x.participants||[]).length+' participant(s)':'')+'</p>'+
           '<p>'+esc(x.properties.objective)+'</p>'+
+          '<button type="button" data-id="'+esc(x.id)+'" data-action="sessions">Sessions / resume</button>'+
           '<button type="button" data-id="'+esc(x.id)+'" data-action="history">Details / history</button>'+
           (canWrite&&!x.archived&&["planned","in_progress"].includes(x.status)?
             '<button type="button" data-id="'+esc(x.id)+'" data-action="edit">Edit</button>':'')+

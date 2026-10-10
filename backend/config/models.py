@@ -299,3 +299,58 @@ class CampaignParticipantPin(models.Model):
                                     name="uniq_campaign_participant_order"),
         ]
         ordering = ["position", "participant__public_id"]
+
+
+class BenchmarkSession(models.Model):
+    """Permanent session identity, frozen experimental design and original references.
+
+    All fields are immutable. Current state is the latest append-only checkpoint.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    public_id = models.CharField(max_length=120, unique=True)
+    campaign_snapshot = models.ForeignKey(CampaignSnapshot, on_delete=models.PROTECT,
+                                          related_name="benchmark_sessions")
+    case_pin = models.ForeignKey(CampaignCasePin, on_delete=models.PROTECT,
+                                 related_name="benchmark_sessions")
+    guide = models.ForeignKey(CatalogItem, null=True, blank=True,
+                              on_delete=models.PROTECT, related_name="+")
+    guide_revision = models.ForeignKey(CatalogRevision, null=True, blank=True,
+                                       on_delete=models.PROTECT, related_name="+")
+    method_definition = models.ForeignKey(ObjectTypeVersion, on_delete=models.PROTECT,
+                                          related_name="benchmark_sessions")
+    method_descriptor = models.JSONField(default=dict)
+    selected_participants = models.JSONField(default=list)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+                                   related_name="benchmark_sessions")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class SessionCheckpoint(models.Model):
+    """One server-confirmed, immutable step/action; never rewrite earlier drafts."""
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    session = models.ForeignKey(BenchmarkSession, on_delete=models.PROTECT,
+                                related_name="checkpoints")
+    number = models.PositiveIntegerField()
+    action = models.CharField(max_length=32)
+    state = models.JSONField(default=dict)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+                              related_name="+")
+    saved_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=("session", "number"),
+                                                 name="uniq_session_checkpoint")]
+        ordering = ["number"]
+
+
+class SessionCheckpointEvidence(models.Model):
+    """Real #17 immutable evidence links pinned at each session checkpoint."""
+    id = models.BigAutoField(primary_key=True)
+    checkpoint = models.ForeignKey(SessionCheckpoint, on_delete=models.PROTECT,
+                                   related_name="evidence_pins")
+    evidence = models.ForeignKey(EvidenceLink, on_delete=models.PROTECT,
+                                 related_name="session_checkpoint_pins")
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=("checkpoint", "evidence"),
+                                                 name="uniq_session_checkpoint_evidence")]
