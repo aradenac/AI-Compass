@@ -11,7 +11,7 @@
   };
   function mount(root, csrf, escapeHtml) {
     var allowed=false,canWrite=false,canReview=false,ticket=0,campaigns=[],methods=[],tasks=[],cases=[],guides=[];
-    var catalog={model:[],provider:[],harness:[],framework:[]},sessionWorkspace=null;
+    var catalog={model:[],provider:[],harness:[],framework:[]},offers=[],sessionWorkspace=null;
     function el(selector){return root.querySelector(selector);}
     function esc(value){return escapeHtml(value==null?"":String(value));}
     function status(message,error){
@@ -77,6 +77,8 @@
           ' · '+x.test_case_ids.length+' Test Case(s)'+
           (x.framework_id?' · Framework '+esc(x.framework_id)+' · '+(x.participants||[]).length+' participant(s)':'')+'</p>'+
           '<p>'+esc(x.properties.objective)+'</p>'+
+          '<p class="muted">Pricing · '+esc(x.pricing_readiness&&x.pricing_readiness.complete?
+             "complete / exact offer pins":"INCOMPLETE / new metered session blocked") +'</p>'+
           '<button type="button" data-id="'+esc(x.id)+'" data-action="sessions">Sessions / resume</button>'+
           '<button type="button" data-id="'+esc(x.id)+'" data-action="history">Details / history</button>'+
           (canWrite&&!x.archived&&["planned","in_progress"].includes(x.status)?
@@ -95,16 +97,17 @@
         var responses=await Promise.all([
           api("campaigns"),api("campaign-methods"),api("tasks"),api("test-cases"),
           api("guides"),api("catalog/model"),api("catalog/provider"),api("catalog/harness"),
-          api("catalog/framework")
+          api("catalog/framework"),api("pricing/offers")
         ]);
         if(!allowed||run!==ticket)return;
         campaigns=responses[0].results; methods=responses[1].results;
         tasks=responses[2].results; cases=responses[3].results; guides=responses[4].results;
         ["model","provider","harness","framework"].forEach(function(k,i){catalog[k]=responses[i+5].results;});
+        offers=responses[9].results;
         render();status(campaigns.length+" campaign(s) persisted in Server. Pipeline shows plans, not measured results.");
       }catch(error){
         if(!allowed||run!==ticket)return;
-        campaigns=[];el("#campaign-list").textContent="Campaigns unavailable; no Demo fallback.";
+        campaigns=[];offers=[];el("#campaign-list").textContent="Campaigns unavailable; no Demo fallback.";
         el("#campaign-pipeline").replaceChildren();
         status("Server campaign request failed: "+error.message,true);
       }
@@ -154,6 +157,7 @@
         '<label>Setup procedure text<textarea name="guide_text"></textarea></label>'+
         '<label>HTTP(S) guide URL<input name="guide_url" maxlength="2048"></label>'+
         '<button type="button" id="campaign-save-guide">Save Guide to knowledge base</button></div>'+
+        '<section id="campaign-pricing" class="server-card"></section>'+ 
         '<label>Linked Test Cases (Ctrl/Command to select multiple)'+
         '<select name="test_case_ids" multiple size="6">'+cases.map(function(c){
           return '<option value="'+esc(c.id)+'"'+(source&&source.test_case_ids.includes(c.id)?" selected":"")+
@@ -165,6 +169,7 @@
         '<button type="submit">Save '+(source?"new revision":"campaign")+'</button>'+
         '<button type="button" id="campaign-cancel">Cancel</button></form>';
       var form=el("#campaign-form");
+      var pricingPicker=null;
       var workingParticipants=(source&&Array.isArray(source.participants)?source.participants:[]).map(function(p){
         return {id:p.id,label:p.label,role:p.role,configuration_version:p.configuration_version,
           component_ids:Object.assign({},p.component_ids),settings:JSON.stringify(p.settings||{},null,2),
@@ -283,6 +288,18 @@
         }catch(error){status("Guide creation refused: "+error.message,true);}
         finally{button.disabled=false;}
       });
+      // Future Metered Runs (FUT-09) consume exact selections from this shared
+      // read/write contract, never independently guessed unit prices.
+      pricingPicker=window.AICompassPricingSelection.mount(
+        el("#campaign-pricing"),form,offers,source&&source.pricing_selections,
+        function(){return workingParticipants;});
+      form.addEventListener("change",function(event){
+        if(["mode","framework_id","model","provider","harness"].includes(event.target.name))
+          pricingPicker.render();
+      });
+      el("#campaign-participant-list").addEventListener("change",function(){
+        readParticipants();pricingPicker.render();
+      });
       form.addEventListener("submit",async function(e){
         e.preventDefault();var button=form.querySelector('button[type="submit"]');
         button.disabled=true;
@@ -296,7 +313,7 @@
             notes:form.elements.notes.value, mode:selectedMode,
             method_version:Number(form.elements.method_version.value),
             test_case_ids:selected, guide_id:form.elements.guide_id.value||null,
-            configuration:config
+            configuration:config,pricing_selections:pricingPicker.selections()
           };
           if(form.elements.owner.value.trim())payload.owner=form.elements.owner.value.trim();
           var chosenFramework=form.elements.framework_id.value||null;
