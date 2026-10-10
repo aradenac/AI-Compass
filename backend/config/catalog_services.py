@@ -13,6 +13,8 @@ CATALOG_TYPES = {
     "harness": "hrn",
     "framework": "frm",
     "setup_guide": "gui",
+    "research_source": "src",
+    "watch_entry": "wat",
 }
 SUPPORTED_SCHEMA_VERSIONS = {
     "model": SUPPORTED_MODEL_VERSIONS,
@@ -20,6 +22,8 @@ SUPPORTED_SCHEMA_VERSIONS = {
     "harness": frozenset({1}),
     "framework": frozenset({1}),
     "setup_guide": frozenset({1}),
+    "research_source": frozenset({1}),
+    "watch_entry": frozenset({1}),
 }
 
 

@@ -459,3 +459,18 @@ class CompositeRunEvidence(models.Model):
         constraints = [
             models.UniqueConstraint(fields=("run","evidence"), name="uniq_composite_run_evidence"),
         ]
+
+
+class WatchSourcePin(models.Model):
+    """Immutable many-to-many provenance: Watch Entry revision -> Source exact revision."""
+    id = models.BigAutoField(primary_key=True)
+    entry_revision = models.ForeignKey(CatalogRevision, on_delete=models.PROTECT,
+                                       related_name="watch_source_pins")
+    source = models.ForeignKey(CatalogItem, on_delete=models.PROTECT, related_name="+")
+    source_revision = models.ForeignKey(CatalogRevision, on_delete=models.PROTECT,
+                                        related_name="+")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=("entry_revision", "source"), name="uniq_watch_source_revision"),
+        ]

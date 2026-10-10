@@ -29,6 +29,29 @@ def _owned_link(link_id):
     )
 
 
+
+
+def _watch_evidence_published(item, revision):
+    from .watch_services import serialize
+    return (revision is not None and serialize(item,rev=revision,reader=True) is not None)
+
+
+def _watch_readable(request, item, revision=None):
+    """Never disclose unpublished source/watch files by guessing stable evidence UUIDs."""
+    if item.type_slug not in ("research_source","watch_entry"):
+        return
+    if request.user.has_perm("auth.business_write") or request.user.has_perm("auth.publication_review"):
+        return
+    from django.http import Http404
+    from .watch_services import serialize
+    data=serialize(item,rev=revision,reader=True)
+    if revision is None and item.type_slug in ("research_source","watch_entry"):
+        # Old links without a precise revision must never be made public by
+        # a later change of visibility.
+        data=None
+    if data is None:
+        raise Http404("Private Research Source / Watch evidence")
+
 def _checked(link):
     row = serialize(link)
     try:
@@ -44,9 +67,21 @@ def _checked(link):
 @never_cache
 def list_evidence(request, public_id):
     item = _item(public_id)
+    if item.type_slug in ("research_source","watch_entry") and not (
+            request.user.has_perm("auth.business_write") or
+            request.user.has_perm("auth.publication_review")):
+        from django.http import Http404
+        from .watch_services import serialize
+        if serialize(item,reader=True) is None:
+            raise Http404("Private Research Source / Watch evidence")
     rows = EvidenceLink.objects.filter(item=item).select_related(
         "blob", "revision", "uploaded_by", "item"
     ).order_by("created_at", "id")
+    if item.type_slug in ("research_source","watch_entry") and not (
+            request.user.has_perm("auth.business_write") or
+            request.user.has_perm("auth.publication_review")):
+        rows = [link for link in rows if link.revision_id is not None and
+                _watch_evidence_published(item,link.revision)]
     return json_no_store({"item_id": public_id, "results": [_checked(link) for link in rows]})
 
 
@@ -81,6 +116,8 @@ def upload_evidence(request, public_id):
         if not isinstance(provenance, dict):
             raise EvidenceError("Provenance must be a JSON object")
         requested = request.POST.get("revision", "")
+        if item.type_slug in ("research_source","watch_entry") and not requested:
+            raise EvidenceError("Source and Watch evidence must pin an exact revision")
         revision = None
         if requested:
             match = REVISION.fullmatch(requested)
@@ -102,7 +139,9 @@ def upload_evidence(request, public_id):
 @capability("business_read")
 @never_cache
 def evidence_detail(request, link_id):
-    return json_no_store(_checked(_owned_link(link_id)))
+    link=_owned_link(link_id)
+    _watch_readable(request,link.item,link.revision)
+    return json_no_store(_checked(link))
 
 
 @require_GET
@@ -110,6 +149,7 @@ def evidence_detail(request, link_id):
 @never_cache
 def evidence_download(request, link_id):
     link = _owned_link(link_id)
+    _watch_readable(request,link.item,link.revision)
     try:
         path = verify_bytes(link.blob_id, size=link.blob.size)
         payload = path.open("rb")

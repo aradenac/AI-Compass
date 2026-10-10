@@ -50,6 +50,7 @@ services:
       - ../server-tasks.js:/srv/frontend/server-tasks.js:ro
       - ../server-test-cases.js:/srv/frontend/server-test-cases.js:ro
       - ../server-guides.js:/srv/frontend/server-guides.js:ro
+      - ../server-watch.js:/srv/frontend/server-watch.js:ro
       - ../server-campaigns.js:/srv/frontend/server-campaigns.js:ro
       - ../server-sessions.js:/srv/frontend/server-sessions.js:ro
       - ../server-users.js:/srv/frontend/server-users.js:ro

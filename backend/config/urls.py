@@ -1,9 +1,19 @@
 from django.urls import path
 
-from . import auth_views, catalog_views, catalog_type_views, evidence_views, task_views, user_admin_views, activity_views, data_health_views, test_case_views, setup_guide_views, campaign_views, session_views, run_views
+from . import auth_views, catalog_views, catalog_type_views, evidence_views, task_views, user_admin_views, activity_views, data_health_views, test_case_views, setup_guide_views, campaign_views, session_views, run_views, watch_views
 from .api import api
 
 urlpatterns = [
+    path("api/v1/sources", watch_views.sources),
+    path("api/v1/sources/<slug:public_id>", watch_views.source),
+    path("api/v1/sources/<slug:public_id>/revisions", watch_views.source_history),
+    path("api/v1/sources/<slug:public_id>/revisions/<int:number>", watch_views.source_revision),
+    path("api/v1/sources/<slug:public_id>/actions/<slug:action>", watch_views.source_action),
+    path("api/v1/watch-entries", watch_views.entries),
+    path("api/v1/watch-entries/<slug:public_id>", watch_views.entry),
+    path("api/v1/watch-entries/<slug:public_id>/revisions", watch_views.entry_history),
+    path("api/v1/watch-entries/<slug:public_id>/revisions/<int:number>", watch_views.entry_revision),
+    path("api/v1/watch-entries/<slug:public_id>/actions/<slug:action>", watch_views.entry_action),
     path("api/v1/campaigns/<slug:campaign_id>/sessions", session_views.collection),
     path("api/v1/sessions/<slug:public_id>", session_views.get_session),
     path("api/v1/sessions/<slug:public_id>/checkpoints", session_views.get_checkpoints),
