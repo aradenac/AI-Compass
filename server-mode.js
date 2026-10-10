@@ -513,9 +513,11 @@
       evidence.innerHTML = '<h2>Original evidence for ' + escapeHtml(item.name) + '</h2>' +
         '<p class="muted small">Immutable bytes · exact revision references · distinct provenance for each link.</p>' +
         (entries.length ? '<div class="list">' + entries.map(function (row) {
-          var download = row.integrity === "ok" ?
-            '<a href="' + escapeHtml(row.download) + '">Download original bytes</a>' :
-            '<strong>Integrity failure — original unavailable</strong>';
+          // A listing is metadata-only. Byte checksum is verified at download.
+          var download = row.integrity === "broken" ?
+            '<strong>Integrity failure — original unavailable</strong>' :
+            '<a href="' + escapeHtml(row.download) + '">Download original bytes (SHA-256 checked on request)</a>' +
+            '<span class="muted small"> · Integrity ' + escapeHtml(row.integrity === "ok" ? "verified" : "not checked in listing") + '</span>';
           return '<div class="list-row"><div><strong>' + escapeHtml(row.filename) + '</strong>' +
             '<div class="muted small">SHA-256: ' + escapeHtml(row.sha256) + '</div>' +
             '<div class="muted small">Target: ' + escapeHtml(row.revision || "catalog item") +
