@@ -49,6 +49,7 @@ def serialize(item, revision=None, registries=None):
         "type": item.type_slug,
         "name": rev.display_name,
         "properties": rev.properties,  # exact original, including unknown/null
+        "os_compatibility": __import__("config.environment_services", fromlist=["record_os"]).record_os(item.type_slug, rev.properties),
         "schema_version": rev.schema_version.version,
         "revision": f"r{rev.number:03d}",
         "created_at": rev.created_at.isoformat(),
