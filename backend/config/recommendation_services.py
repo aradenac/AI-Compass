@@ -123,6 +123,9 @@ def _evaluation(reference,revision,run_ids,old=None):
     if rev is None:raise InvalidRecommendation("Evaluation revision not found")
     snapshot=EvaluationSnapshot.objects.filter(revision=rev).first()
     if snapshot is None:raise InvalidRecommendation("Evaluation snapshot missing")
+    if snapshot.composite_pins.exists():
+        raise InvalidRecommendation(
+            "An Evaluation containing composite workflow scores cannot justify an individual Solution recommendation")
     pinned=set(snapshot.individual_pins.values_list("run__public_id",flat=True))
     if not set(run_ids).issubset(pinned):
         raise InvalidRecommendation("Selected source Runs absent from exact Evaluation revision")
