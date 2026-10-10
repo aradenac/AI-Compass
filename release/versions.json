@@ -1,10 +1,10 @@
 {
   "schema": "ai-compass/component-versions@1",
-  "release": "0.4.0",
-  "frontend": "0.3.0",
-  "backend": "0.2.0",
+  "release": "0.5.0",
+  "frontend": "0.4.0",
+  "backend": "0.3.0",
   "api_major": 1,
   "api_min_major": 1,
   "api_max_major": 1,
-  "description": "FUT-04 Workgroup Studio categorized navigation, shared stable-domain projections and safe unsaved drafts"
+  "description": "FUT-05 versioned enterprise accessibility, auditable alternative tariffs and exact campaign offer revision pins"
 }
