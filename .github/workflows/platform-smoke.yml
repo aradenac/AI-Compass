@@ -6,43 +6,35 @@ on:
       - "backend/**"
       - "scripts/**"
       - "staging/**"
+      - "release/**"
+      - "frontend/**"
       - "docs/migration-staging.md"
+      - "docs/future-evolutions/shared-frontend-and-release-lifecycle.md"
+      - "docs/release-*"
       - "compose.yaml"
       - "Caddyfile"
       - "prototype.html"
-      - "server-mode.js"
-      - "server-tasks.js"
-      - "server-test-cases.js"
-      - "server-guides.js"
-      - "server-campaigns.js"
-      - "server-sessions.js"
-      - "server-users.js"
-      - "server-activity.js"
-      - "server-data-health.js"
-      - "server-planning.js"
+      - "server-*.js"
       - "model-catalog.js"
       - ".env.example"
-      - ".github/workflows/platform-smoke.yml"
+      - ".github/workflows/**"
   pull_request:
     paths:
       - "backend/**"
       - "scripts/**"
+      - "staging/**"
+      - "release/**"
+      - "frontend/**"
+      - "docs/migration-staging.md"
+      - "docs/future-evolutions/shared-frontend-and-release-lifecycle.md"
+      - "docs/release-*"
       - "compose.yaml"
       - "Caddyfile"
       - "prototype.html"
-      - "server-mode.js"
-      - "server-tasks.js"
-      - "server-test-cases.js"
-      - "server-guides.js"
-      - "server-campaigns.js"
-      - "server-sessions.js"
-      - "server-users.js"
-      - "server-activity.js"
-      - "server-data-health.js"
-      - "server-planning.js"
+      - "server-*.js"
       - "model-catalog.js"
       - ".env.example"
-      - ".github/workflows/platform-smoke.yml"
+      - ".github/workflows/**"
   workflow_dispatch:
 
 jobs:
@@ -82,6 +74,8 @@ jobs:
           python3 -m unittest discover -s scripts -p 'test_migration_promote.py' -v
           python3 -m unittest discover -s scripts -p 'test_verify_export.py' -v
           python3 -m unittest discover -s scripts -p 'test_release_acceptance.py' -v
+          python3 -m unittest discover -s scripts -p 'test_build_coordinated_release.py' -v
+          node scripts/test_release_contract.js
           python3 -m unittest discover -s scripts -p 'test_external_source_preflight.py' -v
           python3 scripts/install-backup-timer.py --destination "$PWD" --dry-run | grep 'ai-compass-backup.service'
       - name: Create isolated local credentials
@@ -121,6 +115,8 @@ jobs:
         run: docker compose exec -T api python manage.py makemigrations --check --dry-run
       - name: Validate staging-only registered migration in Django test database
         run: docker compose exec -T api python manage.py test config.test_migration_staging -v 1
+      - name: Validate additive API v1 release handshake and typed errors
+        run: docker compose exec -T api python manage.py test config.test_release_contract -v 2
       - name: Verify native restore authorization, integrity and read-only preview
         run: docker compose exec -T api python manage.py test config.test_native_restore -v 2
       - name: Verify native history export and evidence archive permissions
@@ -359,6 +355,30 @@ jobs:
             --repository "${{ github.repository }}" \
             --destination "$RUNNER_TEMP/release-acceptance"
           cat "$RUNNER_TEMP/release-acceptance/report.md" >> "$GITHUB_STEP_SUMMARY"
+      - name: Assemble and validate coordinated frontend/backend release artifacts
+        run: |
+          set -euo pipefail
+          docker compose exec -T api python -m pip freeze --all > "$RUNNER_TEMP/backend-packages.txt"
+          img=$(docker image inspect "$(docker compose images -q api)" --format '{{.Id}}')
+          python3 scripts/build_coordinated_release.py build \
+            --root . \
+            --output "$RUNNER_TEMP/coordinated-release" \
+            --evidence "$RUNNER_TEMP/release-acceptance/report.json" \
+            --backend-packages "$RUNNER_TEMP/backend-packages.txt" \
+            --backend-image "$img" \
+            --repository "${{ github.repository }}" \
+            --commit "${{ github.sha }}" \
+            --run-id "${{ github.run_id }}"
+          python3 scripts/build_coordinated_release.py verify \
+            --root . --output "$RUNNER_TEMP/coordinated-release"
+          cat "$RUNNER_TEMP/coordinated-release/release-notes.md" >> "$GITHUB_STEP_SUMMARY"
+      - name: Retain immutable coordinated release manifest and build evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: fut-01-release-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/coordinated-release/
+          if-no-files-found: error
+          retention-days: 90
       - name: Retain PLAT-32 acceptance report
         if: always()
         uses: actions/upload-artifact@v4
