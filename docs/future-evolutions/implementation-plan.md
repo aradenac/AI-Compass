@@ -1,6 +1,6 @@
 # Future evolutions — outcome-led implementation plan
 
-> **Status:** Owner-approved **GitHub implementation backlog** (21 open issues created 2026-10-10); **no new feature code implemented yet**. Issues authorize delivery scope but do not waive release/production gates.
+> **Status:** Owner-approved **21-issue GitHub implementation backlog** (created 2026-10-10). Initial P0 and P1 deliveries are tracked in merged PRs linked from each issue; later P2–P7 items remain staged by dependencies. The issue specifications authorize code, not production GO; check actual GitHub state rather than assuming every issue is open.
 > **Prepared:** 2026-10-10.
 > **Authority:** Planning and coverage index only. Detailed requirements remain in the linked source specifications.
 > **Implementation scope:** Phase plan and coarse, maximal coherent GitHub issues. This document does not implement code, approve production GO, estimate time or restructure repository-wide docs.
