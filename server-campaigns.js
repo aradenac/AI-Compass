@@ -78,7 +78,8 @@
           (x.framework_id?' · Framework '+esc(x.framework_id)+' · '+(x.participants||[]).length+' participant(s)':'')+'</p>'+
           '<p>'+esc(x.properties.objective)+'</p>'+
           '<p class="muted">Pricing · '+esc(x.pricing_readiness&&x.pricing_readiness.complete?
-             "complete / exact offer pins":"INCOMPLETE / new metered session blocked") +'</p>'+
+             "complete / exact offer pins":(x.pricing_readiness&&x.pricing_readiness.requires_session_pricing?
+             "tariffs selected per Test Case session":"INCOMPLETE / new metered session blocked")) +'</p>'+
           '<button type="button" data-id="'+esc(x.id)+'" data-action="sessions">Sessions / resume</button>'+
           '<button type="button" data-id="'+esc(x.id)+'" data-action="history">Details / history</button>'+
           (canWrite&&!x.archived&&["planned","in_progress"].includes(x.status)?
