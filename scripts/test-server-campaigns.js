@@ -28,7 +28,8 @@ const rows={campaigns:{results:[{id:"cmp-calm-blue-tree",name:"<unsafe campaign>
   properties:{objective:"<unsafe objective>"}}]},
   "campaign-methods":{results:[]},tasks:{results:[]},
   "test-cases":{results:[]},guides:{results:[]},
-  "catalog/model":{results:[]},"catalog/provider":{results:[]},"catalog/harness":{results:[]}};
+  "catalog/model":{results:[]},"catalog/provider":{results:[]},"catalog/harness":{results:[]},
+  "catalog/framework":{results:[]}};
 let calls=[];
 const sandbox={window:{},console,URLSearchParams,fetch:async(url,opts)=>{
   assert(url.startsWith("/api/v1/"));
@@ -47,7 +48,7 @@ assert(root.hidden);
 assert.equal(calls.length,0);
 ui.setAccess(true,false,false);
 setImmediate(()=>{
-  assert.equal(calls.length,8,"read-only user loads Server endpoints only");
+  assert.equal(calls.length,9,"read-only user loads Server endpoints only");
   assert(!root.hidden);
   assert(node("#campaign-list").innerHTML.includes("&lt;unsafe campaign&gt;"));
   assert(!node("#campaign-list").innerHTML.includes("<unsafe campaign>"));

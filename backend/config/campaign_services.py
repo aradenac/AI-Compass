@@ -13,6 +13,7 @@ from .catalog_compat import compatibility_for_revision
 from .catalog_ids import new_public_id
 from .catalog_schemas import InvalidModel, validate_model
 from .catalog_services import RevisionConflict, SchemaWriteBlocked, ExhaustedIds
+from .campaign_participant_services import prepare_participants, persist_participants, serialize_participants
 from .models import (CampaignSnapshot, CampaignCasePin, CampaignComponentPin,
                      CatalogItem, CatalogRevision, ObjectTypeVersion, TaskNode, TestCase)
 
@@ -137,6 +138,22 @@ def _snapshot_context(data, actor, previous=None):
     task = None
     task_rev = None
     component_pins = []
+    if "framework_id" in data:
+        framework_id=data["framework_id"]
+    elif previous:
+        framework_id=previous.framework.public_id if previous.framework_id else None
+    else:
+        framework_id=None
+    if framework_id in (None, ""):
+        framework,framework_revision=None,None
+    else:
+        framework=_framework(framework_id)
+        if previous and previous.framework_id==framework.pk and not repin:
+            framework_revision=previous.framework_revision
+        else:
+            framework_revision=framework.current_revision
+    changed_framework = (previous is not None and
+                         framework_id != (previous.framework.public_id if previous.framework_id else None))
     if mode == "task_centred":
         if "component_ids" in data and data["component_ids"] not in (None, {}):
             raise InvalidCampaign("Task-centred mode cannot pin fixed solution components")
@@ -152,7 +169,10 @@ def _snapshot_context(data, actor, previous=None):
     else:
         if data.get("task_id") not in (None, ""):
             raise InvalidCampaign("Solution-centred campaign does not fix a task")
-        if "component_ids" in data or not previous or changed_mode:
+        if framework is not None:
+            if "component_ids" in data and data["component_ids"] not in (None, {}):
+                raise InvalidCampaign("Framework participants replace the fixed solution trio")
+        elif "component_ids" in data or not previous or changed_mode or changed_framework:
             ids = data.get("component_ids")
             if not isinstance(ids, dict) or set(ids) != set(COMPONENTS):
                 raise InvalidCampaign("Select a model, provider and harness")
@@ -169,7 +189,7 @@ def _snapshot_context(data, actor, previous=None):
         else:
             component_pins = [(pin.kind, pin.component, pin.revision)
                               for pin in previous.component_pins.select_related("component","revision")]
-        if len(component_pins) != 3:
+        if framework is None and len(component_pins) != 3:
             raise InvalidCampaign("Solution-centred campaign requires all components")
 
     if previous and not repin and ("guide_id" not in data or
@@ -200,9 +220,28 @@ def _snapshot_context(data, actor, previous=None):
                 for pin in previous.case_pins.select_related("test_case__task","revision")]
     if task and any(case.task_id != task.pk for case, _ in pins):
         raise InvalidCampaign("All Test Cases must belong to the campaign's fixed task")
+    if framework is None and "participants" in data and data["participants"] not in (None,[]):
+        raise InvalidCampaign("Participant trios require a Framework")
+    if previous and framework is None and previous.framework_id and "participants" not in data:
+        raise InvalidCampaign("Clearing Framework requires explicit removal of participant list")
+    participants=prepare_participants(
+        supplied=data.get("participants"),previous=previous,framework=framework,
+        changed_framework=changed_framework,repin=repin,
+        component_lookup=_component,bounded_dict=_dictionary,error=InvalidCampaign)
     return dict(owner=owner, method=method, task=task, task_revision=task_rev,
                 guide=guide, guide_revision=guide_rev, configuration=configuration,
-                cases=pins, components=component_pins)
+                framework=framework,framework_revision=framework_revision,
+                participants=participants,cases=pins, components=component_pins)
+
+
+def _framework(public_id):
+    if not isinstance(public_id,str) or not public_id.startswith("frm-"):
+        raise InvalidCampaign("Framework must be a real Server Framework ID")
+    framework=CatalogItem.objects.select_related("current_revision").filter(
+        public_id=public_id,type_slug="framework").first()
+    if framework is None or framework.current_revision_id is None:
+        raise InvalidCampaign("Unknown Framework")
+    return framework
 
 
 def _properties(data, previous=None):
@@ -224,12 +263,14 @@ def _record(item, rev, ctx, actor, action):
         revision=rev, owner=ctx["owner"], method_definition=ctx["method"],
         fixed_task=ctx["task"], fixed_task_revision=ctx["task_revision"],
         guide=ctx["guide"], guide_revision=ctx["guide_revision"],
-        configuration=ctx["configuration"])
+        configuration=ctx["configuration"],
+        framework=ctx["framework"],framework_revision=ctx["framework_revision"])
     CampaignCasePin.objects.bulk_create([CampaignCasePin(
         snapshot=snap, test_case=case, revision=pinned) for case, pinned in ctx["cases"]])
     CampaignComponentPin.objects.bulk_create([CampaignComponentPin(
         snapshot=snap, kind=kind, component=component, revision=pinned)
         for kind, component, pinned in ctx["components"]])
+    persist_participants(campaign=item,snapshot=snap,prepared=ctx["participants"])
     item.current_revision=rev
     item.save(update_fields=["current_revision"])
     record_catalog_event(item=item, revision=rev, actor=actor, action=action)
@@ -285,7 +326,7 @@ def modify(*, actor, public_id, data, action=None):
         old=_check(item,data.get("expected_revision"))
         previous=CampaignSnapshot.objects.select_related(
             "owner","method_definition","fixed_task","fixed_task_revision",
-            "guide","guide_revision").get(revision=old)
+            "guide","guide_revision","framework","framework_revision").get(revision=old)
         props=dict(old.properties)
         state=props["status"]
         if action:
@@ -331,7 +372,7 @@ def modify(*, actor, public_id, data, action=None):
 def serialize(item, rev=None):
     revision = rev or item.current_revision
     snap = CampaignSnapshot.objects.select_related(
-        "owner","method_definition","fixed_task__item","guide"
+        "owner","method_definition","fixed_task__item","guide","framework"
     ).get(revision=revision)
     cases = list(snap.case_pins.select_related("test_case__item","revision")
                  .order_by("test_case__item__public_id"))
@@ -349,6 +390,9 @@ def serialize(item, rev=None):
         "task_revision_id":str(snap.fixed_task_revision_id) if snap.fixed_task_revision_id else None,
         "guide_id":snap.guide.public_id if snap.guide_id else None,
         "guide_revision_id":str(snap.guide_revision_id) if snap.guide_revision_id else None,
+        "framework_id":snap.framework.public_id if snap.framework_id else None,
+        "framework_revision_id":str(snap.framework_revision_id) if snap.framework_revision_id else None,
+        "participants":serialize_participants(snap),
         "test_case_ids":[p.test_case.item.public_id for p in cases],
         "test_case_revisions":[{"id":p.test_case.item.public_id,"revision_id":str(p.revision_id)}
                                for p in cases],

@@ -11,7 +11,7 @@
   };
   function mount(root, csrf, escapeHtml) {
     var allowed=false,canWrite=false,canReview=false,ticket=0,campaigns=[],methods=[],tasks=[],cases=[],guides=[];
-    var catalog={model:[],provider:[],harness:[]};
+    var catalog={model:[],provider:[],harness:[],framework:[]};
     function el(selector){return root.querySelector(selector);}
     function esc(value){return escapeHtml(value==null?"":String(value));}
     function status(message,error){
@@ -70,7 +70,8 @@
         return '<div class="list-row" style="padding:14px 0;border-bottom:1px solid #e3e8f0">'+
           '<strong>'+esc(x.name)+'</strong><p class="muted small">'+esc(x.id)+' · '+esc(x.revision)+
           ' · '+esc(x.status)+(x.archived?' · archived':'')+' · owner '+esc(x.owner)+
-          ' · '+x.test_case_ids.length+' Test Case(s)</p>'+
+          ' · '+x.test_case_ids.length+' Test Case(s)'+
+          (x.framework_id?' · Framework '+esc(x.framework_id)+' · '+(x.participants||[]).length+' participant(s)':'')+'</p>'+
           '<p>'+esc(x.properties.objective)+'</p>'+
           '<button type="button" data-id="'+esc(x.id)+'" data-action="history">Details / history</button>'+
           (canWrite&&!x.archived&&["planned","in_progress"].includes(x.status)?
@@ -88,12 +89,13 @@
       try{
         var responses=await Promise.all([
           api("campaigns"),api("campaign-methods"),api("tasks"),api("test-cases"),
-          api("guides"),api("catalog/model"),api("catalog/provider"),api("catalog/harness")
+          api("guides"),api("catalog/model"),api("catalog/provider"),api("catalog/harness"),
+          api("catalog/framework")
         ]);
         if(!allowed||run!==ticket)return;
         campaigns=responses[0].results; methods=responses[1].results;
         tasks=responses[2].results; cases=responses[3].results; guides=responses[4].results;
-        ["model","provider","harness"].forEach(function(k,i){catalog[k]=responses[i+5].results;});
+        ["model","provider","harness","framework"].forEach(function(k,i){catalog[k]=responses[i+5].results;});
         render();status(campaigns.length+" campaign(s) persisted in Server. Pipeline shows plans, not measured results.");
       }catch(error){
         if(!allowed||run!==ticket)return;
@@ -129,6 +131,14 @@
         '<section id="campaign-method-details" class="muted small"></section>'+
         '<div id="campaign-task-row"><label>Fixed engineering task<select name="task_id">'+
           options(tasks,source?source.task_id:null,true)+'</select></label></div>'+
+        '<label>Optional Framework<select name="framework_id">'+
+          options(catalog.framework,source?source.framework_id:null,true)+'</select></label>'+
+        '<section id="campaign-participants-row" class="server-card" hidden>'+
+          '<h4>Framework participants · individually pinned trios</h4>'+
+          '<p class="muted small">Each participant has a stable ID, role, own Model / Provider / Harness and versioned settings. No agents are executed here.</p>'+
+          '<div id="campaign-participant-list"></div>'+
+          '<button type="button" id="campaign-participant-add">+ Add participant</button>'+
+        '</section>'+
         '<div id="campaign-solution-row">'+["model","provider","harness"].map(function(k){
           return '<label>Fixed '+esc(k)+'<select name="'+k+'">'+options(catalog[k],
             source?(source.component_ids||{})[k]:null,true)+'</select></label>';
@@ -150,10 +160,88 @@
         '<button type="submit">Save '+(source?"new revision":"campaign")+'</button>'+
         '<button type="button" id="campaign-cancel">Cancel</button></form>';
       var form=el("#campaign-form");
+      var workingParticipants=(source&&Array.isArray(source.participants)?source.participants:[]).map(function(p){
+        return {id:p.id,label:p.label,role:p.role,configuration_version:p.configuration_version,
+          component_ids:Object.assign({},p.component_ids),settings:JSON.stringify(p.settings||{},null,2),
+          properties:JSON.stringify(p.properties||{},null,2)};
+      });
+      function participantOptions(kind,value){
+        return options(catalog[kind],value,true);
+      }
+      function readParticipants(){
+        var container=el("#campaign-participant-list");
+        if(!container||container.hidden)return;
+        workingParticipants=Array.from(container.querySelectorAll("[data-participant-row]")).map(function(node){
+          var fields=node.querySelectorAll("[data-field]");
+          var values={id:node.dataset.participantId||null,component_ids:{}};
+          fields.forEach(function(field){
+            var k=field.dataset.field;
+            if(["model","provider","harness"].includes(k))values.component_ids[k]=field.value;
+            else values[k]=field.value;
+          });
+          return values;
+        });
+      }
+      function drawParticipants(){
+        var target=el("#campaign-participant-list");
+        target.innerHTML=workingParticipants.map(function(p,i){
+          return '<fieldset data-participant-row data-participant-id="'+esc(p.id||"")+
+            '" style="border:1px solid #d6dfed;border-radius:9px;padding:12px;margin:10px 0">'+
+            '<legend>Participant '+(i+1)+' · '+esc(p.id||"new identity on save")+'</legend>'+
+            '<label>Label<input data-field="label" maxlength="160" required value="'+esc(p.label||"")+'"></label>'+
+            '<label>Role<input data-field="role" maxlength="160" required value="'+esc(p.role||"")+'"></label>'+
+            '<label>Configuration version<input data-field="configuration_version" maxlength="160" required value="'+esc(p.configuration_version||"1")+'"></label>'+
+            ["model","provider","harness"].map(function(k){
+              return '<label>'+esc(k)+'<select data-field="'+k+'" required>'+
+                participantOptions(k,(p.component_ids||{})[k])+'</select></label>';
+            }).join("")+
+            '<label>Settings / runtime parameters (JSON object)<textarea data-field="settings">'+
+              esc(p.settings||"{}")+'</textarea></label>'+
+            '<label>Tools / access / capabilities / extensible metadata (JSON object)<textarea data-field="properties">'+
+              esc(p.properties||"{}")+'</textarea></label>'+
+            '<button type="button" data-participant-action="up" data-index="'+i+'"'+(i===0?' disabled':'')+'>Move up</button>'+
+            '<button type="button" data-participant-action="down" data-index="'+i+'"'+(i===workingParticipants.length-1?' disabled':'')+'>Move down</button>'+
+            '<button type="button" data-participant-action="remove" data-index="'+i+'">Remove</button>'+
+            '</fieldset>';
+        }).join("");
+      }
+      el("#campaign-participant-add").addEventListener("click",function(){
+        readParticipants();
+        workingParticipants.push({label:"",role:"",configuration_version:"1",
+          component_ids:{model:"",provider:"",harness:""},settings:"{}",properties:"{}"});
+        drawParticipants();
+      });
+      el("#campaign-participant-list").addEventListener("click",function(event){
+        var btn=event.target.closest("button[data-participant-action]");
+        if(!btn)return;
+        readParticipants();
+        var index=Number(btn.dataset.index),action=btn.dataset.participantAction;
+        if(index<0||index>=workingParticipants.length)return;
+        if(action==="remove")workingParticipants.splice(index,1);
+        if(action==="up"&&index>0)
+          [workingParticipants[index-1],workingParticipants[index]]=[workingParticipants[index],workingParticipants[index-1]];
+        if(action==="down"&&index+1<workingParticipants.length)
+          [workingParticipants[index+1],workingParticipants[index]]=[workingParticipants[index],workingParticipants[index+1]];
+        drawParticipants();
+      });
+      function syncFramework(){
+        var hasFramework=!!form.elements.framework_id.value;
+        el("#campaign-participants-row").hidden=!hasFramework;
+        el("#campaign-solution-row").hidden=hasFramework||form.elements.mode.value!=="solution_centred";
+      }
+      form.elements.framework_id.addEventListener("change",function(){
+        if(el("#campaign-participants-row").hidden===false)readParticipants();
+        // Selecting a different Framework never implicitly adopts old participant identities.
+        if(!source||form.elements.framework_id.value!==source.framework_id)
+          workingParticipants=[];
+        drawParticipants();
+        syncFramework();
+      });
+      drawParticipants();
       function syncMode(){
         var chosen=form.elements.mode.value;
         el("#campaign-task-row").hidden=chosen!=="task_centred";
-        el("#campaign-solution-row").hidden=chosen!=="solution_centred";
+        syncFramework();
         var matching=methods.filter(function(m){return m.mode===chosen;});
         var last=form.elements.method_version.value;
         form.elements.method_version.innerHTML=matching.map(function(m){
@@ -206,8 +294,26 @@
             configuration:config
           };
           if(form.elements.owner.value.trim())payload.owner=form.elements.owner.value.trim();
+          var chosenFramework=form.elements.framework_id.value||null;
+          payload.framework_id=chosenFramework;
+          if(chosenFramework){
+            readParticipants();
+            if(!workingParticipants.length)throw Error("Add at least one Framework participant");
+            payload.participants=workingParticipants.map(function(p){
+              var row={label:p.label,role:p.role,configuration_version:p.configuration_version,
+                component_ids:p.component_ids,settings:JSON.parse(p.settings),properties:JSON.parse(p.properties)};
+              if(p.id)row.id=p.id;
+              if(!row.settings||Array.isArray(row.settings)||typeof row.settings!=="object")
+                throw Error("Participant settings must be a JSON object");
+              if(!row.properties||Array.isArray(row.properties)||typeof row.properties!=="object")
+                throw Error("Participant properties must be a JSON object");
+              return row;
+            });
+          }else{
+            payload.participants=[];
+          }
           if(selectedMode==="task_centred")payload.task_id=form.elements.task_id.value;
-          else payload.component_ids=Object.fromEntries(["model","provider","harness"].map(function(k){
+          else if(!chosenFramework)payload.component_ids=Object.fromEntries(["model","provider","harness"].map(function(k){
             return [k,form.elements[k].value];}));
           if(source){
             payload.expected_revision=source.revision;
