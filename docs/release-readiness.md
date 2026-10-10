@@ -59,6 +59,25 @@ Reproduce focused tests on a disposable Server, not a production system:
 These are supplemental; only the complete GitHub workflow confirms the
 whole automated regression.
 
+## Closed development tickets do NOT approve production
+
+**2026-10-10 owner decision:** PLAT-35, PLAT-26 and PLAT-32 are closed
+as **technically delivered and CI-tested**, while their real-world manual
+acceptance is explicitly deferred until there is an actual operational
+deployment to validate. Closing the GitHub tickets does NOT change
+the CI-generated NO-GO release decision and does NOT turn staging approval
+or production migration safety checks off.
+
+Before any operational release, the operator must still complete ALL
+manual tasks below with reviewable evidence. Failed acceptance creates
+new corrective GitHub issues linked to the original PLAT tickets; a
+production deployment must not be inferred from issue states.
+
+The next existing GitHub issue is **PLAT-33**. Source-discovery tooling is
+documented in [external-source-onboarding.md](external-source-onboarding.md);
+its actual one-source import remains **blocked** until the first permitted
+real data source/type is selected and deployment approval is recorded.
+
 ## Mandatory operational acceptance before GO
 
 1. #35: Restore a named verified DB-and-original-evidence snapshot into
@@ -104,5 +123,6 @@ files, backup dumps, keys or passwords in the public Actions artifact.
 
 An automated script cannot certify an unperformed real browser review or
 approve production mutation. Its report is always NO-GO until actual
-operator checks and release authority are completed. #32 must remain
-open until those external operational criteria have real evidence.
+operator checks and release authority are completed. The owner's decision
+to close the implemented #32 development ticket does not waive the pending
+manual checks, and does not establish operational readiness.

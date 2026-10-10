@@ -75,13 +75,14 @@ jobs:
           done
       - name: Validate recovery code and failure-path unit tests
         run: |
-          python3 -m py_compile scripts/recovery.py scripts/install-backup-timer.py scripts/test_recovery.py scripts/smoke_recovery_domain.py scripts/smoke_catalog.py scripts/smoke_evidence.py scripts/migration_promote.py scripts/test_migration_promote.py
+          python3 -m py_compile scripts/recovery.py scripts/install-backup-timer.py scripts/test_recovery.py scripts/smoke_recovery_domain.py scripts/smoke_catalog.py scripts/smoke_evidence.py scripts/migration_promote.py scripts/test_migration_promote.py scripts/external_source_preflight.py scripts/test_external_source_preflight.py
           python3 -m unittest discover -s scripts -p 'test_recovery.py' -v
           python3 -m unittest discover -s scripts -p 'test_full_recovery.py' -v
           python3 -m unittest discover -s scripts -p 'test_migration_stage.py' -v
           python3 -m unittest discover -s scripts -p 'test_migration_promote.py' -v
           python3 -m unittest discover -s scripts -p 'test_verify_export.py' -v
           python3 -m unittest discover -s scripts -p 'test_release_acceptance.py' -v
+          python3 -m unittest discover -s scripts -p 'test_external_source_preflight.py' -v
           python3 scripts/install-backup-timer.py --destination "$PWD" --dry-run | grep 'ai-compass-backup.service'
       - name: Create isolated local credentials
         run: python3 scripts/init-env.py
