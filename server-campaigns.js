@@ -10,7 +10,7 @@
     published:[["unpublish","Unpublish"],["reopen","Reopen"]]
   };
   function mount(root, csrf, escapeHtml) {
-    var allowed=false,canWrite=false,ticket=0,campaigns=[],methods=[],tasks=[],cases=[],guides=[];
+    var allowed=false,canWrite=false,canReview=false,ticket=0,campaigns=[],methods=[],tasks=[],cases=[],guides=[];
     var catalog={model:[],provider:[],harness:[]};
     function el(selector){return root.querySelector(selector);}
     function esc(value){return escapeHtml(value==null?"":String(value));}
@@ -75,8 +75,10 @@
           '<button type="button" data-id="'+esc(x.id)+'" data-action="history">Details / history</button>'+
           (canWrite&&!x.archived&&["planned","in_progress"].includes(x.status)?
             '<button type="button" data-id="'+esc(x.id)+'" data-action="edit">Edit</button>':'')+
-          (canWrite?commands.map(function(k){return '<button type="button" data-id="'+esc(x.id)+
-            '" data-action="'+esc(k[0])+'">'+esc(k[1])+'</button>';}).join(""):'')+'</div>';
+          (commands.filter(function(k){
+            return ["publish","unpublish"].includes(k[0])?canReview:canWrite;
+          }).map(function(k){return '<button type="button" data-id="'+esc(x.id)+
+            '" data-action="'+esc(k[0])+'">'+esc(k[1])+'</button>';}).join("") )+'</div>';
       }).join(""):'No real Server campaigns yet. Create tasks/Test Cases and, for solution-centred campaigns, catalog components first.';
     }
     async function refresh(){
@@ -216,7 +218,7 @@
       });
     }
     async function transition(row,action){
-      if(!canWrite||!allowed)return;
+      if(!allowed||(["publish","unpublish"].includes(action)?!canReview:!canWrite))return;
       var run=++ticket;
       status("Applying "+action+" to "+row.id+"…");
       try{
@@ -252,8 +254,8 @@
         el("#campaign-close-detail").addEventListener("click",function(){target.hidden=true;});
       }catch(error){if(allowed&&run===ticket)target.textContent="History unavailable: "+error.message;}
     }
-    function setAccess(read,write){
-      ++ticket;allowed=!!read;canWrite=!!write&&allowed;
+    function setAccess(read,write,review){
+      ++ticket;allowed=!!read;canWrite=!!write&&allowed;canReview=!!review&&allowed;
       campaigns=[];methods=[];root.replaceChildren();root.hidden=!allowed;
       if(allowed){build();refresh();}
     }
