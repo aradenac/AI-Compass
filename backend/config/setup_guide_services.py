@@ -61,7 +61,7 @@ def create(*,actor,name,properties):
 
 def revise(*,actor,public_id,expected_revision,name=None,properties=None):
     with transaction.atomic():
-        item=CatalogItem.objects.select_for_update().select_related(
+        item=CatalogItem.objects.select_for_update(of=("self",)).select_related(
             "current_revision__schema_version").get(public_id=public_id,type_slug=TYPE)
         old=item.current_revision
         if old is None or expected_revision!=f"r{old.number:03d}":
