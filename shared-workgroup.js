@@ -116,6 +116,7 @@
       var rows=(db[spec.local]||[]).slice();
       if (!canWrite() && section==="guides")rows=rows.filter(function(x){return x.status==="published";});
       if (!canWrite() && section==="watch")rows=rows.filter(function(x){return x.publication==="published";});
+      if (!canWrite() && section==="feedback")rows=rows.filter(function(x){return !x.internal && x.visibility!=="internal";});
       if (!canWrite() && section==="activity")rows=rows.filter(function(x){return !x.internal;});
       return rows;
     }};
