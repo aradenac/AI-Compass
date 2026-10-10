@@ -49,7 +49,7 @@ function mount(host,form,offers,previous,getParticipants){
          options.map(function(o){return '<option value="'+escape(o.value)+'"'+
            (selected&&o.value===selected.offer_id+"|"+selected.offer_revision_id?" selected":"")+
            '>'+escape(o.label)+'</option>';}).join("")+'</select></label>';
-     }).join("")+(next.length?"":'<p class="server-error">No explicit technical setup to price: complete the campaign first.</p>')+
+     }).join("")+(next.length?"":'<p class="muted">For Task-centred campaigns without a Framework, individual Model/Provider/Harness offers are selected when starting each Test Case session. The campaign does not invent a fixed trio.</p>')+
      (getParticipants().some(function(x){return !x.id;})?
        '<p class="server-error">Save new participants first, then pin their permanent IDs and tariffs.</p>':"");
  }
