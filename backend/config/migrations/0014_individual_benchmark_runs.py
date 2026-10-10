@@ -62,22 +62,15 @@ CREATE TRIGGER valid_benchmark_run BEFORE INSERT ON config_benchmarkrun
 
 CREATE FUNCTION ai_compass_check_run_evidence() RETURNS trigger LANGUAGE plpgsql AS $b$
 BEGIN
- IF NOT EXISTS(SELECT 1 FROM config_benchmarkrun r
-  JOIN config_benchmarksession s ON s.id=r.session_id
-  JOIN config_campaignsnapshot cs ON cs.revision_id=s.campaign_snapshot_id
-  JOIN config_campaigncasepin cp ON cp.id=s.case_pin_id
-  JOIN config_evidencelink l ON l.id=NEW.evidence_id
-  WHERE r.id=NEW.run_id AND (l.item_id=cs.revision_id AND FALSE))
- THEN
-  IF NOT EXISTS(SELECT 1 FROM config_benchmarkrun r
-    JOIN config_benchmarksession s ON s.id=r.session_id
-    JOIN config_campaignsnapshot cs ON cs.revision_id=s.campaign_snapshot_id
-    JOIN config_catalogrevision cr ON cr.id=cs.revision_id
-    JOIN config_campaigncasepin cp ON cp.id=s.case_pin_id
-    JOIN config_evidencelink l ON l.id=NEW.evidence_id
-    WHERE r.id=NEW.run_id AND (l.item_id=cr.item_id OR l.item_id=cp.test_case_id))
-  THEN RAISE EXCEPTION 'Run evidence not attached to pinned campaign or Test Case'; END IF;
- END IF;
+ IF NOT EXISTS(
+   SELECT 1 FROM config_benchmarkrun r
+   JOIN config_benchmarksession s ON s.id=r.session_id
+   JOIN config_campaignsnapshot cs ON cs.revision_id=s.campaign_snapshot_id
+   JOIN config_catalogrevision cr ON cr.id=cs.revision_id
+   JOIN config_campaigncasepin cp ON cp.id=s.case_pin_id
+   JOIN config_evidencelink l ON l.id=NEW.evidence_id
+   WHERE r.id=NEW.run_id AND (l.item_id=cr.item_id OR l.item_id=cp.test_case_id)
+ ) THEN RAISE EXCEPTION 'Run evidence not attached to pinned campaign or Test Case'; END IF;
  RETURN NEW;
 END $b$;
 CREATE TRIGGER valid_benchmark_run_evidence BEFORE INSERT ON config_benchmarkrunevidence
@@ -92,15 +85,6 @@ CREATE TRIGGER immutable_benchmark_run BEFORE UPDATE OR DELETE ON config_benchma
 CREATE TRIGGER immutable_benchmark_run_evidence BEFORE UPDATE OR DELETE ON config_benchmarkrunevidence
  FOR EACH ROW EXECUTE FUNCTION ai_compass_no_revision_mutation();
 """
-GUARDS=GUARDS.replace(""" IF NOT EXISTS(SELECT 1 FROM config_benchmarkrun r
-  JOIN config_benchmarksession s ON s.id=r.session_id
-  JOIN config_campaignsnapshot cs ON cs.revision_id=s.campaign_snapshot_id
-  JOIN config_campaigncasepin cp ON cp.id=s.case_pin_id
-  JOIN config_evidencelink l ON l.id=NEW.evidence_id
-  WHERE r.id=NEW.run_id AND (l.item_id=cs.revision_id AND FALSE))
- THEN
-  IF NOT EXISTS(""",""" IF NOT EXISTS(""").replace("""  THEN RAISE EXCEPTION 'Run evidence not attached to pinned campaign or Test Case'; END IF;
- END IF;""",""" THEN RAISE EXCEPTION 'Run evidence not attached to pinned campaign or Test Case'; END IF;""")
 UNDO="""
 DROP TRIGGER IF EXISTS immutable_benchmark_run_evidence ON config_benchmarkrunevidence;
 DROP TRIGGER IF EXISTS immutable_benchmark_run ON config_benchmarkrun;
