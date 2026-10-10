@@ -1,24 +1,105 @@
-# Future evolutions
+# Future evolutions — functional domain map
 
-This directory collects **proposed enhancements** for AI Compass. Pages here capture product decisions and preliminary impact assessments **before** implementation. They do not supersede [the agreed product baseline](../product-definition.md) or describe deployed behavior.
+This directory preserves the **accepted product direction and detailed working specifications** for AI Compass's future capabilities. The product owner has validated the **functional intent** of all the evolutions discussed here. **No implementation ordering, issue breakdown or permission to start coding** is implied: those decisions will be made separately. This document is a topical map, **not** a new repository-wide documentation hierarchy.
 
-## Proposals
+**Do not confuse:** the implemented product baseline in [Product Definition](../product-definition.md), existing delivered server capabilities, proposed future behavior, and an eventual approved implementation plan. Original feature pages are preserved at their existing paths; only their cross-references/contradictions are harmonized. Repository-wide folder moves and the overall `docs/features` register restructuring are **explicitly deferred**.
 
-| Feature | Summary | Status |
+## Five business domains
+
+### A. Technologies & Référentiels
+
+| Source of truth | What it owns | Consumed by |
 | --- | --- | --- |
-| [Campaign Evaluation Matrix](campaign-evaluation-matrix.md) | Task-scoped solution selection, Test Case × Solution execution planning, explicit non-selection and justified waivers, a central interactive frontend matrix, and additive campaign revisions/reopening after closure. | Proposed — decisions recorded; implementation pending |
-| [Composable Setup Guides & Lifecycle](composable-setup-guides.md) | Modular reusable setup knowledge, solution- and environment-specific recipes, optional capture at Test Run closure, initial validation in campaign review, a publication readiness gate, and non-blocking post-publication corrections. | Proposed — decisions recorded; implementation pending |
-| [Data Governance Audit Explorer](data-governance-audit-explorer.md) | Passive, comprehensive recording of persistent changes and an independent permission-controlled governance interface for who changed what, when, and how content evolved; no additional business UI input. | Proposed — decisions recorded; implementation pending |
-| [Technology Accessibility & Pricing Management](technology-accessibility-and-pricing.md) | Enterprise-wide component accessibility, reusable versioned pricing offers with cumulative charges, mandatory manual campaign price selection, automatic Run variable-cost calculation, subscriptions kept separate, no shared-quota allocation, and historical preservation. | Proposed — decisions recorded; implementation pending |
-| [Deployment & Adoption Planning](deployment-and-adoption-planning.md) | Task-tree × AI configuration profitability heatmap (intensity for gains, icon for maturity/deployment), Forecast+Benchmark projections, three annual opportunity slices and history, progressive source exploration, workload profiles, verified access/use, and low-input experimental/rollout quota and licensing budgets. | **Partially implemented (DAP-01 only)** — remainder requires an approved issue plan |
-| [Role-Based User Experience & Guided Navigation](role-based-user-experience-and-guided-navigation.md) | Four permission-aware user experiences; a five-zone Workgroup knowledge/navigation diagram with only genuinely resolvable attention counts; personal Task/tool discovery, Solutions/Recommendations and guides, management and maintenance entry points, contextual breadcrumbs/steppers, scoped local drafts, single-owner Runs and optimistic shared-object concurrency. | Proposed — UX decisions recorded; not approved for implementation |
-| [OS Compatibility & User Environment](os-compatibility-and-user-environment.md) | Two self-declared user operating systems (Windows/Linux); mandatory supported-OS classification for Harnesses and Frameworks, derived configuration compatibility, relevant cross-OS alternatives, and distinct OS/access/deployment semantics with immutable history. | Proposed — small separate feature; not approved for implementation |
+| [OS Compatibility & User Environment](os-compatibility-and-user-environment.md) | User Windows/Linux self-declaration; required Harness/Framework supported OS; coarse composite compatibility and other-OS discovery. | Personalized Engineer view, Setup Guide matching, deployment eligibility. |
+| [Technology Accessibility & Pricing Management](technology-accessibility-and-pricing.md) | Enterprise accessibility, versioned offers, exact per-configuration commercial selection, dynamic Run meter inputs and calculated reference variable costs. | Benchmark Workspace, Results, Profitability, Budget. |
 
-These are proposal specifications, **not prioritized approved GitHub issues**.
-See the [feature approval ledger](../features/README.md) before changing
-the backlog. DAP-01 (#66/#67) was delivered before this governance
-separation; its existence does not approve DAP-02 or any subsequent feature.
+**Keep separate:** OS compatibility, enterprise technology accessibility, individual entitlements and actual first use. The **chosen Pricing Offer**, not an ad hoc Run form, specifies which consumption units must be recorded. All Pricing-derived publication gates are coordinated with [Information Lifecycle](publication-and-information-lifecycle.md).
 
-Before further implementation, resolve open questions and obtain an
-explicitly approved issue plan, then update baseline documentation as
-each approved vertical is delivered.
+### B. Benchmark & Reproducibility
+
+| Source of truth | What it owns | Consumed by |
+| --- | --- | --- |
+| [Campaign Evaluation Matrix](campaign-evaluation-matrix.md) | Task → Test Case × candidate configuration planning, selected/not-selected/pending/waived/evaluated distinctions, repeated Runs, campaign revision and comparison matrix. | Benchmark Workspace, Results Explorer, Workgroup Studio. |
+| [Composable Setup Guides & Lifecycle](composable-setup-guides.md) | Shared modules, configuration/environment-specific recipes, initial validation for **Runs included in a publication**, reusable guides and historical pinned applicability. | Campaign review, Run setup and Engineer solution detail. |
+
+**Coordinating contracts:** [Pricing](technology-accessibility-and-pricing.md) owns commercial metering, and [Information Lifecycle](publication-and-information-lifecycle.md) owns **partial publication, pending Runs, correction and withdrawal**. A Campaign may publish its complete eligible subset without claiming its entire experimental plan is finished. A failed-DoD Run may be valid **negative evidence** if complete; a metering-incomplete attempt remains pending. A configuration candidate is **not yet a measured AI Solution** before its first controlled Run.
+
+### C. Evidence, Comparisons & Economic Value
+
+| Source of truth | What it owns | Consumed by |
+| --- | --- | --- |
+| Existing [Product Definition](../product-definition.md) and Results Explorer (baseline) | Separation of measured Runs, theoretical Forecasts and actual published experimental evidence; reproducible results and comparison methodology. | Workgroup and engineer discovery. |
+| [Deployment & Adoption Planning](deployment-and-adoption-planning.md) — **Profitability & Opportunities** (§§5–9) | Task × configuration heatmap; profit-intensity fill / status icon; Forecast+Benchmark projections; three non-overlapping annual slices; historical snapshots and progressive calculation provenance. | Management, planning and Workgroup contextual exploration. |
+| [Role-Based User Experience](role-based-user-experience-and-guided-navigation.md) — **AI Solutions / Recommendations** (§§4, 7) | **Presentation and personalized selection** based on currently eligible **methodology-based measured results**, supplemented but never overridden by editorial profile/limitations and documentation. | My AI Workspace and AI Solution Detail. |
+
+The published experimental **methodology is authoritative for measured rankings**; the reviewed editorial Recommendation supplies descriptive context and limitations, **not arbitrary promotion, suppression or scoring overrides**. Publishing measured evidence is not auto-publishing a manual Recommendation; negative measured evidence must not be auto-promoted.
+
+### D. Deployment, Access & Resources
+
+| Source of truth | What it owns | Consumed by |
+| --- | --- | --- |
+| [Deployment & Adoption Planning](deployment-and-adoption-planning.md) — **Organization / Deployment / Budget** (§§3, 10–12) | Job/specialty/person workload, selected beneficiaries and actual verified use; individual entitlements/access flow; distinct experimental, rollout and optional active-usage capacity budgets. | Management, engineers, administration of external-tool access. |
+
+**Partially delivered:** DAP-01 implemented the restricted, immutable **workload-profile foundation** — [existing Server contract](../workload-planning.md), [issue #66](https://github.com/aradenac/AI-Compass/issues/66), [PR #67](https://github.com/aradenac/AI-Compass/pull/67). This does **not** mean the future Profitability matrix, access management and budgets already exist.
+
+The **same DAP source document spans C and D**; this thematic map assigns responsibility by subsection instead of copying or prematurely splitting it.
+
+### E. Experience, Discovery & Knowledge
+
+| Source of truth | What it owns | Consumed by |
+| --- | --- | --- |
+| [Role-Based User Experience & Guided Navigation](role-based-user-experience-and-guided-navigation.md) | Four permission-aware entry experiences; one categorized Workgroup Studio knowledge/navigation diagram and resolvable counters; contextual Task-tree/AI Solution exploration, stepper/breadcrumbs/draft recovery, sensible multi-user concurrency. | All user interfaces and supporting services. |
+| Existing [Recommendations Server](../recommendations-server.md) and [Guides](composable-setup-guides.md) | Immutable published editorial solution profiles/Task-linked decisions and contextual documentation, **without creating a second solution catalog or manual ranking authority**. | AI Solution Detail and user-facing guidance. |
+
+The user-facing solution detail is a **composed view** over current measured results, descriptive editorial records, relevant guides and real access status. Unrelated global discovery is secondary to the user's actual Task profile. A Workgroup attention badge appears **only** if the existing structured data provides a resolvable status; never fabricate To-Do states.
+
+## Two cross-cutting capabilities
+
+### X1. Publication, correction, withdrawal and controlled deletion — NEW
+
+**Authoritative specification:** [Publication & Information Lifecycle](publication-and-information-lifecycle.md).
+
+- Publish **only the eligible Run subset** and preserve incomplete session data privately; clearly disclose experimental coverage.
+- Reopen a published Campaign **without withdrawing its last eligible published result set**; draft changes are not immediately public.
+- Immediately propagate an **authorized published measurement correction or Run revocation** into the **current effective** public Results/rankings/profitability/resources, while preserving historic snapshots.
+- Ordinary removal = **logical deletion/retirement**. Physically purging eligible, provably unreferenced files and managed DB records is a **privileged Maintenance & Governance control** with preview, safety/referential checks, configurable grace/optional automatic policy and durable audit.
+- Thirty days is an illustrative configurable retention value, **not** an automatic purge of all unused historic data. Deduplicated files, published evidence and historical/archived pins must not be silently deleted.
+
+**Cross-domain authority:** Campaign Matrix owns planning states; Pricing owns meter schema; Guides owns documentary readiness; this **Lifecycle page owns current effective publication, Run-level withdrawal, deletion and GC**. Read models must consume one consistent eligibility rule.
+
+### X2. Governance and change audit
+
+**Authoritative specification:** [Data Governance Audit Explorer](data-governance-audit-explorer.md).
+
+Provides a passive, permissioned **history of committed changes, exact revisions and diffs** within the separate Maintenance interface. It is **not** the action authority for publication status, delete eligibility, purge policy or runtime comparisons. Reuse one underlying audit/event stream, with separate analytical provenance in DAP. New purge operations proposed in X1 appear as audited maintenance events without creating an alternate audit system.
+
+## Ownership and non-duplication rules
+
+| Topic | Owner | Other proposals must do |
+| --- | --- | --- |
+| Task/TC evaluation obligations | Campaign Evaluation Matrix | Link to it, not implement independent gates. |
+| Pricing and dynamic Run consumption form | Technology Accessibility & Pricing | Derive meters from pinned offers; do not redefine tariffs in Runs. |
+| Setup module/recipe completeness | Composable Setup Guides | Reuse only applicable exact-version/environment instructions. |
+| Partial publications, active vs historical evidence, withdrawal and GC | Publication & Information Lifecycle | Use common Run eligibility and propagate source changes; no competing publication rules. |
+| Economic formulas, opportunity maturity/history and source navigation | Deployment & Adoption Planning | Reuse its calculations; Management is an entry view, not a separate data source. |
+| Evidence-based engineer rankings | Results/methodology (authoritative) + Role-Based UX presentation | Editorial Recommendation remains *descriptive*, not a scoring override. |
+| Individual OS compatibility | OS Compatibility & User Environment | Keep separate from enterprise access and individual entitlement. |
+| Audit of committed changes | Data Governance Audit Explorer | Do not build a second audit event pipeline. |
+| Persona home, steppers, breadcrumbs, local drafts and conflict UX | Role-Based User Experience | Reuse existing backend expected_revision/409 and RBAC. |
+
+## Functional acceptance versus delivery status
+
+| Feature specification | Product scope | Implemented today | Delivery plan/issues |
+| --- | --- | --- | --- |
+| Campaign Evaluation Matrix | Accepted future scope | Not delivered as proposed | **Not yet defined** |
+| Composable Setup Guides & Lifecycle | Accepted future scope | Existing simpler Guides only | **Not yet defined** |
+| Technology Accessibility & Pricing Management | Accepted future scope | Existing commercial/evidence foundations only | **Not yet defined** |
+| OS Compatibility & User Environment | Accepted future scope | Not delivered as proposed | **Not yet defined** |
+| Deployment & Adoption Planning | Accepted future scope | **DAP-01 workload foundation only** | Remaining scope **not yet planned** |
+| Role-Based User Experience & Guided Navigation | Accepted future scope | Existing separate user/workgroup screens, not target UX | **Not yet defined** |
+| Publication & Information Lifecycle | Accepted future scope | Some Campaign revision/reopen/unpublish; **not** Run withdrawal, subset publication or safe GC | **Not yet defined** |
+| Data Governance Audit Explorer | Accepted future scope | Existing audit/event foundations, not complete explorer | **Not yet defined** |
+
+The plan/priority of GitHub issues is **deliberately deferred**, as is any proposed repository-wide reorganization (`docs/features`, baseline/reference docs, global folder layout). Keep all original proposal files intact and cross-link them; future issue planning can reference these stable sections without rewriting product decisions.
+
+**Baseline rule:** the existing [approved PLAT implementation roadmap](../platform-implementation-roadmap.md) remains separate from these future functional requirements. Creating or refining a spec here does **not** create, approve, prioritize or execute issues.
