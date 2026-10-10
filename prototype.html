@@ -560,6 +560,8 @@ var initialSection=new URLSearchParams(window.location.search).get("section");
 var initialPage=initialWorkspace==="workgroup" ?
   (initialSection&&window.AICompassWorkgroup.SECTION_TO_DEMO[initialSection]||"studio") :
   initialWorkspace==="engineer"?"tasks":initialWorkspace==="management"?"management":"dashboard";
+if(!initialWorkspace && db.users.some(function(u){return u.id===currentUser&&u.role==="workgroup";}))
+  initialPage="studio";
 var ui={page:initialPage,task:"t5",solution:"s1",solutionView:"solutions",bench:"runs",matrix:"task",
  matrixTarget:"t5",filters:{},expanded:{},modal:"",detail:"",
  selectedCompare:["s1","s2","s3"],adminTab:"queue",taskView:"browse",
