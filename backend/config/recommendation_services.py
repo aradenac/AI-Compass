@@ -221,6 +221,22 @@ def change(*,actor,identifier,data,action=None):
                 note=data.get("review_note")
                 if not isinstance(note,str) or not note.strip() or len(note)>10000:
                     raise InvalidRecommendation("Reviewer justification required")
+                # Reject publishing a stale evidence selection. An explicit human
+                # review cannot silently omit Runs completed since the previous
+                # publication (or since the initial Draft for a first publication).
+                latest_public=published_revision(item)
+                start=latest_public or CatalogRevision.objects.filter(
+                    item=item).order_by("number").first()
+                pending_snapshot=RecommendationSnapshot.objects.get(revision=previous)
+                cited=pending_snapshot.run_pins.values_list("run_id",flat=True)
+                changed_runs=BenchmarkRun.objects.filter(
+                    solution=pending_snapshot.solution,
+                    session__case_pin__test_case__task=pending_snapshot.task,
+                    created_at__gt=start.created_at,
+                ).exclude(pk__in=cited)
+                if changed_runs.exists():
+                    raise InvalidRecommendation(
+                        "New measured Runs require revising the recommendation evidence before publication")
                 props=copy.deepcopy(previous.properties)
                 props.update(state="published",review_note=note.strip(),
                              publication_note="Approved by one authorized reviewer")
