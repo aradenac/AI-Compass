@@ -129,6 +129,8 @@ jobs:
         run: docker compose exec -T api python manage.py test config.test_forecasts -v 2
       - name: Verify Results Explorer and immutable evaluated individual/composite Run interpretation
         run: docker compose exec -T api python manage.py test config.test_evaluations -v 2
+      - name: Verify versioned Recommendations, reviewed publication, contradictory Runs and public evidence security
+        run: docker compose exec -T api python manage.py test config.test_recommendations -v 2
       - name: Verify immutable Server campaigns, transitions and historical method context
         run: docker compose exec -T api python manage.py test config.test_campaigns -v 2
       - name: Verify stable Framework participants, immutable trio pins and defensive validation
@@ -248,6 +250,7 @@ jobs:
           node scripts/test-server-watch.js
           node scripts/test-server-forecasts.js
           node scripts/test-server-results.js
+          node scripts/test-server-recommendations.js
           node scripts/test-server-test-cases.js
           node --check server-users.js
           node scripts/test-server-users.js
