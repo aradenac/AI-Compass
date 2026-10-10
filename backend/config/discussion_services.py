@@ -242,7 +242,7 @@ def revise_message(actor,identifier,expected_revision,properties):
         compat=compatibility_for_revision(item,current)
         if compat["read_only"] or current.schema_version.version!=1:
             raise SchemaWriteBlocked(compat)
-        if not privileged(actor) and current.created_by_id!=actor.pk:
+        if not privileged(actor) and msg.item.revisions.order_by("number").first().created_by_id!=actor.pk:
             raise InvalidDiscussion("Only author/workgroup may correct this message")
         if not _message_visible(msg,actor):
             raise InvalidDiscussion("Not permitted to revise internal message")
