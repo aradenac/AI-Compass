@@ -3,8 +3,10 @@
 /* PLAT-12: syntactic and authorization/isolation smoke for shared Server UI. */
 const assert=require("node:assert/strict"),fs=require("node:fs"),vm=require("node:vm");
 const source=fs.readFileSync("server-campaigns.js","utf8");
+const sessionsSource=fs.readFileSync("server-sessions.js","utf8");
 const mode=fs.readFileSync("server-mode.js","utf8");
 const page=fs.readFileSync("prototype.html","utf8");
+new vm.Script(sessionsSource,{filename:"server-sessions.js"});
 new vm.Script(source,{filename:"server-campaigns.js"});
 new vm.Script(mode,{filename:"server-mode.js"});
 assert(page.includes('<script src="server-campaigns.js"></script>'));
@@ -39,6 +41,7 @@ const sandbox={window:{},console,URLSearchParams,fetch:async(url,opts)=>{
   if(!rows[key])throw Error("Unknown "+url);
   return {ok:true,json:async()=>rows[key]};
 }};
+vm.runInNewContext(sessionsSource,sandbox,{filename:"server-sessions.js"});
 vm.runInNewContext(source,sandbox,{filename:"server-campaigns.js"});
 const escape=s=>String(s).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;");
 const ui=sandbox.window.AICompassServerCampaigns.mount(root,()=> "csrf",escape);
