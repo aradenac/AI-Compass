@@ -132,6 +132,7 @@ def _save(session, actor, action, state, number):
 def _initial_state(session):
     steps=_descriptors(session)
     return {
+        "status":"in_progress",
         "setup":{"started_at":None,"installation_duration_minutes":None,
                  "environment":{},"notes":"","extensions":{},"evidence_link_ids":[]},
         "steps":{s["key"]:{"status":"pending","values":{},"notes":"",
@@ -228,7 +229,16 @@ def append(*, actor, public_id, expected_revision, action, data, step_key=None):
         if expected_revision!=f"r{current.number:03d}":
             raise SessionConflict("Draft changed in another browser; reload before saving")
         state=copy.deepcopy(current.state)
-        if action=="setup":
+        if action in ("pause","resume"):
+            if data:
+                raise InvalidSession("Lifecycle actions accept no additional fields")
+            expected="in_progress" if action=="pause" else "paused"
+            if state.get("status")!=expected:
+                raise SessionConflict("Session lifecycle transition is not allowed")
+            state["status"]="paused" if action=="pause" else "in_progress"
+        elif state.get("status")!="in_progress":
+            raise SessionConflict("Resume the paused session before recording more work")
+        elif action=="setup":
             allowed={"started_at","installation_duration_minutes","environment",
                      "notes","extensions","evidence_link_ids"}
             if set(data)-allowed:
