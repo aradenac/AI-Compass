@@ -304,7 +304,17 @@ def serialize(item,rev=None,reader=False):
             "evidence":[{"id":str(p.evidence_id),"sha256":p.evidence.blob_id}
                         for p in run.evidence_pins.select_related("evidence").order_by("id")],
         })
-    alert=_new_evidence(item,rev,snap)
+    # A workgroup author preparing an updated Draft must also see the pending
+    # review signal of the *still-live public revision*, not only the engineer
+    # who reads that publication. Never rewrite either historical snapshot.
+    alert_rev=rev
+    alert_snap=snap
+    if rev.pk==item.current_revision_id and rev.properties.get("state")!="published":
+        last_live=published_revision(item)
+        if last_live is not None:
+            alert_rev=last_live
+            alert_snap=RecommendationSnapshot.objects.get(revision=last_live)
+    alert=_new_evidence(item,alert_rev,alert_snap)
     return {
         "id":item.public_id,"revision":f"r{rev.number:03d}","revision_id":str(rev.pk),
         "name":rev.display_name,"properties":rev.properties,
