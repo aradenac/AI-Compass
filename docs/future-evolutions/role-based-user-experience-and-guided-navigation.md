@@ -60,6 +60,8 @@ Default screen is an **expandable hierarchical list of relevant Tasks** on the l
 
 Task tree structure reuses the permanent Task hierarchy (not a bespoke recommendation taxonomy). Distinguish profile-inferred Tasks from manually confirmed user Tasks if appropriate, and do not require end users to edit the formal taxonomy.
 
+**Permission/implementation boundary:** DAP-01 currently exposes workforce profiles and rates only to the independent **deployment-planner** permissions, not to ordinary engineers. Personalized My AI Workspace must therefore receive an **authorized user-scoped, privacy-filtered projection of that person's relevant Tasks** (or an appropriately approved simplified derived view), **not** grant every engineer the unrestricted planning_view API or disclose confidential rates, other workers' allocations and organizational assumptions. Until such a projection exists, show a transparent fallback rather than pretending the current Server engineer API already provides private workload data.
+
 **Default "By Task" projection:** each expanded Task shows the best few suitable configurations (e.g. top 2–3) with concise name, main use case, benchmarked qualification/uncertainty, accessibility and platform compatibility. The exact top-N/score formula remains a product-scoring policy, **not a fabricated hardcoded ranking**. Show a clear "More relevant options" affordance rather than dozens of side-by-side columns.
 
 **Inverse "By Tool" projection:** list tools relevant to this same user and, under each, the relevant Tasks they serve. Both are views of one Task ↔ configuration ↔ measured evidence/recommendation relationship; they must not be independently curated inventories.
