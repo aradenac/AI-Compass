@@ -79,6 +79,7 @@ jobs:
           python3 -m unittest discover -s scripts -p 'test_migration_stage.py' -v
           python3 -m unittest discover -s scripts -p 'test_migration_promote.py' -v
           python3 -m unittest discover -s scripts -p 'test_verify_export.py' -v
+          python3 -m unittest discover -s scripts -p 'test_release_acceptance.py' -v
           python3 scripts/install-backup-timer.py --destination "$PWD" --dry-run | grep 'ai-compass-backup.service'
       - name: Create isolated local credentials
         run: python3 scripts/init-env.py
@@ -143,6 +144,8 @@ jobs:
         run: docker compose exec -T api python manage.py test config.test_evaluations -v 2
       - name: Verify versioned Recommendations, reviewed publication, contradictory Runs and public evidence security
         run: docker compose exec -T api python manage.py test config.test_recommendations -v 2
+      - name: Validate cross-role Task to published Recommendation real Server journey
+        run: docker compose exec -T api python manage.py test config.test_release_readiness -v 2
       - name: Verify chronological public/internal Feedback, immutable corrections and evidence privacy
         run: docker compose exec -T api python manage.py test config.test_discussions -v 2
       - name: Verify immutable Server campaigns, transitions and historical method context
@@ -326,6 +329,23 @@ jobs:
           docker compose up -d --wait
           marker=$(docker compose exec -T db sh -ec 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atqc "SELECT marker FROM ai_compass_smoke_marker LIMIT 1"' | tr -d '\r\n')
           test "$marker" = "persistence-check"
+      - name: Build PLAT-32 reproducible go/no-go acceptance report
+        run: |
+          python3 scripts/release_acceptance.py \
+            --temp "$RUNNER_TEMP" \
+            --commit "${{ github.sha }}" \
+            --run-id "${{ github.run_id }}" \
+            --repository "${{ github.repository }}" \
+            --destination "$RUNNER_TEMP/release-acceptance"
+          cat "$RUNNER_TEMP/release-acceptance/report.md" >> "$GITHUB_STEP_SUMMARY"
+      - name: Retain PLAT-32 acceptance report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: plat-32-readiness-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/release-acceptance/
+          if-no-files-found: ignore
+          retention-days: 30
       - name: Inspect state on failure
         if: failure()
         run: |
