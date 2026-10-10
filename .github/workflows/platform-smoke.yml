@@ -244,6 +244,16 @@ jobs:
           if python3 scripts/migration_stage.py verdict "$candidate" accepted --notes "Missing manual frontend acceptance"; then
             echo "UNREVIEWED STAGE ACCEPTED" >&2; exit 1
           fi
+          # The real browser review is a human gate; CI may only test that
+          # its blank, candidate-bound template is NEVER accepted.
+          python3 scripts/migration_stage.py review-template "$candidate" > "$RUNNER_TEMP/stage-human-review-template.json"
+          python3 -c 'import json,sys; r=json.load(open(sys.argv[1])); assert r["candidate_id"]==sys.argv[2] and r["record_id"]=="mdl-staging-test-canary" and r["checks"]["new_model_v2_revision_visible"] is False' "$RUNNER_TEMP/stage-human-review-template.json" "$candidate"
+          if python3 scripts/migration_stage.py verdict "$candidate" accepted --frontend-checked --notes "Flag alone" ; then
+            echo "UNATTESTED STAGE ACCEPTED" >&2; exit 1
+          fi
+          if python3 scripts/migration_stage.py verdict "$candidate" accepted --frontend-checked --review-file "$RUNNER_TEMP/stage-human-review-template.json" --notes "Blank form" ; then
+            echo "UNREVIEWED CHECKLIST ACCEPTED" >&2; exit 1
+          fi
           python3 scripts/migration_stage.py verdict "$candidate" rejected --notes "CI deliberately tests rejection" > /dev/null
           python3 scripts/migration_stage.py recreate "$candidate" > "$RUNNER_TEMP/stage2.json"
           candidate2=$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d["automated_checks"]=="passed" and d["migrated"]["changed"]==1; print(d["candidate_id"])' "$RUNNER_TEMP/stage2.json")

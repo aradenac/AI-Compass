@@ -38,13 +38,34 @@ Recreate discards the old stage and returns a **new** candidate ID.
 It always restores the same unmodified recovery point rather than preserving
 any staging-only edits. Reject/discard/recreate as many times as required.
 
-After inspecting the real Server frontend, and **only after** doing so:
+After inspecting the **real Server frontend** (not a curl response or CI
+fixture), generate a pinned, initially **un-checked** review template:
 
-    python3 scripts/migration_stage.py verdict <candidate_id> accepted --frontend-checked --notes "Checked original and migrated revisions, preserved extensions and downloaded evidence"
+    python3 scripts/migration_stage.py review-template <candidate_id> > /tmp/staging-review.json
+
+Inspect the exact proposed `record_id` and older and newer revisions in
+the authenticated browser. Fill in `reviewer`, timezone-aware `reviewed_at`,
+and for every check add a substantive `observations` note and set the
+check to `true` **only after direct personal inspection**. The evidence check
+is nullable only when the verified source snapshot has zero evidence links;
+do not pretend to have downloaded evidence that does not exist. Use a private
+file path for this confidential local review. Then:
+
+    python3 scripts/migration_stage.py verdict <candidate_id> accepted \
+      --frontend-checked --review-file /tmp/staging-review.json \
+      --notes "Inspected exact old/new revisions, unknown fields, independent source"
     python3 scripts/migration_stage.py discard <candidate_id>
 
-An acceptance without --frontend-checked is refused. This flag records a human
-attestation; it is not a claim that automated tests inspected a browser.
+The CLI checks that the review matches the **same candidate, pinned build,
+snapshot manifest, migration hash and actual modified Model ID**. Missing
+or failed checks, generic notes, a wrong source, wrong candidate, stale
+review or missing explicit human acknowledgement cause refusal. A successful
+verdict stores an **exclusive durable** `review.json` and pins its SHA-256
+and the reviewer's name in `verdict.json`, retained after discard. A
+`--frontend-checked` flag alone no longer authorizes acceptance.
+
+A human is still responsible for truthfully recording what was seen; an
+automated script cannot establish genuine interactive visual inspection.
 
 ## Registered migration and automated controls
 

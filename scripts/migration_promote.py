@@ -51,6 +51,27 @@ def approval(candidate):
         fail("Missing matching human frontend acceptance")
     if not isinstance(verdict.get("notes"), str) or not verdict["notes"].strip():
         fail("A substantive manual acceptance note is required")
+    # New acceptance records include human browser observations retained
+    # separately. Bind this immutable file to the approved verdict so a
+    # post-verdict edit cannot silently change what the operator attested.
+    if "review_sha256" in verdict:
+        manual = folder / "review.json"
+        digest = verdict.get("review_sha256")
+        if (not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest)
+                or not manual.is_file() or manual.is_symlink()
+                or manual.stat().st_size > stage.REVIEW_MAX_BYTES
+                or file_sha(manual) != digest):
+            fail("Manual frontend evidence has changed or is missing")
+        try:
+            inspected = json.loads(manual.read_text("utf-8"))
+        except (ValueError, UnicodeDecodeError):
+            fail("Manual frontend evidence is not valid JSON")
+        if (inspected.get("candidate_id") != candidate or
+                inspected.get("application_commit") != report.get("application_commit") or
+                inspected.get("migration_sha256") != report.get("migration_sha256") or
+                inspected.get("snapshot_manifest_sha256") != report.get("snapshot_manifest_sha256") or
+                inspected.get("reviewer", "").strip() != verdict.get("reviewer")):
+            fail("Manual frontend evidence no longer matches the approved candidate")
     for key in ("candidate_id", "migration", "migration_sha256",
                 "application_commit", "snapshot_id", "snapshot_manifest_sha256"):
         if verdict.get(key) != report.get(key):

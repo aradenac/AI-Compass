@@ -2,6 +2,16 @@
 
 Use this file together with the GitHub issue assigned to you. **The repository, not chat history or agent memory, is the source of truth.**
 
+## Delivery scope and planning lanes
+
+Only issues from the **existing approved PLAT roadmap** are eligible for automatic
+"next priority issue" work. Concepts documented in
+[Feature proposals](docs/features/README.md) or
+[Future evolutions](docs/future-evolutions/README.md) are **not** a delivery
+backlog and must not be implemented, split into GitHub issues, or prioritized
+without an explicit approved issue plan from the project owner. Previously
+shipped DAP-01 is historical, **not** implicit approval for DAP-02 or later.
+
 ## Authoritative references
 - [Product semantics](docs/product-definition.md) and [benchmark workflow](docs/benchmark-workflow.md)
 - [Persistence, immutable evidence, migration and recovery rules](docs/platform-architecture-and-data-governance.md)

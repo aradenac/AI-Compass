@@ -1,6 +1,7 @@
 # AI Compass — Incremental Platform Implementation Roadmap
 
-> **Status:** Active, dependency-driven issue backlog · **Updated:** 2026-10-09  
+> **Status:** Active, dependency-driven **PLAT** issue backlog · **Updated:** 2026-10-10  
+> **Proposed future feature registry (NOT this backlog):** [docs/features](features/README.md)  
 > **Agent contract:** [AGENTS.md](../AGENTS.md) · **Architecture:** [Platform Architecture & Data Governance](platform-architecture-and-data-governance.md) · **Product:** [Product Definition](product-definition.md)
 
 ## Operating principle
@@ -102,6 +103,31 @@ Former [#19](https://github.com/aradenac/AI-Compass/issues/19) was closed as **c
 - Every issue adds **focused positive, negative and relevant non-regression tests** and short operator documentation; the final #32 orchestrates these already-existing suites. Splitting a large issue is acceptable **before** implementation, not by dropping acceptance.
 - [#4](https://github.com/aradenac/AI-Compass/issues/4), [#7](https://github.com/aradenac/AI-Compass/issues/7), [#8](https://github.com/aradenac/AI-Compass/issues/8) and [#19](https://github.com/aradenac/AI-Compass/issues/19) are closed without independent implementation.
 
-## Next action
+## Next action (as of 2026-10-10)
 
-**[#5](https://github.com/aradenac/AI-Compass/issues/5)** is the next ready frontend/backend delivery, via **competing independent PRs** if desired. Thereafter #34 secures persisted data, #25 generalizes schema compatibility, and parallel compatible deliveries are selected by their dependency contracts rather than historical issue numbering.
+The original PLAT feature implementation PRs up through #31 have been merged,
+and #32 automated acceptance tooling is integrated. **The remaining open
+approved PLAT issues are #35, #26, #32 and #33.** They are not interchangeable:
+
+1. **[#35](https://github.com/aradenac/AI-Compass/issues/35)** — first,
+   make the isolated staging validation evidence independently reviewable,
+   then perform the actual authenticated Server-frontend *human acceptance*.
+   The automation and CLI already exist; a green CI is not this acceptance.
+2. **[#26](https://github.com/aradenac/AI-Compass/issues/26)** — after
+   an approved #35 candidate, verify governed replay on a distinct approved
+   disposable production-like environment with a NEW independently recoverable
+   database+evidence backup. Do not promote a staging DB or claim a real
+   replay happened just because unit tests passed.
+3. **[#32](https://github.com/aradenac/AI-Compass/issues/32)** — correlate
+   accepted staging, approved replay, physical recovery, dual runtime E2E and
+   release sign-off into a final **GO/NO-GO**. Its automated dossier is
+   implemented but deliberately NO-GO without the above human evidence.
+4. **[#33](https://github.com/aradenac/AI-Compass/issues/33)** — deferred
+   until #32 closes and production is actually deployed and validated; the
+   real external data source/format is not yet selected.
+
+For **new future product features**, including DAP-02 onward, use
+[docs/features](features/README.md) to collect decisions and await a
+separately **validated issue breakdown**. Shipped
+[DAP-01/#66](https://github.com/aradenac/AI-Compass/issues/66) does not
+authorize automatic continuation of this proposed line.
