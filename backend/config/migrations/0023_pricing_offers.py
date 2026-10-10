@@ -84,8 +84,8 @@ class Migration(migrations.Migration):
                 RAISE EXCEPTION 'Pricing offer is not applicable to the pinned component';
               END IF;
               RETURN NEW;
-            END $$
-            ;
+            END;
+            $;
             CREATE TRIGGER validate_campaign_pricing_pin BEFORE INSERT
             ON config_campaignpricingpin FOR EACH ROW
             EXECUTE FUNCTION ai_compass_validate_campaign_pricing_pin();
