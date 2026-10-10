@@ -3,7 +3,7 @@
 This module never edits a catalog revision, never imports Demo records and
 never derives pinned component revisions from mutable descriptions.
 """
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 
 from .catalog_ids import new_public_id
 from .models import CampaignParticipantIdentity, CampaignParticipantPin
@@ -95,8 +95,9 @@ def persist_participants(*, campaign, snapshot, prepared):
             for _ in range(12):
                 public_id=new_public_id("ptp")
                 try:
-                    identity=CampaignParticipantIdentity.objects.create(
-                        public_id=public_id,campaign=campaign)
+                    with transaction.atomic():
+                        identity=CampaignParticipantIdentity.objects.create(
+                            public_id=public_id,campaign=campaign)
                     break
                 except IntegrityError:
                     if CampaignParticipantIdentity.objects.filter(public_id=public_id).exists():
