@@ -170,6 +170,17 @@ class RecommendationTests(TestCase):
             "task_id":self.task.item.public_id,
             "solution_id":run["solution_id"],"run_ids":[other["id"]],
             "properties":{"rationale":"Invalid composite"}}).status_code,400)
+        # A mixed individual+composite Evaluation is never an acceptable
+        # basis for assigning global Framework quality to one AI Solution.
+        mixed=self.evaluation([run["id"],other["id"]])
+        denied=self.call(ROOT,{
+            "name":"Cannot attribute composite score to an individual",
+            "task_id":self.task.item.public_id,
+            "solution_id":run["solution_id"],"run_ids":[run["id"]],
+            "evaluation_id":mixed["id"],"evaluation_revision":"r001",
+            "properties":{"rationale":"Mixed workflow evidence"}})
+        self.assertEqual(denied.status_code,400,denied.content)
+        self.assertIn("composite",denied.json()["detail"])
         self.assertEqual(self.call(ROOT,{
             "name":"Broken Run",
             "task_id":self.task.item.public_id,
