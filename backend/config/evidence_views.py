@@ -43,6 +43,12 @@ def _watch_evidence_published(item, revision):
 
 def _watch_readable(request, item, revision=None):
     """Never disclose unpublished source/watch files by guessing stable evidence UUIDs."""
+    if item.type_slug in ("discussion_thread","discussion_message"):
+        from django.http import Http404
+        from .discussion_services import readable_revision
+        if revision is None or not readable_revision(item,request.user,revision):
+            raise Http404("Private or unpinned discussion evidence")
+        return
     if item.type_slug not in ("research_source","watch_entry","forecast","recommendation"):
         return
     if request.user.has_perm("auth.business_write") or request.user.has_perm("auth.publication_review"):
@@ -89,6 +95,11 @@ def list_evidence(request, public_id):
             from .watch_services import serialize
         if serialize(item,reader=True) is None:
             raise Http404("Private Research Source / Watch evidence")
+    if item.type_slug in ("discussion_thread","discussion_message"):
+        from django.http import Http404
+        from .discussion_services import readable_revision
+        if not readable_revision(item,request.user):
+            raise Http404("Private discussion attachments")
     rows = EvidenceLink.objects.filter(item=item).select_related(
         "blob", "revision", "uploaded_by", "item"
     ).order_by("created_at", "id")
@@ -97,6 +108,10 @@ def list_evidence(request, public_id):
             request.user.has_perm("auth.publication_review")):
         rows = [link for link in rows if link.revision_id is not None and
                 _watch_evidence_published(item,link.revision)]
+    if item.type_slug in ("discussion_thread","discussion_message"):
+        from .discussion_services import readable_revision
+        rows=[link for link in rows if link.revision_id is not None and
+              readable_revision(item,request.user,link.revision)]
     return json_no_store({"item_id": public_id, "results": [_checked(link) for link in rows]})
 
 
@@ -131,7 +146,8 @@ def upload_evidence(request, public_id):
         if not isinstance(provenance, dict):
             raise EvidenceError("Provenance must be a JSON object")
         requested = request.POST.get("revision", "")
-        if item.type_slug in ("research_source","watch_entry","forecast","recommendation") and not requested:
+        if item.type_slug in ("research_source","watch_entry","forecast","recommendation",
+                              "discussion_thread","discussion_message") and not requested:
             raise EvidenceError("Source and Watch evidence must pin an exact revision")
         revision = None
         if requested:
@@ -139,6 +155,11 @@ def upload_evidence(request, public_id):
             if not match or requested != f"r{int(match.group(1)):03d}":
                 raise EvidenceError("Revision must be an exact r001-style identifier")
             revision = get_object_or_404(CatalogRevision, item=item, number=int(match.group(1)))
+        if item.type_slug in ("discussion_thread","discussion_message"):
+            from .discussion_services import readable_revision
+            if revision is None or not readable_revision(item,request.user,revision):
+                from django.http import Http404
+                raise Http404("Private discussion evidence")
         link = attach(
             item=item, revision=revision, file=file, actor=request.user,
             source=source, provenance=provenance,
