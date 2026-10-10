@@ -12,6 +12,10 @@
 
     async function api(url, method, data) {
       if (provider) return provider.tasks.request(url, method, data);
+      if (window.AICompassRuntime) {
+        return window.AICompassRuntime.ServerTransport(fetch, csrf)
+          .request("/api/v1/tasks" + url, method, data);
+      }
       var opts = {method: method || "GET", credentials: "same-origin", cache: "no-store"};
       if (method && method !== "GET") {
         opts.headers = {"Content-Type": "application/json", "X-CSRFToken": csrf()};
