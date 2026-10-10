@@ -259,7 +259,7 @@ function demoTaskRow(t){
    }};
 }
 var demoTaskProvider = {request: async function(path, method, payload) {
- var verb=method||"GET",m=/^\\/([^/]+)(?:\\/(revisions))?$/.exec(path||"");
+ var verb=method||"GET",m=/^\/([^/]+)(?:\/(revisions))?$/.exec(path||"");
  if(!m) {
    if(path)throw Error("Unknown fictional Task route");
    if(verb==="GET")return {results:db.tasks.map(demoTaskRow)};
