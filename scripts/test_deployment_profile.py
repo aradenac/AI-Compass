@@ -29,6 +29,7 @@ class DeploymentTests(unittest.TestCase):
     def lan(self):
         return {"AI_COMPASS_PROFILE": "lan", "AI_COMPASS_TLS_PROXY": "1",
                 "AI_COMPASS_LAN_BIND": "192.168.1.20",
+                "DJANGO_SECRET_KEY": "s" * 48, "DB_PASSWORD": "p" * 48,
                 "DJANGO_ALLOWED_HOSTS": "api,localhost,127.0.0.1,192.168.1.20,host.lan",
                 "DJANGO_CSRF_TRUSTED_ORIGINS": "https://192.168.1.20,https://host.lan"}
 
@@ -37,6 +38,8 @@ class DeploymentTests(unittest.TestCase):
                           {"AI_COMPASS_LAN_BIND": "8.8.8.8"},
                           {"AI_COMPASS_LAN_BIND": "127.0.0.1"},
                           {"AI_COMPASS_TLS_PROXY": "0"},
+                          {"DJANGO_SECRET_KEY": "test"},
+                          {"DB_PASSWORD": "REPLACE_WITH_RANDOM_PASSWORD"},
                           {"DJANGO_ALLOWED_HOSTS": "*.lan"},
                           {"DJANGO_ALLOWED_HOSTS": "8.8.8.8,192.168.1.20"},
                           {"DJANGO_CSRF_TRUSTED_ORIGINS": "http://192.168.1.20"},
