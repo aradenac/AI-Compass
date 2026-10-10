@@ -123,6 +123,11 @@
         '<button type="button" id="case-cancel">Cancel</button></form>';
       if(mode==="create"&&taskId)container.querySelector('select[name="task_id"]').value=taskId;
       el("#case-cancel").addEventListener("click",function(){container.hidden=true;});
+      var draft=window.AICompassDrafts && window.AICompassDraftAccount ?
+        window.AICompassDrafts.attach(el("#case-form"),{
+          mode:"server",account:window.AICompassDraftAccount,kind:"test-case-"+mode,
+          id:source?source.id:"new",revision:source?source.revision:"new",schema:"test-case-v1"
+        }):null;
       el("#case-form").addEventListener("submit",async function(event){
         event.preventDefault();
         if(!allowed||!canWrite)return;
@@ -143,12 +148,13 @@
             payload.expected_parent_revision=source.revision;
             result=await api("test-cases/"+encodeURIComponent(source.id)+"/fork","POST",payload);
           }
+          if(draft)draft.clear();
           container.hidden=true;
           await refresh();
           status("Saved "+result.id+" · "+result.case_version+" · "+result.revision);
           var created=cases.find(function(x){return x.id===result.id;});
           if(created) details(created);
-        }catch(error){status("Test Case save refused: "+error.message,true);}
+        }catch(error){if(draft&&/409|revision_conflict/.test(error.message))draft.conflict();status("Test Case save refused: "+error.message,true);}
         finally{button.disabled=false;}
       });
     }

@@ -114,6 +114,11 @@
       node.hidden=false;
       node.innerHTML=formMarkup(escapeHtml,item,item?"Revise existing Setup Guide":"New reusable Setup Guide");
       node.querySelector(".guide-cancel").addEventListener("click",function(){node.hidden=true;});
+      var draft = window.AICompassDrafts && window.AICompassDraftAccount ?
+        window.AICompassDrafts.attach(node.querySelector("form"),{
+          mode:"server",account:window.AICompassDraftAccount,kind:"guide",
+          id:item?item.id:"new",revision:item?item.revision:"new",schema:"guide-v1"
+        }):null;
       node.querySelector("form").addEventListener("submit",async function(event){
         event.preventDefault();
         if(!active||!write)return;
@@ -125,9 +130,10 @@
             await request(csrf,"/"+encodeURIComponent(item.id),"PATCH",payload);
           } else await request(csrf,"","POST",payload);
           if(!active)return;
+          if(draft)draft.clear();
           node.hidden=true;
           await refresh();
-        } catch(error){status("Guide not saved: "+error.message,true);}
+        } catch(error){if(draft&&/409|revision_conflict/.test(error.message))draft.conflict();status("Guide not saved: "+error.message,true);}
         finally{button.disabled=false;}
       });
     }

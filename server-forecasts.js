@@ -137,6 +137,11 @@ function mount(root,csrf,escapeHtml){
       '<button type="submit">Save theoretical version</button> <button type="button" id="forecast-cancel">Cancel</button>'+
       '</form>';
     $("#forecast-cancel").addEventListener("click",function(){node.hidden=true;});
+    var draft=window.AICompassDrafts && window.AICompassDraftAccount ?
+      window.AICompassDrafts.attach($("#forecast-form"),{
+        mode:"server",account:window.AICompassDraftAccount,kind:"forecast",
+        id:f?f.id:"new",revision:f?f.revision:"new",schema:"forecast-v1"
+      }):null;
     $("#forecast-form").addEventListener("submit",async function(event){
       event.preventDefault();var form=event.target,b=form.querySelector('[type="submit"]');
       b.disabled=true;
@@ -163,8 +168,9 @@ function mount(root,csrf,escapeHtml){
         if(f)data.expected_revision=f.revision;
         await api("forecasts"+(f?"/"+encodeURIComponent(f.id):""),f?"PATCH":"POST",data);
         if(!enabled)return;
+        if(draft)draft.clear();
         node.hidden=true;await refresh();status("Theoretical Forecast stored, prior review and evidence preserved.");
-      }catch(err){status("Forecast not saved: "+err.message,true);}
+      }catch(err){if(draft&&/409|revision_conflict/.test(err.message))draft.conflict();status("Forecast not saved: "+err.message,true);}
       finally{b.disabled=false;}
     });
   }

@@ -69,6 +69,9 @@ services:
       - ./model-catalog.js:/srv/frontend/model-catalog.js:ro
       - ./shared-runtime.js:/srv/frontend/shared-runtime.js:ro
       - ./shared-catalog.js:/srv/frontend/shared-catalog.js:ro
+      - ./shared-workgroup.js:/srv/frontend/shared-workgroup.js:ro
+      - ./shared-drafts.js:/srv/frontend/shared-drafts.js:ro
+      - ./shared-workgroup.css:/srv/frontend/shared-workgroup.css:ro
     depends_on:
       api:
         condition: service_healthy

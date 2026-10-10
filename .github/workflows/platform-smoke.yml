@@ -13,6 +13,7 @@ on:
       - "docs/release-*"
       - "docs/coordinated-release.md"
       - "docs/shared-workspace-bootstrap.md"
+      - "docs/workgroup-studio.md"
       - "docs/deployment-profiles-and-archive-permissions.md"
       - "compose.yaml"
       - "compose.lan.yaml"
@@ -21,6 +22,7 @@ on:
       - "prototype.html"
       - "server-*.js"
       - "shared-*.js"
+      - "shared-*.css"
       - "model-catalog.js"
       - ".env.example"
       - ".github/workflows/**"
@@ -36,6 +38,7 @@ on:
       - "docs/release-*"
       - "docs/coordinated-release.md"
       - "docs/shared-workspace-bootstrap.md"
+      - "docs/workgroup-studio.md"
       - "docs/deployment-profiles-and-archive-permissions.md"
       - "compose.yaml"
       - "compose.lan.yaml"
@@ -44,6 +47,7 @@ on:
       - "prototype.html"
       - "server-*.js"
       - "shared-*.js"
+      - "shared-*.css"
       - "model-catalog.js"
       - ".env.example"
       - ".github/workflows/**"
@@ -318,6 +322,8 @@ jobs:
           node --check scripts/test-catalog-types.js
           node scripts/test-model-catalog.js
           node scripts/test-shared-frontend.js
+          node scripts/test-workgroup-studio.js
+          node scripts/test-shared-drafts.js
           node scripts/test-shared-demo-task.js
           node scripts/test-catalog-types.js
           python3 - <<'PY'

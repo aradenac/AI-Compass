@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#111e35">
 <title>AI Compass — Interactive Product Prototype</title>
+<link rel="stylesheet" href="shared-workgroup.css">
 <style>
 :root{--navy:#111e35;--navy2:#1b2b46;--bg:#f4f6fa;--card:#fff;--ink:#15233b;--muted:#64748b;--line:#e3e8f0;--blue:#3159d7;--teal:#087e83;--mint:#e8f7f4;--yellow:#a66507;--red:#b24249;--shadow:0 8px 32px rgba(18,39,71,.055)}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Arial,sans-serif}button,input,select,textarea{font:inherit}button{cursor:pointer}a{color:var(--blue);text-decoration:none}a:hover{text-decoration:underline}h1,h2,h3,h4,p{margin:0}h1{font-size:28px;letter-spacing:-.8px;line-height:1.25}h2{font-size:20px;letter-spacing:-.3px}h3{font-size:15px}small,.small{font-size:12px}.muted{color:var(--muted)}strong{font-weight:650}
@@ -107,6 +108,8 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;b
 <script src="model-catalog.js"></script>
 <script src="shared-runtime.js"></script>
 <script src="shared-catalog.js"></script>
+<script src="shared-workgroup.js"></script>
+<script src="shared-drafts.js"></script>
 <script src="server-tasks.js"></script>
 <script>
 "use strict";
@@ -553,8 +556,16 @@ db.runs.forEach(function(r,i){
 ensureDefaults();persist();
 var currentUser=localStorage.getItem(SESSION)||"";
 var initialWorkspace=new URLSearchParams(window.location.search).get("workspace");
-var ui={page:initialWorkspace==="workgroup"?"solutions":initialWorkspace==="engineer"?"tasks":
-    initialWorkspace==="management"?"management":"dashboard",task:"t5",solution:"s1",solutionView:"solutions",bench:"runs",matrix:"task",matrixTarget:"t5",filters:{},expanded:{},modal:"",detail:"",selectedCompare:["s1","s2","s3"],adminTab:"queue",taskView:"browse",editingTask:"",inlineDraft:null,draggedTask:""};
+var initialSection=new URLSearchParams(window.location.search).get("section");
+var initialPage=initialWorkspace==="workgroup" ?
+  (initialSection&&window.AICompassWorkgroup.SECTION_TO_DEMO[initialSection]||"studio") :
+  initialWorkspace==="engineer"?"tasks":initialWorkspace==="management"?"management":"dashboard";
+if(!initialWorkspace && db.users.some(function(u){return u.id===currentUser&&u.role==="workgroup";}))
+  initialPage="studio";
+var ui={page:initialPage,task:"t5",solution:"s1",solutionView:"solutions",bench:"runs",matrix:"task",
+ matrixTarget:"t5",filters:{},expanded:{},modal:"",detail:"",
+ selectedCompare:["s1","s2","s3"],adminTab:"queue",taskView:"browse",
+ editingTask:"",inlineDraft:null,draggedTask:""};
 function user(){return db.users.find(function(x){return x.id===currentUser;});}
 function canEdit(){return !!user()&&user().role==="workgroup";}
 function canContribute(){return !!user();}
@@ -761,6 +772,7 @@ function optionsFrom(type,format){return db[type].map(function(x){return[x.id,fo
 function navButton(page,icon,title,count){return '<button class="nav-link'+(ui.page===page?' active':'')+'" data-act="nav" data-id="'+page+'"><span class="nav-icon">'+icon+'</span>'+title+(count!=null?'<span class="count">'+count+'</span>':'')+'</button>';}
 function shell(inner,title){var u=user();if(!u)return login();
 var navigation=canEdit()?
+'<div class="nav-group"><div class="nav-label">WORKGROUP HOME</div>'+navButton("studio","◈","AI Workgroup Studio")+"</div>"+
 '<div class="nav-group"><div class="nav-label">WORKSPACE</div>'+navButton("dashboard","◈","Dashboard")+navButton("tasks","▤","Task management")+'</div>'+
 '<div class="nav-group"><div class="nav-label">TECHNOLOGY INTELLIGENCE</div>'+navButton("watch","◉","Technology watch")+navButton("solutions","◇","Technology catalog")+'</div>'+
 '<div class="nav-group"><div class="nav-label">EXPERIMENTS</div>'+navButton("testdesign","▣","Test design")+navButton("benchmark","⚙","Benchmark workspace")+navButton("results","◫","Results explorer")+'</div>'+
@@ -784,14 +796,50 @@ return '<div class="event"><div class="row-between"><strong>'+E(x.text)+'</stron
 '<div class="event-meta">'+E(x.at?x.at.replace("T"," ").slice(0,19):x.date)+' · '+E(x.type)+' · '+E(x.actorName||actor(x.actor))+
 (x.businessUnit?' · '+E(x.businessUnit):"")+(x.revisionIds?.length?' · '+x.revisionIds.length+' revision(s)':"")+'</div></div>';
 }).join("")+'</div>';}
-function render(){var pages={dashboard:dashboardPage,tasks:tasksPage,solutions:solutionsPage,recommendations:recommendationsPage,benchmark:benchmarkPage,results:resultsPage,testdesign:testDesignPage,knowledge:knowledgePage,watch:watchPage,feedback:feedbackPage,activity:activityPage,management:managementPage,workgroup:benchmarkPage};
-var labels={dashboard:canEdit()?"Dashboard":"Overview",tasks:canEdit()?"Task management":"Task explorer",solutions:canEdit()?"Technology catalog":"AI solutions",recommendations:"Recommendations",benchmark:"Benchmark workspace",results:"Results explorer",testdesign:"Test design",knowledge:"Guides & charter",watch:"Technology watch",feedback:"Feedback & discussions",activity:"Activity feed",management:"Management view",workgroup:"Benchmark workspace"};
-if(!user()){login();return;}if(ui.page==="workgroup")ui.page=canEdit()?"benchmark":"dashboard";if((ui.page==="benchmark"||ui.page==="testdesign")&&!canEdit())ui.page="results";if(canEdit()&&ui.page==="solutions")ui.solutionView="components";shell((pages[ui.page]||dashboardPage)(),labels[ui.page]);
+function render(){var pages={studio:function(){
+  return window.AICompassWorkgroup.renderMap("demo",user(),[],canEdit(),{
+    benchmark:window.AICompassWorkgroup.attention("benchmark",db.campaigns),
+    forecasts:window.AICompassWorkgroup.attention("forecasts",db.proposals),
+    recommendations:window.AICompassWorkgroup.attention("recommendations",db.recommendations)
+  });
+},dashboard:dashboardPage,tasks:tasksPage,solutions:solutionsPage,recommendations:recommendationsPage,benchmark:benchmarkPage,results:resultsPage,testdesign:testDesignPage,knowledge:knowledgePage,watch:watchPage,feedback:feedbackPage,activity:activityPage,management:managementPage,workgroup:benchmarkPage};
+var labels={studio:"AI Workgroup Studio",dashboard:canEdit()?"Dashboard":"Overview",tasks:canEdit()?"Task management":"Task explorer",solutions:canEdit()?"Technology catalog":"AI solutions",recommendations:"Recommendations",benchmark:"Benchmark workspace",results:"Results explorer",testdesign:"Test design",knowledge:"Guides & charter",watch:"Technology watch",feedback:"Feedback & discussions",activity:"Activity feed",management:"Management view",workgroup:"Benchmark workspace"};
+if(!user()){login();return;}if(ui.page==="studio"&&!canEdit())ui.page="dashboard";if(ui.page==="workgroup")ui.page=canEdit()?"studio":"dashboard";if((ui.page==="benchmark"||ui.page==="testdesign")&&!canEdit())ui.page="results";if(canEdit()&&ui.page==="solutions")ui.solutionView="components";shell((pages[ui.page]||dashboardPage)(),labels[ui.page]);
 var runtime=window.AICompassRuntime;
 var requested=new URLSearchParams(window.location.search).get("workspace");
 var persona=runtime.choosePersona(user(), "demo", requested);
 var target=document.querySelector(".content");
 if(target)target.insertAdjacentHTML("afterbegin",runtime.renderPersonaLinks(user(),"demo",persona&&persona.id));
+if(initialWorkspace==="workgroup" && initialSection && window.AICompassWorkgroup.STABLE[initialSection]&&canEdit()) {
+  var source=document.querySelector(".content");
+  if(source){
+    // One default list/presentation in both runtimes. Keep historical Demo
+    // forms and specialist actions accessible rather than silently dropping them.
+    Array.from(source.children).forEach(function(child){
+      if(!child.classList.contains("shared-personas"))child.hidden=true;
+    });
+    source.insertAdjacentHTML("afterbegin",
+      window.AICompassWorkgroup.breadcrumbs("demo",initialSection)+
+      '<div id="demo-shared-summary" class="card" role="region" aria-label="Shared knowledge view"></div>'+
+      '<button type="button" id="demo-open-full-workspace" class="btn">Open complete Demo workspace / edit / history</button>');
+    document.getElementById("demo-open-full-workspace").onclick=function(){
+      Array.from(source.children).forEach(function(child){
+        if(child!==document.getElementById("demo-shared-summary") &&
+            child!==this)child.hidden=false;
+      },this);
+      document.getElementById("demo-shared-summary").hidden=true;
+      this.hidden=true;
+    };
+    window.AICompassWorkgroup.mountSummary(
+      document.getElementById("demo-shared-summary"),
+      window.AICompassWorkgroup.demoProvider(db,canEdit),initialSection,"demo",{
+        recordId:new URLSearchParams(window.location.search).get("record"),
+        link:function(id){return window.AICompassWorkgroup.href("demo",initialSection)+"&record="+encodeURIComponent(id);}
+      }).show()
+      .catch(function(){/* error is already displayed */});
+  }
+}
+
 var taskRoot=document.getElementById("shared-demo-tasks");
 if(taskRoot)window.AICompassServerTasks.mount(taskRoot,function(){return "";},E,demoDomain)
   .setAccess(true,canEdit());
@@ -2627,7 +2675,7 @@ document.addEventListener("input",function(ev){var el=ev.target;if(["solutionSea
 document.addEventListener("click",function(ev){
 var b=ev.target.closest("[data-act]");if(!b)return;
 var act=b.dataset.act,id=b.dataset.id||"";
-if(act==="login"){currentUser=id;localStorage.setItem(SESSION,id);ui.page="dashboard";render();return;}
+if(act==="login"){currentUser=id;localStorage.setItem(SESSION,id);ui.page=canEdit()?"studio":"dashboard";render();return;}
 if(act==="switch"){currentUser="";localStorage.removeItem(SESSION);ui.modal="";render();return;}
 if(act==="close"){closeModal();return;}
 if(act==="nav"){ui.page=id;ui.modal="";render();window.scrollTo(0,0);return;}
