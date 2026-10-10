@@ -253,6 +253,10 @@ class CampaignApiTests(TestCase):
         self.assertEqual(self.call(BASE,self.task_payload()).status_code,403)
         self.client.logout()
         self.assertEqual(self.client.get(BASE).status_code,401)
+        # Django runs CSRF before view authentication: obtain a fresh valid
+        # anonymous token so this assertion isolates the 401 auth boundary.
+        self.client.get("/api/v1/auth/csrf")
+        self.token=self.client.cookies["csrftoken"].value
         self.assertEqual(self.call(BASE,self.task_payload()).status_code,401)
         self.assertEqual(CatalogItem.objects.filter(type_slug="campaign").count(),1)
         self.assertEqual(CatalogItem.objects.get(public_id=row["id"]).current_revision.number,1)
