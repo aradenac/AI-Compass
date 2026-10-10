@@ -97,6 +97,7 @@ def _allowed_evidence(session, state):
                 raise InvalidSession("Invalid evidence link identifier") from exc
             ids.append(ref)
     append(state["setup"].get("evidence_link_ids",[]))
+    append(state.get("closing_evidence_link_ids",[]))
     for row in state["steps"].values():
         append(row.get("evidence_link_ids",[]))
     for row in state["interactions"]:
@@ -151,7 +152,8 @@ def can_edit(actor,session):
 
 
 def create(*, actor, campaign_id, data):
-    if set(data)-{"test_case_id","guide_id","selected_participant_ids"}:
+    if set(data)-{"test_case_id","guide_id","selected_participant_ids",
+                  "component_ids","settings","properties","configuration_version"}:
         raise InvalidSession("Unsupported session creation fields")
     item=CatalogItem.objects.select_related("current_revision").filter(
         type_slug="campaign",public_id=campaign_id).first()
@@ -193,6 +195,8 @@ def create(*, actor, campaign_id, data):
         raise InvalidSession("Select at least one registered Framework participant")
     if not snapshot.framework_id and participant_ids:
         raise InvalidSession("Non-Framework sessions have no participants")
+    from .individual_setup_services import prepare, save
+    prepared=prepare(snapshot,participant_ids,data)
     descriptor=copy.deepcopy(snapshot.method_definition.json_schema)
     if not isinstance(descriptor,dict):
         raise InvalidSession("Unsupported experimental method schema")
@@ -205,6 +209,7 @@ def create(*, actor, campaign_id, data):
                     guide=guide,guide_revision=guide_revision,
                     method_definition=snapshot.method_definition,method_descriptor=descriptor,
                     selected_participants=participant_ids,created_by=actor)
+                save(session,prepared)
                 _save(session,actor,"created",_initial_state(session),1)
                 return session
         except IntegrityError:
@@ -318,6 +323,11 @@ def append(*, actor, public_id, expected_revision, action, data, step_key=None):
         return session
 
 
+def _individual_setup(session):
+    from .individual_setup_services import serialize as serialize_setup
+    return serialize_setup(session)
+
+
 def serialize(session, checkpoint=None, include_state=True):
     cp=checkpoint or _checkpoint(session)
     snap=session.campaign_snapshot
@@ -337,6 +347,7 @@ def serialize(session, checkpoint=None, include_state=True):
         "guide_id":session.guide.public_id if session.guide_id else None,
         "guide_revision_id":str(session.guide_revision_id) if session.guide_revision_id else None,
         "selected_participant_ids":session.selected_participants,
+        "individual_setup":_individual_setup(session),
         "created_by":session.created_by.get_username(),
         "created_at":session.created_at.isoformat(),
     }

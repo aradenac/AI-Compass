@@ -129,6 +129,10 @@ jobs:
         run: docker compose exec -T api python manage.py test config.test_campaign_participants -v 2
       - name: Verify resumable Test Case session checkpoints, evidence and access
         run: docker compose exec -T api python manage.py test config.test_sessions -v 2
+      - name: Verify permanent individual runs, measured solution dedupe and historical evidence
+        run: docker compose exec -T api python manage.py test config.test_runs -v 2
+      - name: Verify guided individual Run close/read frontend without Demo fallback
+        run: node scripts/test-server-runs.js
       - name: Verify guided Server-only session UI and frozen method adapter
         run: node scripts/test-server-sessions.js
       - name: Verify Server-only campaign UI regression

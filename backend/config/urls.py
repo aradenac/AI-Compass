@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import auth_views, catalog_views, catalog_type_views, evidence_views, task_views, user_admin_views, activity_views, data_health_views, test_case_views, setup_guide_views, campaign_views, session_views
+from . import auth_views, catalog_views, catalog_type_views, evidence_views, task_views, user_admin_views, activity_views, data_health_views, test_case_views, setup_guide_views, campaign_views, session_views, run_views
 from .api import api
 
 urlpatterns = [
@@ -12,6 +12,11 @@ urlpatterns = [
     path("api/v1/sessions/<slug:public_id>/setup", session_views.update_setup),
     path("api/v1/sessions/<slug:public_id>/steps/<slug:step_key>", session_views.update_step),
     path("api/v1/sessions/<slug:public_id>/interactions", session_views.add_interaction),
+    path("api/v1/runs", run_views.list_runs),
+    path("api/v1/runs/<slug:public_id>", run_views.get_run),
+    path("api/v1/solutions", run_views.solutions),
+    path("api/v1/solutions/<slug:public_id>", run_views.solution),
+    path("api/v1/sessions/<slug:public_id>/close", run_views.close_session),
     path("api/v1/campaign-methods", campaign_views.methods),
     path("api/v1/campaigns/pipeline", campaign_views.pipeline),
     path("api/v1/campaigns", campaign_views.collection),

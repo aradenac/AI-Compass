@@ -69,8 +69,14 @@ function mount(root,api,escapeHtml){
     panel();
     note("Loading real Server session drafts…");
     try{
-      var result=await api("campaigns/"+encodeURIComponent(row.id)+"/sessions");
+      var results=await Promise.all([
+        api("campaigns/"+encodeURIComponent(row.id)+"/sessions"),
+        api("runs?campaign_id="+encodeURIComponent(row.id)),
+        ...(row.mode==="task_centred"&&!row.framework_id?
+          ["model","provider","harness"].map(function(k){return api("catalog/"+k);}):[])
+      ]);
       if(current!==ticket||!canRead)return;
+      var result=results[0],runs=results[1].results||[],catalogResults=results.slice(2);
       var target=$("#session-collection");
       target.innerHTML='<h4>'+esc(row.name)+' · '+esc(row.revision)+'</h4>'+
         (result.results.length?result.results.map(function(s){
@@ -78,6 +84,11 @@ function mount(root,api,escapeHtml){
             ' · '+esc(s.revision)+' · by '+esc(s.created_by)+
             ' <button type="button" data-open-session="'+esc(s.id)+'">Open / resume</button></p>';
         }).join(""):'<p>No Server drafts for this campaign.</p>')+
+        '<h4>Immutable measured runs · '+runs.length+'</h4>'+
+        (runs.length?runs.map(function(r){return '<p>'+esc(r.id)+' · '+esc(r.outcome)+
+           ' · '+esc(r.solution_id)+' <button type="button" data-open-run="'+esc(r.id)+
+           '">Read original run</button></p>';}).join(""):'<p>No completed runs yet.</p>')+
+        '<pre id="session-run-detail" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre>'+
         (canWrite&&row.status==="in_progress"&&!row.archived?
           '<fieldset><legend>Start a new Test Case execution</legend>'+
           '<label>Test Case<select id="session-new-case">'+(row.test_case_ids||[]).map(function(id){
@@ -89,10 +100,29 @@ function mount(root,api,escapeHtml){
             '<label>Framework participants (one or more)<select id="session-new-participants" multiple size="4">'+
             (row.participants||[]).map(function(p){return option(p.id,p.label+" · "+p.role,true);}).join("")+
             '</select></label>':'')+
+          (row.mode==="task_centred"&&!row.framework_id?
+            '<p class="muted small">Define the exact solution setup before this controlled trial; all three components are version-pinned now.</p>'+
+            ["model","provider","harness"].map(function(k,i){
+              return '<label>'+esc(k)+'<select required data-new-component="'+k+'">'+
+                (catalogResults[i]&&catalogResults[i].results||[]).map(function(x){
+                   return option(x.id,x.name||x.id,false);}).join("")+'</select></label>';
+            }).join("")+
+            '<label>Configuration version<input id="session-new-configuration-version" value="1"></label>'+
+            '<label>Model/runtime settings (JSON object)<textarea id="session-new-settings">{}</textarea></label>'+
+            '<label>Tool access and capabilities (JSON object)<textarea id="session-new-properties">{}</textarea></label>':'')+
           '<button type="button" id="session-create">Start & save session</button></fieldset>':
           '<p class="muted small">Start the campaign to create sessions. Existing sessions remain inspectable.</p>');
       target.querySelectorAll("[data-open-session]").forEach(function(button){
         button.addEventListener("click",function(){openSession(button.dataset.openSession);});
+      });
+      target.querySelectorAll("[data-open-run]").forEach(function(button){
+        button.addEventListener("click",async function(){
+          try{
+            var run=await api("runs/"+encodeURIComponent(button.dataset.openRun));
+            $("#session-run-detail").textContent=JSON.stringify(run,null,2);
+            note("Read-only original Run "+run.id+" · "+run.outcome+" · "+run.solution_id);
+          }catch(error){note("Run detail unavailable: "+error.message,true);}
+        });
       });
       var add=$("#session-create");
       if(add)add.addEventListener("click",async function(){
@@ -101,6 +131,16 @@ function mount(root,api,escapeHtml){
           var payload={test_case_id:$("#session-new-case").value,
                       guide_id:$("#session-new-guide").value||null};
           if(row.framework_id)payload.selected_participant_ids=selected($("#session-new-participants"));
+          if(row.mode==="task_centred"&&!row.framework_id){
+            payload.component_ids={};
+            target.querySelectorAll("[data-new-component]").forEach(function(x){
+              if(!x.value)throw Error("Each component of the individual solution is required");
+              payload.component_ids[x.dataset.newComponent]=x.value;
+            });
+            payload.configuration_version=$("#session-new-configuration-version").value;
+            payload.settings=json($("#session-new-settings").value,"Settings");
+            payload.properties=json($("#session-new-properties").value,"Capabilities");
+          }
           var created=await api("campaigns/"+encodeURIComponent(row.id)+"/sessions","POST",payload);
           await openCampaign(row);await openSession(created.id);
         }catch(error){note("Session not created: "+error.message,true);}
@@ -139,7 +179,7 @@ function mount(root,api,escapeHtml){
       '<p class="muted small">Frozen campaign '+esc(s.campaign_id)+' '+esc(s.campaign_revision)+
       ' · Test Case '+esc(s.test_case_id)+' · method v'+esc(s.method_version)+
       ' · '+esc(s.created_by)+' · '+esc(state.status||"in_progress")+'</p>'+
-      (canWrite?'<button type="button" id="session-lifecycle">'+
+      (canWrite&&state.status!=="closed"?'<button type="button" id="session-lifecycle">'+
         (state.status==="paused"?"Resume session":"Pause session")+'</button>':'')+
       '<details><summary>Original method descriptor & evidence provenance</summary>'+
       '<pre id="session-method-json" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre>'+
@@ -215,13 +255,83 @@ function mount(root,api,escapeHtml){
           '</details>';
       }).join("")+'</div>'+
       '<button type="button" id="session-history">View immutable checkpoint history</button>'+
-      '<div id="session-history-content"></div>';
+      '<div id="session-history-content"></div>'+
+      (state.status==="closed"?
+        '<p class="muted small">Closed as immutable run · metrics and evidence can no longer be edited.</p>':
+        editable&&s.individual_setup?
+        '<fieldset id="session-results"><legend>4. Results / Close individual run permanently</legend>'+
+        '<p class="muted small">DoD is mandatory. Unknown numeric values stay unknown, not zero. Run closure is irreversible.</p>'+
+        '<label>Definition of Done outcome<select name="outcome">'+
+         option("accepted","Accepted",false)+option("failed","Failed",false)+'</select></label>'+
+        '<label>Quality (0–100; blank = unmeasured)<input type="number" min="0" max="100" step="any" name="quality_score"></label>'+
+        '<label>Quality rationale<textarea name="quality_evaluation"></textarea></label>'+
+        '<label>Information utility (0–100; blank = unmeasured)<input type="number" min="0" max="100" step="any" name="information_utility_score"></label>'+
+        '<label>Information utility rationale<textarea name="information_utility_evaluation"></textarea></label>'+
+        '<label>Known tokens (blank = unknown)<input type="number" min="0" step="1" name="tokens_count"></label>'+
+        '<label>Token multiplier<select name="tokens_multiplier">'+
+         [1,10,100,1000,1000000].map(function(n){return option(n,n+"×",n===1);}).join("")+'</select></label>'+
+        '<label>Run cost classification<select name="cost_mode">'+
+         option("unknown","Unknown",true)+option("flat_rate","Flat-rate / subscription",false)+
+         option("amount","Run-specific EUR amount",false)+'</select></label>'+
+        '<label>Run-specific EUR amount (only with Amount)<input type="number" name="cost_eur" min="0" step="any"></label>'+
+        '<label>Final human review minutes (blank = unknown)<input type="number" name="human_review_minutes" min="0" step="any"></label>'+
+        '<label>Final human correction minutes (blank = unknown)<input type="number" name="human_correction_minutes" min="0" step="any"></label>'+
+        '<label>Produced code, reports, paths and artifacts (required)<textarea name="produced_outputs" required></textarea></label>'+
+        '<label>Additional notes<textarea name="notes"></textarea></label>'+
+        '<label>Extensible measured evidence (JSON object)<textarea name="extensions">{}</textarea></label>'+
+        '<label>Additional immutable evidence links'+selectEvidence([])+'</label>'+
+        '<button type="button" id="session-close-run">Close as permanent Run</button></fieldset>':
+        !s.individual_setup?'<p class="muted small">This legacy/composite draft has no pinned individual solution; it cannot close under PLAT-15.</p>':'');
     $("#session-method-json").textContent=JSON.stringify(s.method_descriptor,null,2);
-    if(canWrite){
+    if(canWrite&&state.status!=="closed"){
       $("#session-lifecycle").addEventListener("click",function(){
         var action=state.status==="paused"?"resume":"pause";
         submit("sessions/"+encodeURIComponent(s.id)+"/actions/"+action,
           "POST",{},"Session "+action);
+      });
+    }
+    if(editable&&s.individual_setup){
+      $("#session-close-run").addEventListener("click",async function(){
+        var f=$("#session-results"),button=$("#session-close-run");
+        button.disabled=true;
+        try{
+          var cost_mode=f.querySelector('[name="cost_mode"]').value;
+          var tokens=f.querySelector('[name="tokens_count"]').value;
+          var payload={
+            expected_revision:s.revision,
+            outcome:f.querySelector('[name="outcome"]').value,
+            quality_score:optionalMinutes(f.querySelector('[name="quality_score"]').value),
+            quality_evaluation:f.querySelector('[name="quality_evaluation"]').value,
+            information_utility_score:optionalMinutes(f.querySelector('[name="information_utility_score"]').value),
+            information_utility_evaluation:f.querySelector('[name="information_utility_evaluation"]').value,
+            tokens_count:tokens===""?null:Number(tokens),
+            tokens_multiplier:tokens===""?1:Number(f.querySelector('[name="tokens_multiplier"]').value),
+            cost_mode:cost_mode,
+            cost_eur:cost_mode==="amount"?optionalMinutes(f.querySelector('[name="cost_eur"]').value):null,
+            human_review_minutes:optionalMinutes(f.querySelector('[name="human_review_minutes"]').value),
+            human_correction_minutes:optionalMinutes(f.querySelector('[name="human_correction_minutes"]').value),
+            produced_outputs:f.querySelector('[name="produced_outputs"]').value,
+            notes:f.querySelector('[name="notes"]').value,
+            extensions:json(f.querySelector('[name="extensions"]').value,"Run extensions"),
+            evidence_link_ids:selected(f.querySelector("[data-evidence]"))
+          };
+          if(tokens!==""&&!Number.isSafeInteger(payload.tokens_count))
+            throw Error("Total token count must be an integer");
+          if(cost_mode==="amount"&&f.querySelector('[name="cost_eur"]').value==="")
+            throw Error("Amount cost requires an EUR value");
+          if(!payload.produced_outputs.trim())throw Error("Produced outputs are required");
+          note("Closing as an immutable run…");
+          var run=await api("sessions/"+encodeURIComponent(s.id)+"/close","POST",payload);
+          session=await api("sessions/"+encodeURIComponent(s.id));
+          await renderSession();
+          note("Permanent Run "+run.id+" saved · "+run.outcome+" · measured solution "+run.solution_id);
+          // The frozen run detail is independently retrievable by readers.
+          var original=await api("runs/"+encodeURIComponent(run.id));
+          var editor=$("#session-editor");
+          var pre=editor.querySelector("#session-closed-run");
+          if(!pre){pre=document.createElement("pre");pre.id="session-closed-run";editor.appendChild(pre);}
+          pre.textContent=JSON.stringify(original,null,2);
+        }catch(error){note("Run closure refused: "+error.message,true);button.disabled=false;}
       });
     }
     if(editable){

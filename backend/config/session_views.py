@@ -80,7 +80,8 @@ def add_session(request,campaign_id):
     _item(campaign_id)
     def run():
         session=create(actor=request.user,campaign_id=campaign_id,data=_payload(request,{
-            "test_case_id","guide_id","selected_participant_ids"}))
+            "test_case_id","guide_id","selected_participant_ids",
+            "component_ids","settings","properties","configuration_version"}))
         response=json_no_store(serialize(session),201)
         response["Location"]="/api/v1/sessions/"+session.public_id
         return response
