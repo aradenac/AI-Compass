@@ -15,7 +15,7 @@
     var details = (payload && (payload.detail || (payload.error && payload.error.detail))) || code;
     var messages = {401: "Authentication required", 403: "Access denied",
       409: "Revision conflict: reload authoritative data before retrying",
-      422: "Invalid fields", 503: "Server unavailable"};
+      422: "Invalid fields", 503: "Server unavailable. No Demo fallback"};
     var e = new Error((messages[status] || details) + " (" + code + ")");
     e.status = status; e.code = code;
     return e;
