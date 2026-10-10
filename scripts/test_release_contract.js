@@ -6,7 +6,8 @@ const vm = require("node:vm");
 
 const source = fs.readFileSync("server-mode.js", "utf8");
 assert(source.includes('"/api/v1/contract"'), "Must negotiate before any Server account request");
-assert(source.indexOf("await ensureReleaseCompatibility()") < source.indexOf('await authRequest("csrf")'), "Contract check must precede authentication");
+const boot = source.slice(source.indexOf("(async function boot()"));
+assert(boot.indexOf("await ensureReleaseCompatibility()") >= 0 && boot.indexOf("await ensureReleaseCompatibility()") < boot.indexOf('await authRequest("csrf")'), "Boot contract check must precede authentication");
 const m = source.match(/function checkReleaseCompatibility\(doc\) \{([\s\S]*?)\n  \}/);
 assert(m, "Pure contract validator should be testable");
 const check = vm.runInNewContext("(function checkReleaseCompatibility(doc) {" + m[1] + "\n})", {});
