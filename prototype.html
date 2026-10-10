@@ -337,6 +337,9 @@ var demoTaskProvider = {request: async function(path, method, payload) {
  if(changed){revision("Task",t.id,previous,t);persist();}
  return {task:demoTaskRow(t),changed:changed};
 }};
+demoTaskProvider.select=function(id){
+ if(db.tasks.some(function(t){return t.id===id})){ui.task=id;render();}
+};
 var demoSharedCatalog = {};
 ["model","provider","harness","framework"].forEach(function(type){
  var base=demoCatalogProviders[type];
