@@ -85,7 +85,7 @@ def _source_solution(identifier,old=None):
 
 def _run_refs(ids,task,solution,old=None):
     if ids is None and old is not None:
-        return [p.run for p in old.run_pins.select_related("run").order_by("id")]
+        ids=[p.run.public_id for p in old.run_pins.select_related("run").order_by("id")]
     if not isinstance(ids,list) or not 1<=len(ids)<=MAX_RUNS or len(ids)!=len(set(
             r for r in ids if isinstance(r,str))):
         raise InvalidRecommendation("Select 1–40 distinct original individual Runs")
