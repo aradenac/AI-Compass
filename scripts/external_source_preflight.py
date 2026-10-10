@@ -91,9 +91,12 @@ def _rows_csv(text):
                "CSV header has empty, whitespace or overly long fields")
         ensure(len(set(header)) == len(header), "Duplicate CSV column names")
         def records():
-            for row in reader:
-                ensure(len(row) == len(header), "CSV row has missing/extra columns")
-                yield dict(zip(header, row))
+            try:
+                for row in reader:
+                    ensure(len(row) == len(header), "CSV row has missing/extra columns")
+                    yield dict(zip(header, row))
+            except csv.Error as error:
+                raise PreflightError("Invalid CSV row: " + str(error)) from error
         return header, records()
     except (csv.Error, UnicodeError) as error:
         raise PreflightError("Invalid CSV header: " + str(error)) from error
@@ -162,8 +165,6 @@ def discover(path, *, format, origin, owner, permission_basis, classification,
         signatures.add(signature)
         known.update(item)
         ensure(len(known) <= MAX_FIELDS, "Source has more than 100 distinct fields")
-        for key in known:
-            pass
         for key, value in item.items():
             observed[key][_type(value)] += 1
     ensure(count > 0, "Source must contain at least one row")
