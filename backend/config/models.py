@@ -341,6 +341,22 @@ class BenchmarkSession(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
 
+class SessionPricingPin(models.Model):
+    """Immutable exact commercial choice for a Task-centred Test Case session."""
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    session = models.ForeignKey(BenchmarkSession, on_delete=models.PROTECT,
+                                related_name="pricing_pins")
+    source_key = models.CharField(max_length=160)
+    component = models.ForeignKey(CatalogItem, on_delete=models.PROTECT, related_name="+")
+    offer = models.ForeignKey(CatalogItem, on_delete=models.PROTECT, related_name="+")
+    offer_revision = models.ForeignKey(CatalogRevision, on_delete=models.PROTECT, related_name="+")
+
+    class Meta:
+        constraints = [models.UniqueConstraint(
+            fields=["session", "source_key"], name="uniq_session_pricing_source")]
+        ordering = ["session_id", "source_key"]
+
+
 class SessionCheckpoint(models.Model):
     """One server-confirmed, immutable step/action; never rewrite earlier drafts."""
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
