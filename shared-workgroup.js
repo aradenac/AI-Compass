@@ -77,7 +77,10 @@
         return '<section class="shared-studio-zone" aria-label="'+escape(zone.name)+'">'+
           '<h3>'+(i+1)+'. '+escape(zone.name)+'</h3><div class="shared-studio-grid">'+
           zone.blocks.filter(function(b){return canVisit(b[0],grants,mode,canWrite);}).map(function(b){
-            var n=counts[b[0]];
+            // Fail closed even if an upstream caller accidentally supplies a
+            // spurious count for a domain without a modeled resolution state.
+            var n=["benchmark","forecasts","recommendations"].includes(b[0]) ?
+              counts[b[0]] : null;
             return '<a class="shared-studio-block'+(CORE.includes(b[0])?" shared-studio-core":"")+
               '" data-studio-section="'+escape(b[0])+'" href="'+escape(href(mode,b[0],identity))+
               '"><strong>'+escape(b[1])+'</strong>'+
