@@ -1,10 +1,10 @@
 {
   "schema": "ai-compass/component-versions@1",
-  "release": "0.5.0",
-  "frontend": "0.4.0",
-  "backend": "0.3.0",
+  "release": "0.6.0",
+  "frontend": "0.5.0",
+  "backend": "0.4.0",
   "api_major": 1,
   "api_min_major": 1,
   "api_max_major": 1,
-  "description": "FUT-05 versioned enterprise accessibility, auditable alternative tariffs and exact campaign offer revision pins"
+  "description": "FUT-06 self-declared Windows/Linux profiles and revisioned composite Harness/Framework OS compatibility"
 }
