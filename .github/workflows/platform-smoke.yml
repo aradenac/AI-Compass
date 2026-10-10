@@ -19,6 +19,7 @@ on:
       - "server-users.js"
       - "server-activity.js"
       - "server-data-health.js"
+      - "server-planning.js"
       - "model-catalog.js"
       - ".env.example"
       - ".github/workflows/platform-smoke.yml"
@@ -130,6 +131,8 @@ jobs:
         run: docker compose exec -T api python manage.py test config.test_activity -v 2
       - name: Verify maintenance-only health scans, access isolation and immutable triage
         run: docker compose exec -T api python manage.py test config.test_data_health -v 2
+      - name: Verify confidential immutable workloads, inheritance and cohort planning
+        run: docker compose exec -T api python manage.py test config.test_workloads -v 2
       - name: Verify task taxonomy ancestry, version history and permissions
         run: docker compose exec -T api python manage.py test config.test_tasks -v 2
       - name: Verify persistent Test Case forks, version history, task links and permissions
@@ -279,6 +282,8 @@ jobs:
           node scripts/test-server-data-health.js
           node scripts/test-server-activity.js
           node scripts/test-server-tasks.js
+          node --check server-planning.js
+          node scripts/test-server-planning.js
           node --check model-catalog.js
           node --check scripts/test-model-catalog.js
           node --check scripts/test-catalog-types.js

@@ -1,6 +1,6 @@
 # Future evolution — Deployment & Adoption Planning
 
-> **Status:** Proposed future feature — functional decisions consolidated and preliminary architecture/impact analysis; **not implemented**.  
+> **Status:** Larger feature remains proposed; **DAP-01 workload foundations now implemented**. The matrix, access deployment and budgets remain future work. See [DAP-01](../workload-planning.md).  
 > **Decision context:** Discussions through 2026-10-10.  
 > **Scope:** Enterprise workload profiles; Task × AI configuration opportunity matrix; profitability simulations and historical trends; exploratory provenance; deployment/access tracking; experimental and rollout resource budgets.  
 > **Related baseline:** [Product Definition](../product-definition.md) · [Platform Architecture & Data Governance](../platform-architecture-and-data-governance.md) · [Benchmark Workflow](../benchmark-workflow.md) · [Users & Access](../users-and-access.md) · [Campaign Evaluation Matrix](campaign-evaluation-matrix.md) · [Technology Accessibility & Pricing Management](technology-accessibility-and-pricing.md) · [Data Governance Audit Explorer](data-governance-audit-explorer.md) · [Composable Setup Guides](composable-setup-guides.md)
