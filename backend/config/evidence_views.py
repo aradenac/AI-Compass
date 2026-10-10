@@ -68,13 +68,22 @@ def _watch_readable(request, item, revision=None):
     if data is None:
         raise Http404("Private Research Source / Watch evidence")
 
-def _checked(link):
+def _checked(link, *, full_integrity=True):
     row = serialize(link)
+    # A metadata listing NEVER reads file bytes. A null verification timestamp is
+    # honest: only explicit detail, download, archive or maintenance scan re-hash
+    # evidence; we do not persist a per-blob freshness checkpoint yet.
+    if not full_integrity:
+        row["integrity"] = "not_checked"
+        row["verification"] = {"status": "not_checked", "last_verified_at": None}
+        return row
     try:
         verify_bytes(link.blob_id, size=link.blob.size)
         row["integrity"] = "ok"
     except (BrokenEvidence, EvidenceError):
         row["integrity"] = "broken"
+    row["verification"] = {"status": row["integrity"],
+                           "last_verified_at": None, "scope": "this_request"}
     return row
 
 
@@ -112,7 +121,7 @@ def list_evidence(request, public_id):
         from .discussion_services import readable_revision
         rows=[link for link in rows if link.revision_id is not None and
               readable_revision(item,request.user,link.revision)]
-    return json_no_store({"item_id": public_id, "results": [_checked(link) for link in rows]})
+    return json_no_store({"item_id": public_id, "results": [_checked(link, full_integrity=False) for link in rows]})
 
 
 @require_POST

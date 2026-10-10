@@ -1,4 +1,4 @@
-"""Minimal AI Compass backend: local-only RBAC sessions and immutable Model catalog."""
+"""AI Compass backend: explicit development/LAN profiles and strict RBAC."""
 import os
 from pathlib import Path
 
@@ -18,6 +18,17 @@ ALLOWED_HOSTS = [
 ]
 if "*" in ALLOWED_HOSTS:
     raise ImproperlyConfigured("Wildcard ALLOWED_HOSTS is not permitted")
+# FUT-02: single protected Server, with explicit fail-closed exposure modes.
+from .deployment_profiles import configuration, ProfileError
+try:
+    _profile = configuration(os.environ)
+except ProfileError as exc:
+    raise ImproperlyConfigured(str(exc)) from exc
+AI_COMPASS_PROFILE = _profile["profile"]
+ALLOWED_HOSTS = _profile["allowed_hosts"]
+CSRF_TRUSTED_ORIGINS = _profile["csrf_origins"]
+SECURE_PROXY_SSL_HEADER = _profile["proxy_header"]
+
 
 INSTALLED_APPS = [
     "django.contrib.auth",
@@ -57,10 +68,10 @@ SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SAMESITE = "Lax"
 
-# Local HTTP only. Before exposing HTTPS externally, enable secure cookies and
-# configure the proxy, origin and trusted hosts appropriately.
-SESSION_COOKIE_SECURE = False
-CSRF_COOKIE_SECURE = False
+# Development is HTTP on loopback only; production LAN requires TLS at Caddy.
+# Internet exposure remains forbidden pending FUT-20 review.
+SESSION_COOKIE_SECURE = _profile["secure"]
+CSRF_COOKIE_SECURE = _profile["secure"]
 SESSION_COOKIE_AGE = 8 * 60 * 60
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 SECURE_CONTENT_TYPE_NOSNIFF = True

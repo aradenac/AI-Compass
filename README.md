@@ -20,6 +20,8 @@ Cross-cutting interaction, slider and tooltip rules: **[Non-Functional Requireme
 
 See **[Product Definition](docs/product-definition.md)** for the agreed product scope, roles, task hierarchy, benchmarking model, evidence and scoring principles, publishing workflow, and evolution roadmap.
 
+For local versus secured LAN server operation, archive export privileges and evidence verification, see **[FUT-02 Deployment and Archive Security](docs/deployment-profiles-and-archive-permissions.md)**. LAN and Internet operational release gates remain separate.
+
 For coordinated, individually identified frontend/backend artifacts, automatic manifest verification, and strict API v1 compatibility, see **[FUT-01 Coordinated Release](docs/coordinated-release.md)**. The release still requires human PLAT-32 operational acceptance (**NO-GO** until approved).
 
 For operational database protection, see the **[Verified Backup & Recovery Runbook](docs/backup-and-recovery.md)** (PLAT-34): automated snapshots, isolated restore drills, integrity reports and retention.
