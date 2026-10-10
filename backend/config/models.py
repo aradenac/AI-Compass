@@ -525,3 +525,48 @@ class CampaignForecastWatchPin(models.Model):
         constraints = [
             models.UniqueConstraint(fields=("origin", "watch"), name="uniq_campaign_forecast_watch"),
         ]
+
+
+class EvaluationSnapshot(models.Model):
+    """One immutable interpretation; source Runs and their metrics are not rewritten."""
+    revision = models.OneToOneField(CatalogRevision, primary_key=True, on_delete=models.PROTECT,
+                                    related_name="evaluation_snapshot")
+    scoring_method = models.ForeignKey(ObjectTypeVersion, on_delete=models.PROTECT,
+                                        related_name="evaluation_snapshots")
+    scoring_config = models.JSONField(default=dict)
+
+
+class EvaluationIndividualRunPin(models.Model):
+    """Exact original individual run plus captured experimental method/provenance."""
+    id = models.BigAutoField(primary_key=True)
+    snapshot = models.ForeignKey(EvaluationSnapshot, on_delete=models.PROTECT,
+                                 related_name="individual_pins")
+    run = models.ForeignKey(BenchmarkRun, on_delete=models.PROTECT, related_name="evaluation_pins")
+    method_definition = models.ForeignKey(ObjectTypeVersion, on_delete=models.PROTECT,
+                                           related_name="+")
+    input_context = models.JSONField(default=dict)
+    position = models.PositiveIntegerField()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=("snapshot", "run"), name="uniq_evaluation_individual_run"),
+            models.UniqueConstraint(fields=("snapshot", "position"), name="uniq_evaluation_individual_order"),
+        ]
+
+
+class EvaluationCompositeRunPin(models.Model):
+    """Composite workflow stays separate from all individual solution estimates."""
+    id = models.BigAutoField(primary_key=True)
+    snapshot = models.ForeignKey(EvaluationSnapshot, on_delete=models.PROTECT,
+                                 related_name="composite_pins")
+    run = models.ForeignKey(CompositeBenchmarkRun, on_delete=models.PROTECT, related_name="evaluation_pins")
+    method_definition = models.ForeignKey(ObjectTypeVersion, on_delete=models.PROTECT,
+                                           related_name="+")
+    input_context = models.JSONField(default=dict)
+    position = models.PositiveIntegerField()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=("snapshot", "run"), name="uniq_evaluation_composite_run"),
+            models.UniqueConstraint(fields=("snapshot", "position"), name="uniq_evaluation_composite_order"),
+        ]
