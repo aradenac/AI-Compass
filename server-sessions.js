@@ -86,7 +86,9 @@ function mount(root,api,escapeHtml){
         }).join(""):'<p>No Server drafts for this campaign.</p>')+
         '<h4>Immutable measured runs · '+runs.length+'</h4>'+
         (runs.length?runs.map(function(r){return '<p>'+esc(r.id)+' · '+esc(r.outcome)+
-           ' · '+esc(r.solution_id)+' <button type="button" data-open-run="'+esc(r.id)+
+           ' · '+(r.kind==="composite"?"Composite · Framework "+esc(r.framework_id)+
+            " · "+(r.participants||[]).length+" participants":
+            "Individual · Solution "+esc(r.solution_id))+' <button type="button" data-open-run="'+esc(r.id)+
            '">Read original run</button></p>';}).join(""):'<p>No completed runs yet.</p>')+
         '<pre id="session-run-detail" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre>'+
         (canWrite&&row.status==="in_progress"&&!row.archived?
@@ -173,6 +175,7 @@ function mount(root,api,escapeHtml){
     var target=$("#session-editor");
     if(!target||!session)return;
     var s=session,steps=s.method_descriptor.steps||[],state=s.state,
+        isComposite=s.selected_participant_ids.length>=2,
         editable=canWrite&&state.status==="in_progress";
     target.hidden=false;
     target.innerHTML='<h4>Session '+esc(s.id)+' · '+esc(s.revision)+'</h4>'+
@@ -258,8 +261,11 @@ function mount(root,api,escapeHtml){
       '<div id="session-history-content"></div>'+
       (state.status==="closed"?
         '<p class="muted small">Closed as immutable run · metrics and evidence can no longer be edited.</p>':
-        editable&&s.individual_setup?
-        '<fieldset id="session-results"><legend>4. Results / Close individual run permanently</legend>'+
+        editable&&(s.individual_setup||isComposite)?
+        '<fieldset id="session-results"><legend>4. Results / Close '+
+        (isComposite?"Framework composite run":"individual run")+' permanently</legend>'+
+        (isComposite?'<p class="muted small"><strong>Workflow-wide result only:</strong> '+
+          esc(s.selected_participant_ids.length)+' version-pinned participant roles. Quality, cost, tokens and time will not be assigned to any individual AI Solution.</p>':'')+
         '<p class="muted small">DoD is mandatory. Unknown numeric values stay unknown, not zero. Run closure is irreversible.</p>'+
         '<label>Definition of Done outcome<select name="outcome">'+
          option("accepted","Accepted",false)+option("failed","Failed",false)+'</select></label>'+
@@ -281,7 +287,7 @@ function mount(root,api,escapeHtml){
         '<label>Extensible measured evidence (JSON object)<textarea name="extensions">{}</textarea></label>'+
         '<label>Additional immutable evidence links'+selectEvidence([])+'</label>'+
         '<button type="button" id="session-close-run">Close as permanent Run</button></fieldset>':
-        !s.individual_setup?'<p class="muted small">This legacy/composite draft has no pinned individual solution; it cannot close under PLAT-15.</p>':'');
+        !s.individual_setup?'<p class="muted small">This legacy draft lacks a pinned AI setup and cannot be closed. Start a new session with explicit components.</p>':'');
     $("#session-method-json").textContent=JSON.stringify(s.method_descriptor,null,2);
     if(canWrite&&state.status!=="closed"){
       $("#session-lifecycle").addEventListener("click",function(){
@@ -290,7 +296,7 @@ function mount(root,api,escapeHtml){
           "POST",{},"Session "+action);
       });
     }
-    if(editable&&s.individual_setup){
+    if(editable&&(s.individual_setup||isComposite)){
       $("#session-close-run").addEventListener("click",async function(){
         var f=$("#session-results"),button=$("#session-close-run");
         button.disabled=true;
@@ -324,7 +330,9 @@ function mount(root,api,escapeHtml){
           var run=await api("sessions/"+encodeURIComponent(s.id)+"/close","POST",payload);
           session=await api("sessions/"+encodeURIComponent(s.id));
           await renderSession();
-          note("Permanent Run "+run.id+" saved · "+run.outcome+" · measured solution "+run.solution_id);
+          note("Permanent "+(run.kind==="composite"?"composite Framework":"individual")+
+            " Run "+run.id+" saved · "+run.outcome+
+            (run.kind==="composite"?" · global metrics only":" · measured solution "+run.solution_id));
           // The frozen run detail is independently retrievable by readers.
           var original=await api("runs/"+encodeURIComponent(run.id));
           var editor=$("#session-editor");
