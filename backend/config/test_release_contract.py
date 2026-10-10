@@ -1,4 +1,5 @@
 """FUT-01 compatibility assertions; no database needed for the contract endpoint."""
+import json
 from django.test import SimpleTestCase
 from django.urls import resolve
 
@@ -25,7 +26,7 @@ class ContractTests(SimpleTestCase):
     def test_typed_error_is_distinct_from_legacy_error_shape(self):
         response = error_payload("unsupported_api_version", "use v1", status=409)
         self.assertEqual(response.status_code, 409)
-        self.assertEqual(response.json()["error"]["code"], "unsupported_api_version")
+        self.assertEqual(json.loads(response.content)["error"]["code"], "unsupported_api_version")
 
     def test_preexisting_health_endpoint_still_exists_without_auth(self):
         # The health endpoint remains in config.api, URL routing is unchanged.
