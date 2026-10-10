@@ -132,12 +132,15 @@ function mount(root,api,escapeHtml){
   async function renderSession(){
     var target=$("#session-editor");
     if(!target||!session)return;
-    var s=session,steps=s.method_descriptor.steps||[],state=s.state;
+    var s=session,steps=s.method_descriptor.steps||[],state=s.state,
+        editable=canWrite&&state.status==="in_progress";
     target.hidden=false;
     target.innerHTML='<h4>Session '+esc(s.id)+' · '+esc(s.revision)+'</h4>'+
       '<p class="muted small">Frozen campaign '+esc(s.campaign_id)+' '+esc(s.campaign_revision)+
       ' · Test Case '+esc(s.test_case_id)+' · method v'+esc(s.method_version)+
-      ' · '+esc(s.created_by)+'</p>'+
+      ' · '+esc(s.created_by)+' · '+esc(state.status||"in_progress")+'</p>'+
+      (canWrite?'<button type="button" id="session-lifecycle">'+
+        (state.status==="paused"?"Resume session":"Pause session")+'</button>':'')+
       '<details><summary>Original method descriptor & evidence provenance</summary>'+
       '<pre id="session-method-json" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre>'+
       '<p>'+s.evidence.length+' pinned evidence link(s), unchanged SHA-256 hashes.</p></details>'+
@@ -152,7 +155,7 @@ function mount(root,api,escapeHtml){
       '<label>Additional setup properties (JSON object)<textarea name="extensions">'+
         esc(JSON.stringify(state.setup.extensions,null,2))+'</textarea></label>'+
       '<label>Supporting evidence'+selectEvidence(state.setup.evidence_link_ids)+'</label>'+
-      (canWrite?'<button type="button" id="session-save-setup">Save installation checkpoint</button>':'')+
+      (editable?'<button type="button" id="session-save-setup">Save installation checkpoint</button>':'')+
       '</fieldset>'+
       '<h4>2. Method-guided progress · saved one step at a time</h4>'+
       '<p class="muted small">Steps and fields come from the original frozen method definition, not the current campaign schema.</p>'+
@@ -180,7 +183,7 @@ function mount(root,api,escapeHtml){
           '<label>Extensible step metadata (JSON object)<textarea name="extensions">'+
            esc(JSON.stringify(values.extensions||{},null,2))+'</textarea></label>'+
           '<label>Evidence'+selectEvidence(values.evidence_link_ids)+'</label>'+
-          (canWrite?'<button type="button" data-save-step="'+esc(step.key)+'">Save this step</button>':'')+
+          (editable?'<button type="button" data-save-step="'+esc(step.key)+'">Save this step</button>':'')+
           '</fieldset>';
       }).join("")+'</div>'+
       '<fieldset id="session-interaction"><legend>3. Timed interaction · append immediately</legend>'+
@@ -196,7 +199,7 @@ function mount(root,api,escapeHtml){
         option("","Coordinator / unspecified",true)+s.selected_participant_ids.map(function(id){
           return option(id,id,false);}).join("")+'</select></label>':'')+
       '<label>Interim artefact links'+selectEvidence([])+'</label>'+
-      (canWrite?'<button type="button" id="session-add-interaction">Append interaction & save now</button>':'')+
+      (editable?'<button type="button" id="session-add-interaction">Append interaction & save now</button>':'')+
       '</fieldset>'+
       '<h4>Recorded interactions · '+state.interactions.length+'</h4>'+
       '<p class="muted small">Summed human time: '+(state.measurements.human_total_minutes===null?
@@ -215,6 +218,13 @@ function mount(root,api,escapeHtml){
       '<div id="session-history-content"></div>';
     $("#session-method-json").textContent=JSON.stringify(s.method_descriptor,null,2);
     if(canWrite){
+      $("#session-lifecycle").addEventListener("click",function(){
+        var action=state.status==="paused"?"resume":"pause";
+        submit("sessions/"+encodeURIComponent(s.id)+"/actions/"+action,
+          "POST",{},"Session "+action);
+      });
+    }
+    if(editable){
       $("#session-save-setup").addEventListener("click",function(){
         var f=$("#session-setup");
         try{
