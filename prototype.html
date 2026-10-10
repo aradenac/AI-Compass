@@ -811,9 +811,23 @@ if(target)target.insertAdjacentHTML("afterbegin",runtime.renderPersonaLinks(user
 if(initialWorkspace==="workgroup" && initialSection && window.AICompassWorkgroup.STABLE[initialSection]&&canEdit()) {
   var source=document.querySelector(".content");
   if(source){
+    // One default list/presentation in both runtimes. Keep historical Demo
+    // forms and specialist actions accessible rather than silently dropping them.
+    Array.from(source.children).forEach(function(child){
+      if(!child.classList.contains("shared-personas"))child.hidden=true;
+    });
     source.insertAdjacentHTML("afterbegin",
       window.AICompassWorkgroup.breadcrumbs("demo",initialSection)+
-      '<div id="demo-shared-summary" class="card" role="region" aria-label="Shared knowledge view"></div>');
+      '<div id="demo-shared-summary" class="card" role="region" aria-label="Shared knowledge view"></div>'+
+      '<button type="button" id="demo-open-full-workspace" class="btn">Open complete Demo workspace / edit / history</button>');
+    document.getElementById("demo-open-full-workspace").onclick=function(){
+      Array.from(source.children).forEach(function(child){
+        if(child!==document.getElementById("demo-shared-summary") &&
+            child!==this)child.hidden=false;
+      },this);
+      document.getElementById("demo-shared-summary").hidden=true;
+      this.hidden=true;
+    };
     window.AICompassWorkgroup.mountSummary(
       document.getElementById("demo-shared-summary"),
       window.AICompassWorkgroup.demoProvider(db,canEdit),initialSection,"demo",{
