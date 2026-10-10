@@ -563,7 +563,6 @@ var ui={page:initialPage,task:"t5",solution:"s1",solutionView:"solutions",bench:
  matrixTarget:"t5",filters:{},expanded:{},modal:"",detail:"",
  selectedCompare:["s1","s2","s3"],adminTab:"queue",taskView:"browse",
  editingTask:"",inlineDraft:null,draggedTask:""};
-    initialWorkspace==="management"?"management":"dashboard"
 function user(){return db.users.find(function(x){return x.id===currentUser;});}
 function canEdit(){return !!user()&&user().role==="workgroup";}
 function canContribute(){return !!user();}
