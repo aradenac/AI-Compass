@@ -273,12 +273,15 @@ def _record(item, rev, ctx, actor, action):
         for kind, component, pinned in ctx["components"]])
     persist_participants(campaign=item,snapshot=snap,prepared=ctx["participants"])
     origin=ctx.get("forecast_origin")
-    if origin is not None:
+    initial=ctx.get("new_forecast_snapshot")
+    if origin is not None or initial is not None:
+        frozen=initial if initial is not None else origin.forecast_snapshot
         link=CampaignForecastOrigin.objects.create(
-            campaign_snapshot=snap,forecast_snapshot=origin.forecast_snapshot)
+            campaign_snapshot=snap,forecast_snapshot=frozen)
+        parents=frozen.watch_pins if initial is not None else origin.watch_pins
         CampaignForecastWatchPin.objects.bulk_create([
             CampaignForecastWatchPin(origin=link,watch=p.watch,watch_revision=p.watch_revision)
-            for p in origin.watch_pins.select_related("watch","watch_revision").order_by("id")
+            for p in parents.select_related("watch","watch_revision").order_by("id")
         ])
     item.current_revision=rev
     item.save(update_fields=["current_revision"])
@@ -286,7 +289,7 @@ def _record(item, rev, ctx, actor, action):
     return item
 
 
-def create(*, actor, data):
+def create(*, actor, data, forecast_snapshot=None):
     schema=_schema()
     props=_properties(data)
     props.update(mode=data.get("mode"),status="planned",archived=False)
@@ -299,6 +302,11 @@ def create(*, actor, data):
         try:
             with transaction.atomic():
                 ctx=_snapshot_context(data, actor)
+                if forecast_snapshot is not None:
+                    if data.get("mode")!="task_centred" or ctx["task"].pk!=forecast_snapshot.task_id:
+                        raise InvalidCampaign("Forecast validation campaign must pin the forecast's fixed task")
+                    ctx["task_revision"]=forecast_snapshot.task_revision
+                    ctx["new_forecast_snapshot"]=forecast_snapshot
                 item=CatalogItem.objects.create(public_id=candidate,type_slug="campaign")
                 rev=CatalogRevision.objects.create(
                     item=item,number=1,schema_version=schema,display_name=name,
