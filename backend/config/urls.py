@@ -8,6 +8,7 @@ urlpatterns = [
     path("api/v1/sessions/<slug:public_id>", session_views.get_session),
     path("api/v1/sessions/<slug:public_id>/checkpoints", session_views.get_checkpoints),
     path("api/v1/sessions/<slug:public_id>/checkpoints/<int:number>", session_views.get_checkpoint),
+    path("api/v1/sessions/<slug:public_id>/actions/<slug:action>", session_views.lifecycle),
     path("api/v1/sessions/<slug:public_id>/setup", session_views.update_setup),
     path("api/v1/sessions/<slug:public_id>/steps/<slug:step_key>", session_views.update_step),
     path("api/v1/sessions/<slug:public_id>/interactions", session_views.add_interaction),
