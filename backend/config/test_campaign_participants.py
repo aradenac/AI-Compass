@@ -99,6 +99,9 @@ class FrameworkParticipantTests(TestCase):
                          expected_revision="r001",name="New model release")
         revise_component(item=self.framework,type_slug="framework",actor=self.writer,
                          expected_revision="r001",name="Updated Spec Kit")
+        # The service obtains a separate select_for_update ORM instance.
+        model.refresh_from_db()
+        self.framework.refresh_from_db()
         untouched=self.send(BASE+"/"+initial["id"],{
             "expected_revision":"r001","notes":"Only notes changed"},method="PATCH")
         self.assertEqual(untouched.status_code,200,untouched.content)
