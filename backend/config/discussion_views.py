@@ -2,6 +2,7 @@
 import json
 
 from django.conf import settings
+from django.db import transaction
 from django.http import Http404,HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404
 from django.views.decorators.cache import never_cache
@@ -165,11 +166,15 @@ def attachment(request,public_id):
             raise EvidenceError("Internal attachment access denied")
         source=request.POST.get("source","feedback")
         if not isinstance(source,str) or len(source)>600:raise EvidenceError("Invalid source")
-        link=attach(item=msg.item,revision=rev,file=upload,actor=request.user,
-                    source=source,provenance={"thread_id":msg.thread.item.public_id,
-                                              "message_id":msg.item.public_id,
-                                              "visibility":rev.properties["visibility"]})
-        verify_bytes(link.blob_id,size=link.blob.size)
+        # Commit the immutable EvidenceLink only after a second checksum/size
+        # verification. Any failure rolls back metadata (the private original
+        # file may be an orphan, never a valid broken attachment).
+        with transaction.atomic():
+            link=attach(item=msg.item,revision=rev,file=upload,actor=request.user,
+                        source=source,provenance={"thread_id":msg.thread.item.public_id,
+                                                  "message_id":msg.item.public_id,
+                                                  "visibility":rev.properties["visibility"]})
+            verify_bytes(link.blob_id,size=link.blob.size)
         result=json_no_store(evidence_serialize(link),201)
         result["Location"]="/api/v1/evidence/"+str(link.pk)
         return result
