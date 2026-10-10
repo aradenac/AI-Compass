@@ -298,6 +298,29 @@ class BenchmarkSessionTests(TestCase):
         self.assertEqual(self.call(b+"/setup",{"expected_revision":"r002","notes":"no"},
             "PATCH",client=read).status_code,403)
 
+    def test_pause_resume_lifecycle_preserves_last_confirmed_checkpoint(self):
+        camp=self.campaign()
+        ses=self.create_session(camp)
+        b="/api/v1/sessions/"+ses["id"]
+        self.assertEqual(ses["state"]["status"],"in_progress")
+        paused=self.call(b+"/actions/pause",{"expected_revision":"r001"})
+        self.assertEqual(paused.status_code,200,paused.content)
+        self.assertEqual(paused.json()["state"]["status"],"paused")
+        self.assertEqual(paused.json()["revision"],"r002")
+        self.assertEqual(self.call(b+"/steps/planning",{
+            "expected_revision":"r002","notes":"Should not be accepted"},"PATCH").status_code,409)
+        self.assertEqual(self.call(b+"/actions/pause",{"expected_revision":"r002"}).status_code,409)
+        reopened=self.call(b+"/actions/resume",{"expected_revision":"r002"})
+        self.assertEqual(reopened.status_code,200,reopened.content)
+        self.assertEqual(reopened.json()["state"]["status"],"in_progress")
+        self.assertEqual(self.client.get(b+"/checkpoints/2").json()["state"]["status"],"paused")
+        recorded=self.call(b+"/interactions",{
+            "expected_revision":"r003","content":"Reopened prompt"})
+        self.assertEqual(recorded.status_code,200,recorded.content)
+        self.assertEqual(recorded.json()["revision"],"r004")
+        self.assertEqual([x["revision"] for x in self.client.get(b+"/checkpoints")
+                         .json()["checkpoints"]],["r001","r002","r003","r004"])
+
     def test_pg_immutable_session_and_evidence_guards(self):
         camp=self.campaign()
         one=self.create_session(camp)
