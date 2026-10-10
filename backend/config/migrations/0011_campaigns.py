@@ -153,7 +153,7 @@ class Migration(migrations.Migration):
                 on_delete=django.db.models.deletion.PROTECT,related_name="+",to="config.catalogrevision")),
         ]),
         migrations.CreateModel(name="CampaignCasePin",fields=[
-            ("id",models.BigAutoField(primary_key=True,serialize=False)),
+            ("id",models.BigAutoField(auto_created=True,primary_key=True,serialize=False)),
             ("snapshot",models.ForeignKey(on_delete=django.db.models.deletion.PROTECT,
                 related_name="case_pins",to="config.campaignsnapshot")),
             ("test_case",models.ForeignKey(on_delete=django.db.models.deletion.PROTECT,
@@ -163,7 +163,7 @@ class Migration(migrations.Migration):
         ],options={"constraints":[models.UniqueConstraint(fields=("snapshot","test_case"),
                 name="uniq_campaign_snapshot_case")]}),
         migrations.CreateModel(name="CampaignComponentPin",fields=[
-            ("id",models.BigAutoField(primary_key=True,serialize=False)),
+            ("id",models.BigAutoField(auto_created=True,primary_key=True,serialize=False)),
             ("snapshot",models.ForeignKey(on_delete=django.db.models.deletion.PROTECT,
                 related_name="component_pins",to="config.campaignsnapshot")),
             ("kind",models.CharField(max_length=12)),
