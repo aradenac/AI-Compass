@@ -272,7 +272,8 @@ def revise_message(actor,identifier,expected_revision,properties):
             properties=props,created_by=actor)
         item.current_revision=rev;item.save(update_fields=["current_revision"])
         record_catalog_event(item=item,revision=rev,actor=actor,action="corrected")
-        return msg
+        # Reload rather than serializing the select_related cache from r001.
+        return _message(identifier)
 
 
 def thread_record(thread,user):
