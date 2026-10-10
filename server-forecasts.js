@@ -170,7 +170,7 @@ function mount(root,csrf,escapeHtml){
         if(!enabled)return;
         if(draft)draft.clear();
         node.hidden=true;await refresh();status("Theoretical Forecast stored, prior review and evidence preserved.");
-      }catch(err){status("Forecast not saved: "+err.message,true);}
+      }catch(err){if(draft&&/409|revision_conflict/.test(err.message))draft.conflict();status("Forecast not saved: "+err.message,true);}
       finally{b.disabled=false;}
     });
   }
