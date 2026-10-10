@@ -162,6 +162,16 @@ def add_interaction(request,public_id):
         "schema_version"})
 
 
+@require_POST
+@csrf_protect
+@never_cache
+@capability("business_write")
+def lifecycle(request,public_id,action):
+    if action not in ("pause","resume"):
+        return json_no_store({"error":"invalid_action"},400)
+    return _change(request,public_id,action,set())
+
+
 def collection(request,campaign_id):
     if request.method=="GET":return list_sessions(request,campaign_id)
     if request.method=="POST":return add_session(request,campaign_id)
