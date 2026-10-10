@@ -105,29 +105,25 @@ Former [#19](https://github.com/aradenac/AI-Compass/issues/19) was closed as **c
 
 ## Next action (as of 2026-10-10)
 
-The original PLAT feature implementation PRs up through #31 have been merged,
-and #32 automated acceptance tooling is integrated. **The remaining open
-approved PLAT issues are #35, #26, #32 and #33.** They are not interchangeable:
+**Owner decision:** close technically completed issues even when operational
+human acceptance will happen later. **#35, #26, #32 are CLOSED as code
+deliveries**, following merged CI-green PRs #45/#68, #49/#69 and #65
+respectively; manual staging, separately approved migration replay and
+release sign-off are **still not performed**. These are **hard safety gates**,
+not optional acceptance. The [release readiness protocol](release-readiness.md)
+retains the actual checklist and unchanged **NO-GO** state. Any later
+failure is tracked as a new corrective issue referencing the relevant
+delivery.
 
-1. **[#35](https://github.com/aradenac/AI-Compass/issues/35)** — first,
-   make the isolated staging validation evidence independently reviewable,
-   then perform the actual authenticated Server-frontend *human acceptance*.
-   The automation and CLI already exist; a green CI is not this acceptance.
-2. **[#26](https://github.com/aradenac/AI-Compass/issues/26)** — after
-   an approved #35 candidate, verify governed replay on a distinct approved
-   disposable production-like environment with a NEW independently recoverable
-   database+evidence backup. Do not promote a staging DB or claim a real
-   replay happened just because unit tests passed.
-3. **[#32](https://github.com/aradenac/AI-Compass/issues/32)** — correlate
-   accepted staging, approved replay, physical recovery, dual runtime E2E and
-   release sign-off into a final **GO/NO-GO**. Its automated dossier is
-   implemented but deliberately NO-GO without the above human evidence.
-4. **[#33](https://github.com/aradenac/AI-Compass/issues/33)** — deferred
-   until #32 closes and production is actually deployed and validated; the
-   real external data source/format is not yet selected.
+**Next open issue: [#33](https://github.com/aradenac/AI-Compass/issues/33)**,
+external real-data onboarding. Its first actual adapter cannot be written
+or accepted until the real external source, representative sample, ownership,
+permitted fields, first business entity and stable source key are selected,
+and an operational deployment is approved. The independently testable
+read-only [source intake preflight](external-source-onboarding.md)
+provides an initial safe review step; it does not populate Server data.
+Do NOT insert a fabricated "representative" Demo fixture as a production
+source or close #33 on the basis of source discovery alone.
 
-For **new future product features**, including DAP-02 onward, use
-[docs/features](features/README.md) to collect decisions and await a
-separately **validated issue breakdown**. Shipped
-[DAP-01/#66](https://github.com/aradenac/AI-Compass/issues/66) does not
-authorize automatic continuation of this proposed line.
+Future product features in [docs/features](features/README.md) remain
+outside this approved PLAT backlog until a separate issue plan is accepted.
