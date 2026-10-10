@@ -7,6 +7,7 @@ from django.views.decorators.http import require_GET, require_POST, require_http
 
 from .auth_views import capability, json_no_store
 from .catalog_schemas import InvalidModel
+from .pricing_services import InvalidPricing
 from .catalog_services import RevisionConflict, SchemaWriteBlocked, ExhaustedIds
 from .catalog_views import read_payload
 from .models import CatalogItem, CatalogRevision, ObjectTypeVersion
@@ -46,7 +47,7 @@ def _error(exc):
 def _write(fn):
     try:
         return fn()
-    except (InvalidModel,InvalidCampaign,InvalidTransition,RevisionConflict,
+    except (InvalidPricing,InvalidModel,InvalidCampaign,InvalidTransition,RevisionConflict,
             SchemaWriteBlocked,ExhaustedIds) as exc:
         return _error(exc)
 
