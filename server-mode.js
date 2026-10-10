@@ -57,6 +57,7 @@
     '</div>',
     '<section id="server-model-catalog" class="server-catalog" hidden>',
     '<div id="server-shared-catalog"></div>',
+    '<section id="server-pricing" class="server-card" hidden></section>',
     '<div class="server-model-toolbar"><div><h2>Models · Providers · Harnesses · Frameworks</h2><p class="muted small">Persistent catalog · versions and original revisions</p></div>',
     '<button type="button" class="btn" id="server-model-refresh">Refresh from Server</button></div>',
     '<p id="server-model-state" class="server-status" role="status" aria-live="polite"></p>',
@@ -131,6 +132,10 @@
       onRaw: function (record) { showRaw(record); },
       onEvidence: function (id) { showEvidence(id); }
     });
+  var pricing = window.AICompassPricing.mount(
+    document.getElementById("server-pricing"),
+    window.AICompassPricing.serverAdapter(fetch, csrfFromCookie),
+    {mode:"server"});
   // Legacy editor DOM remains solely for advanced record inspection and
   // existing regression boundaries, not as an additional displayed catalog.
   document.getElementById("server-model-list").hidden = true;
@@ -271,6 +276,7 @@
       document.getElementById("server-workgroup-home").hidden = true;
       document.getElementById("server-workgroup-summary").hidden = true;
       sharedCatalog.setAccess(false, false);
+      pricing.setAccess(false,false);
       personas.replaceChildren(); personas.hidden = true;
       tasks.setAccess(false, false);
       testCases.setAccess(false, false);
@@ -303,6 +309,9 @@
       personaId = "workgroup";
     personas.innerHTML = window.AICompassRuntime.renderPersonaLinks(data, "server", personaId);
     personas.hidden = !personas.textContent.trim();
+    pricing.setAccess(!maintenanceWorkspace &&
+      ["engineer","workgroup"].includes(personaId) && grants.includes("business_read"),
+      personaId==="workgroup" && grants.includes("business_write"));
     sharedCatalog.setAccess(!maintenanceWorkspace &&
       ["engineer", "workgroup"].includes(personaId) && grants.includes("business_read"),
       personaId === "workgroup" && grants.includes("business_write"));
