@@ -81,6 +81,7 @@
     '</section>',
     '<section id="server-test-cases" class="server-catalog" hidden></section>',
     '<section id="server-guides" class="server-catalog" hidden></section>',
+    '<section id="server-campaigns" class="server-catalog" hidden></section>',
     '<section id="server-users" class="server-catalog" hidden></section>',
     '<section id="server-activity" class="server-catalog" hidden></section>',
     '<section id="server-data-health" class="server-catalog" hidden></section>',
@@ -111,6 +112,7 @@
   var tasks = window.AICompassServerTasks.mount(document.getElementById("server-task-tree"), csrfFromCookie, escapeHtml);
   var testCases = window.AICompassServerTestCases.mount(document.getElementById("server-test-cases"), csrfFromCookie, escapeHtml);
   var guides = window.AICompassServerGuides.mount(document.getElementById("server-guides"), csrfFromCookie, escapeHtml);
+  var campaigns = window.AICompassServerCampaigns.mount(document.getElementById("server-campaigns"), csrfFromCookie, escapeHtml);
   var users = window.AICompassServerUsers.mount(document.getElementById("server-users"), csrfFromCookie, escapeHtml);
   var activity = window.AICompassServerActivity.mount(document.getElementById("server-activity"), escapeHtml);
   var health = window.AICompassServerDataHealth.mount(document.getElementById("server-data-health"), csrfFromCookie, escapeHtml);
@@ -203,6 +205,7 @@
       tasks.setAccess(false, false);
       testCases.setAccess(false, false);
       guides.setAccess(false, false);
+      campaigns.setAccess(false, false);
       users.setAccess(false, false);
       activity.setAccess(false, false);
       health.setAccess(false, false);
@@ -219,6 +222,7 @@
     tasks.setAccess(!maintenanceWorkspace && grants.includes("business_read"), !maintenanceWorkspace && grants.includes("business_write"));
     testCases.setAccess(!maintenanceWorkspace && grants.includes("business_read"), !maintenanceWorkspace && grants.includes("business_write"));
     guides.setAccess(!maintenanceWorkspace && grants.includes("business_read"), !maintenanceWorkspace && grants.includes("business_write"));
+    campaigns.setAccess(!maintenanceWorkspace && grants.includes("business_read"), !maintenanceWorkspace && grants.includes("business_write"));
     users.setAccess(!maintenanceWorkspace && grants.includes("users_manage"), !maintenanceWorkspace && grants.includes("platform_manage"));
     activity.setAccess(!maintenanceWorkspace && grants.includes("business_read"), !maintenanceWorkspace && grants.includes("users_manage"));
     health.setAccess(maintenanceWorkspace && grants.includes("maintenance_view"), maintenanceWorkspace && grants.includes("maintenance_triage"));
@@ -600,6 +604,7 @@
       tasks.setAccess(false, false);
       testCases.setAccess(false, false);
       guides.setAccess(false, false);
+      campaigns.setAccess(false, false);
       users.setAccess(false, false);
       activity.setAccess(false, false);
       health.setAccess(false, false);
