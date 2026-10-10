@@ -58,6 +58,28 @@ class Migration(migrations.Migration):
             constraint=models.UniqueConstraint(fields=["snapshot","source_key"],
                  name="uniq_campaign_pricing_source")
         ),
+        migrations.CreateModel(
+            name="SessionPricingPin",
+            fields=[
+                ("id",models.UUIDField(primary_key=True,default=config.catalog_ids.uuid7,
+                                        editable=False,serialize=False)),
+                ("source_key",models.CharField(max_length=160)),
+                ("session",models.ForeignKey(to="config.benchmarksession",
+                    on_delete=django.db.models.deletion.PROTECT,related_name="pricing_pins")),
+                ("component",models.ForeignKey(to="config.catalogitem",
+                    on_delete=django.db.models.deletion.PROTECT,related_name="+")),
+                ("offer",models.ForeignKey(to="config.catalogitem",
+                    on_delete=django.db.models.deletion.PROTECT,related_name="+")),
+                ("offer_revision",models.ForeignKey(to="config.catalogrevision",
+                    on_delete=django.db.models.deletion.PROTECT,related_name="+")),
+            ],
+            options={"ordering":["session_id","source_key"]},
+        ),
+        migrations.AddConstraint(
+            model_name="sessionpricingpin",
+            constraint=models.UniqueConstraint(fields=["session","source_key"],
+                name="uniq_session_pricing_source"),
+        ),
         migrations.RunPython(register_schema,reverse_code=migrations.RunPython.noop),
         migrations.RunSQL("""
             CREATE TRIGGER immutable_campaign_pricing_pin BEFORE UPDATE OR DELETE
@@ -89,7 +111,15 @@ class Migration(migrations.Migration):
             CREATE TRIGGER validate_campaign_pricing_pin BEFORE INSERT
             ON config_campaignpricingpin FOR EACH ROW
             EXECUTE FUNCTION ai_compass_validate_campaign_pricing_pin();
+            CREATE TRIGGER immutable_session_pricing_pin BEFORE UPDATE OR DELETE
+            ON config_sessionpricingpin FOR EACH ROW
+            EXECUTE FUNCTION ai_compass_no_revision_mutation();
+            CREATE TRIGGER validate_session_pricing_pin BEFORE INSERT
+            ON config_sessionpricingpin FOR EACH ROW
+            EXECUTE FUNCTION ai_compass_validate_campaign_pricing_pin();
         """,reverse_sql="""
+            DROP TRIGGER IF EXISTS validate_session_pricing_pin ON config_sessionpricingpin;
+            DROP TRIGGER IF EXISTS immutable_session_pricing_pin ON config_sessionpricingpin;
             DROP TRIGGER IF EXISTS validate_campaign_pricing_pin ON config_campaignpricingpin;
             DROP FUNCTION IF EXISTS ai_compass_validate_campaign_pricing_pin();
             DROP TRIGGER IF EXISTS immutable_campaign_pricing_pin ON config_campaignpricingpin;
