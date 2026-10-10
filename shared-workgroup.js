@@ -57,7 +57,7 @@
     return grants.includes("business_read");
   }
   function href(mode, section, identity) {
-    return "/?mode="+mode+"&workspace=workgroup&section="+encodeURIComponent(section);
+    return (mode==="demo"?"?mode=demo":"/?mode=server")+"&workspace=workgroup&section="+encodeURIComponent(section);
   }
   // A count is displayed ONLY for the explicit lifecycle states whose exit
   // is modeled. Failed/denied data means NO count, not zero or a fabricated ToDo.
