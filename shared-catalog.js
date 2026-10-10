@@ -51,7 +51,7 @@
         known.length === 2 : known.includes(filter));
     }
     function drawCatalog() {
-      var filter = osFilter.value || "all";
+      var filter = osFilter && osFilter.value || "all";
       list.innerHTML = TYPES.map(function (type) {
         var group = rows.filter(function (r) {return r.type === type;});
         if (filter !== "all" && ["harness","framework"].includes(type))
@@ -65,7 +65,7 @@
             }).join(' · ')+'</p>':"");
       }).join("");
     }
-    osFilter.addEventListener("change",drawCatalog);
+    if (osFilter && osFilter.addEventListener) osFilter.addEventListener("change",drawCatalog);
     function edit(model, type) {
       if (!canWrite) return;
       selected = model;
