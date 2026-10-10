@@ -34,12 +34,12 @@ vm.runInNewContext(js,sb,{filename:"server-sessions.js"});
 const esc=s=>String(s).replaceAll("&","&amp;").replaceAll("<","&lt;")
                        .replaceAll(">","&gt;").replaceAll('"',"&quot;");
 let calls=[];
-const module=sb.window.AICompassServerSessions.mount(root,async function(path){
+const sessionUi=sb.window.AICompassServerSessions.mount(root,async function(path){
  calls.push(path);return {};
 },esc);
 assert.equal(calls.length,0);
 assert(root.hidden);
-module.setAccess(false,false);
+sessionUi.setAccess(false,false);
 assert(root.hidden);
 assert.equal(calls.length,0);
 console.log("PLAT-14: immutable Server session UI, schema adapter, explicit saves and Demo isolation passed");
