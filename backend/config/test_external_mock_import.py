@@ -198,6 +198,8 @@ class MockModelImportTests(TestCase):
         self.assertEqual(self.post("preview", source, csrf=False).status_code, 403)
         self.assertEqual(self.post("apply", source, csrf=False).status_code, 403)
         self.client.logout()
+        self.client.get("/api/v1/auth/csrf")
+        self.csrf = self.client.cookies["csrftoken"].value
         self.assertEqual(self.post("preview", source).status_code, 401)
         self.client.force_login(self.contributor)
         self.assertEqual(self.post("preview", source).status_code, 403)
