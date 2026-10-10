@@ -115,7 +115,7 @@ class CampaignApiTests(TestCase):
                          original_guide)
         repin=self.call(BASE+"/"+new["id"],{"expected_revision":"r002",
                           "guide_id":self.guide.public_id,
-                          "test_case_ids":[self.case.item.public_id]},method="PATCH")
+                          "test_case_ids":[self.case.item.public_id],"repin":True},method="PATCH")
         self.assertEqual(repin.status_code,200,repin.content)
         rev3=repin.json()["campaign"]
         self.assertNotEqual(rev3["guide_revision_id"],original_guide)
