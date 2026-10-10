@@ -106,6 +106,13 @@ jobs:
           AI_COMPASS_TEST_PASSWORD="$contributor_pw" python3 scripts/smoke_catalog.py ci-contributor
           AI_COMPASS_TEST_PASSWORD="$contributor_pw" python3 scripts/smoke_evidence.py ci-contributor
           docker compose exec -T api python manage.py reconcile_evidence --json
+      - name: Verify real Server archive with fully offline host verifier
+        run: |
+          docker compose exec -T api python manage.py shell -c \
+            'from config.archive_services import build_native_export; import shutil; a = build_native_export(); f = open("/tmp/ai-native-ci.zip", "wb"); shutil.copyfileobj(a, f); f.close(); a.close()'
+          docker cp "$(docker compose ps -q api):/tmp/ai-native-ci.zip" /tmp/ai-native-ci.zip
+          python3 scripts/verify_export.py /tmp/ai-native-ci.zip
+          rm -f /tmp/ai-native-ci.zip
       - name: Check that catalog ORM models match checked-in migrations
         run: docker compose exec -T api python manage.py makemigrations --check --dry-run
       - name: Validate staging-only registered migration in Django test database
