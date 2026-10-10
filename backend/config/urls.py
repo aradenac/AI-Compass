@@ -1,9 +1,16 @@
 from django.urls import path
 
-from . import auth_views, catalog_views, catalog_type_views, evidence_views, task_views, user_admin_views, activity_views, data_health_views, test_case_views, setup_guide_views, campaign_views, session_views, run_views, watch_views, forecast_views, results_views, recommendation_views
+from . import auth_views, catalog_views, catalog_type_views, evidence_views, task_views, user_admin_views, activity_views, data_health_views, test_case_views, setup_guide_views, campaign_views, session_views, run_views, watch_views, forecast_views, results_views, recommendation_views, discussion_views
 from .api import api
 
 urlpatterns = [
+    path("api/v1/discussions", discussion_views.threads),
+    path("api/v1/discussions/<slug:public_id>", discussion_views.thread_detail),
+    path("api/v1/discussions/<slug:public_id>/messages", discussion_views.reply),
+    path("api/v1/discussions/messages/<slug:public_id>", discussion_views.message_detail),
+    path("api/v1/discussions/messages/<slug:public_id>/revisions", discussion_views.message_history),
+    path("api/v1/discussions/messages/<slug:public_id>/revisions/<int:number>", discussion_views.message_version),
+    path("api/v1/discussions/messages/<slug:public_id>/attachments", discussion_views.attachment),
     path("api/v1/recommendations", recommendation_views.collection),
     path("api/v1/recommendations/<slug:public_id>", recommendation_views.detail),
     path("api/v1/recommendations/<slug:public_id>/revisions", recommendation_views.history),

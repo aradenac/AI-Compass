@@ -86,6 +86,7 @@
     '<section id="server-campaigns" class="server-catalog" hidden></section>',
     '<section id="server-results" class="server-catalog" hidden></section>',
     '<section id="server-recommendations" class="server-catalog" hidden></section>',
+    '<section id="server-discussions" class="server-catalog" hidden></section>',
     '<section id="server-users" class="server-catalog" hidden></section>',
     '<section id="server-activity" class="server-catalog" hidden></section>',
     '<section id="server-data-health" class="server-catalog" hidden></section>',
@@ -121,6 +122,7 @@
   var campaigns = window.AICompassServerCampaigns.mount(document.getElementById("server-campaigns"), csrfFromCookie, escapeHtml);
   var resultsExplorer = window.AICompassServerResults.mount(document.getElementById("server-results"), csrfFromCookie, escapeHtml);
   var recommendations = window.AICompassServerRecommendations.mount(document.getElementById("server-recommendations"), csrfFromCookie, escapeHtml);
+  var discussions = window.AICompassServerDiscussions.mount(document.getElementById("server-discussions"), csrfFromCookie, escapeHtml);
   var users = window.AICompassServerUsers.mount(document.getElementById("server-users"), csrfFromCookie, escapeHtml);
   var activity = window.AICompassServerActivity.mount(document.getElementById("server-activity"), escapeHtml);
   var health = window.AICompassServerDataHealth.mount(document.getElementById("server-data-health"), csrfFromCookie, escapeHtml);
@@ -218,6 +220,7 @@
       campaigns.setAccess(false, false, false);
       resultsExplorer.setAccess(false, false);
       recommendations.setAccess(false, false, false);
+      discussions.setAccess(false, false, false);
       users.setAccess(false, false);
       activity.setAccess(false, false);
       health.setAccess(false, false);
@@ -239,6 +242,7 @@
     campaigns.setAccess(!maintenanceWorkspace && grants.includes("business_read"), !maintenanceWorkspace && grants.includes("business_write"), !maintenanceWorkspace && grants.includes("publication_review"));
     resultsExplorer.setAccess(!maintenanceWorkspace && grants.includes("business_read"), !maintenanceWorkspace && grants.includes("business_write"));
     recommendations.setAccess(!maintenanceWorkspace && grants.includes("business_read"), !maintenanceWorkspace && grants.includes("business_write"), !maintenanceWorkspace && grants.includes("publication_review"));
+    discussions.setAccess(!maintenanceWorkspace && grants.includes("business_read"), !maintenanceWorkspace && grants.includes("business_write"), !maintenanceWorkspace && grants.includes("publication_review"));
     users.setAccess(!maintenanceWorkspace && grants.includes("users_manage"), !maintenanceWorkspace && grants.includes("platform_manage"));
     activity.setAccess(!maintenanceWorkspace && grants.includes("business_read"), !maintenanceWorkspace && grants.includes("users_manage"));
     health.setAccess(maintenanceWorkspace && grants.includes("maintenance_view"), maintenanceWorkspace && grants.includes("maintenance_triage"));

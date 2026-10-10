@@ -202,6 +202,16 @@ def get_catalog_item(request, public_id):
             "current_revision__schema_version", "current_revision__created_by"
         ), public_id=public_id
     )
+    if item.type_slug in ("discussion_thread","discussion_message"):
+        from . import discussion_services as ds
+        from django.http import Http404
+        if not ds.readable_revision(item,request.user):
+            raise Http404("Private discussion")
+        if item.type_slug=="discussion_thread":
+            row=ds.DiscussionThread.objects.select_related("item__current_revision").get(item=item)
+            return json_no_store(ds.thread_record(row,request.user))
+        row=ds.DiscussionMessage.objects.select_related("item__current_revision","thread__item__current_revision").get(item=item)
+        return json_no_store(ds.message_record(row,request.user))
     if item.type_slug in ("research_source","watch_entry","forecast","recommendation"):
         if item.type_slug=="recommendation":
             from .recommendation_services import serialize as watch_serialize
