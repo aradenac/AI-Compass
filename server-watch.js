@@ -129,6 +129,11 @@ function mount(root,csrf,escapeHtml){
          })),null,2),"textarea")+
       '<button type="submit">Save immutable revision</button> <button type="button" id="watch-cancel">Cancel</button></form>';
     $("#watch-cancel").addEventListener("click",function(){area.hidden=true;});
+    var draft=window.AICompassDrafts && window.AICompassDraftAccount ?
+      window.AICompassDrafts.attach($("#watch-form"),{
+        mode:"server",account:window.AICompassDraftAccount,kind:kind,
+        id:row?row.id:"new",revision:row?row.revision:"new",schema:"watch-v1"
+      }):null;
     $("#watch-form").addEventListener("submit",async function(event){
       event.preventDefault();var form=event.target,button=form.querySelector('[type="submit"]');
       button.disabled=true;
@@ -158,9 +163,10 @@ function mount(root,csrf,escapeHtml){
         if(row)data.expected_revision=row.revision;
         await api(kind+(row?"/"+encodeURIComponent(row.id):""),row?"PATCH":"POST",data);
         if(!active)return;
+        if(draft)draft.clear();
         area.hidden=true;await refresh();
         note("Revision safely committed in Server; previous history and exact source pins retained.");
-      }catch(error){note("NOT saved: "+error.message,true);}
+      }catch(error){if(draft&&/409|revision_conflict/.test(error.message))draft.conflict();note("NOT saved: "+error.message,true);}
       finally{button.disabled=false;}
     });
   }
