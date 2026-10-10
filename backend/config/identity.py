@@ -16,6 +16,7 @@ PERMISSIONS = {
     "users_manage": "Manage accounts and group grants",
     "platform_view": "Inspect platform health and operations",
     "platform_manage": "Operate permitted platform configuration",
+    "archive_export": "Generate and download confidential complete archives",
     "planning_view": "Inspect confidential workload planning profiles and rates",
     "planning_manage": "Create and revise confidential planning profiles",
     "import_preview": "Review restricted external import previews",
@@ -28,7 +29,8 @@ ROLES = {
     "reviewer": ("business_read", "publication_review"),
     "data-maintainer": ("maintenance_view", "maintenance_triage"),
     "user-admin": ("users_view", "users_manage"),
-    "platform-admin": ("platform_view", "platform_manage"),
+    "platform-admin": ("platform_view", "platform_manage", "archive_export"),
+    "archive-operator": ("platform_view", "archive_export"),
     "deployment-planner": ("planning_view", "planning_manage"),
     "import-operator": ("import_preview", "import_apply"),
 }
