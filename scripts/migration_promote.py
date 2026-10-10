@@ -6,6 +6,9 @@ on this trusted host, exact build+artifact hashes, and a freshly verified
 independent full DB+evidence recovery point.
 """
 import argparse
+import fcntl
+from contextlib import contextmanager
+import stat
 import hashlib
 import json
 import os
@@ -171,6 +174,37 @@ def proof_path(candidate):
     return PROMOTION_ROOT / (candidate + ".approval.json")
 
 
+@contextmanager
+def exclusive_promotion():
+    """One host-wide promotion, including its backup and retry, at a time.
+
+    Do NOT unlink the persistent lockfile: replacing a locked inode permits
+    another process to enter the critical section on a new inode.
+    """
+    proof_path("0000000000000000")  # validate/create protected state dirs
+    lock_path = PROMOTION_ROOT / ".active-promotion.lock"
+    flags = os.O_CREAT | os.O_RDWR | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        fd = os.open(lock_path, flags, 0o600)
+    except OSError as error:
+        fail("Unsafe or inaccessible promotion lock: " + str(error))
+    try:
+        details = os.fstat(fd)
+        if (not stat.S_ISREG(details.st_mode) or details.st_uid != os.getuid()
+                or details.st_nlink != 1 or details.st_mode & 0o077):
+            fail("Promotion lock must be a private owner-only regular file")
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            fail("Another promotion is active; no backup or Server mutation attempted")
+        try:
+            yield
+        finally:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+    finally:
+        os.close(fd)
+
+
 def signed_recovery(envelope, report, verdict_hash, operator):
     """On retry, use the original verified point, not a post-migration backup."""
     from pathlib import Path
@@ -205,6 +239,13 @@ def signed_recovery(envelope, report, verdict_hash, operator):
 def apply(candidate, operator, confirm_candidate, destination, *, allow_ci=False):
     if confirm_candidate != candidate:
         fail("Explicit --confirm-candidate must equal the accepted candidate ID")
+    if not stage.CANDIDATE.fullmatch(candidate):
+        fail("Invalid promotion candidate")
+    with exclusive_promotion():
+        return _apply_exclusive(candidate, operator, destination, allow_ci=allow_ci)
+
+
+def _apply_exclusive(candidate, operator, destination, *, allow_ci=False):
     report, _, verdict_hash = approval(candidate)
     state = proof_path(candidate)
     if state.exists():
@@ -231,7 +272,7 @@ def apply(candidate, operator, confirm_candidate, destination, *, allow_ci=False
         db.durable_write(state, db.json_bytes(envelope))
         state.chmod(0o600)
         recovery_file = state.with_suffix(".recovery")
-        db.durable_write(recovery_file, str(dump.resolve()) + "\\n")
+        db.durable_write(recovery_file, str(dump.resolve()) + "\n")
         recovery_file.chmod(0o600)
     result = {"status":"applying", "candidate_id":candidate,
               "recovery_id":envelope["proof"]["recovery_id"], "changed":0, "batches":0}
@@ -250,10 +291,17 @@ def apply(candidate, operator, confirm_candidate, destination, *, allow_ci=False
                     data = json.loads(output.splitlines()[-1])
                 except (IndexError, ValueError):
                     fail("Production promotion returned invalid batch receipt")
-                if data.get("candidate_id") != candidate or not isinstance(data.get("remaining"), int):
-                    fail("Batch identity or count mismatch")
+                if (data.get("candidate_id") != candidate or
+                        data.get("migration") != report["migration"] or
+                        type(data.get("remaining")) is not int or data["remaining"] < 0 or
+                        type(data.get("changed")) is not int or
+                        not 0 <= data["changed"] <= 100 or
+                        not isinstance(data.get("public_ids"), list) or
+                        len(data["public_ids"]) != data["changed"] or
+                        any(not isinstance(x, str) or not x.startswith("mdl-") for x in data["public_ids"])):
+                    fail("Unexpected or invalid signed migration batch receipt")
                 changed = data.get("changed")
-                if not isinstance(changed, int) or changed < 0 or (changed == 0 and data["remaining"]):
+                if changed == 0 and data["remaining"]:
                     fail("A promotion batch made no progress")
                 result["changed"] += changed
                 result["batches"] += 1
@@ -262,6 +310,25 @@ def apply(candidate, operator, confirm_candidate, destination, *, allow_ci=False
                     break
             else:
                 fail("Maximum registered migration batches exceeded")
+        # A successful batch series is not enough: independently query the
+        # stopped Server database using a one-off read-only Django command.
+        # The API is restarted ONLY if no v1 Models remain and nothing is
+        # ambiguous. An inconsistent result leaves it intentionally frozen.
+        after = docker_cmd(["run", "--rm", "-T", "api", "python", "manage.py",
+                            "promote_model_schema", "--preview", "--operator",
+                            operator, "--json"], timeout=180)
+        try:
+            state_after = json.loads(after.splitlines()[-1])
+        except (IndexError, ValueError) as error:
+            fail("Post-apply independent read-only preview is missing") 
+        if (not isinstance(state_after, dict) or
+                state_after.get("migration") != report["migration"] or
+                type(state_after.get("pending_count")) is not int or
+                type(state_after.get("blocked_count")) is not int or
+                state_after["pending_count"] != 0 or
+                state_after["blocked_count"] != 0):
+            fail("Post-apply verification rejected; Server stays frozen")
+        result["post_apply_verified"] = True
         docker_cmd(["start", "api"], timeout=180)
         return result
     except Exception:
