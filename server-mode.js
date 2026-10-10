@@ -405,6 +405,7 @@
             window.AICompassRuntime.ServerTransport(fetch,csrfFromCookie));
           group.mountSummary(document.getElementById("server-shared-summary"),
             summaryProvider,section,"server",{
+              recordId:new URLSearchParams(window.location.search).get("record"),
               link:function(id){return group.href("server",section)+
                 "&record="+encodeURIComponent(id);}
             }).show().catch(function(){ /* visible error is already fail-closed */ });
