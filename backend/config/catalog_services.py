@@ -18,6 +18,8 @@ CATALOG_TYPES = {
     "forecast": "fct",
     "evaluation": "evl",
     "recommendation": "rec",
+    "discussion_thread": "thr",
+    "discussion_message": "msg",
 }
 SUPPORTED_SCHEMA_VERSIONS = {
     "model": SUPPORTED_MODEL_VERSIONS,
@@ -30,6 +32,8 @@ SUPPORTED_SCHEMA_VERSIONS = {
     "forecast": frozenset({1}),
     "evaluation": frozenset({1}),
     "recommendation": frozenset({1}),
+    "discussion_thread": frozenset({1}),
+    "discussion_message": frozenset({1}),
 }
 
 
