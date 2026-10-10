@@ -85,7 +85,7 @@ class Migration(migrations.Migration):
               END IF;
               RETURN NEW;
             END;
-            $;
+            $$;
             CREATE TRIGGER validate_campaign_pricing_pin BEFORE INSERT
             ON config_campaignpricingpin FOR EACH ROW
             EXECUTE FUNCTION ai_compass_validate_campaign_pricing_pin();
