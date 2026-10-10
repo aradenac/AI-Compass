@@ -15,6 +15,7 @@ from .catalog_schemas import InvalidModel, validate_model
 from .catalog_services import RevisionConflict, SchemaWriteBlocked, ExhaustedIds
 from .campaign_participant_services import prepare_participants, persist_participants, serialize_participants
 from .models import (CampaignSnapshot, CampaignCasePin, CampaignComponentPin,
+                     CampaignForecastOrigin, CampaignForecastWatchPin,
                      CatalogItem, CatalogRevision, ObjectTypeVersion, TaskNode, TestCase)
 
 MODES = ("task_centred", "solution_centred")
@@ -271,6 +272,14 @@ def _record(item, rev, ctx, actor, action):
         snapshot=snap, kind=kind, component=component, revision=pinned)
         for kind, component, pinned in ctx["components"]])
     persist_participants(campaign=item,snapshot=snap,prepared=ctx["participants"])
+    origin=ctx.get("forecast_origin")
+    if origin is not None:
+        link=CampaignForecastOrigin.objects.create(
+            campaign_snapshot=snap,forecast_snapshot=origin.forecast_snapshot)
+        CampaignForecastWatchPin.objects.bulk_create([
+            CampaignForecastWatchPin(origin=link,watch=p.watch,watch_revision=p.watch_revision)
+            for p in origin.watch_pins.select_related("watch","watch_revision").order_by("id")
+        ])
     item.current_revision=rev
     item.save(update_fields=["current_revision"])
     record_catalog_event(item=item, revision=rev, actor=actor, action=action)
@@ -355,6 +364,9 @@ def modify(*, actor, public_id, data, action=None):
                 name=validate_model(data.get("name",old.display_name), props,old.schema_version.json_schema)
             except InvalidModel as error:
                 raise InvalidCampaign(str(error)) from error
+        # Retain exact original theoretical rationale and signal revisions when
+        # a validation campaign plan is subsequently edited or transitioned.
+        ctx["forecast_origin"]=CampaignForecastOrigin.objects.filter(campaign_snapshot=previous).first()
         # Avoid creating a false revision for an unchanged plan.
         if not action and (props==old.properties and name==old.display_name
                 and data.keys() <= {"expected_revision"}):
@@ -377,6 +389,8 @@ def serialize(item, rev=None):
     cases = list(snap.case_pins.select_related("test_case__item","revision")
                  .order_by("test_case__item__public_id"))
     components = list(snap.component_pins.select_related("component","revision").order_by("kind"))
+    origin=CampaignForecastOrigin.objects.select_related(
+        "forecast_snapshot__revision__item").filter(campaign_snapshot=snap).first()
     return {
         "id":item.public_id, "uuid":str(item.pk), "revision":f"r{revision.number:03d}",
         "revision_id":str(revision.pk), "schema_version":revision.schema_version.version,
@@ -399,6 +413,16 @@ def serialize(item, rev=None):
         "component_ids":{p.kind:p.component.public_id for p in components},
         "component_revisions":{p.kind:str(p.revision_id) for p in components},
         "configuration":snap.configuration,
+        "forecast_origin":({
+            "id":origin.forecast_snapshot.revision.item.public_id,
+            "revision":f"r{origin.forecast_snapshot.revision.number:03d}",
+            "revision_id":str(origin.forecast_snapshot_id),
+            "evidence_class":"theoretical",
+            "watch_links":[{
+                "id":p.watch.public_id,"revision":f"r{p.watch_revision.number:03d}",
+                "revision_id":str(p.watch_revision_id)
+            } for p in origin.watch_pins.select_related("watch","watch_revision").order_by("id")]
+        } if origin is not None else None),
         "created_at":revision.created_at.isoformat(),
         "created_by":revision.created_by.get_username(),
         "compatibility":compatibility_for_revision(item,revision),
