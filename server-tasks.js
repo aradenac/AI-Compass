@@ -55,6 +55,7 @@
           'px;padding:9px 5px;border-bottom:1px solid #e3e8f0">' +
           '<strong>' + E(node.name) + '</strong> <small>' + E(node.id) + " · " + E(node.revision) +
           '</small><div class="server-model-actions">' +
+          '<button type="button" data-task-action="select" data-id="' + E(node.id) + '">Inspect</button>' +
           '<button type="button" data-task-action="history" data-id="' + E(node.id) + '">History</button>' +
           (canWrite ?
             '<button type="button" data-task-action="edit" data-id="' + E(node.id) + '">Edit / move</button>' +
@@ -186,6 +187,14 @@
       if (!button) return;
       var node = rows.find(function (r) { return r.id === button.dataset.id; });
       if (!node) return;
+      if (button.dataset.taskAction === "select") {
+        history.hidden = false;
+        history.textContent = JSON.stringify({id: node.id, name: node.name,
+          revision: node.revision, parent_id: node.parent_id,
+          properties: node.properties}, null, 2);
+        if (provider && typeof provider.tasks.select === "function")
+          provider.tasks.select(node.id);
+      }
       if (button.dataset.taskAction === "edit") editorForm(node, node.parent_id);
       if (button.dataset.taskAction === "add") editorForm(null, node.id);
       if (["up", "down"].includes(button.dataset.taskAction)) await reorder(node.id, button.dataset.taskAction);
