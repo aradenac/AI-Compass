@@ -338,3 +338,47 @@ def accessible(actor,task_id=None):
         row=serialize(item,reader=reader)
         if row is not None:result.append(row)
     return result
+
+
+def start_campaign(*,actor,identifier,data):
+    """Trust only explicit reviewed/staged Forecast revision, never a measured Solution."""
+    from .campaign_services import create as create_campaign
+    if not isinstance(data,dict) or set(data)-{
+            "forecast_revision","name","objective","notes","test_case_ids","guide_id","owner"}:
+        raise ForecastInvalid("Unsupported validation campaign request")
+    revision=data.get("forecast_revision")
+    if not isinstance(revision,str) or not revision.startswith("r") or not revision[1:].isdigit():
+        raise ForecastInvalid("forecast_revision is required as an exact version")
+    n=int(revision[1:])
+    if revision!=f"r{n:03d}":raise ForecastInvalid("Forecast revision must be r001 style")
+    with transaction.atomic():
+        item=CatalogItem.objects.select_for_update(of=("self",)).filter(
+            public_id=identifier,type_slug=KIND).first()
+        if item is None:raise ForecastInvalid("Unknown Forecast")
+        frozen=CatalogRevision.objects.filter(item=item,number=n).first()
+        if frozen is None or frozen.properties.get("status") not in STATES[1:]:
+            raise ForecastInvalid("Only an explicitly staged/reviewed/published Forecast revision can be validated")
+        snap=ForecastSnapshot.objects.select_related(
+            "task__item","task_revision","model","provider","harness").get(revision=frozen)
+        linked=list(snap.watch_pins.select_related("watch","watch_revision"))
+        _qualified([(p.watch,p.watch_revision) for p in linked])
+        configuration=copy.deepcopy(snap.configuration)
+        configuration["forecast_candidate"]={
+            "id":item.public_id,"revision":revision,"revision_id":str(frozen.pk),
+            "evidence_class":"theoretical",
+            "component_ids":{kind:getattr(snap,kind).public_id for kind in COMPONENTS},
+            "component_revision_ids":{kind:str(getattr(snap,kind+"_revision_id")) for kind in COMPONENTS},
+            "assumptions":copy.deepcopy(frozen.properties["assumptions"])}
+        if len(json.dumps(configuration,ensure_ascii=False))>65536:
+            raise ForecastInvalid("Forecast setup exceeds campaign configuration budget")
+        payload={"name":data.get("name","Validation — "+frozen.display_name),
+                 "objective":data.get("objective","Validate theoretical forecast "+item.public_id+
+                              " at "+revision+" with controlled empirical Test Cases"),
+                 "notes":data.get("notes",""),
+                 "mode":"task_centred","task_id":snap.task.item.public_id,
+                 "test_case_ids":data.get("test_case_ids",[]),
+                 "configuration":configuration}
+        if "guide_id" in data:payload["guide_id"]=data["guide_id"]
+        if "owner" in data:payload["owner"]=data["owner"]
+        campaign=create_campaign(actor=actor,data=payload,forecast_snapshot=snap)
+        return campaign
