@@ -115,15 +115,26 @@ retains the actual checklist and unchanged **NO-GO** state. Any later
 failure is tracked as a new corrective issue referencing the relevant
 delivery.
 
-**Next open issue: [#33](https://github.com/aradenac/AI-Compass/issues/33)**,
-external real-data onboarding. Its first actual adapter cannot be written
-or accepted until the real external source, representative sample, ownership,
-permitted fields, first business entity and stable source key are selected,
-and an operational deployment is approved. The independently testable
-read-only [source intake preflight](external-source-onboarding.md)
-provides an initial safe review step; it does not populate Server data.
-Do NOT insert a fabricated "representative" Demo fixture as a production
-source or close #33 on the basis of source discovery alone.
+**[PLAT-33](https://github.com/aradenac/AI-Compass/issues/33) is CLOSED
+as an explicitly MOCKED development milestone** after merged
+[PR #71](https://github.com/aradenac/AI-Compass/pull/71), with two full
+53-step CI runs green. A staging-only `mock-model-catalog-v1` adapter now
+exercises read-only preview, signed authorized apply, immutable Model
+revisions, original synthetic mock evidence and exact idempotent replay;
+the existing [source intake preflight](external-source-onboarding.md)
+remains strictly read-only for prospective genuine sources. Browser Demo
+fixtures are never imported into Server.
+
+**No approved PLAT development issues currently remain open.** This is
+**not** operational release approval: a genuinely approved external source,
+source-specific adapter and exact original real-source evidence have not
+been implemented. When the source becomes available, open a separate
+source-specific implementation ticket with the actual system owner,
+representative schema, stable source key, mapping and permission contract.
+Real frontend staging acceptance, independently rehearsed controlled
+migration, signed recovery and accountable release signoff are all still
+**required** before production use, and the current verdict remains
+**NO-GO**. All such future problems are tracked with new corrective issues.
 
 Future product features in [docs/features](features/README.md) remain
 outside this approved PLAT backlog until a separate issue plan is accepted.
