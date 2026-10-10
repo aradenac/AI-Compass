@@ -598,3 +598,23 @@ class RecommendationRunPin(models.Model):
         constraints = [
             models.UniqueConstraint(fields=("snapshot", "run"), name="uniq_recommendation_run"),
         ]
+
+
+class DiscussionThread(models.Model):
+    """Immutable feedback conversation with optionally pinned catalog object context."""
+    item = models.OneToOneField(CatalogItem, primary_key=True, on_delete=models.PROTECT,
+                                related_name="discussion_thread")
+    context_item = models.ForeignKey(CatalogItem, null=True, blank=True, on_delete=models.PROTECT,
+                                     related_name="+")
+    context_revision = models.ForeignKey(CatalogRevision, null=True, blank=True,
+                                         on_delete=models.PROTECT, related_name="+")
+
+
+class DiscussionMessage(models.Model):
+    """Permanent identity and parent FK; text/visibility/corrections are catalog revisions."""
+    item = models.OneToOneField(CatalogItem, primary_key=True, on_delete=models.PROTECT,
+                                related_name="discussion_message")
+    thread = models.ForeignKey(DiscussionThread, on_delete=models.PROTECT,
+                               related_name="messages")
+    parent = models.ForeignKey("self", null=True, blank=True, on_delete=models.PROTECT,
+                               related_name="replies")
