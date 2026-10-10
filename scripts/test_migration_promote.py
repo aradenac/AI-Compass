@@ -146,8 +146,11 @@ class PromotionHostTests(unittest.TestCase):
         calls = []
         def docker(argv, **kwargs):
             calls.append(argv)
-            if "promote_model_schema" in argv:
-                return json.dumps({"candidate_id":cid,"changed":0,"remaining":0})
+            if "--apply" in argv:
+                return json.dumps({"candidate_id":cid, "migration":stage.MIGRATION,
+                                   "changed":0,"remaining":0,"public_ids":[]})
+            if "--preview" in argv:
+                return json.dumps({"migration":stage.MIGRATION,"pending_count":0,"blocked_count":0})
             return ""
         with patch.object(promote, "approval", return_value=(report, verdict, "hash")), \
              patch.object(promote, "signed_recovery", return_value={
@@ -163,6 +166,100 @@ class PromotionHostTests(unittest.TestCase):
         backup.assert_not_called()
         self.assertEqual(calls[0], ["stop","api"])
         self.assertEqual(calls[-1], ["start","api"])
+        self.assertTrue(result["post_apply_verified"])
+        self.assertEqual(calls[-2][:4], ["run", "--rm", "-T", "api"])
+
+
+    def test_host_wide_exclusive_lock_refuses_concurrent_replay(self):
+        with promote.exclusive_promotion():
+            with self.assertRaisesRegex(db.RecoveryError, "Another promotion"):
+                with promote.exclusive_promotion():
+                    self.fail("Second promotion unexpectedly acquired host lock")
+        with promote.exclusive_promotion():
+            pass  # The persistent inode is available after the first actor exits.
+        lock = promote.PROMOTION_ROOT / ".active-promotion.lock"
+        self.assertEqual(lock.stat().st_mode & 0o077, 0)
+
+    def test_recovery_pointer_has_real_newline_and_retry_is_verifiable(self):
+        cid, folder, report, verdict = self.fixture()
+        dump = self.root / "verified-independent.dump"
+        dump.write_bytes(b"PGDMPtest")
+        backup = {
+            "backup_id":"verified-snapshot",
+            "restored_inspection":{"schema_versions": report["source_schema_versions"]},
+        }
+        receipt = {"proof":{"candidate_id":cid,"recovery_id":"verified-snapshot"},
+                   "signature":"signed-protected-original"}
+        calls = []
+        def docker(argv, **kwargs):
+            calls.append(argv)
+            if "--apply" in argv:
+                return json.dumps({"migration":stage.MIGRATION,"candidate_id":cid,
+                                   "changed":1,"remaining":0,
+                                   "public_ids":["mdl-original-wheat-forest"]})
+            if "--preview" in argv:
+                return json.dumps({"migration":stage.MIGRATION,
+                                   "pending_count":0,"blocked_count":0})
+            return ""
+        with patch.object(promote, "approval", return_value=(report, verdict, "v"*64)), \
+             patch.object(promote, "backend_preview", return_value={"blocked_count":0}), \
+             patch.object(promote.full, "full_backup", return_value=dump), \
+             patch.object(promote.full, "verified_manifest", return_value=backup), \
+             patch.object(promote, "prepare_proof", return_value=receipt), \
+             patch.object(promote, "docker_cmd", side_effect=docker):
+            result = promote.apply(cid, "maintainer", cid, str(self.root))
+        pointer = promote.proof_path(cid).with_suffix(".recovery")
+        self.assertEqual(pointer.read_bytes(), (str(dump.resolve()) + "\n").encode())
+        self.assertTrue(result["post_apply_verified"])
+        self.assertEqual(result["changed"], 1)
+        self.assertEqual(calls[0], ["stop", "api"])
+        self.assertEqual(calls[-1], ["start", "api"])
+
+    def test_invalid_batch_result_or_failed_postcheck_freezes_api(self):
+        cid, folder, report, verdict = self.fixture()
+        proof = promote.proof_path(cid)
+        proof.write_text(json.dumps({"proof":{"candidate_id":cid,
+                              "recovery_id":"original-point"},"signature":"signed"}))
+        proof.with_suffix(".recovery").write_text("/unused/original.dump\n")
+        cases = [
+            {"migration":stage.MIGRATION,"candidate_id":cid,"changed":True,
+             "remaining":0,"public_ids":[]},
+            {"migration":stage.MIGRATION,"candidate_id":cid,"changed":1,
+             "remaining":0,"public_ids":[]},
+            {"migration":stage.MIGRATION,"candidate_id":cid,"changed":101,
+             "remaining":0,"public_ids":["mdl-test"]*101},
+            {"migration":stage.MIGRATION,"candidate_id":cid,"changed":0,
+             "remaining":-1,"public_ids":[]},
+        ]
+        for invalid in cases:
+            calls = []
+            def docker(argv, **kwargs):
+                calls.append(argv)
+                return json.dumps(invalid)
+            with self.subTest(invalid=invalid), \
+                 patch.object(promote, "approval", return_value=(report, verdict, "v"*64)), \
+                 patch.object(promote, "signed_recovery", return_value={"backup_id":"original-point"}), \
+                 patch.object(promote, "docker_cmd", side_effect=docker):
+                with self.assertRaisesRegex(db.RecoveryError, "batch receipt"):
+                    promote.apply(cid, "maintainer", cid, str(self.root))
+                self.assertIn(["stop","api"], calls)
+                self.assertNotIn(["start","api"], calls)
+        calls = []
+        def unhealthy(argv, **kwargs):
+            calls.append(argv)
+            if "--apply" in argv:
+                return json.dumps({"migration":stage.MIGRATION,"candidate_id":cid,
+                                   "changed":0,"remaining":0,"public_ids":[]})
+            if "--preview" in argv:
+                return json.dumps({"migration":stage.MIGRATION,
+                                   "pending_count":1,"blocked_count":0})
+            return ""
+        with patch.object(promote, "approval", return_value=(report, verdict, "v"*64)), \
+             patch.object(promote, "signed_recovery", return_value={"backup_id":"original-point"}), \
+             patch.object(promote, "docker_cmd", side_effect=unhealthy):
+            with self.assertRaisesRegex(db.RecoveryError, "Post-apply verification"):
+                promote.apply(cid, "maintainer", cid, str(self.root))
+        self.assertNotIn(["start","api"], calls)
 
     def test_proof_binds_fresh_recovery_and_operator_without_logging_secret(self):
         cid, folder, report, verdict = self.fixture()

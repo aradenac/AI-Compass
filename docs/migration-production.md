@@ -37,12 +37,27 @@ point on a pre-existing, separate mounted filesystem, checks the current schema
 against accepted staging, persists a signed copy of the recovery/preflight
 fingerprint, and freezes the production API before mutation.
 
+The host also acquires an exclusive, owner-only persistent `.local/promotions/
+.active-promotion.lock` for the **entire** approval, fresh backup, write
+freeze, replay, verification and API restart. A concurrent CLI cannot take
+a second recovery point or race a second apply. Never delete the lock file
+manually; its inode must remain stable to preserve mutual exclusion.
+
 Each promotion invocation writes **at most 100 items** in one atomic PostgreSQL
 transaction. For every item, the old revision is retained, a new v2 revision
 preserves unknown JSON properties and is attributed to the migration operator,
 a transactional `schema_migrated` audit event is created, and an append-only,
 DB-trigger-protected `ProductionMigrationReceipt` records the old/new revision
 FKs, candidate, exact artifact/build, operator and full recovery point.
+
+Before the Server API is restarted, the host launches a new **read-only
+one-off Django preview** against the target database. This must confirm that
+zero pending/blocked Models remain. Missing, contradictory or malformed
+per-batch receipts, negative/oversized counts, or a failed final preview
+leave the API frozen for operator recovery; the host cannot claim success
+from the last batch receipt alone. The original signed recovery path is
+written as a normal newline-terminated text file, validated by a dedicated
+resume regression.
 
 An interruption does not erase committed batches. The retry uses the **same**
 verified signed recovery point saved in `.local/promotions` and reconstructs
@@ -59,8 +74,11 @@ First complete PLAT-35 with a **real human browser inspection**, for example:
 ```bash
 python3 scripts/migration_stage.py create --snapshot /mnt/backup/ai-compass-<snapshot>.dump
 # Inspect old/new records, evidence and unknown fields in ?mode=server on staging.
+python3 scripts/migration_stage.py review-template <candidate> > /tmp/staging-review.json
+# Fill in actual reviewer/time, each required check and concrete browser observations.
 python3 scripts/migration_stage.py verdict <candidate> accepted --frontend-checked \
-  --notes "Inspected old and new records and original evidence through the staging Server frontend"
+  --review-file /tmp/staging-review.json \
+  --notes "Inspected original and migrated revisions in the actual staging Server frontend"
 python3 scripts/migration_stage.py discard <candidate>
 ```
 
@@ -91,7 +109,10 @@ bash scripts/smoke-platform.sh
 ```
 
 Full platform CI confirms Demo and Server separation, staging discard/recreate,
-coordinated recovery and permission checks. The operational production replay
+coordinated recovery, failure-path and concurrency-lock permission checks.
+The guarded production orchestration and post-check are covered by **simulated
+host and Django command regressions**, not a genuinely human-approved replay
+on a separately approved operational dataset. The operational production replay
 is **not** executed in CI and must not be claimed as manually approved before
 the frontend acceptance of PLAT-35. The database migration
 `0007_production_migration_receipt` only adds an immutable ledger; it does not
