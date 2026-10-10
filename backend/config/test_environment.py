@@ -175,6 +175,12 @@ class EnvironmentTests(TestCase):
         bad=self.selection(self.both)
         bad["components"][0]["type"]="provider"
         self.assertEqual(self.send(C,bad,"POST").status_code,400)
+        invalid=self.selection(self.both)
+        invalid["components"][0]["type"]=[]
+        self.assertEqual(self.send(C,invalid,"POST").status_code,400)
+        invalid=self.selection(self.both)
+        invalid["components"][0]["revision_id"]="not-a-uuid"
+        self.assertEqual(self.send(C,invalid,"POST").status_code,400)
         self.assertEqual(self.send(C,self.selection(self.both),"POST",csrf=False).status_code,403)
         self.client.force_login(self.maint)
         self.assertEqual(self.send(C,request,"POST").status_code,403)
