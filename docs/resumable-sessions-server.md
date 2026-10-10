@@ -1,6 +1,6 @@
 # Resumable Server benchmark sessions — PLAT-14
 
-This increment adds real Django/PostgreSQL Test Case execution **drafts**, separate from the single-file seeded-fake Demo workflow. Session state survives a browser change, sign-out and process/container recreation. It **does not** create, close or publish a Benchmark Run, measured AI Solution or score; those belong to #15 and #16.
+This increment adds real Django/PostgreSQL Test Case execution **drafts**, separate from the single-file seeded-fake Demo workflow. Session state survives a browser change, sign-out and process/container recreation. A session starts `in_progress`, can be explicitly `paused` and `resumed` via immutable checkpoints, and is not silently marked completed. It **does not** create, close or publish a Benchmark Run, measured AI Solution or score; those belong to #15 and #16.
 
 ## Frozen provenance and data protection
 
@@ -27,6 +27,7 @@ The method form adapter reads `session.method_descriptor.steps` and `fields`, al
 | GET | `/api/v1/sessions/<ses-id>` | Resume latest server-confirmed checkpoint |
 | GET | `/api/v1/sessions/<ses-id>/checkpoints` | List original checkpoint chronology |
 | GET | `/api/v1/sessions/<ses-id>/checkpoints/<number>` | Read unchanged historical checkpoint and evidence |
+| POST | `/api/v1/sessions/<ses-id>/actions/pause` or `/actions/resume` | Append a durable lifecycle checkpoint; a paused draft rejects step/interaction changes until resumed |
 | PATCH | `/api/v1/sessions/<ses-id>/setup` | Save installation timestamp, environment, setup duration, notes, extensions, evidence |
 | PATCH | `/api/v1/sessions/<ses-id>/steps/<key>` | Save a frozen-method step's partial values/status/timing/notes and evidence |
 | POST | `/api/v1/sessions/<ses-id>/interactions` | Append one timestamped first/follow-up interaction and evidence |
