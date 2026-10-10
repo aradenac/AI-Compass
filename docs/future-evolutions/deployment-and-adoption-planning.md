@@ -158,7 +158,7 @@ A rejected/failed DoD or a clearly inapplicable benchmark **cannot be offset by 
 
 ### Scenarios and suggested candidates
 
-- **Automated suggestions** rank candidate solutions for selected Tasks/profiles, based on estimated gain, representativeness/confidence, evaluation maturity, compatibility/enterprise availability and access gap. Explain every suggestion; don't let a hidden AI ranking define an authoritative recommendation.
+- **Automated suggestions** rank candidate solutions for selected Tasks/profiles **using applicable, currently active, published measured evidence and the versioned experimental methodology as the source of qualification**; theoretical candidates remain clearly distinct. Economic gain, representativeness/confidence, evidence maturity, compatibility/access gaps may be reported transparently, without turning unreviewed theories into measured results. **Editorial Recommendations are descriptions/limitations, not manual overrides of methodology-derived rankings.** Explain each suggestion; never use a hidden unversioned AI ranking.
 - **Freely configurable saved what-if scenarios** can choose populations, candidate solutions per Task, relevant assumptions and weighting; compare scenarios. Simulations are not Benchmark Campaigns or new Test Runs.
 - Avoid double-counting the same person's occurrence across **multiple alternative AI solutions**. The chosen scenario determines the applicable candidate for aggregate totals; multiple candidates can still appear side by side for comparative inspection.
 - If a person already uses an AI solution for the same work, any proposed **replacement/upgrade** must distinguish **incremental improvement over current state** from a full baseline gain. Do not sum both. Exact replacement policy is an implementation question.
@@ -192,7 +192,7 @@ For negative or zero potential, preserve the information and disclose the total 
 **Current projection:** automatically recalculate affected derived opportunity cells/aggregates when material dependencies change:
 
 - New/updated/published Forecasts, Technology Watch references or source applicability;
-- New published benchmark results, Run corrections/versioned interpretations, changes in quality or sample coverage;
+- New published benchmark results, **authorized corrections and revocations of published Runs**, versioned interpretations, changes in quality or sample coverage; consume only [currently effective published evidence](publication-and-information-lifecycle.md), never include pending/incomplete or withdrawn Runs in live quantified totals;
 - Task taxonomy, workload frequency, population composition, job/specialty profile, rate and baseline assumptions;
 - Pricing Offer/rate updates relevant to prospective costs (without changing historical Run costs);
 - Eligibility, selected candidate/scenario, access verification, first confirmed use, deactivation/revocation.
@@ -221,7 +221,7 @@ User experience:
 
 A read projection / provenance graph of **typed IDs, version references, dependency edges and calculation-step explanations** is appropriate. Use shared reusable UI and API contracts (lazy/deferred detail loading), not copied strings or universal exposure of sensitive original payloads. Provenance is **also valid for non-numeric stages**: why marked deployed? who verified first use? why an idea is linked to a Task?
 
-A deeper dependency graph is optional, **never the mandatory first view**. Preserve fine-grained authorization throughout traversal: a user who can see an authorized aggregate is **not automatically entitled** to individual payroll rates, private account details, underlying confidential evidence or other teams' identities. Offer suitably redacted aggregation-level explanations.
+A deeper dependency graph is optional, **never the mandatory first view**. Preserve fine-grained authorization throughout traversal: a user who can see an authorized aggregate is **not automatically entitled** to individual payroll rates, private account details, underlying confidential evidence or other teams' identities. Offer suitably redacted aggregation-level explanations. A revoked source must be removed from **current** economic projections and the previous aggregate explicitly invalidated until corrected; an earlier frozen projection is still inspectable under appropriate historical permissions and labeled with subsequent withdrawal/correction.
 
 This exploration is **distinct from** the separate governance **Audit Explorer**. Governance audit answers *who changed what and when*; calculation provenance answers *why this business result has this value*. Reuse common revisions/events without conflating their UI or permissions.
 
@@ -410,3 +410,15 @@ Resolve these during issue breakdown/design without forcing end users to fill re
 - **No hardcoded required cloud identity provider or enterprise IAM integration**; reserve interface boundaries for future connectors.
 
 This page is a **proposed future feature specification**, not evidence that the described matrix, analytics, access workflow, quota calculator or provenance explorer are deployed. Implementation should be split into appropriately scoped issues/PRs while preserving the existing architecture and accepted invariants.
+
+## 19. Cross-feature ownership and current-vs-historical publication
+
+**This source owns** workload-driven *prospective* economics, the Task-tree × configuration profitability heatmap, Forecast/Benchmark combination, non-overlapping Activated/Benchmarked/Forecast slices, historical economic snapshots, interactive calculation provenance, external access/deployment planning and resource/budget requirements. It does **not** own the authoritative Run publish/revoke/delete state, tariff-meter definitions, OS classifications or persona navigation chrome.
+
+- [Publication & Information Lifecycle](publication-and-information-lifecycle.md) is the **authority for which Run measurements are currently publishable/active**, for correction/withdrawal and for orphan cleanup. This DAP engine consumes the centrally filtered **current effective** measured evidence; pending metering-incomplete Runs and withdrawn Runs contribute **no observed result**. An authorized correction or revocation invalidates affected current economic scenarios; do not let stale cached gains/quotas appear current while recomputation is pending. Prior as-of scenario snapshots remain historical with clear supersession/revocation context.
+- [Technology Accessibility & Pricing](technology-accessibility-and-pricing.md) is the sole authority for registered Offers, billable meters, fixed vs variable charges and selected source price revisions. Budgets derive supported native-unit requirements from those data and available measured/Forecast consumption; they do not invent unknown units or manage live pooled provider credit balances.
+- [OS Compatibility](os-compatibility-and-user-environment.md) is the sole authority for coarse Windows/Linux viability; consider an alternative OS as an **environmental prerequisite** rather than treating an incompatible person as already provisioned or as permanently ineligible.
+- [Role-Based UX](role-based-user-experience-and-guided-navigation.md) owns personalized presentation/navigation. Methodology-derived measured suitability, not editable editorial preference, determines the automatically computed engineering shortlist. Explanatory editorial context and guide access appear next to measured results, but never override their methodological meaning.
+- [Data Governance Audit Explorer](data-governance-audit-explorer.md) traces modifications by actor/time; DAP's **Evidence & Calculation Explorer** instead explains *why a derived monetary value is what it is*. They share source revision pointers, not a mandatory single explorer or a duplicate audit event stream.
+
+This full DAP product direction remains future scope except **DAP-01**, the already delivered restricted workload-profile foundation. The reorganization establishes ownership, **not delivery order or issue approval**.
