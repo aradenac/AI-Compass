@@ -1,0 +1,10 @@
+{
+  "schema": "ai-compass/component-versions@1",
+  "release": "0.1.0",
+  "frontend": "0.1.0",
+  "backend": "0.1.0",
+  "api_major": 1,
+  "api_min_major": 1,
+  "api_max_major": 1,
+  "description": "Coordinated build identities; API v1 preserved for old clients."
+}

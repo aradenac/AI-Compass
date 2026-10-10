@@ -1,5 +1,7 @@
-Django>=5.2.8,<5.3
-django-ninja>=1.4,<2
-gunicorn>=23,<24
-psycopg[binary]>=3.2,<4
-jsonschema>=4.23,<5
+# FUT-01: exact top-level versions; transitives are recorded by pip freeze
+# and the full image ID in each coordinated release manifest.
+Django==5.2.18
+django-ninja==1.4.5
+gunicorn==23.0.0
+psycopg[binary]==3.2.12
+jsonschema==4.26.0
