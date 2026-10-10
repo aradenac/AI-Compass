@@ -223,3 +223,44 @@ class PricingTests(TestCase):
         old=self.call("/api/v1/campaigns",legacy)
         self.assertEqual(old.status_code,201,old.content)
         self.assertEqual(old.json()["pricing_policy"],"legacy_unclassified")
+
+    def test_framework_participant_prices_are_pinned_separately(self):
+        """Repeated vendor usage in distinct participant invocations is billed once per invocation."""
+        offers={kind:self.offer(kind) for kind in ("model","provider","harness","framework")}
+        participants=[{"label":"Agent "+str(i),"role":"Planner" if i==0 else "Reviewer",
+                       "configuration_version":"1",
+                       "settings":{"temperature":0.1*i},"properties":{},
+                       "component_ids":{k:self.comps[k].public_id
+                                        for k in ("model","provider","harness")}}
+                      for i in range(2)]
+        new=self.call("/api/v1/campaigns",{
+            "name":"Multi participant pricing","objective":"Compare a workflow",
+            "mode":"task_centred","task_id":self.task.item.public_id,
+            "test_case_ids":[self.case.item.public_id],
+            "framework_id":self.comps["framework"].public_id,
+            "participants":participants,"pricing_selections":[]
+        })
+        self.assertEqual(new.status_code,201,new.content)
+        row=new.json()
+        self.assertEqual(len(row["participants"]),2)
+        self.assertFalse(row["pricing_readiness"]["complete"])
+        picks=[self.selection(offers["framework"],"framework")]
+        for participant in row["participants"]:
+            picks += [self.selection(offers[k],k,participant["id"])
+                      for k in ("model","provider","harness")]
+        patch=self.call("/api/v1/campaigns/"+row["id"],{
+            "expected_revision":row["revision"],"pricing_selections":picks
+        },method="PATCH")
+        self.assertEqual(patch.status_code,200,patch.content)
+        current=patch.json()["campaign"]
+        self.assertEqual(current["revision"],"r002")
+        self.assertEqual(len(current["pricing_selections"]),7)
+        self.assertTrue(current["pricing_readiness"]["complete"])
+        self.assertEqual(len(current["pricing_readiness"]["required_meters"]),7)
+        self.assertEqual(len(self.client.get(
+            "/api/v1/campaigns/"+row["id"]+"/revisions/1"
+        ).json()["pricing_selections"]),0)
+        # Each participant is a distinct billable invocation of the exact same
+        # Provider, with identical vendor charge identity but no cross-invocation dedupe.
+        self.assertEqual(CampaignPricingPin.objects.filter(
+            snapshot__revision__item__public_id=row["id"]).count(),7)
