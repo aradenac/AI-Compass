@@ -244,3 +244,7 @@ These are **implementation refinements**, not reasons to introduce a broader env
 - No changes to Product Definition or approved issue backlog simply because this proposal exists. A separate explicit issue/implementation plan must be approved; only then update baseline docs as features ship.
 
 This page records the **small, distinct Windows/Linux compatibility evolution**, cross-linked to but **not merged with** the broader Role-Based UX proposal.
+
+## 12. Thematic ownership and evidence lifecycle boundary
+
+This small, independent feature remains the **sole authority for declared user Windows/Linux environments and Harness/Framework supported-OS sets**. [Role-Based UX](role-based-user-experience-and-guided-navigation.md) applies the constraint to Engineer Task/Tool recommendations without permanently hiding useful other-OS alternatives; [Deployment & Adoption Planning](deployment-and-adoption-planning.md) may expose missing OS as an environmental prerequisite rather than a granted entitlement. [Composable Setup Guides](composable-setup-guides.md) owns actual installation steps and environment-specific recipes; declared same feature-set across two OSs does not imply identical setup instructions. [Publication & Information Lifecycle](publication-and-information-lifecycle.md) preserves historic Run environments on later OS classification corrections and excludes revoked experimental results from current measured recommendations. No OS-specific feature matrix or extra catalog is introduced by the thematic reorganization.
