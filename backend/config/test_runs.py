@@ -214,7 +214,7 @@ class IndividualRunTests(TestCase):
         self.assertEqual(self.client.get("/api/v1/solutions/"+a["solution_id"])
                          .json()["run_ids"],[a["id"],b["id"]])
 
-    def test_framework_single_participant_and_multiple_cannot_close(self):
+    def test_framework_single_participant_stays_individual_and_multi_completes_composite(self):
         camp=self.campaign(framework=True,settings={"model_hint":{"future":None}})
         s=self.session(camp)
         self.assertEqual(s["individual_setup"]["settings"],{"model_hint":{"future":None}})
@@ -242,9 +242,13 @@ class IndividualRunTests(TestCase):
         composite=two.json()
         self.assertIsNone(composite["individual_setup"])
         self.interaction(composite)
-        rejected=self.close(composite,self.result())
-        self.assertEqual(rejected.status_code,409,rejected.content)
+        completed=self.close(composite,self.result())
+        self.assertEqual(completed.status_code,201,completed.content)
+        self.assertEqual(completed.json()["kind"],"composite")
+        self.assertIsNone(completed.json()["solution_id"])
+        self.assertEqual(len(completed.json()["participants"]),2)
         self.assertEqual(BenchmarkRun.objects.count(),1)
+        self.assertEqual(MeasuredSolution.objects.count(),1)
 
     def test_reject_invalid_metrics_missing_interactions_invalid_evidence_and_csrf(self):
         camp=self.campaign()
