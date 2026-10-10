@@ -9,7 +9,7 @@ from django.test import Client, TestCase
 
 from .identity import ensure_roles
 from .catalog_services import create_component
-from .models import CatalogItem, CampaignPricingPin
+from .models import CatalogItem, CampaignPricingPin, SessionPricingPin
 from .pricing_services import offer_create, offer_revise, offer_record, pricing_status
 from .task_services import create_task
 from .test_case_services import create as create_case
@@ -264,3 +264,45 @@ class PricingTests(TestCase):
         # Provider, with identical vendor charge identity but no cross-invocation dedupe.
         self.assertEqual(CampaignPricingPin.objects.filter(
             snapshot__revision__item__public_id=row["id"]).count(),7)
+
+    def test_task_centred_session_pins_its_own_selected_trio_offers(self):
+        """Task-centred Campaign chooses AI components at session time, not plan time."""
+        body={"name":"Task-centred with dynamic setups","objective":"Measure options",
+              "mode":"task_centred","task_id":self.task.item.public_id,
+              "test_case_ids":[self.case.item.public_id],"pricing_selections":[]}
+        response=self.call("/api/v1/campaigns",body)
+        self.assertEqual(response.status_code,201,response.content)
+        row=response.json()
+        self.assertFalse(row["pricing_readiness"]["complete"])
+        self.assertEqual(self.call("/api/v1/campaigns/"+row["id"]+"/actions/start",
+                         {"expected_revision":"r001"}).status_code,200)
+        offers={k:self.offer(k) for k in ("model","provider","harness")}
+        url="/api/v1/campaigns/"+row["id"]+"/sessions"
+        base={"test_case_id":self.case.item.public_id,
+              "component_ids":{k:self.comps[k].public_id
+                               for k in ("model","provider","harness")}}
+        blocked=self.call(url,base)
+        self.assertIn(blocked.status_code,(400,409),blocked.content)
+        self.assertEqual(SessionPricingPin.objects.count(),0)
+        payload=dict(base,pricing_selections=[
+            self.selection(offers[k],k) for k in ("model","provider","harness")
+        ])
+        created=self.call(url,payload)
+        self.assertEqual(created.status_code,201,created.content)
+        session=created.json()
+        self.assertEqual(session["pricing_source"],"session")
+        self.assertEqual(len(session["pricing_selections"]),3)
+        self.assertEqual(SessionPricingPin.objects.count(),3)
+        self.assertEqual(self.client.get("/api/v1/sessions/"+session["id"]).json()[
+            "pricing_selections"],session["pricing_selections"])
+        # Reprice the underlying vendor without modifying the immutable session.
+        newer=self.props("model",billing="model-bill",charge="model-charge")
+        newer["lines"][0]["rate"]="98.6"
+        offer_revise(actor=self.writer,
+                     item=CatalogItem.objects.get(public_id=offers["model"]["id"]),
+                     name="New price",expected_revision="r001",properties=newer)
+        self.assertEqual(self.client.get("/api/v1/sessions/"+session["id"]).json()[
+            "pricing_selections"],session["pricing_selections"])
+        with self.assertRaises(DatabaseError):
+            with transaction.atomic():
+                SessionPricingPin.objects.filter(session__public_id=session["id"]).delete()
