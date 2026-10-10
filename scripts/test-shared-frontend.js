@@ -64,7 +64,7 @@ const errors = [401, 403, 409, 422, 503];
   assert.equal((await client.request("/api/v1/tasks", "POST", {name: "Valid"})).id, "tsk-one");
   assert.equal(outbound.opts.headers["X-CSRFToken"], "csrf-rotated");
   assert.equal(outbound.opts.cache, "no-store");
-  assert.throws(() => rt.ServerTransport(() => {}, () => "").request("/evil"),
+  await assert.rejects(rt.ServerTransport(() => {}, () => "").request("/evil"),
     /Only same-origin/);
   await assert.rejects(rt.ServerTransport(async () => {throw Error("offline");}, () => "")
     .request("/api/v1/tasks"), /No Demo fallback/);
