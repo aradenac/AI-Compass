@@ -24,7 +24,7 @@ For operational database protection, see the **[Verified Backup & Recovery Runbo
 
 See **[Platform Architecture & Data Governance](docs/platform-architecture-and-data-governance.md)** for the target backend, persistence, immutable revisions, human-readable IDs, migration strategy, evidence storage, backup/recovery, deployment and independent Maintenance & Governance workspace.
 
-See **[Incremental Platform Implementation Roadmap](docs/platform-implementation-roadmap.md)** for the ordered, one-conversation-sized GitHub issues delivering this architecture in independently usable increments.
+See **[Incremental Platform Implementation Roadmap](docs/platform-implementation-roadmap.md)** for the existing PLAT delivery history. The separate **[proposed Future Evolutions Implementation Plan](docs/future-evolutions/implementation-plan.md)** maps all accepted future features into outcome-led phases; it is **not yet an approved development issue plan**.
 
 See **[Non-Functional Requirements](docs/non-functional-requirements.md)** for system-wide interaction and quality rules, including the modal form dismissal policy (**NFR-UX-001**). Forms can only be dismissed through explicit controls, while read-only modals retain backdrop/Escape dismissal.
 

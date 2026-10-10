@@ -1,5 +1,7 @@
 # Feature proposals and approval ledger (not the PLAT delivery backlog)
 
+The [proposed outcome-led implementation plan](../future-evolutions/implementation-plan.md) is now available for owner review. It is a high-level phase sequence **only**: no bounded GitHub issue plan has been approved and no development is authorized by that draft.
+
 This directory is a **product-feature register**, separate from the
 [approved PLAT issue roadmap](../platform-implementation-roadmap.md).
 Detailed working specifications live in [../future-evolutions](../future-evolutions/README.md);

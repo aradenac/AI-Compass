@@ -1,6 +1,8 @@
 # Future evolutions — functional domain map
 
-This directory preserves the **accepted product direction and detailed working specifications** for AI Compass's future capabilities. The product owner has validated the **functional intent** of all the evolutions discussed here. **No implementation ordering, issue breakdown or permission to start coding** is implied: those decisions will be made separately. This document is a topical map, **not** a new repository-wide documentation hierarchy.
+This directory preserves the **accepted product direction and detailed working specifications** for AI Compass's future capabilities.
+
+**Proposed delivery sequence (not an approved issue plan):** [Outcome-led Implementation Plan](implementation-plan.md). It covers all eight functional specifications and both technical directions, with dependency/early-value checkpoints and an explicit source-to-phase coverage matrix. No GitHub feature issues are authorized by this draft. The product owner has validated the **functional intent** of all the evolutions discussed here. **No implementation ordering, issue breakdown or permission to start coding** is implied: those decisions will be made separately. This document is a topical map, **not** a new repository-wide documentation hierarchy.
 
 **Do not confuse:** the implemented product baseline in [Product Definition](../product-definition.md), existing delivered server capabilities, proposed future behavior, and an eventual approved implementation plan. Original feature pages are preserved at their existing paths; only their cross-references/contradictions are harmonized. Repository-wide folder moves and the overall `docs/features` register restructuring are **explicitly deferred**.
 
