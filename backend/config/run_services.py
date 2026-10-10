@@ -239,7 +239,7 @@ def serialize(run,include_raw=True):
         "download":"/api/v1/evidence/"+str(p.evidence_id)+"/download",
     } for p in run.evidence_pins.select_related("evidence").order_by("evidence_id")]
     result={
-        "id":run.public_id,"uuid":str(run.pk),
+        "id":run.public_id,"uuid":str(run.pk),"kind":"individual",
         "session_id":session.public_id,
         "closing_checkpoint":f"r{cp.number:03d}",
         "solution_id":solution.item.public_id,
