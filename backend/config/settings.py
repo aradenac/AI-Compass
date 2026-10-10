@@ -24,6 +24,7 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "config",
+    "restore_tracking",
 ]
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
