@@ -4,6 +4,8 @@
 > **Purpose:** Record maintainability gaps, implementation risks, confirmed code/CI shortcomings and *deliberately postponed* validation without mixing them with business feature requests in [future evolutions](future-evolutions/README.md).
 > **Delivery rule:** A documented candidate requires a separately owner-approved, dependency-ordered issue plan and acceptance criteria before implementation. Preserve baseline invariants in [platform architecture](platform-architecture-and-data-governance.md) and [PLAT release-readiness](release-readiness.md).
 
+**Approved implementation crosswalk (2026-10-10):** The issue-backed [FUT plan](future-evolutions/implementation-plan.md#technical-debt-and-verification-crosswalk) maps TD-01–TD-11 and TD-V01–TD-V06 to the relevant phase issues #75–#95. This register remains the detailed evidence/deferral log, **not an additional independently actionable issue list**. Deferred checks are not silently marked complete by issue creation.
+
 ## Status vocabulary
 
 - **Consolidation candidate** — agreed engineering direction or observed limitation; not yet an authorized GitHub issue.

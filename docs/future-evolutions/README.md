@@ -2,9 +2,9 @@
 
 This directory preserves the **accepted product direction and detailed working specifications** for AI Compass's future capabilities.
 
-**Proposed delivery sequence (not an approved issue plan):** [Outcome-led Implementation Plan](implementation-plan.md). It covers all eight functional specifications and both technical directions, with dependency/early-value checkpoints and an explicit source-to-phase coverage matrix. No GitHub feature issues are authorized by this draft. The product owner has validated the **functional intent** of all the evolutions discussed here. **No implementation ordering, issue breakdown or permission to start coding** is implied: those decisions will be made separately. This document is a topical map, **not** a new repository-wide documentation hierarchy.
+**Approved issue backlog (2026-10-10):** The [Outcome-led Implementation Plan](implementation-plan.md#approved-github-implementation-backlog--maximal-coherent-issue-slices) now connects every functional and technical proposal to **21 owner-requested issues #75–#95**. These are implementation plans, **not delivered functionality**; original specs remain authoritative, and real release acceptance remains NO-GO. The directory remains a thematic map, not a new repository-wide documentation hierarchy.
 
-**Do not confuse:** the implemented product baseline in [Product Definition](../product-definition.md), existing delivered server capabilities, proposed future behavior, and an eventual approved implementation plan. Original feature pages are preserved at their existing paths; only their cross-references/contradictions are harmonized. Repository-wide folder moves and the overall `docs/features` register restructuring are **explicitly deferred**.
+**Do not confuse:** the implemented product baseline in [Product Definition](../product-definition.md), existing delivered server capabilities, proposed future behavior, and the now-approved implementation backlog. Original feature pages are preserved at their existing paths; only their cross-references/contradictions are harmonized. Repository-wide folder moves and the overall `docs/features` register restructuring are **explicitly deferred**.
 
 ## Five business domains
 
@@ -105,15 +105,15 @@ The owner selected **coordinated releases with independently identified frontend
 
 | Feature specification | Product scope | Implemented today | Delivery plan/issues |
 | --- | --- | --- | --- |
-| Campaign Evaluation Matrix | Accepted future scope | Not delivered as proposed | **Not yet defined** |
-| Composable Setup Guides & Lifecycle | Accepted future scope | Existing simpler Guides only | **Not yet defined** |
-| Technology Accessibility & Pricing Management | Accepted future scope | Existing commercial/evidence foundations only | **Not yet defined** |
-| OS Compatibility & User Environment | Accepted future scope | Not delivered as proposed | **Not yet defined** |
-| Deployment & Adoption Planning | Accepted future scope | **DAP-01 workload foundation only** | Remaining scope **not yet planned** |
-| Role-Based User Experience & Guided Navigation | Accepted future scope | Existing separate user/workgroup screens, not target UX | **Not yet defined** |
-| Publication & Information Lifecycle | Accepted future scope | Some Campaign revision/reopen/unpublish; **not** Run withdrawal, subset publication or safe GC | **Not yet defined** |
-| Data Governance Audit Explorer | Accepted future scope | Existing audit/event foundations, not complete explorer | **Not yet defined** |
+| Campaign Evaluation Matrix | Accepted future scope | Not delivered as proposed | [#82](https://github.com/aradenac/AI-Compass/issues/82), [#84](https://github.com/aradenac/AI-Compass/issues/84) |
+| Composable Setup Guides & Lifecycle | Accepted future scope | Existing simpler Guides only | [#81](https://github.com/aradenac/AI-Compass/issues/81), [#83](https://github.com/aradenac/AI-Compass/issues/83), [#84](https://github.com/aradenac/AI-Compass/issues/84) |
+| Technology Accessibility & Pricing Management | Accepted future scope | Existing commercial/evidence foundations only | [#79](https://github.com/aradenac/AI-Compass/issues/79), [#83](https://github.com/aradenac/AI-Compass/issues/83), [#87](https://github.com/aradenac/AI-Compass/issues/87), [#90](https://github.com/aradenac/AI-Compass/issues/90) |
+| OS Compatibility & User Environment | Accepted future scope | Not delivered as proposed | [#80](https://github.com/aradenac/AI-Compass/issues/80), [#86](https://github.com/aradenac/AI-Compass/issues/86), [#89](https://github.com/aradenac/AI-Compass/issues/89) |
+| Deployment & Adoption Planning | Accepted future scope | **DAP-01 workload foundation only** | [#87](https://github.com/aradenac/AI-Compass/issues/87), [#88](https://github.com/aradenac/AI-Compass/issues/88), [#89](https://github.com/aradenac/AI-Compass/issues/89), [#90](https://github.com/aradenac/AI-Compass/issues/90) |
+| Role-Based User Experience & Guided Navigation | Accepted future scope | Existing separate user/workgroup screens, not target UX | [#77](https://github.com/aradenac/AI-Compass/issues/77), [#78](https://github.com/aradenac/AI-Compass/issues/78), [#86](https://github.com/aradenac/AI-Compass/issues/86), [#88](https://github.com/aradenac/AI-Compass/issues/88) |
+| Publication & Information Lifecycle | Accepted future scope | Some Campaign revision/reopen/unpublish; **not** Run withdrawal, subset publication or safe GC | [#84](https://github.com/aradenac/AI-Compass/issues/84), [#85](https://github.com/aradenac/AI-Compass/issues/85), [#92](https://github.com/aradenac/AI-Compass/issues/92) |
+| Data Governance Audit Explorer | Accepted future scope | Existing audit/event foundations, not complete explorer | [#91](https://github.com/aradenac/AI-Compass/issues/91) |
 
-The plan/priority of GitHub issues is **deliberately deferred**, as is any proposed repository-wide reorganization (`docs/features`, baseline/reference docs, global folder layout). Keep all original proposal files intact and cross-link them; future issue planning can reference these stable sections without rewriting product decisions.
+The linked **21-issue plan is now approved**. Repository-wide reorganization (`docs/features`, baseline/reference docs, global folder layout) remains **deliberately deferred**. Preserve original specs and historical decisions; implementation status is managed per issue/PR, not inferred from approved product scope.
 
-**Baseline rule:** the existing [approved PLAT implementation roadmap](../platform-implementation-roadmap.md) remains separate from these future functional requirements. Creating or refining a spec here does **not** create, approve, prioritize or execute issues.
+**Baseline rule:** the existing [approved PLAT implementation roadmap](../platform-implementation-roadmap.md) remains separate from these future functional requirements. Creating or refining a spec alone does **not** automatically create, reprioritize or execute issues; the specifically owner-authorized FUT backlog is documented separately.
