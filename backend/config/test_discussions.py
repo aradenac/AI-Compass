@@ -198,8 +198,6 @@ class DiscussionTests(TestCase):
         self.assertEqual(DiscussionMessage.objects.count(),2)
 
     def test_internal_thread_scope_cannot_be_guessed(self):
-        self.assertEqual(self.start(scope="internal",user="engineer",
-                                    context=False) if False else None,None)
         forbidden=self.send(ROOT,{
             "title":"Not allowed","body":"Hidden","properties":{"scope":"internal"}},
             user="engineer")
