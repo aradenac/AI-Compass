@@ -21,7 +21,7 @@ for(const required of ["Knowledge & Collaboration","review_needed",
   "contradictory_run_ids","real persisted","evidence","publish","unpublish",
   "expected_revision","evaluation_revision","run_ids",
   'credentials:"same-origin"',"X-CSRFToken","/revisions",
-  "new draft","no Demo data imported"]){
+  "New draft revision","no Demo data imported"]){
   assert(script.includes(required),"Missing recommendation workflow "+required);
 }
 const nodes=new Map();
