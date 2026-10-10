@@ -67,6 +67,8 @@ services:
       - ./server-data-health.js:/srv/frontend/server-data-health.js:ro
       - ./server-planning.js:/srv/frontend/server-planning.js:ro
       - ./model-catalog.js:/srv/frontend/model-catalog.js:ro
+      - ./shared-runtime.js:/srv/frontend/shared-runtime.js:ro
+      - ./shared-catalog.js:/srv/frontend/shared-catalog.js:ro
     depends_on:
       api:
         condition: service_healthy
