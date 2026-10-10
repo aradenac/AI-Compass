@@ -155,6 +155,8 @@
     return true;
   }
 
+  var compatibleContract = false;
+
   async function ensureReleaseCompatibility() {
     var response = await fetch("/api/v1/contract", {
       method: "GET", credentials: "same-origin", cache: "no-store"
@@ -163,10 +165,13 @@
     var doc;
     try { doc = await response.json(); }
     catch (error) { throw new Error("Server API contract is not valid JSON."); }
-    return checkReleaseCompatibility(doc);
+    compatibleContract = checkReleaseCompatibility(doc);
+    return compatibleContract;
   }
 
   async function authRequest(path, method, body) {
+    // Also protect a login click racing the asynchronous startup handshake.
+    if (!compatibleContract) await ensureReleaseCompatibility();
     var options = {method: method || "GET", credentials: "same-origin", cache: "no-store"};
     if (method === "POST") {
       options.headers = {"Content-Type": "application/json", "X-CSRFToken": csrfFromCookie()};
