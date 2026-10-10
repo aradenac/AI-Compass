@@ -246,9 +246,9 @@ var demoCatalogProviders = {model:demoModelProvider};
 /* FUT-03: immutable browser-local versions and the same domain-provider contract
  * consumed by the real authenticated Server widgets. No fetch is ever used here. */
 function demoTaskVersion(id){
- return "r" + String(db.revisions.filter(function(x){
-   return x.type==="Task" && x.objectId===id;
- }).length + 1).padStart(3,"0");
+ var records=db.revisions.filter(function(x){return x.type==="Task"&&x.objectId===id;});
+ var isNew=records.length&&Object.keys(records[0].before||{}).length===0;
+ return "r" + String(Math.max(1,records.length+(isNew?0:1))).padStart(3,"0");
 }
 function demoTaskRow(t){
  return {id:t.id,name:t.name,parent_id:t.parent||null,position:Number(t.order)||0,
@@ -269,18 +269,29 @@ var demoTaskProvider = {request: async function(path, method, payload) {
    var n={id:next("t"),name:payload.name,parent:payload.parent_id||null,
      order:db.tasks.filter(function(t){return t.parent===(payload.parent_id||null);}).length};
    if(n.parent&&!db.tasks.some(function(t){return t.id===n.parent;}))throw Error("Parent does not exist");
-   Object.assign(n,payload.properties||{});
-   n.properties=Object.assign({},payload.properties||{});
+   var props=payload.properties||{};
+   if(Object.keys(props).some(function(k){return ["id","name","parent","order","revision","__proto__","constructor"].includes(k);}))
+     throw Error("Protected Task fields cannot be changed via properties");
+   ["phase","domain","baseline","status","desc","criteria"].forEach(function(k){
+     if(Object.prototype.hasOwnProperty.call(props,k))n[k]=props[k];
+   });
+   n.properties=JSON.parse(JSON.stringify(props));
    db.tasks.push(n);revision("Task",n.id,{},n);persist();return demoTaskRow(n);
  }
  var t=db.tasks.find(function(row){return row.id===m[1]});
  if(!t)throw Error("Unknown fictional Task");
  if(verb==="GET"&&m[2]==="revisions") {
    var versions=db.revisions.filter(function(x){return x.type==="Task"&&x.objectId===t.id;});
-   return {revisions:[demoTaskRow(t)].concat(versions.map(function(x){return {
-     id:t.id,name:x.after.name,revision:"r"+String(versions.indexOf(x)+2).padStart(3,"0"),
-     parent_id:x.after.parent||null,properties:x.after.properties||{}
-   };}))};
+   var first=versions[0]&&Object.keys(versions[0].before||{}).length?
+     versions[0].before:t;
+   var states=[first].concat(versions.filter(function(x,i){
+     return !(i===0&&Object.keys(x.before||{}).length===0);
+   }).map(function(x){return x.after;}));
+   return {revisions:states.map(function(x,i){return {
+     id:t.id,name:x.name,revision:"r"+String(i+1).padStart(3,"0"),
+     parent_id:x.parent||null,properties:x.properties||{},
+     snapshot:JSON.parse(JSON.stringify(x))
+   };})};
  }
  if(verb==="GET")return demoTaskRow(t);
  if(verb!=="PATCH"||m[2])throw Error("Unsupported fictional Task operation");
@@ -297,14 +308,29 @@ var demoTaskProvider = {request: async function(path, method, payload) {
    seen.add(cursor);var found=db.tasks.find(function(n){return n.id===cursor;});
    cursor=found&&found.parent;
  }
+ // Validate *all* changes before touching the browser's source of truth.
+ var props=payload.properties;
+ if(props && (typeof props!=="object"||Array.isArray(props)||
+   Object.keys(props).some(function(k){return ["id","name","parent","order","revision","__proto__","constructor"].includes(k); })))
+   throw Error("Invalid Task properties or protected field");
+ var changedParent=parent!==(t.parent||null)||Object.prototype.hasOwnProperty.call(payload,"before");
+ var siblings=null,offset=-1;
+ if(changedParent){
+   siblings=db.tasks.filter(function(n){return n.id!==t.id&&(n.parent||null)===parent;})
+     .sort(function(a,b){return (a.order||0)-(b.order||0);});
+   offset=payload.before?siblings.findIndex(function(n){return n.id===payload.before;}):siblings.length;
+   if(offset<0)throw Error("Invalid sibling positioning");
+ }
  var previous=JSON.parse(JSON.stringify(t)),changed=false;
  if(payload.name!==undefined&&payload.name!==t.name){t.name=payload.name;changed=true;}
- if(payload.properties){Object.assign(t,payload.properties);t.properties=Object.assign({},payload.properties);changed=true;}
- if(parent!==(t.parent||null)||Object.prototype.hasOwnProperty.call(payload,"before")) {
-   t.parent=parent;var siblings=db.tasks.filter(function(n){return n.id!==t.id&&(n.parent||null)===parent;})
-     .sort(function(a,b){return (a.order||0)-(b.order||0);});
-   var offset=payload.before?siblings.findIndex(function(n){return n.id===payload.before;}):siblings.length;
-   if(offset<0)throw Error("Invalid sibling positioning");
+ if(props){
+   ["phase","domain","baseline","status","desc","criteria"].forEach(function(k){
+     if(Object.prototype.hasOwnProperty.call(props,k))t[k]=props[k];
+   });
+   t.properties=JSON.parse(JSON.stringify(props));changed=true;
+ }
+ if(changedParent){
+   t.parent=parent;
    siblings.splice(offset,0,t);siblings.forEach(function(n,i){n.order=i;});
    changed=true;
  }
