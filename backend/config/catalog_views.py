@@ -202,6 +202,15 @@ def get_catalog_item(request, public_id):
             "current_revision__schema_version", "current_revision__created_by"
         ), public_id=public_id
     )
+    if item.type_slug in ("research_source","watch_entry"):
+        from .watch_services import serialize as watch_serialize
+        reader=not (request.user.has_perm("auth.business_write") or
+                    request.user.has_perm("auth.publication_review"))
+        payload=watch_serialize(item,reader=reader)
+        if payload is None:
+            from django.http import Http404
+            raise Http404("Private knowledge record")
+        return json_no_store(payload)
     return json_no_store(serialize(item))
 
 
