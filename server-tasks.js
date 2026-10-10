@@ -1,8 +1,8 @@
-/* PLAT-09: Server taxonomy workspace. No access to Demo's browser data provider. */
+/* FUT-03: one Task tree/editor/history presentation in both modes; provider is selected at bootstrap. */
 (function () {
   "use strict";
 
-  function mount(root, csrf, escapeHtml) {
+  function mount(root, csrf, escapeHtml, provider) {
     var rows = [], canRead = false, canWrite = false, generation = 0;
     var state = root.querySelector("#server-task-state");
     var tree = root.querySelector("#server-task-list");
@@ -11,6 +11,7 @@
     var E = escapeHtml;
 
     async function api(url, method, data) {
+      if (provider) return provider.tasks.request(url, method, data);
       var opts = {method: method || "GET", credentials: "same-origin", cache: "no-store"};
       if (method && method !== "GET") {
         opts.headers = {"Content-Type": "application/json", "X-CSRFToken": csrf()};
@@ -70,18 +71,18 @@
     async function refresh() {
       if (!canRead) return;
       var ticket = ++generation;
-      state.textContent = "Loading authoritative Server tasks…";
+      state.textContent = "Loading " + (provider ? "fictional Demo" : "authoritative Server") + " tasks…";
       try {
         var result = await api("");
         if (ticket !== generation || root.hidden) return;
         if (!Array.isArray(result.results)) throw Error("Invalid Server task response");
         rows = result.results;
         render();
-        state.textContent = rows.length + " persistent task node(s). Each identity and revision is permanent.";
+        state.textContent = rows.length + " task node(s). Each identity and revision is retained.";
       } catch (error) {
         if (ticket !== generation) return;
         rows = []; tree.replaceChildren();
-        state.textContent = "Server task tree unavailable: " + error.message + ". No Demo fallback.";
+        state.textContent = "Task tree unavailable: " + error.message + ". No cross-mode fallback.";
       }
     }
 
@@ -118,7 +119,7 @@
         '<label>Description<textarea name="desc">' + E(p.desc || "") + '</textarea></label>' +
         '<label>Definition of Done<textarea name="criteria">' + E(p.criteria || "") + '</textarea></label>' +
         '<label>Other original properties (JSON)<textarea name="extra">' + E(JSON.stringify(other, null, 2)) +
-        '</textarea></label><button type="submit">Save to Server</button>' +
+        '</textarea></label><button type="submit">Save task revision</button>' +
         '<button type="button" id="server-task-cancel">Cancel</button></form>';
       editor.querySelector("#server-task-cancel").onclick = function () { editor.hidden = true; };
       editor.querySelector("form").onsubmit = async function (event) {
@@ -150,7 +151,7 @@
           await refresh();
         } catch (error) {
           state.textContent = "Save rejected: " + error.message +
-            ". Reload the authoritative tree; Demo data was not altered.";
+            ". Reload the current tree; the rejected revision was not applied.";
         } finally { button.disabled = false; }
       };
     }
