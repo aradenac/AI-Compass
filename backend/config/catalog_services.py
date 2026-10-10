@@ -8,6 +8,7 @@ from .models import CatalogItem, CatalogRevision, ObjectTypeVersion
 from .activity_services import record_catalog_event
 
 CATALOG_TYPES = {
+    "pricing_offer": "off",
     "model": "mdl",
     "provider": "prv",
     "harness": "hrn",
@@ -22,6 +23,7 @@ CATALOG_TYPES = {
     "discussion_message": "msg",
 }
 SUPPORTED_SCHEMA_VERSIONS = {
+    "pricing_offer": frozenset({1}),
     "model": SUPPORTED_MODEL_VERSIONS,
     "provider": frozenset({1}),
     "harness": frozenset({1}),
