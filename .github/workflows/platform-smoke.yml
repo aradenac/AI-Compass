@@ -324,6 +324,7 @@ jobs:
           node --check scripts/test-catalog-types.js
           node scripts/test-model-catalog.js
           node scripts/test-shared-frontend.js
+          node scripts/test-environment-frontend.js
           node scripts/test-pricing-frontend.js
           node scripts/test-workgroup-studio.js
           node scripts/test-shared-drafts.js
