@@ -130,7 +130,7 @@ Rules:
 1. Selecting **one Task**, **3 AI Solutions**, and **2 linked Test Cases** yields **6 candidate combinations**, all selected/planned by default.
 2. Deselecting one marks **Not Selected**, keeps a discoverable muted cell and removes its execution obligation.
 3. Waiving another previously selected combination **requires an explanation**, records actor/time/revision and removes its execution obligation without recording an artificial failure.
-4. Three combinations with completed recorded run(s), one Pending, one Not Selected and one Waived produce a **blocked closure** (the sixth combination is Pending). Completing the outstanding run removes this specific blocker, subject to normal review/publication rules.
+4. Three combinations with completed recorded run(s), one Pending, one Not Selected and one Waived produce a **blocked closure**, because the selected Pending combination still requires execution. Completing the outstanding run removes this specific blocker, subject to normal review/publication rules.
 5. A completed execution with **failed DoD** is an evaluated attempt and retains its negative evidence; the run is not silently treated as absent.
 6. Reinstating a waived combination returns its required evaluation to the current revision, preserving the waiver history.
 7. Different AI Solutions assigned to the same Task may have **different selected Test Case subsets**.
