@@ -215,3 +215,46 @@ class TestCase(models.Model):
                                     name="uniq_test_case_fork_version"),
         ]
         ordering = ["item__public_id"]
+
+
+class CampaignSnapshot(models.Model):
+    """Immutable, relationally pinned metadata for one campaign catalog revision."""
+    revision = models.OneToOneField(
+        CatalogRevision, primary_key=True, on_delete=models.PROTECT,
+        related_name="campaign_snapshot")
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+                              related_name="owned_campaign_snapshots")
+    method_definition = models.ForeignKey(ObjectTypeVersion, on_delete=models.PROTECT,
+                                          related_name="campaign_snapshots")
+    fixed_task = models.ForeignKey(TaskNode, null=True, blank=True,
+                                   on_delete=models.PROTECT, related_name="+")
+    fixed_task_revision = models.ForeignKey(CatalogRevision, null=True, blank=True,
+                                            on_delete=models.PROTECT, related_name="+")
+    guide = models.ForeignKey(CatalogItem, null=True, blank=True,
+                              on_delete=models.PROTECT, related_name="+")
+    guide_revision = models.ForeignKey(CatalogRevision, null=True, blank=True,
+                                       on_delete=models.PROTECT, related_name="+")
+    configuration = models.JSONField(default=dict)
+
+
+class CampaignCasePin(models.Model):
+    snapshot = models.ForeignKey(CampaignSnapshot, on_delete=models.PROTECT,
+                                 related_name="case_pins")
+    test_case = models.ForeignKey(TestCase, on_delete=models.PROTECT, related_name="+")
+    revision = models.ForeignKey(CatalogRevision, on_delete=models.PROTECT, related_name="+")
+
+    class Meta:
+        constraints = [models.UniqueConstraint(
+            fields=["snapshot", "test_case"], name="uniq_campaign_snapshot_case")]
+
+
+class CampaignComponentPin(models.Model):
+    snapshot = models.ForeignKey(CampaignSnapshot, on_delete=models.PROTECT,
+                                 related_name="component_pins")
+    kind = models.CharField(max_length=12)
+    component = models.ForeignKey(CatalogItem, on_delete=models.PROTECT, related_name="+")
+    revision = models.ForeignKey(CatalogRevision, on_delete=models.PROTECT, related_name="+")
+
+    class Meta:
+        constraints = [models.UniqueConstraint(
+            fields=["snapshot", "kind"], name="uniq_campaign_snapshot_component")]
