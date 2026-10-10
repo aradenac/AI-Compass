@@ -56,12 +56,14 @@ def _error(exc):
 
 
 @capability("business_read")
+@csrf_protect
 @never_cache
 def sources(request):
     return _collection(request,svc.SOURCE)
 
 
 @capability("business_read")
+@csrf_protect
 @never_cache
 def entries(request):
     return _collection(request,svc.WATCH)
@@ -79,10 +81,6 @@ def _collection(request,kind):
     if request.method!="POST":return HttpResponseNotAllowed(["GET","POST"])
     if not request.user.has_perm("auth.business_write"):
         return json_no_store({"error":"permission_denied"},403)
-    from django.middleware.csrf import CsrfViewMiddleware
-    # Enforce CSRF on this shared dispatcher, including collection writes.
-    result=CsrfViewMiddleware(lambda r: None).process_view(request,lambda r:None,(),{})
-    if result is not None:return result
     try:
         data=_payload(request,LIMITS[kind])
         obj=svc.create(kind,actor=request.user,name=data.get("name"),
@@ -95,12 +93,14 @@ def _collection(request,kind):
 
 
 @capability("business_read")
+@csrf_protect
 @never_cache
 def source(request,public_id):
     return _detail(request,svc.SOURCE,public_id)
 
 
 @capability("business_read")
+@csrf_protect
 @never_cache
 def entry(request,public_id):
     return _detail(request,svc.WATCH,public_id)
@@ -112,9 +112,6 @@ def _detail(request,kind,public_id):
     if request.method!="PATCH":return HttpResponseNotAllowed(["GET","PATCH"])
     if not request.user.has_perm("auth.business_write"):
         return json_no_store({"error":"permission_denied"},403)
-    from django.middleware.csrf import CsrfViewMiddleware
-    result=CsrfViewMiddleware(lambda r: None).process_view(request,lambda r:None,(),{})
-    if result is not None:return result
     try:
         data=_payload(request,LIMITS[kind]|{"expected_revision"})
         if not isinstance(data.get("expected_revision"),str):
@@ -175,12 +172,14 @@ def _version(request,kind,public_id,number):
 
 
 @capability("business_read")
+@csrf_protect
 @never_cache
 def source_action(request,public_id,action):
     return _review(request,svc.SOURCE,public_id,action)
 
 
 @capability("business_read")
+@csrf_protect
 @never_cache
 def entry_action(request,public_id,action):
     return _review(request,svc.WATCH,public_id,action)
@@ -188,9 +187,6 @@ def entry_action(request,public_id,action):
 
 def _review(request,kind,public_id,action):
     if request.method!="POST":return HttpResponseNotAllowed(["POST"])
-    from django.middleware.csrf import CsrfViewMiddleware
-    result=CsrfViewMiddleware(lambda r: None).process_view(request,lambda r:None,(),{})
-    if result is not None:return result
     if not request.user.has_perm("auth.publication_review"):
         return json_no_store({"error":"permission_denied"},403)
     item=_item(kind,public_id)
