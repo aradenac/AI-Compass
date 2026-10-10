@@ -64,7 +64,7 @@ def accessibility(properties):
     if not isinstance(properties, dict):
         return "unknown"
     value = properties.get("enterprise_accessibility", "unknown")
-    return value if value in ACCESS else "unknown"
+    return value if isinstance(value,str) and value in ACCESS else "unknown"
 
 
 def validate_offer(data):
