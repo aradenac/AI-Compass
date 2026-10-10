@@ -255,7 +255,10 @@ def prepare_selections(rows, ctx, previous=None):
             # only if it was manually selected in the UI; do not override.
             pass
         for line in rev.properties.get("lines", []):
-            identity = (rev.properties["billing_owner"], line["charge_id"])
+            # A charge belongs to one invocation; separate Framework participants
+            # can make independent invocations under the same vendor tariff.
+            # Root model/provider describing the SAME invoice may not duplicate it.
+            identity = (key.split(":")[0],rev.properties["billing_owner"], line["charge_id"])
             if identity in billed:
                 raise InvalidPricing("Duplicate underlying invoice charge across Model/Provider/participants")
             billed.add(identity)
