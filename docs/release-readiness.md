@@ -73,10 +73,15 @@ manual tasks below with reviewable evidence. Failed acceptance creates
 new corrective GitHub issues linked to the original PLAT tickets; a
 production deployment must not be inferred from issue states.
 
-The next existing GitHub issue is **PLAT-33**. Source-discovery tooling is
+PLAT-33 was closed on **2026-10-10 as an explicitly MOCKED code-only
+delivery**, not as genuine source onboarding. The staging-only mock adapter
+and its synthetic fixture are not approved external data. Source-discovery
+tooling is
 documented in [external-source-onboarding.md](external-source-onboarding.md);
-its actual one-source import remains **blocked** until the first permitted
-real data source/type is selected and deployment approval is recorded.
+the actual source-specific real-data adapter remains **unimplemented**
+until its owner/source/type is selected, and any production intake remains
+blocked until release approval is independently recorded. A new
+source-specific GitHub ticket is required.
 
 ## Mandatory operational acceptance before GO
 

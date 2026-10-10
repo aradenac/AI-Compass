@@ -1,6 +1,9 @@
 # PLAT-33 — External onboarding, with isolated mock adapter
 
-**Implementation status:** mock-contract backend is implemented and CI-tested.
+**Implementation status:** mock-contract backend is implemented, CI-tested
+and merged in [PR #71](https://github.com/aradenac/AI-Compass/pull/71).
+[Issue #33](https://github.com/aradenac/AI-Compass/issues/33) is closed
+as a **mocked development milestone**, not as an actual real-source import.
 **Operational status:** NO-GO for ingesting real data. The real origin,
 data-sharing permission, source format, mapping and production release are
 still unselected/unapproved. The simulated connector is NEVER a substitute
@@ -123,8 +126,8 @@ real staging, controlled production migration and GO/NO-GO release gates.
 CI runs these checks plus the cross-role real Server journey, immutable
 history/native archive, full DB+evidence restore and standalone Demo.
 
-**Ticket completion policy:** when this mock implementation is merged,
-the owner may close #33 as a **mocked development milestone**, leaving
-real source selection, human operational release and future defects
-explicitly deferred. A green simulated test is not a real-source
+**Ticket completion:** #33 is closed on owner authorization after the
+mocked implementation. Real source selection, a source-specific real
+adapter, human operational release and future defects are deferred to
+separately approved issues. The environment remains **NO-GO**. A green simulated test is not a real-source
 onboarding certification.
