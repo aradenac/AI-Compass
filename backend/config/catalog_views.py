@@ -11,6 +11,7 @@ from .auth_views import capability, json_no_store
 from .catalog_schemas import InvalidModel
 from .catalog_services import create_model, model_schema, revise_model, RevisionConflict, ExhaustedIds, SchemaWriteBlocked
 from .catalog_compat import compatibility_for_revision, registry_for_types
+from .environment_services import record_os
 from .models import CatalogItem, CatalogRevision, ObjectTypeVersion
 
 
@@ -49,8 +50,10 @@ def serialize(item, revision=None, registries=None):
         "type": item.type_slug,
         "name": rev.display_name,
         "properties": rev.properties,  # exact original, including unknown/null
+        "os_compatibility": record_os(item.type_slug, rev.properties),
         "schema_version": rev.schema_version.version,
         "revision": f"r{rev.number:03d}",
+        "revision_id": str(rev.pk),
         "created_at": rev.created_at.isoformat(),
         "created_by": rev.created_by.get_username(),
         "compatibility": state,

@@ -77,6 +77,12 @@ def create_component(*, type_slug, actor, name, properties):
     if schema is None:
         raise ValueError("No supported schema registered for catalog type")
     name = validate_model(name, properties, schema.json_schema)
+    from .environment_services import validate_component_os, InvalidEnvironment
+    from .catalog_schemas import InvalidModel
+    try:
+        validate_component_os(type_slug, properties)
+    except InvalidEnvironment as exc:
+        raise InvalidModel(str(exc)) from exc
     for _ in range(12):
         candidate = new_public_id(CATALOG_TYPES[type_slug])
         try:
@@ -114,6 +120,12 @@ def revise_component(*, item, type_slug, actor, expected_revision,
         updated_name = name if name is not None else previous.display_name
         updated_properties = properties if properties is not None else previous.properties
         updated_name = validate_model(updated_name, updated_properties, schema.json_schema)
+        from .environment_services import validate_component_os, InvalidEnvironment
+        from .catalog_schemas import InvalidModel
+        try:
+            validate_component_os(type_slug, updated_properties)
+        except InvalidEnvironment as exc:
+            raise InvalidModel(str(exc)) from exc
         revision = CatalogRevision.objects.create(
             item=locked, number=previous.number + 1, schema_version=schema,
             display_name=updated_name, properties=updated_properties, created_by=actor,

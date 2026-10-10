@@ -69,6 +69,7 @@ services:
       - ./model-catalog.js:/srv/frontend/model-catalog.js:ro
       - ./shared-runtime.js:/srv/frontend/shared-runtime.js:ro
       - ./shared-catalog.js:/srv/frontend/shared-catalog.js:ro
+      - ./shared-environment.js:/srv/frontend/shared-environment.js:ro
       - ./shared-workgroup.js:/srv/frontend/shared-workgroup.js:ro
       - ./shared-drafts.js:/srv/frontend/shared-drafts.js:ro
       - ./shared-pricing.js:/srv/frontend/shared-pricing.js:ro

@@ -11,10 +11,18 @@
     element.innerHTML = '<div class="server-model-toolbar"><h2>Technology Catalog</h2>' +
       '<button type="button" data-common-action="refresh">Refresh</button></div>' +
       '<p data-common-status role="status" aria-live="polite"></p>' +
+      '<label>Harness/Framework OS discovery <select data-common-os-filter>'+
+      '<option value="all">All (including other-OS and unknown)</option>'+
+      '<option value="windows">Windows compatible</option>'+
+      '<option value="linux">Linux compatible</option>'+
+      '<option value="both">Both systems</option>'+
+      '<option value="unknown">Unknown / needs classification</option>'+
+      '</select></label>'+
       '<div data-common-list class="grid g2"></div>' +
       '<section data-common-editor hidden></section><section data-common-history hidden></section>';
     var status = element.querySelector("[data-common-status]");
     var list = element.querySelector("[data-common-list]");
+    var osFilter = element.querySelector("[data-common-os-filter]");
     var editor = element.querySelector("[data-common-editor]");
     var history = element.querySelector("[data-common-history]");
     function message(text) { status.textContent = text; }
@@ -27,10 +35,7 @@
         if (ticket !== generation || !canRead) return;
         rows = data.flat();
         if (options.onRows) options.onRows(rows);
-        list.innerHTML = TYPES.map(function (type, n) {
-          // Same presentation and toolbar in Demo and Server, never copied.
-          return models.renderLane(data[n], {type: type, canWrite: canWrite, showRevisions: true});
-        }).join("");
+        drawCatalog();
         message(rows.length + " catalog record(s) · " + (mode === "demo" ? "Fictional local data" : "Real authenticated data"));
       } catch (e) {
         if (ticket !== generation) return;
@@ -38,6 +43,29 @@
         message("Catalog unavailable: " + e.message + ". No Demo fallback.");
       }
     }
+    function matchesOS(row, filter) {
+      if (filter === "all" || !["harness","framework"].includes(row.type)) return true;
+      var known = root.AICompassEnvironment.normalize((row.properties || {}).supported_os);
+      if (filter === "unknown") return known === null;
+      return known !== null && (filter === "both" ?
+        known.length === 2 : known.includes(filter));
+    }
+    function drawCatalog() {
+      var filter = osFilter && osFilter.value || "all";
+      list.innerHTML = TYPES.map(function (type) {
+        var group = rows.filter(function (r) {return r.type === type;});
+        if (filter !== "all" && ["harness","framework"].includes(type))
+          group = group.filter(function (r) {return matchesOS(r,filter);});
+        return models.renderLane(group,{type:type,canWrite:canWrite,showRevisions:true}) +
+          (["harness","framework"].includes(type) ?
+            '<p class="muted">OS classification: '+group.map(function(r){
+              var supported=root.AICompassEnvironment.normalize((r.properties||{}).supported_os);
+              return esc(r.name)+': '+(supported?supported.join(' + '):
+                'Unknown / not classified');
+            }).join(' · ')+'</p>':"");
+      }).join("");
+    }
+    if (osFilter && osFilter.addEventListener) osFilter.addEventListener("change",drawCatalog);
     function edit(model, type) {
       if (!canWrite) return;
       selected = model;
@@ -46,6 +74,13 @@
       editor.innerHTML = '<h3>' + (model ? "Revise" : "Create") + ' ' + esc(type) + '</h3>' +
         '<form data-common-form><label>Name <input name="name" required maxlength="160" value="' +
         esc(model && model.name || "") + '"></label>' +
+        (["harness","framework"].includes(type) ?
+          '<fieldset data-os-fields><legend>Supported operating systems (both = OS-agnostic)</legend>'+
+          '<label><input name="osWindows" type="checkbox"'+
+             ((existing.supported_os||[]).includes("windows")?' checked':'')+'> Windows</label>'+
+          '<label><input name="osLinux" type="checkbox"'+
+             ((existing.supported_os||[]).includes("linux")?' checked':'')+'> Linux</label>'+
+          '<p>Classify before publishing or asserting this record usable. Unknown historical records remain readable.</p></fieldset>' : '') +
         '<label>Original properties (JSON) <textarea name="properties" rows="10">' +
         esc(JSON.stringify(existing, null, 2)) + '</textarea></label>' +
         '<p>Immutable revision ' + esc(model && model.revision || "new") +
@@ -60,6 +95,13 @@
           var properties = JSON.parse(values.properties);
           if (!properties || typeof properties !== "object" || Array.isArray(properties))
             throw new Error("Properties must be a JSON object");
+          if (["harness","framework"].includes(type)) {
+            var supported = [];
+            if (event.currentTarget.elements.osWindows.checked) supported.push("windows");
+            if (event.currentTarget.elements.osLinux.checked) supported.push("linux");
+            if (!supported.length) throw new Error("Select Windows and/or Linux before saving a usable Harness/Framework.");
+            properties.supported_os = supported;
+          }
           var adapter = provider.catalog[type];
           if (model) {
             await adapter.revise(model.id, {

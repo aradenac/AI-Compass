@@ -122,6 +122,21 @@ class TaskStructureRevision(models.Model):
     position = models.PositiveIntegerField()
 
 
+class UserEnvironmentRevision(models.Model):
+    """Self-declared OS availability history; append-only and never an entitlement."""
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+                             related_name="environment_revisions")
+    number = models.PositiveIntegerField()
+    available_os = models.JSONField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(
+            fields=["user", "number"], name="uniq_user_environment_revision")]
+        ordering = ["user_id", "number"]
+
+
 class UserAccessAuditEvent(models.Model):
     """Immutable record of account lifecycle and role/credential administration."""
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
