@@ -154,7 +154,7 @@ def close(*,actor,public_id,expected_revision,data):
     if not isinstance(expected_revision,str):
         raise InvalidSession("expected_revision is required")
     with transaction.atomic():
-        session=BenchmarkSession.objects.select_for_update().select_related(
+        session=BenchmarkSession.objects.select_for_update(of=("self",)).select_related(
             "campaign_snapshot__revision__item","campaign_snapshot__owner",
             "case_pin__revision","case_pin__test_case__item",
             "method_definition","guide_revision","guide").filter(public_id=public_id).first()
