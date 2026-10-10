@@ -57,6 +57,11 @@ def configuration(environ):
               "LAN hosts must be private IPv4 or internal DNS")
     _required(environ.get("AI_COMPASS_TLS_PROXY") == "1",
               "LAN requires a TLS-terminating trusted proxy")
+    for secret in ("DJANGO_SECRET_KEY", "DB_PASSWORD"):
+        value = environ.get(secret, "")
+        _required(len(value) >= 32 and not value.startswith("REPLACE_WITH_"),
+                  "LAN requires strong explicitly generated " + secret)
+
     origins = [o.strip() for o in environ.get("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",") if o.strip()]
     _required(origins, "LAN requires explicit HTTPS CSRF origins")
     for origin in origins:
