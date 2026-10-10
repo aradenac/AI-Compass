@@ -1,9 +1,16 @@
 from django.urls import path
 
-from . import auth_views, catalog_views, catalog_type_views, evidence_views, task_views, user_admin_views, activity_views, data_health_views, test_case_views, setup_guide_views
+from . import auth_views, catalog_views, catalog_type_views, evidence_views, task_views, user_admin_views, activity_views, data_health_views, test_case_views, setup_guide_views, campaign_views
 from .api import api
 
 urlpatterns = [
+    path("api/v1/campaign-methods", campaign_views.methods),
+    path("api/v1/campaigns/pipeline", campaign_views.pipeline),
+    path("api/v1/campaigns", campaign_views.collection),
+    path("api/v1/campaigns/<slug:public_id>", campaign_views.detail),
+    path("api/v1/campaigns/<slug:public_id>/actions/<slug:action>", campaign_views.transition),
+    path("api/v1/campaigns/<slug:public_id>/revisions", campaign_views.history),
+    path("api/v1/campaigns/<slug:public_id>/revisions/<int:number>", campaign_views.revision),
     path("api/v1/guides", setup_guide_views.collection),
     path("api/v1/guides/<slug:public_id>", setup_guide_views.detail),
     path("api/v1/guides/<slug:public_id>/revisions", setup_guide_views.history),
