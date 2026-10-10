@@ -33,6 +33,7 @@ function find(k){if(!nodes.has(k))nodes.set(k,{
     querySelector:find,querySelectorAll(){return [];}
 });return nodes.get(k);}
 const root={hidden:true,innerHTML:"",querySelector:find,
+    addEventListener(type,listener){this["listener_"+type]=listener;},
     replaceChildren(){this.innerHTML="";}};
 const calls=[],testRows=[
     {id:"src-clear-blue-otter",name:"<img src=x onerror=alert(1)>",revision:"r001",
