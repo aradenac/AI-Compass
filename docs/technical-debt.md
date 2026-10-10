@@ -1,0 +1,57 @@
+# AI Compass — Technical Debt & Deferred Engineering Checks
+
+> **Status:** Living registry, created 2026-10-10 after a **static technical audit** of merged code. **Not an approved issue backlog**, not evidence of a deployed production system, and not a claim of a proven exploitable vulnerability.
+> **Purpose:** Record maintainability gaps, implementation risks, confirmed code/CI shortcomings and *deliberately postponed* validation without mixing them with business feature requests in [future evolutions](future-evolutions/README.md).
+> **Delivery rule:** A documented candidate requires a separately owner-approved, dependency-ordered issue plan and acceptance criteria before implementation. Preserve baseline invariants in [platform architecture](platform-architecture-and-data-governance.md) and [PLAT release-readiness](release-readiness.md).
+
+## Status vocabulary
+
+- **Consolidation candidate** — agreed engineering direction or observed limitation; not yet an authorized GitHub issue.
+- **Deferred verification** — explicitly postponed tests/validation; schedule when an applicable environment is available or when the associated feature stabilizes.
+- **Monitor/reassess** — optimization or cleanup contingent on real measurements; avoid premature frameworks/rewrite.
+- **Existing operational gate** — code/CI may already be delivered, but human acceptance is not complete; do not confuse with new functionality.
+
+Priorities are suggested **risk order**, not permission to start or a production incident rating.
+
+## I. Consolidation candidates (before or alongside future feature implementation)
+
+| ID | Priority | Observation / evidence | Agreed direction and acceptance focus | Owner document |
+| --- | --- | --- | --- | --- |
+| **TD-01** | High | Demo view in prototype.html and Server domain views in server-*.js are not a genuinely shared presentation implementation. | Converge on one frontend/provider boundary, coordinate with planned role-based UX to avoid double rewriting, preserve offline fake Demo and real authenticated empty Server. | [Shared frontend & releases](future-evolutions/shared-frontend-and-release-lifecycle.md) |
+| **TD-02** | High | .github/workflows/platform-smoke.yml path filters omit several existing Server JS files (watch, forecasts, results, recommendations, discussions); edits alone may skip CI. | Cover every frontend/backend/contract/release input; retain mandatory dual-mode and integrity checks. | [Shared frontend & releases](future-evolutions/shared-frontend-and-release-lifecycle.md) |
+| **TD-03** | High | Listing evidence in evidence_views.py calls verify_bytes() per attachment, re-reading/hashing entire blobs. | Separate fast metadata listing from scheduled integrity checks and fail-closed full verification at download; display verification freshness accurately. | [Secure operations](future-evolutions/secure-operations-and-capacity.md) |
+| **TD-04** | High before exposure | settings.py has local-HTTP cookie flags; current Compose binds Caddy to loopback; auth has no verified production login throttle. | Explicit development/LAN/Internet profiles, safe TLS/origin/cookie/auth defaults and preflight; no public exposure of dev defaults. | [Secure operations](future-evolutions/secure-operations-and-capacity.md) |
+| **TD-05** | High | GET /api/v1/archives/native currently authorizes complete archive with platform_view, a read-oriented capability; export is synchronous and capped at 2 GiB uncompressed/200k records/10k entries. | Split archive create/download permissions, generate immutable archives server-side, authenticated artifact-specific temporary HTTP download tokens, Range resume and independent verification; retain native and full recovery purposes. | [Secure operations](future-evolutions/secure-operations-and-capacity.md) |
+| **TD-06** | Medium–high | requirements.txt and base Docker images use version ranges/mutable tags; rebuilds may drift. | Pin reproducible dependency sets and deployed image digests; audit vulnerabilities and track controlled upgrades in release manifest. | [Shared frontend & releases](future-evolutions/shared-frontend-and-release-lifecycle.md) |
+| **TD-07** | Medium–high | Django Ninja currently serves health, while business views decode/validate/serialize request JSON independently. | Keep Django Ninja; progressively standardize typed API contracts, errors, capability declarations and OpenAPI, preserving Django services, transactions, CSRF and permissions. Avoid a giant endpoint rewrite. | [Shared frontend & releases](future-evolutions/shared-frontend-and-release-lifecycle.md) |
+| **TD-08** | High for release use | No tagged release/immutable component manifest, compatibility preflight or generic guided operator upgrade/recovery UI; existing PLAT-26 tooling is registered specifically for Model v1→v2. | Coordinate release, component/build digests, API/schema compatibility, staging verification and safe maintenance/rollback orchestration. Document and implement minimal operator commands; **never** promote staging DB over live DB. | [Shared frontend & releases](future-evolutions/shared-frontend-and-release-lifecycle.md) |
+| **TD-09** | Medium | Capacity and evidence upload limits are mostly fixed in code; limited proactive administrative trend/threshold controls. | Small versioned policy store with safe bounds, platform permissions, audit, prospective-only effect, warnings and capacity dashboard; physical hard limits remain distinct. | [Secure operations](future-evolutions/secure-operations-and-capacity.md) |
+| **TD-10** | Low–medium | Frontend HTTP/CSRF/error handling and backend input/response conventions are duplicated; models.py and release/recovery scripts are large. | Consolidate common API client and service boundaries while implementing shared frontend; prefer extraction of cohesive helpers over rearchitecting Django/PostgreSQL or weakening recovery. | [Shared frontend & releases](future-evolutions/shared-frontend-and-release-lifecycle.md) |
+| **TD-11** | Low | Several historical documentation statements claim already-closed PLAT items remain open or features are still pending. | Reconcile current/target status and make authoritative docs/manifest the source of truth for agents and operators; preserve historical decisions. | [Feature ledger](features/README.md) |
+
+**Important:** TD-01/08 and the role-based UX proposal overlap on **implementation work** but have different ownership: UX owns navigation/personalized experiences; TD-01/08 and the technical proposal own frontend runtime contracts and coordinated releases. Do not issue two duplicate refactorings. TD-05 is a platform export/recovery correction, **not** the broader future Data Governance Audit Explorer. TD-09 operational capacity is distinct from future business cost/budget planning.
+
+## II. Deliberately deferred validation
+
+| ID | Verification deferred | Trigger to schedule | Minimum invariant still tested now |
+| --- | --- | --- | --- |
+| **TD-V01** | Exhaustive real-browser E2E/visual/accessibility coverage across persona flows, responsive layouts and browser families. | Shared frontend/role-based UX becomes stable enough that tests won't encode obsolete screens. | Focused browser tests of shared views, permission isolation, Demo offline/no fallback, essential actions and stale-edit conflicts during refactor. |
+| **TD-V02** | Heavy volume/load/soak tests for catalog queries, large histories, exports, evidence files, concurrent sessions and restore time. | Before organization-wide rollout, significant data growth or after introducing scalable archive transfers. | Bound memory/streaming in critical paths, error handling, integrity, deterministic size limits and recovery smoke. |
+| **TD-V03** | Actual Internet/inter-BU ingress acceptance, certificates/SSO design, production exposure security review and incident rehearsal. | Real domain, routing and security ownership become available; LAN is the first deployment scenario. | Local-only deployment must not be exposed as public-safe; typed configuration and fail-closed TLS/cookie/origin checks for Internet profile. |
+| **TD-V04** | Operational production-sized backup/restore exercises and actual human staging browser/migration sign-off. | A realistic disposable production-like dataset/host exists and before any GO production decision. | Existing PLAT-26/29/32/34/35 CI smoke and fail-closed release gate remain mandatory; **current release stays NO-GO** until human checks. |
+| **TD-V05** | Operational performance/maintenance simplification based on measured bottlenecks (pagination, indexes, worker scheduling, long-running exports). | Telemetry or representative data exposes a real bottleneck. | Preserve bounded calls, immutable data and safe failure behavior; avoid speculative Redis/Celery/microservices. |
+| **TD-V06** | Automatic vulnerability scanning, permission-matrix testing and supply-chain review beyond initial pinning. | Before LAN production onboarding of confidential data and on dependency changes. | Basic auth/CSRF/RBAC, data privacy and reproducible dependency pinning are consolidation requirements, not postponed outright. |
+
+Deferring these activities does **not** permit skipping tests required to prove a newly implemented feature, release artifact or irreversible migration.
+
+## III. Operational limitations that must remain visible
+
+- Existing PLAT release readiness is explicitly **NO-GO** pending real staging/browser acceptance, production-like rehearsal and accountable release decision; closing PLAT issues does not grant GO.
+- Migration staging/production scripts are specialized to a registered migration and must not be represented as a generic all-version deployment mechanism.
+- Native logical archive does not contain all authentication/runtime state and its current restore is isolated-staging-only; full coordinated recovery remains a separate artifact and operation.
+- No authentic external production data source is approved yet; the mock Model import remains strictly disposable staging-only. This is **existing delivery context**, not a new duplicate feature proposal.
+- No tagged GitHub releases or immutable frontend/backend build manifests were observed at registry creation; repo connection permits PR work, but release publication must be checked with GitHub Actions permissions.
+
+## Maintenance protocol
+
+When reviewing a candidate: link supporting code/tests, verify current applicability, assign an issue only after owner approval, set realistic acceptance/proof and close the record with links and measured result once resolved. Avoid numeric quality scores as proof. Keep the [future product feature map](future-evolutions/README.md), [technical platform proposals](future-evolutions/shared-frontend-and-release-lifecycle.md) and [operational guides](release-readiness.md) semantically separate.

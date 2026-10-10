@@ -358,7 +358,7 @@ Data Maintainer **must not automatically** gain Workgroup business editing, publ
 
 ## 12. Architecture: reuse and preliminary impact
 
-**Technical direction:** maintain same frontend with independent Demo and Server adapters, Django/PostgreSQL authoritative models, immutable history and composable RBAC. Implement **route/shell composition, reusable contextual panels and derived read-models**, not separate underlying repositories of advice or a new workflow service.
+**Technical direction:** maintain same frontend with independent Demo and Server adapters, Django/PostgreSQL authoritative models, immutable history and composable RBAC. The current Demo/Server pages are *not yet genuinely shared*: implementation must converge them while delivering this UX redesign rather than first duplicating the legacy screens in a separate refactor. [Shared Frontend, API Contracts & Release Lifecycle](shared-frontend-and-release-lifecycle.md) owns the provider boundary, build artifacts, compatibility and deployment requirements; this UX specification owns persona navigation and presentation semantics. Do not invent a different backend contract for each persona or mode. Implement **route/shell composition, reusable contextual panels and derived read-models**, not separate underlying repositories of advice or a new workflow service.
 
 | Component | Impact | Approach |
 | --- | --- | --- |

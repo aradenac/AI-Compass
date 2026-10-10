@@ -73,6 +73,18 @@ The user-facing solution detail is a **composed view** over current measured res
 
 Provides a passive, permissioned **history of committed changes, exact revisions and diffs** within the separate Maintenance interface. It is **not** the action authority for publication status, delete eligibility, purge policy or runtime comparisons. Reuse one underlying audit/event stream, with separate analytical provenance in DAP. New purge operations proposed in X1 appear as audited maintenance events without creating an alternate audit system.
 
+## Platform consolidation prerequisites — accepted technical direction
+
+These are **cross-cutting engineering proposals**, not new business feature domains and **not** an automatic GitHub implementation backlog. They specify how existing capabilities and future UX can be delivered safely without duplicating or weakening the platform.
+
+| Technical direction | Owns | Coordination |
+| --- | --- | --- |
+| [Shared Frontend, API Contracts & Release Lifecycle](shared-frontend-and-release-lifecycle.md) | Keep one monorepo; converge Demo/Server on one shared presentation/provider boundary; component build/version identities, immutable release manifest + notes; API compatibility, reversible release orchestration, staged incompatible migrations. | Implement shared screens together with [Role-Based UX](role-based-user-experience-and-guided-navigation.md) to **avoid two frontend rewrites**. Preserve PLAT recovery and operational NO-GO gates. |
+| [Secure Operations, Remote Archives & Capacity Governance](secure-operations-and-capacity.md) | Dev/LAN/Internet profiles; authenticated multi-GiB native and complete recovery downloads with resumable HTTPS, archive-specific short-lived tokens, protected jobs; versioned policy limits, proactive capacity and administrator controls. | Reuse Django/PostgreSQL/Caddy and existing archives/recovery mechanisms; keep operator capability separate from business-data permission and Data Governance Audit Explorer. |
+| [Technical Debt & Deferred Checks](../technical-debt.md) | Observed implementation gaps, cleanup candidates and consciously deferred validation such as exhaustive browser/volume/public-ingress tests. | **Tracking only**; do not confuse deferred checks with accepted future business features or active GitHub issues. |
+
+The owner selected **coordinated releases with independently identified frontend/backend artifacts**, not separate repositories/release trains; **both runtime modes remain permanent**. Existing specific migration scripts do **not** constitute a generic operator upgrade tool. Operational download retains HTTP(S) instead of requiring SCP/SSH, but must be redesigned for large immutable verified archives. No artifact may be treated as production-ready merely because CI passed; [PLAT-32 release readiness](../release-readiness.md) governs GO/NO-GO.
+
 ## Ownership and non-duplication rules
 
 | Topic | Owner | Other proposals must do |
