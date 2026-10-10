@@ -815,7 +815,10 @@ if(initialWorkspace==="workgroup" && initialSection && window.AICompassWorkgroup
       '<div id="demo-shared-summary" class="card" role="region" aria-label="Shared knowledge view"></div>');
     window.AICompassWorkgroup.mountSummary(
       document.getElementById("demo-shared-summary"),
-      window.AICompassWorkgroup.demoProvider(db,canEdit),initialSection,"demo").show()
+      window.AICompassWorkgroup.demoProvider(db,canEdit),initialSection,"demo",{
+        recordId:new URLSearchParams(window.location.search).get("record"),
+        link:function(id){return window.AICompassWorkgroup.href("demo",initialSection)+"&record="+encodeURIComponent(id);}
+      }).show()
       .catch(function(){/* error is already displayed */});
   }
 }
