@@ -13,5 +13,5 @@ services:
       - "${AI_COMPASS_LAN_BIND:?Set private LAN IPv4}:443:443"
     volumes:
       - ./Caddyfile.lan:/etc/caddy/Caddyfile:ro
-      - ./secrets/lan.crt:/etc/caddy/tls/lan.crt:ro
-      - ./secrets/lan.key:/etc/caddy/tls/lan.key:ro
+      - \${AI_COMPASS_LAN_CERT:?Set real certificate path}:/etc/caddy/tls/lan.crt:ro
+      - \${AI_COMPASS_LAN_KEY:?Set real key path}:/etc/caddy/tls/lan.key:ro
