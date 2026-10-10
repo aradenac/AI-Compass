@@ -354,3 +354,55 @@ class SessionCheckpointEvidence(models.Model):
     class Meta:
         constraints = [models.UniqueConstraint(fields=("checkpoint", "evidence"),
                                                  name="uniq_session_checkpoint_evidence")]
+
+
+class SessionSolutionPin(models.Model):
+    """Immutable individual setup pinned at session creation."""
+    session = models.OneToOneField(BenchmarkSession, primary_key=True, on_delete=models.PROTECT,
+                                   related_name="individual_setup")
+    model = models.ForeignKey(CatalogItem, on_delete=models.PROTECT, related_name="+")
+    model_revision = models.ForeignKey(CatalogRevision, on_delete=models.PROTECT, related_name="+")
+    provider = models.ForeignKey(CatalogItem, on_delete=models.PROTECT, related_name="+")
+    provider_revision = models.ForeignKey(CatalogRevision, on_delete=models.PROTECT, related_name="+")
+    harness = models.ForeignKey(CatalogItem, on_delete=models.PROTECT, related_name="+")
+    harness_revision = models.ForeignKey(CatalogRevision, on_delete=models.PROTECT, related_name="+")
+    configuration_version = models.CharField(max_length=160, default="1")
+    settings = models.JSONField(default=dict)
+    properties = models.JSONField(default=dict)
+
+
+class MeasuredSolution(models.Model):
+    """Exactly one measured identity per canonical versioned setup fingerprint."""
+    item = models.OneToOneField(CatalogItem, primary_key=True, on_delete=models.PROTECT,
+                                related_name="measured_solution")
+    fingerprint = models.CharField(max_length=64, unique=True)
+
+
+class BenchmarkRun(models.Model):
+    """Accepted or failed observation, never edited or deleted."""
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    public_id = models.CharField(max_length=120, unique=True)
+    session = models.OneToOneField(BenchmarkSession, on_delete=models.PROTECT,
+                                   related_name="individual_run")
+    closing_checkpoint = models.OneToOneField(SessionCheckpoint, on_delete=models.PROTECT,
+                                                related_name="individual_run")
+    solution = models.ForeignKey(MeasuredSolution, on_delete=models.PROTECT,
+                                 related_name="runs")
+    solution_revision = models.ForeignKey(CatalogRevision, on_delete=models.PROTECT,
+                                          related_name="+")
+    outcome = models.CharField(max_length=12)
+    metrics = models.JSONField(default=dict)
+    result = models.JSONField(default=dict)
+    provenance = models.JSONField(default=dict)
+    recorded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+                                    related_name="benchmark_runs")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class BenchmarkRunEvidence(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    run = models.ForeignKey(BenchmarkRun, on_delete=models.PROTECT, related_name="evidence_pins")
+    evidence = models.ForeignKey(EvidenceLink, on_delete=models.PROTECT, related_name="benchmark_run_pins")
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=("run", "evidence"), name="uniq_benchmark_run_evidence")]
