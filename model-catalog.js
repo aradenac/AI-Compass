@@ -65,6 +65,12 @@
     var base = typeSlug === "model" ? "/api/v1/models" :
       "/api/v1/catalog/" + typeSlug;
     async function request(path, method, payload) {
+      // FUT-03: the mode-neutral Server transport owns CSRF, status taxonomy
+      // and network/offline refusal; older embedders retain their legacy API.
+      if (root.AICompassRuntime) {
+        return root.AICompassRuntime.ServerTransport(root.fetch.bind(root), csrfToken)
+          .request(base + (path || ""), method, payload);
+      }
       var options = {method: method || "GET", credentials: "same-origin", cache: "no-store"};
       if (method === "POST") {
         options.headers = {"Content-Type": "application/json", "X-CSRFToken": csrfToken()};
