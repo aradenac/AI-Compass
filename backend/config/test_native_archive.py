@@ -1,5 +1,6 @@
 """PLAT-30: exact historical archive, permissions, bytes and fail-closed behavior."""
 import hashlib
+from importlib import import_module
 import io
 import json
 from pathlib import Path
@@ -21,9 +22,12 @@ PDF = b"%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF\n"
 
 
 class NativeArchiveTests(TransactionTestCase):
-    # Preserve data-migration-provisioned technical schemas across flush().
-    serialized_rollback = True
+    # TransactionTestCase permits a real read-only REPEATABLE READ snapshot.
     def _create_identities(self):
+        # flush() removes migration seed data; seed a valid immutable schema
+        # without deserializing protected rows (which SQL triggers prohibit).
+        schema = import_module("config.migrations.0002_model_schema_v2").MODEL_SCHEMA_V2
+        ObjectTypeVersion.objects.create(type_slug="model", version=2, json_schema=schema)
         ensure_roles()
         User = get_user_model()
         self.operator = User.objects.create_user(username="native-operator",
