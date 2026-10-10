@@ -162,6 +162,15 @@ def create(*, actor, campaign_id, data):
     snapshot=CampaignSnapshot.objects.select_related(
         "revision","method_definition","owner","guide","guide_revision"
     ).get(revision=item.current_revision)
+    # Legacy sessions preserve their original manual-cost semantics; FUT-05
+    # campaigns explicitly opting in to tariff selection must be fully priced
+    # BEFORE any new Test Case execution. FUT-09 will meter actual usage.
+    if snapshot.revision.properties.get("pricing_policy")=="offer_revisions_v1":
+        from .pricing_services import pricing_status
+        check=pricing_status(snapshot)
+        if not check["complete"]:
+            raise SessionConflict("Pricing incomplete; manually select complete applicable "
+                                  "offer revisions: "+ "; ".join(check["reasons"]))
     if snapshot.revision.properties.get("archived") or snapshot.revision.properties.get("status")!="in_progress":
         raise SessionConflict("Start the campaign before creating a Test Case session")
     if not (actor.is_superuser or snapshot.owner_id==actor.pk):
