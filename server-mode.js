@@ -205,7 +205,7 @@
       tasks.setAccess(false, false);
       testCases.setAccess(false, false);
       guides.setAccess(false, false);
-      campaigns.setAccess(false, false);
+      campaigns.setAccess(false, false, false);
       users.setAccess(false, false);
       activity.setAccess(false, false);
       health.setAccess(false, false);
@@ -222,7 +222,7 @@
     tasks.setAccess(!maintenanceWorkspace && grants.includes("business_read"), !maintenanceWorkspace && grants.includes("business_write"));
     testCases.setAccess(!maintenanceWorkspace && grants.includes("business_read"), !maintenanceWorkspace && grants.includes("business_write"));
     guides.setAccess(!maintenanceWorkspace && grants.includes("business_read"), !maintenanceWorkspace && grants.includes("business_write"));
-    campaigns.setAccess(!maintenanceWorkspace && grants.includes("business_read"), !maintenanceWorkspace && grants.includes("business_write"));
+    campaigns.setAccess(!maintenanceWorkspace && grants.includes("business_read"), !maintenanceWorkspace && grants.includes("business_write"), !maintenanceWorkspace && grants.includes("publication_review"));
     users.setAccess(!maintenanceWorkspace && grants.includes("users_manage"), !maintenanceWorkspace && grants.includes("platform_manage"));
     activity.setAccess(!maintenanceWorkspace && grants.includes("business_read"), !maintenanceWorkspace && grants.includes("users_manage"));
     health.setAccess(maintenanceWorkspace && grants.includes("maintenance_view"), maintenanceWorkspace && grants.includes("maintenance_triage"));
@@ -604,7 +604,7 @@
       tasks.setAccess(false, false);
       testCases.setAccess(false, false);
       guides.setAccess(false, false);
-      campaigns.setAccess(false, false);
+      campaigns.setAccess(false, false, false);
       users.setAccess(false, false);
       activity.setAccess(false, false);
       health.setAccess(false, false);
