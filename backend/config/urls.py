@@ -13,6 +13,7 @@ urlpatterns = [
     path("api/v1/planning/profiles/<slug:public_id>/revisions", workload_views.revisions),
     path("api/v1/planning/profiles/<slug:public_id>/revisions/<int:number>", workload_views.revision),
     path("api/v1/planning/profiles/<slug:public_id>/effective", workload_views.effective_workload),
+    path("api/v1/archives", archive_views.archive_inventory),
     path("api/v1/archives/native", archive_views.native_export),
     path("api/v1/discussions", discussion_views.threads),
     path("api/v1/discussions/<slug:public_id>", discussion_views.thread_detail),
