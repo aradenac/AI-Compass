@@ -14,13 +14,15 @@ from django.test import Client, TransactionTestCase, override_settings
 from .catalog_services import create_model, revise_model
 from .evidence_store import attach, blob_path
 from .identity import ensure_roles
-from .models import CatalogRevision
+from .models import CatalogRevision, CatalogItem, ObjectTypeVersion
 
 ROOT = "/api/v1/archives/native"
 PDF = b"%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF\n"
 
 
 class NativeArchiveTests(TransactionTestCase):
+    # Preserve data-migration-provisioned technical schemas across flush().
+    serialized_rollback = True
     def _create_identities(self):
         ensure_roles()
         User = get_user_model()
@@ -61,7 +63,8 @@ class NativeArchiveTests(TransactionTestCase):
             schema = json.loads(archive.read("schema.json"))
             users = json.loads(archive.read("subjects.json"))["users"]
             self.assertTrue(manifest["complete"])
-            self.assertEqual(manifest["record_count"], 0)
+            self.assertEqual(manifest["record_count"], ObjectTypeVersion.objects.count())
+            self.assertEqual(CatalogItem.objects.count(), 0)
             self.assertEqual(manifest["evidence_blob_count"], 0)
             self.assertEqual(manifest["snapshot"]["isolation"], "repeatable_read")
             self.assertGreater(len(schema["models"]), 1)
