@@ -83,7 +83,13 @@ def configuration(request):
     Evaluates one local environment. Multiple participants are treated as
     sharing an OS, not as a falsely verified cross-machine workflow.
     """
-    data = read_json(request)
+    # The shared POST evaluator can include up to 65 exact source revisions;
+    # the generic sign-in 4 KiB body limit is intentionally not reused here.
+    import json
+    try:
+        data = json.loads(request.body) if len(request.body) <= 16384 else None
+    except (UnicodeDecodeError, ValueError):
+        data = None
     if not isinstance(data, dict) or set(data) - {"components", "topology"}:
         return json_no_store({"error": "invalid_configuration"}, 400)
     refs = data.get("components")
