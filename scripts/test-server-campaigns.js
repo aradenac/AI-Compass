@@ -31,7 +31,8 @@ const rows={campaigns:{results:[{id:"cmp-calm-blue-tree",name:"<unsafe campaign>
   "campaign-methods":{results:[]},tasks:{results:[]},
   "test-cases":{results:[]},guides:{results:[]},
   "catalog/model":{results:[]},"catalog/provider":{results:[]},"catalog/harness":{results:[]},
-  "catalog/framework":{results:[]}};
+  "catalog/framework":{results:[]},
+  "pricing/offers":{results:[]}};
 let calls=[];
 const sandbox={window:{},console,URLSearchParams,fetch:async(url,opts)=>{
   assert(url.startsWith("/api/v1/"));
@@ -51,7 +52,8 @@ assert(root.hidden);
 assert.equal(calls.length,0);
 ui.setAccess(true,false,false);
 setImmediate(()=>{
-  assert.equal(calls.length,9,"read-only user loads Server endpoints only");
+  assert.equal(calls.length,10,"read-only user loads the existing and new authorized Server endpoints only");
+  assert(calls.includes("/api/v1/pricing/offers"),"Campaign price options are real Server records");
   assert(!root.hidden);
   assert(node("#campaign-list").innerHTML.includes("&lt;unsafe campaign&gt;"));
   assert(!node("#campaign-list").innerHTML.includes("<unsafe campaign>"));

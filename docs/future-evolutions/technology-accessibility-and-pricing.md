@@ -1,6 +1,6 @@
 # Future evolution — Technology Accessibility & Pricing Management
 
-> **Status:** Proposed feature — agreed functional scope and preliminary impact assessment; **not implemented**.  
+> **Status (2026-10-10):** Owner-approved specification, first implementation via [FUT-05 #79](https://github.com/aradenac/AI-Compass/issues/79). The actual usage-meter and automatic cost calculator remain FUT-09; this specification describes both and must not be read as a claim that FUT-09 is delivered.  
 > **Discussion date:** 2026-10-10  
 > **Areas:** Technology Catalog, Benchmark Workspace, Test Runs, Results Explorer, economic analyses.  
 > **Related:** [Product Definition](../product-definition.md) · [Technology Catalog Server](../technology-catalog-server.md) · [Individual Benchmark Runs](../individual-benchmark-runs-server.md) · [Benchmark Workflow](../benchmark-workflow.md) · [Platform Architecture & Data Governance](../platform-architecture-and-data-governance.md) · [Campaign Evaluation Matrix](campaign-evaluation-matrix.md)

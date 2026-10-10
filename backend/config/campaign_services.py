@@ -9,6 +9,8 @@ from django.contrib.auth import get_user_model
 from django.db import IntegrityError, transaction
 
 from .activity_services import record_catalog_event
+from .pricing_services import (prepare_selections, pricing_status, serialize_selections, InvalidPricing)
+from .models import CampaignPricingPin
 from .catalog_compat import compatibility_for_revision
 from .catalog_ids import new_public_id
 from .catalog_schemas import InvalidModel, validate_model
@@ -249,7 +251,7 @@ def _properties(data, previous=None):
     props = dict(previous or {})
     supplied = data.get("properties", {})
     _dictionary(supplied, "properties")
-    if set(supplied) & {"mode", "status", "archived"}:
+    if set(supplied) & {"mode", "status", "archived", "pricing_policy"}:
         raise InvalidCampaign("mode and lifecycle state cannot be overridden through properties")
     props.update(supplied)
     if "objective" in data:
@@ -272,6 +274,11 @@ def _record(item, rev, ctx, actor, action):
         snapshot=snap, kind=kind, component=component, revision=pinned)
         for kind, component, pinned in ctx["components"]])
     persist_participants(campaign=item,snapshot=snap,prepared=ctx["participants"])
+    CampaignPricingPin.objects.bulk_create([
+        CampaignPricingPin(snapshot=snap, source_key=key,component=component,
+                           offer=offer,offer_revision=revision)
+        for key,component,offer,revision in ctx.get("pricing_pins",[])
+    ])
     origin=ctx.get("forecast_origin")
     initial=ctx.get("new_forecast_snapshot")
     if origin is not None or initial is not None:
@@ -302,6 +309,9 @@ def create(*, actor, data, forecast_snapshot=None):
         try:
             with transaction.atomic():
                 ctx=_snapshot_context(data, actor)
+                if "pricing_selections" in data:
+                    props["pricing_policy"]="offer_revisions_v1"
+                ctx["pricing_pins"]=prepare_selections(data.get("pricing_selections"),ctx)
                 if forecast_snapshot is not None:
                     if data.get("mode")!="task_centred" or ctx["task"].pk!=forecast_snapshot.task_id:
                         raise InvalidCampaign("Forecast validation campaign must pin the forecast's fixed task")
@@ -361,6 +371,7 @@ def modify(*, actor, public_id, data, action=None):
                     raise InvalidTransition("Cannot publish a campaign without Test Cases")
                 props["status"]=ACTIONS[action][1]
             ctx=_snapshot_context({},actor,previous)
+            ctx["pricing_pins"]=prepare_selections(None,ctx,previous)
             name=old.display_name
         else:
             if props["archived"] or state not in ("planned","in_progress"):
@@ -368,6 +379,9 @@ def modify(*, actor, public_id, data, action=None):
             props=_properties(data,props)
             props["mode"]=data.get("mode",props["mode"])
             ctx=_snapshot_context(data,actor,previous)
+            if "pricing_selections" in data:
+                props["pricing_policy"]="offer_revisions_v1"
+            ctx["pricing_pins"]=prepare_selections(data.get("pricing_selections"),ctx,previous)
             try:
                 name=validate_model(data.get("name",old.display_name), props,old.schema_version.json_schema)
             except InvalidModel as error:
@@ -421,6 +435,9 @@ def serialize(item, rev=None):
         "component_ids":{p.kind:p.component.public_id for p in components},
         "component_revisions":{p.kind:str(p.revision_id) for p in components},
         "configuration":snap.configuration,
+        "pricing_selections":serialize_selections(snap),
+        "pricing_readiness":pricing_status(snap),
+        "pricing_policy":revision.properties.get("pricing_policy","legacy_unclassified"),
         "forecast_origin":({
             "id":origin.forecast_snapshot.revision.item.public_id,
             "revision":f"r{origin.forecast_snapshot.revision.number:03d}",

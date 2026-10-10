@@ -175,6 +175,8 @@ jobs:
         run: docker compose exec -T api python manage.py test config.test_discussions -v 2
       - name: Verify immutable Server campaigns, transitions and historical method context
         run: docker compose exec -T api python manage.py test config.test_campaigns -v 2
+      - name: Verify enterprise accessibility, versioned offer snapshots and pricing safeguards
+        run: docker compose exec -T api python manage.py test config.test_pricing -v 2
       - name: Verify stable Framework participants, immutable trio pins and defensive validation
         run: docker compose exec -T api python manage.py test config.test_campaign_participants -v 2
       - name: Verify resumable Test Case session checkpoints, evidence and access
@@ -322,6 +324,7 @@ jobs:
           node --check scripts/test-catalog-types.js
           node scripts/test-model-catalog.js
           node scripts/test-shared-frontend.js
+          node scripts/test-pricing-frontend.js
           node scripts/test-workgroup-studio.js
           node scripts/test-shared-drafts.js
           node scripts/test-shared-demo-task.js

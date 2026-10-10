@@ -71,6 +71,8 @@ services:
       - ./shared-catalog.js:/srv/frontend/shared-catalog.js:ro
       - ./shared-workgroup.js:/srv/frontend/shared-workgroup.js:ro
       - ./shared-drafts.js:/srv/frontend/shared-drafts.js:ro
+      - ./shared-pricing.js:/srv/frontend/shared-pricing.js:ro
+      - ./server-pricing-selection.js:/srv/frontend/server-pricing-selection.js:ro
       - ./shared-workgroup.css:/srv/frontend/shared-workgroup.css:ro
     depends_on:
       api:

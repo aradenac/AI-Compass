@@ -73,10 +73,17 @@ function mount(root,api,escapeHtml){
         api("campaigns/"+encodeURIComponent(row.id)+"/sessions"),
         api("runs?campaign_id="+encodeURIComponent(row.id)),
         ...(row.mode==="task_centred"&&!row.framework_id?
-          ["model","provider","harness"].map(function(k){return api("catalog/"+k);}):[])
+          ["model","provider","harness"].map(function(k){return api("catalog/"+k);}):[]),
+        ...(row.mode==="task_centred"&&!row.framework_id&&
+            row.pricing_policy==="offer_revisions_v1"?[api("pricing/offers")]:[])
       ]);
       if(current!==ticket||!canRead)return;
       var result=results[0],runs=results[1].results||[],catalogResults=results.slice(2);
+      var offered=(row.mode==="task_centred"&&!row.framework_id&&
+        row.pricing_policy==="offer_revisions_v1")?(catalogResults[3].results||[]):[];
+      var offersByComponent=function(component){
+        return offered.filter(function(o){return o.properties.component_id===component;});
+      };
       var target=$("#session-collection");
       target.innerHTML='<h4>'+esc(row.name)+' · '+esc(row.revision)+'</h4>'+
         (result.results.length?result.results.map(function(s){
@@ -109,6 +116,11 @@ function mount(root,api,escapeHtml){
                 (catalogResults[i]&&catalogResults[i].results||[]).map(function(x){
                    return option(x.id,x.name||x.id,false);}).join("")+'</select></label>';
             }).join("")+
+            (row.pricing_policy==="offer_revisions_v1"?
+              '<section id="session-tariff-picker" class="server-card">'+
+              '<h4>Required tariffs · choose exact current offer revisions</h4>'+
+              '<p class="muted small">Task-centred setups are selected at session creation, so prices are pinned here rather than guessed in the parent Campaign. No offer is selected by default.</p>'+
+              '<div id="session-tariff-rows"></div></section>':"")+
             '<label>Configuration version<input id="session-new-configuration-version" value="1"></label>'+
             '<label>Model/runtime settings (JSON object)<textarea id="session-new-settings">{}</textarea></label>'+
             '<label>Tool access and capabilities (JSON object)<textarea id="session-new-properties">{}</textarea></label>':'')+
@@ -126,6 +138,28 @@ function mount(root,api,escapeHtml){
           }catch(error){note("Run detail unavailable: "+error.message,true);}
         });
       });
+      function renderSessionPrices(){
+        var holder=$("#session-tariff-rows");if(!holder)return;
+        holder.innerHTML=["model","provider","harness"].map(function(kind){
+          var control=target.querySelector('[data-new-component="'+kind+'"]'),
+              component=control&&control.value||"";
+          var alternatives=offersByComponent(component);
+          return '<label>'+esc(kind)+' · '+esc(component)+
+            '<select data-session-offer="'+kind+'" data-component-id="'+esc(component)+'">'+
+            '<option value="">— Select offer revision —</option>'+
+            alternatives.map(function(o){
+              return '<option value="'+esc(o.id+"|"+o.revision_id)+'">'+
+                esc(o.name+" · "+o.revision+" · "+o.properties.currency+
+                    (o.readiness.complete?"":" · INCOMPLETE"))+'</option>';
+            }).join("")+'</select></label>';
+        }).join("");
+      }
+      if($("#session-tariff-rows")){
+        target.querySelectorAll("[data-new-component]").forEach(function(el){
+          el.addEventListener("change",renderSessionPrices);
+        });
+        renderSessionPrices();
+      }
       var add=$("#session-create");
       if(add)add.addEventListener("click",async function(){
         add.disabled=true;
@@ -142,6 +176,17 @@ function mount(root,api,escapeHtml){
             payload.configuration_version=$("#session-new-configuration-version").value;
             payload.settings=json($("#session-new-settings").value,"Settings");
             payload.properties=json($("#session-new-properties").value,"Capabilities");
+            if(row.pricing_policy==="offer_revisions_v1"){
+              payload.pricing_selections=Array.from(
+                target.querySelectorAll("[data-session-offer]")).map(function(select){
+                if(!select.value)throw Error("Select a complete tariff for "+select.dataset.sessionOffer);
+                var sep=select.value.indexOf("|");
+                return {source_key:"root:"+select.dataset.sessionOffer,
+                  component_id:select.dataset.componentId,
+                  offer_id:select.value.slice(0,sep),
+                  offer_revision_id:select.value.slice(sep+1)};
+              });
+            }
           }
           var created=await api("campaigns/"+encodeURIComponent(row.id)+"/sessions","POST",payload);
           await openCampaign(row);await openSession(created.id);

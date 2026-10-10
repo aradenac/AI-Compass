@@ -1,9 +1,15 @@
 from django.urls import path
 
 from . import auth_views, catalog_views, catalog_type_views, evidence_views, task_views, user_admin_views, activity_views, data_health_views, test_case_views, setup_guide_views, campaign_views, session_views, run_views, watch_views, forecast_views, results_views, recommendation_views, discussion_views, archive_views, workload_views, external_import_views
+from . import pricing_views
 from .api import api
 
 urlpatterns = [
+    path("api/v1/pricing/offers", pricing_views.offers),
+    path("api/v1/pricing/offers/<slug:public_id>", pricing_views.offer_detail),
+    path("api/v1/pricing/offers/<slug:public_id>/revisions", pricing_views.offer_revisions),
+    path("api/v1/pricing/offers/<slug:public_id>/revisions/<int:number>", pricing_views.offer_version),
+    path("api/v1/pricing/access/<slug:type_slug>/<slug:public_id>", pricing_views.component_access),
     path("api/v1/imports/mock-models/preview", external_import_views.preview),
     path("api/v1/imports/mock-models/apply", external_import_views.apply),
     path("api/v1/imports/mock-models/batches/<uuid:batch_id>", external_import_views.batch),

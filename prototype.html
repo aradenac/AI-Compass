@@ -108,6 +108,7 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;b
 <script src="model-catalog.js"></script>
 <script src="shared-runtime.js"></script>
 <script src="shared-catalog.js"></script>
+<script src="shared-pricing.js"></script>
 <script src="shared-workgroup.js"></script>
 <script src="shared-drafts.js"></script>
 <script src="server-tasks.js"></script>
@@ -369,6 +370,47 @@ var demoSharedCatalog = {};
    revisions:function(id){return base.revisions(id);}
  };
 });
+/* Pricing stays in its own fictional namespace; never imported into Server. */
+var demoPricingAdapter={
+ components:async function(){return ["model","provider","harness","framework"].flatMap(function(k){
+   return demoSharedCatalog[k].list();
+ });},
+ offers:async function(){return (db.pricingOffers||[]).map(function(x){
+   return Object.assign({},x,{properties:JSON.parse(JSON.stringify(x.properties))});
+ });},
+ create:async function(data){
+   if(!canEdit())throw Error("Demo business_write required");
+   db.pricingOffers=db.pricingOffers||[];
+   var now=new Date().toISOString(),id="off-demo-"+next("pricing");
+   var row={id:id,revision:"r001",name:data.name,properties:JSON.parse(JSON.stringify(data.properties)),
+      created_at:now,created_by:user().id,history:[]};
+   row.history.push(JSON.parse(JSON.stringify(row)));db.pricingOffers.push(row);persist();
+   return row;
+ },
+ revise:async function(id,data){
+   if(!canEdit())throw Error("Demo business_write required");
+   var row=(db.pricingOffers||[]).find(function(x){return x.id===id;});
+   if(!row)throw Error("Unknown fictional offer");
+   if(row.revision!==data.expected_revision){var err=Error("revision_conflict");err.status=409;throw err;}
+   if(data.properties.component_id!==row.properties.component_id)throw Error("Commercial owner immutable");
+   row.revision="r"+String((row.history||[]).length+1).padStart(3,"0");
+   row.name=data.name;row.properties=JSON.parse(JSON.stringify(data.properties));
+   row.history.push({id:row.id,revision:row.revision,name:row.name,
+      properties:JSON.parse(JSON.stringify(row.properties)),created_at:new Date().toISOString(),
+      created_by:user().id});persist();return row;
+ },
+ revisions:async function(id){
+   var row=(db.pricingOffers||[]).find(function(x){return x.id===id;});
+   return row?row.history:[];
+ },
+ access:async function(row,status){
+   if(!canEdit())throw Error("Demo business_write required");
+   return demoSharedCatalog[row.type].revise(row.id,{
+     name:row.name,expected_revision:row.revision,
+     properties:Object.assign({},row.properties||{}, {enterprise_accessibility:status})
+   });
+ }
+};
 var demoDomain=window.AICompassRuntime.createProviders("demo", {
  catalog:demoSharedCatalog,tasks:demoTaskProvider
 }, null).data;
@@ -843,6 +885,9 @@ if(initialWorkspace==="workgroup" && initialSection && window.AICompassWorkgroup
 var taskRoot=document.getElementById("shared-demo-tasks");
 if(taskRoot)window.AICompassServerTasks.mount(taskRoot,function(){return "";},E,demoDomain)
   .setAccess(true,canEdit());
+var pricingRoot=document.getElementById("shared-demo-pricing");
+if(pricingRoot)window.AICompassPricing.mount(pricingRoot,demoPricingAdapter,{mode:"demo"})
+  .setAccess(true,canEdit());
 var catalogRoot=document.getElementById("shared-demo-catalog");
 if(catalogRoot)window.AICompassSharedCatalog.mount(catalogRoot,demoDomain,{mode:"demo"})
   .setAccess(true,canEdit());
@@ -1105,7 +1150,7 @@ function componentCatalog(){
  '<div class="row-between" style="margin-top:16px"><span class="muted small">'+count+' catalog components · '+db.solutions.filter(function(sol){return db.runs.some(function(r){return r.solution===sol.id;});}).length+' measured configurations</span><span class="muted small">Catalog ≠ measured evidence</span></div>';
 }
 function solutionsPage(){
-if(canEdit())return heading("Workgroup catalog","Models, Providers, Harnesses & Frameworks","One shared Catalog editor in Demo and Server; each revision and original JSON is preserved.","") + '<div id="shared-demo-catalog"></div>';
+if(canEdit())return heading("Workgroup catalog","Models, Providers, Harnesses & Frameworks","One shared Catalog editor in Demo and Server; each revision and original JSON is preserved.","") + '<div id="shared-demo-catalog"></div><section id="shared-demo-pricing"></section>';
 var q=String(ui.filters.solutionSearch||"").toLowerCase(),availability=ui.filters.access||"all",maturity=ui.filters.maturity||"all";
 var solutions=db.solutions.filter(function(s){return visibleSolution(s)&&(s.name+" "+s.model+" "+s.harness+" "+s.provider+" "+s.tags.join(" ")).toLowerCase().includes(q)&&(availability==="all"||(availability==="yes"?s.accessible:!s.accessible))&&(maturity==="all"||s.maturity===maturity);});
 var filters='<div class="filters"><input class="input" data-filter="solutionSearch" placeholder="Search model, harness, provider or capability…" value="'+E(ui.filters.solutionSearch||"")+'"><select data-filter="access">'+[["all","Any access"],["yes","Accessible"],["no","Not accessible"]].map(function(x){return opt(x[0],x[1],availability);}).join("")+'</select><select data-filter="maturity">'+[["all","Any maturity"],["candidate","Candidate"],["experimental","Experimental"],["evaluated","Evaluated"],["qualified","Qualified"]].map(function(x){return opt(x[0],x[1],maturity);}).join("")+'</select></div>';
@@ -2873,7 +2918,8 @@ render();
 <script src="server-recommendations.js"></script>
 <script src="server-discussions.js"></script>
 <script src="server-sessions.js"></script>
-  <script src="server-campaigns.js"></script>
+  <script src="server-pricing-selection.js"></script>
+<script src="server-campaigns.js"></script>
 <script src="server-planning.js"></script>
 <script src="server-mode.js"></script>
 </body>

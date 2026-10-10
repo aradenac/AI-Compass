@@ -263,6 +263,22 @@ class CampaignComponentPin(models.Model):
         constraints = [models.UniqueConstraint(
             fields=["snapshot", "kind"], name="uniq_campaign_snapshot_component")]
 
+class CampaignPricingPin(models.Model):
+    """Immutable chosen pricing offer revision for one real campaign technical source."""
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    snapshot = models.ForeignKey(CampaignSnapshot, on_delete=models.PROTECT,
+                                 related_name="pricing_pins")
+    source_key = models.CharField(max_length=160)
+    component = models.ForeignKey(CatalogItem, on_delete=models.PROTECT, related_name="+")
+    offer = models.ForeignKey(CatalogItem, on_delete=models.PROTECT, related_name="+")
+    offer_revision = models.ForeignKey(CatalogRevision, on_delete=models.PROTECT, related_name="+")
+
+    class Meta:
+        constraints = [models.UniqueConstraint(
+            fields=["snapshot", "source_key"], name="uniq_campaign_pricing_source")]
+        ordering = ["snapshot_id", "source_key"]
+
+
 class CampaignParticipantIdentity(models.Model):
     """Permanent, immutable participant identity owned by exactly one campaign."""
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
@@ -323,6 +339,22 @@ class BenchmarkSession(models.Model):
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
                                    related_name="benchmark_sessions")
     created_at = models.DateTimeField(auto_now_add=True)
+
+
+class SessionPricingPin(models.Model):
+    """Immutable exact commercial choice for a Task-centred Test Case session."""
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    session = models.ForeignKey(BenchmarkSession, on_delete=models.PROTECT,
+                                related_name="pricing_pins")
+    source_key = models.CharField(max_length=160)
+    component = models.ForeignKey(CatalogItem, on_delete=models.PROTECT, related_name="+")
+    offer = models.ForeignKey(CatalogItem, on_delete=models.PROTECT, related_name="+")
+    offer_revision = models.ForeignKey(CatalogRevision, on_delete=models.PROTECT, related_name="+")
+
+    class Meta:
+        constraints = [models.UniqueConstraint(
+            fields=["session", "source_key"], name="uniq_session_pricing_source")]
+        ordering = ["session_id", "source_key"]
 
 
 class SessionCheckpoint(models.Model):

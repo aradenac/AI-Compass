@@ -16,7 +16,7 @@ from django.utils import timezone
 from .catalog_ids import new_public_id, uuid7
 from .evidence_store import verify_bytes
 from .models import (BenchmarkSession, CampaignSnapshot, CatalogItem,
-                     EvidenceLink, SessionCheckpoint, SessionCheckpointEvidence)
+                     EvidenceLink, SessionCheckpoint, SessionCheckpointEvidence, SessionPricingPin)
 
 MAX_BYTES = 1024 * 1024
 MAX_INTERACTIONS = 500
@@ -153,7 +153,8 @@ def can_edit(actor,session):
 
 def create(*, actor, campaign_id, data):
     if set(data)-{"test_case_id","guide_id","selected_participant_ids",
-                  "component_ids","settings","properties","configuration_version"}:
+                  "component_ids","settings","properties","configuration_version",
+                  "pricing_selections"}:
         raise InvalidSession("Unsupported session creation fields")
     item=CatalogItem.objects.select_related("current_revision").filter(
         type_slug="campaign",public_id=campaign_id).first()
@@ -197,6 +198,40 @@ def create(*, actor, campaign_id, data):
         raise InvalidSession("Non-Framework sessions have no participants")
     from .individual_setup_services import prepare, save
     prepared=prepare(snapshot,participant_ids,data)
+    # A Task-centred Campaign without a Framework cannot know its billable
+    # components before the individual session setup is chosen. Preserve its
+    # exact manually selected offer revisions on this immutable session.
+    session_prices=[]
+    if snapshot.revision.properties.get("pricing_policy")=="offer_revisions_v1":
+        from .pricing_services import pricing_status, prepare_selections, readiness
+        if snapshot.framework_id or snapshot.revision.properties.get("mode")=="solution_centred":
+            check=pricing_status(snapshot)
+            if not check["complete"]:
+                raise SessionConflict("Pricing incomplete; choose complete campaign "
+                                      "tariff revisions: "+"; ".join(check["reasons"]))
+            if "pricing_selections" in data:
+                raise InvalidSession("Session tariff override forbidden for fixed campaign pricing")
+        else:
+            if prepared is None:
+                raise SessionConflict("Pricing incomplete; choose the technical trio before session start")
+            context={"components":[(kind,part[0],part[1])
+                       for kind,part in prepared["parts"].items()],
+                     "framework":None,"participants":[]}
+            from .pricing_services import InvalidPricing
+            try:
+                session_prices=prepare_selections(data.get("pricing_selections"),context)
+            except InvalidPricing as exc:
+                raise InvalidSession(str(exc)) from exc
+            required={"root:model","root:provider","root:harness"}
+            actual={entry[0] for entry in session_prices}
+            if actual != required:
+                raise SessionConflict("Pricing incomplete; manually select an offer for "
+                                      "each session Model/Provider/Harness")
+            bad=[entry[0]+": "+"; ".join(readiness(entry[3])["reasons"])
+                 for entry in session_prices if not readiness(entry[3])["complete"]]
+            if bad:
+                raise SessionConflict("Pricing incomplete: "+"; ".join(bad))
+
     descriptor=copy.deepcopy(snapshot.method_definition.json_schema)
     if not isinstance(descriptor,dict):
         raise InvalidSession("Unsupported experimental method schema")
@@ -210,6 +245,11 @@ def create(*, actor, campaign_id, data):
                     method_definition=snapshot.method_definition,method_descriptor=descriptor,
                     selected_participants=participant_ids,created_by=actor)
                 save(session,prepared)
+                SessionPricingPin.objects.bulk_create([
+                    SessionPricingPin(session=session,source_key=key,component=component,
+                                      offer=offer,offer_revision=rev)
+                    for key,component,offer,rev in session_prices
+                ])
                 _save(session,actor,"created",_initial_state(session),1)
                 return session
         except IntegrityError:
@@ -348,6 +388,15 @@ def serialize(session, checkpoint=None, include_state=True):
         "guide_revision_id":str(session.guide_revision_id) if session.guide_revision_id else None,
         "selected_participant_ids":session.selected_participants,
         "individual_setup":_individual_setup(session),
+        "pricing_selections":[{
+           "source_key":p.source_key,"component_id":p.component.public_id,
+           "offer_id":p.offer.public_id,"offer_revision_id":str(p.offer_revision_id),
+           "offer_revision":f"r{p.offer_revision.number:03d}"
+        } for p in session.pricing_pins.select_related(
+           "component","offer","offer_revision").order_by("source_key")],
+        "pricing_source":"session" if session.pricing_pins.exists()
+            else ("campaign" if snap.revision.properties.get("pricing_policy")=="offer_revisions_v1"
+                  else "legacy_unclassified"),
         "created_by":session.created_by.get_username(),
         "created_at":session.created_at.isoformat(),
     }
