@@ -202,8 +202,10 @@ def get_catalog_item(request, public_id):
             "current_revision__schema_version", "current_revision__created_by"
         ), public_id=public_id
     )
-    if item.type_slug in ("research_source","watch_entry","forecast"):
-        if item.type_slug=="forecast":
+    if item.type_slug in ("research_source","watch_entry","forecast","recommendation"):
+        if item.type_slug=="recommendation":
+            from .recommendation_services import serialize as watch_serialize
+        elif item.type_slug=="forecast":
             from .forecast_services import serialize as watch_serialize
         else:
             from .watch_services import serialize as watch_serialize
