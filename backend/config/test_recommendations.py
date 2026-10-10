@@ -242,3 +242,51 @@ class RecommendationTests(TestCase):
         withdrawn=self.withdraw(published)
         self.assertEqual(withdrawn.status_code,200,withdrawn.content)
         self.assertEqual(reader.get("/api/v1/evidence/"+published_id).status_code,404)
+
+
+    def test_new_failed_run_blocks_stale_republication_until_explicit_reassessment(self):
+        first=self.measured()
+        original=self.recommend(first)
+        published=self.publish(self.submit(original)).json()["record"]
+        failed=self.failed_run()
+        changed=self.call(ROOT+"/"+original["id"],{
+            "expected_revision":"r003",
+            "properties":{"rationale":"Preparing a new review of recently observed failures"}},
+            method="PATCH")
+        self.assertEqual(changed.status_code,200,changed.content)
+        draft=changed.json()["record"]
+        self.assertTrue(draft["review_needed"])
+        self.assertEqual(draft["contradictory_run_ids"],[failed["id"]])
+        pending=self.submit(draft)
+        refusal=self.publish(pending)
+        self.assertEqual(refusal.status_code,400,refusal.content)
+        self.assertIn("New measured Runs",refusal.json()["detail"])
+        reader,_=self.as_user(self.reader)
+        self.assertEqual(reader.get(ROOT+"/"+original["id"]).json()["revision"],"r003")
+        self.assertEqual(CatalogRevision.objects.filter(
+            item__public_id=original["id"]).count(),5)
+        # A human explicitly links both original and contrary evidence and
+        # revises the conclusion. Earlier publication is never overwritten.
+        repaired=self.call(ROOT+"/"+original["id"],{
+            "expected_revision":"r005",
+            "run_ids":[first["id"],failed["id"]],
+            "properties":{"decision":"conditional",
+                "rationale":"Original success is contradicted by a later controlled failure",
+                "limitations":"Requires targeted regression and reproduction"}},
+            method="PATCH")
+        self.assertEqual(repaired.status_code,200,repaired.content)
+        updated=repaired.json()["record"]
+        self.assertEqual(updated["state"],"draft")
+        self.assertEqual(len(updated["run_refs"]),2)
+        republished=self.publish(self.submit(updated))
+        self.assertEqual(republished.status_code,200,republished.content)
+        final=republished.json()["record"]
+        self.assertEqual(final["revision"],"r008")
+        self.assertEqual(final["properties"]["decision"],"conditional")
+        self.assertFalse(final["review_needed"])
+        self.assertEqual(reader.get(ROOT+"/"+original["id"]).json()["revision"],"r008")
+        self.assertEqual(self.client.get(ROOT+"/"+original["id"]+
+                                         "/revisions/3").json()["properties"],
+                         published["properties"])
+        self.assertEqual(BenchmarkRun.objects.get(public_id=first["id"]).metrics,
+                         first["metrics"])
