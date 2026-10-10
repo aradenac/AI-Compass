@@ -117,6 +117,9 @@ def _dictionary(value, name, maximum=32768):
 def _snapshot_context(data, actor, previous=None):
     """Preserve exact old FK revision pins unless a link is explicitly replaced."""
     old_props = previous.revision.properties if previous else {}
+    repin = data.get("repin", False)
+    if type(repin) is not bool:
+        raise InvalidCampaign("repin must be a boolean")
     mode = data.get("mode", old_props.get("mode"))
     changed_mode = previous is not None and mode != old_props["mode"]
     if mode not in MODES:
@@ -137,11 +140,13 @@ def _snapshot_context(data, actor, previous=None):
     if mode == "task_centred":
         if "component_ids" in data and data["component_ids"] not in (None, {}):
             raise InvalidCampaign("Task-centred mode cannot pin fixed solution components")
-        if "task_id" in data or not previous or changed_mode:
-            task = _task(data.get("task_id"))
-            task_rev = task.item.current_revision
-        else:
+        if previous and not changed_mode and not repin and (
+                "task_id" not in data or data["task_id"] == previous.fixed_task.item.public_id):
             task, task_rev = previous.fixed_task, previous.fixed_task_revision
+        else:
+            task = _task(data.get("task_id", previous.fixed_task.item.public_id
+                                  if previous and not changed_mode else None))
+            task_rev = task.item.current_revision
         if task is None or task_rev is None:
             raise InvalidCampaign("Task-centred campaign requires a fixed task")
     else:
@@ -151,26 +156,45 @@ def _snapshot_context(data, actor, previous=None):
             ids = data.get("component_ids")
             if not isinstance(ids, dict) or set(ids) != set(COMPONENTS):
                 raise InvalidCampaign("Select a model, provider and harness")
-            component_pins = [(kind, item, item.current_revision)
-                              for kind in COMPONENTS for item in [_component(kind, ids[kind])]]
+            originals = {p.kind:p for p in previous.component_pins.select_related(
+                "component", "revision")} if previous and not changed_mode else {}
+            component_pins = []
+            for kind in COMPONENTS:
+                old_pin = originals.get(kind)
+                if old_pin and old_pin.component.public_id == ids[kind] and not repin:
+                    component_pins.append((kind, old_pin.component, old_pin.revision))
+                else:
+                    item = _component(kind, ids[kind])
+                    component_pins.append((kind, item, item.current_revision))
         else:
             component_pins = [(pin.kind, pin.component, pin.revision)
                               for pin in previous.component_pins.select_related("component","revision")]
         if len(component_pins) != 3:
             raise InvalidCampaign("Solution-centred campaign requires all components")
 
-    if "guide_id" in data or previous is None:
-        guide = _guide(data.get("guide_id"))
-        guide_rev = guide.current_revision if guide else None
-    else:
+    if previous and not repin and ("guide_id" not in data or
+            data["guide_id"] == (previous.guide.public_id if previous.guide_id else None) or
+            data["guide_id"] == (previous.guide.public_id if previous.guide_id else "")):
         guide, guide_rev = previous.guide, previous.guide_revision
+    else:
+        guide = _guide(data.get("guide_id", previous.guide.public_id if previous and previous.guide_id else None))
+        guide_rev = guide.current_revision if guide else None
 
     if "test_case_ids" in data or previous is None:
         identifiers = data.get("test_case_ids", [])
         if not isinstance(identifiers, list) or len(identifiers) > 200 or len(identifiers) != len(set(
                 x for x in identifiers if isinstance(x, str))):
             raise InvalidCampaign("test_case_ids must be a unique list of at most 200 IDs")
-        pins = [(case, case.item.current_revision) for case in map(_case, identifiers)]
+        old_cases = {p.test_case.item.public_id:p for p in previous.case_pins.select_related(
+            "test_case__item","revision")} if previous else {}
+        pins = []
+        for identifier in identifiers:
+            old_pin = old_cases.get(identifier) if isinstance(identifier,str) else None
+            if old_pin and not repin:
+                pins.append((old_pin.test_case, old_pin.revision))
+            else:
+                case = _case(identifier)
+                pins.append((case, case.item.current_revision))
     else:
         pins = [(pin.test_case, pin.revision)
                 for pin in previous.case_pins.select_related("test_case__task","revision")]
