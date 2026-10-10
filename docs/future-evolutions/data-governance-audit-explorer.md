@@ -119,7 +119,7 @@ Keep the following distinct:
 
 **Do not silently rewrite measured historical conditions**, re-point pinned run references, invalidate past benchmark results, or break dependency links when a catalog component evolves. An update to current content is not proof that historical experiments used the updated content.
 
-Corrections are audited automatically. They **do not, on their own, mandate reapproval or republication**. Adding new evaluation scope / fresh Test Runs follows the separate campaign reopening rules described in [Campaign Evaluation Matrix](campaign-evaluation-matrix.md).
+Corrections are audited automatically. They **do not, on their own, mandate reapproval or republication**. When an authorized correction affects a **published Run**, its [current effective measured results and derived projections](publication-and-information-lifecycle.md) must be updated/invalidated promptly, **without rewriting the originally published historic evidence**. A Run withdrawal immediately excludes its contribution to current results, while newly executed Runs still need an eligible publication. Adding new evaluation scope / fresh Test Runs follows the separate campaign reopening rules described in [Campaign Evaluation Matrix](campaign-evaluation-matrix.md).
 
 This proposal does **not** authorize destructive changes to original evidence or remove existing business permissions.
 
@@ -199,3 +199,9 @@ These are implementation decisions, **not** reasons to add user-facing audit que
 ## 12. Scope boundary
 
 This proposal is a **cross-platform governance capability**. It does not replace the Activity Feed, add a mandatory review to business workflows, change the Setup Guide lifecycle, or alter the Campaign Evaluation Matrix. It does not require additional justifications for normal edits, track routine reading/navigation, or grant auditors unrestricted access to business content.
+
+## 13. Relationship with Publication & Information Lifecycle and Maintenance purge
+
+The separate [Publication & Information Lifecycle](publication-and-information-lifecycle.md) is the **source of truth for correction eligibility, effective publication, individual Run withdrawal, logical deletion, administrator-triggered physical purge and safe scheduled orphan garbage collection**. Audit Explorer remains a **read-only/inspection projection** answering *who changed what, when, how and to which exact versions*. It must not become a second authority for source validity or grant ordinary auditors purge permissions.
+
+An authorized maintenance administrator can inspect eligible orphaned physical files or managed DB rows and dry-run/manual/optional policy-based purge through **Maintenance & Governance** (a new scoped functional need in the Lifecycle specification). **Separate preview/audit-view grants from irreversible purge/configuration grants.** Every completed correction, withdrawal, policy change and purge job produces appropriate attributable audit metadata; the audit viewer uses the established event stream. No new ordinary-user audit forms or duplicate event pipeline. Historical exact-revision access remains subject to current revocation, redaction and erasure policy, not a bypass around unpublished content.
