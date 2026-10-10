@@ -3,6 +3,8 @@
 Auth is checked on every request. The actor can edit their OWN environment
 only: no ability to edit another account or change role/entitlement.
 """
+from uuid import UUID
+
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.shortcuts import get_object_or_404
@@ -104,10 +106,14 @@ def configuration(request):
     ids = set()
     for ref in refs:
         if not isinstance(ref, dict) or set(ref) != {"type", "id", "revision_id"} or (
-            ref.get("type") not in DEPENDENT_TYPES or
+            not isinstance(ref.get("type"), str) or ref["type"] not in DEPENDENT_TYPES or
             not isinstance(ref.get("id"), str) or len(ref["id"]) > 120 or
             not isinstance(ref.get("revision_id"), str) or len(ref["revision_id"]) > 48):
             return json_no_store({"error": "invalid_component_reference"}, 400)
+        try:
+            revision_uuid = UUID(ref["revision_id"])
+        except (ValueError, AttributeError):
+            return json_no_store({"error": "invalid_revision_identifier"}, 400)
         lookup = (ref["type"], ref["id"], ref["revision_id"])
         if lookup in ids:
             return json_no_store({"error": "duplicate_component_reference"}, 400)
@@ -116,7 +122,7 @@ def configuration(request):
             type_slug=ref["type"]).first()
         if item is None:
             return json_no_store({"error": "unknown_component_reference"}, 404)
-        rev = CatalogRevision.objects.filter(pk=ref["revision_id"], item=item).first()
+        rev = CatalogRevision.objects.filter(pk=revision_uuid, item=item).first()
         if rev is None:
             return json_no_store({"error": "revision_not_pinned_to_component"}, 400)
         resolved.append({"type":ref["type"],"id":item.public_id,
