@@ -318,6 +318,7 @@ jobs:
           node --check scripts/test-catalog-types.js
           node scripts/test-model-catalog.js
           node scripts/test-shared-frontend.js
+          node scripts/test-shared-demo-task.js
           node scripts/test-catalog-types.js
           python3 - <<'PY'
           from pathlib import Path
