@@ -82,6 +82,31 @@ class PromotionHostTests(unittest.TestCase):
             with self.assertRaisesRegex(db.RecoveryError, "frontend"):
                 promote.approval(cid)
 
+    def test_promotion_rejects_tampered_pinned_browser_evidence(self):
+        cid, folder, report, verdict = self.fixture()
+        recorded = {"candidate_id": cid, "application_commit": report["application_commit"],
+                    "migration_sha256": report["migration_sha256"],
+                    "snapshot_manifest_sha256": report["snapshot_manifest_sha256"],
+                    "reviewer": "Responsible QA"}
+        evidence = folder / "review.json"
+        evidence.write_text(json.dumps(recorded))
+        verdict["review_sha256"] = db.hash_file(evidence)
+        verdict["reviewer"] = "Responsible QA"
+        report["verdict"] = verdict
+        (folder / "verdict.json").write_text(json.dumps(verdict))
+        (folder / "report.json").write_text(json.dumps(report))
+        with patch.object(stage, "build_identity", return_value="a"*40), \
+             patch.object(stage, "snapshot_for", return_value=(Path(report["snapshot"]), {
+                 "backup_id":report["snapshot_id"],"restored_inspection":{
+                     "schema_versions":report["source_schema_versions"]}})), \
+             patch.object(promote, "file_sha", side_effect=lambda p:
+                 report["snapshot_manifest_sha256"] if str(p).endswith(".full.json")
+                 else db.hash_file(p)):
+            promote.approval(cid)
+            evidence.write_text(json.dumps({**recorded, "reviewer": "Anonymous"}))
+            with self.assertRaisesRegex(db.RecoveryError, "Manual frontend evidence"):
+                promote.approval(cid)
+
     def test_no_production_stop_or_backup_on_missing_confirmation(self):
         cid, folder, report, verdict = self.fixture()
         with patch.object(promote, "approval") as approved, \

@@ -30,6 +30,108 @@ SAFE_ENV = ("PATH", "HOME", "DOCKER_HOST", "DOCKER_CONFIG", "XDG_RUNTIME_DIR",
             "DOCKER_CERT_PATH", "DOCKER_TLS_VERIFY")
 
 
+REVIEW_SCHEMA = "ai-compass/staging-manual-review@1"
+REVIEW_CHECKS = (
+    "staging_banner_and_authenticated_server",
+    "original_model_v1_revision_visible",
+    "new_model_v2_revision_visible",
+    "unknown_json_and_null_properties_preserved",
+    "original_linked_evidence_download_verified",
+    "staging_changes_not_applied_to_source",
+)
+REVIEW_MAX_BYTES = 65536
+
+
+def review_template_for(report):
+    """Seed a non-affirmative, candidate-bound human browser inspection form."""
+    execution = report.get("migrated", {})
+    migrated = execution.get("public_ids")
+    if (report.get("status") != "awaiting-frontend-review" or
+            report.get("automated_checks") != "passed" or
+            not isinstance(migrated, list) or not migrated or
+            not all(isinstance(p, str) and p.startswith("mdl-") for p in migrated) or
+            execution.get("changed") != len(migrated)):
+        fail("No verified migrated Model is available for manual frontend acceptance")
+    refs = report.get("baseline_inspection", {}).get("evidence_db_references", {})
+    count = refs.get("link_count")
+    if type(count) is not int or count < 0:
+        fail("Source evidence inventory is missing or invalid")
+    checks = {name: False for name in REVIEW_CHECKS}
+    observations = {name: "" for name in REVIEW_CHECKS}
+    if count == 0:
+        checks["original_linked_evidence_download_verified"] = None
+        observations["original_linked_evidence_download_verified"] = (
+            "Not applicable: verified source snapshot has zero evidence links"
+        )
+    return {
+        "schema": REVIEW_SCHEMA,
+        "candidate_id": report["candidate_id"],
+        "application_commit": report["application_commit"],
+        "snapshot_id": report["snapshot_id"],
+        "snapshot_manifest_sha256": report["snapshot_manifest_sha256"],
+        "migration": report["migration"],
+        "migration_sha256": report["migration_sha256"],
+        "staging_url": report["url"],
+        "record_id": migrated[0],
+        "source_evidence_link_count": count,
+        "reviewer": "",
+        "reviewed_at": "",
+        "checks": checks,
+        "observations": observations,
+    }
+
+
+def review_template(identifier):
+    _, report = check_state(identifier)
+    return review_template_for(report)
+
+
+def verify_manual_review(identifier, file_path, report):
+    """Reject generic checkboxes and stale/foreign candidate attestations."""
+    if not file_path:
+        fail("Accepted staging needs --review-file with browser observations")
+    path = Path(file_path).expanduser()
+    if not path.is_file() or path.is_symlink() or path.stat().st_size > REVIEW_MAX_BYTES:
+        fail("Missing, linked or oversized browser-review JSON")
+    data_bytes = path.read_bytes()
+    try:
+        review = json.loads(data_bytes)
+    except (ValueError, UnicodeDecodeError) as error:
+        fail("Browser-review file must be valid JSON: " + str(error))
+    template = review_template_for(report)
+    if not isinstance(review, dict) or set(review) != set(template):
+        fail("Browser review has missing/extra fields")
+    for key in template:
+        if key in ("reviewer", "reviewed_at", "checks", "observations"):
+            continue
+        if review[key] != template[key]:
+            fail("Browser review has a stale/foreign candidate value: " + key)
+    if not isinstance(review["reviewer"], str) or not 3 <= len(review["reviewer"].strip()) <= 150:
+        fail("A named frontend reviewer is required")
+    if not isinstance(review["reviewed_at"], str):
+        fail("Manual review timestamp is required")
+    try:
+        date = datetime.fromisoformat(review["reviewed_at"].replace("Z", "+00:00"))
+    except ValueError:
+        fail("Manual review timestamp must be ISO-8601 with timezone")
+    if date.tzinfo is None or date > datetime.now(timezone.utc):
+        fail("Manual review must be timezone-aware and not in the future")
+    if not isinstance(review["checks"], dict) or set(review["checks"]) != set(REVIEW_CHECKS):
+        fail("Browser review must address each check")
+    if not isinstance(review["observations"], dict) or set(review["observations"]) != set(REVIEW_CHECKS):
+        fail("Browser review must explain each check")
+    for key in REVIEW_CHECKS:
+        passed, expected = review["checks"][key], template["checks"][key]
+        if passed is not True and not (expected is None and passed is None):
+            fail("Incomplete browser inspection: " + key)
+        note = review["observations"][key]
+        if not isinstance(note, str) or not 12 <= len(note.strip()) <= 2000:
+            fail("Specific browser observation required: " + key)
+    return review, data_bytes
+
+
+
+
 def fail(message):
     raise db.RecoveryError(message)
 
@@ -333,7 +435,7 @@ def create(snapshot, *, port=18081):
         raise
 
 
-def verdict(identifier, decision, notes, frontend_checked=False):
+def verdict(identifier, decision, notes, frontend_checked=False, review_file=None):
     folder, report = check_state(identifier)
     if decision not in ("accepted", "rejected") or not notes.strip():
         fail("Verdict and substantive notes are required")
@@ -341,17 +443,33 @@ def verdict(identifier, decision, notes, frontend_checked=False):
         fail("Cannot judge a failed, discarded or previously judged candidate")
     if decision == "accepted" and not frontend_checked:
         fail("Acceptance requires explicit real-frontend inspection acknowledgement")
+    if decision == "accepted" and not review_file:
+        fail("Acceptance requires a candidate-pinned completed browser review")
+    if decision == "rejected" and review_file:
+        fail("Rejection uses notes, not a passed browser review")
     if build_identity() != report["application_commit"]:
         fail("The application build changed since the stage was created")
     dump, source = snapshot_for(report["snapshot"])
     if (source["backup_id"] != report["snapshot_id"] or
             db.hash_file(full.sibling(dump, ".full.json")) != report["snapshot_manifest_sha256"]):
         fail("The verified source snapshot has changed")
+    manual_review, review_bytes = (verify_manual_review(identifier, review_file, report)
+                                   if decision == "accepted" else (None, None))
     record = {"decision": decision, "notes": notes.strip(),
               "frontend_checked": bool(frontend_checked), "recorded_at": now(),
               "candidate_id": identifier, "application_commit": report["application_commit"],
               "migration": MIGRATION, "migration_sha256": report["migration_sha256"],
               "snapshot_id": report["snapshot_id"], "snapshot_manifest_sha256": report["snapshot_manifest_sha256"]}
+    if manual_review is not None:
+        reviewed_file = folder / "review.json"
+        if reviewed_file.exists():
+            fail("Immutable browser review already exists")
+        with open(reviewed_file, "xb") as destination:
+            destination.write(review_bytes)
+            destination.flush()
+            os.fsync(destination.fileno())
+        record["review_sha256"] = hashlib.sha256(review_bytes).hexdigest()
+        record["reviewer"] = manual_review["reviewer"].strip()
     path = folder / "verdict.json"
     if path.exists():
         fail("Immutable verdict already exists")
@@ -413,10 +531,15 @@ def main(argv=None):
     judge.add_argument("decision", choices=("accepted", "rejected"))
     judge.add_argument("--notes", required=True)
     judge.add_argument("--frontend-checked", action="store_true")
+    judge.add_argument("--review-file", help="Completed browser review JSON (acceptance only)")
+    review = commands.add_parser("review-template")
+    review.add_argument("candidate")
     args = parser.parse_args(argv)
     try:
         if args.action == "create":
             result = create(args.snapshot, port=args.port)
+        elif args.action == "review-template":
+            result = review_template(args.candidate)
         elif args.action == "status":
             folder = candidate_dir(args.candidate)
             report_file = folder / "report.json"
@@ -428,7 +551,7 @@ def main(argv=None):
         elif args.action == "recreate":
             result = recreate(args.candidate, port=args.port)
         else:
-            result = verdict(args.candidate, args.decision, args.notes, args.frontend_checked)
+            result = verdict(args.candidate, args.decision, args.notes, args.frontend_checked, args.review_file)
         print(json.dumps(result, sort_keys=True))
     except (db.RecoveryError, OSError, KeyError, ValueError, json.JSONDecodeError,
             subprocess.SubprocessError) as error:
