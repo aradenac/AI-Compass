@@ -125,16 +125,21 @@ def _original_bytes(archive, files, budget):
     return count
 
 
+def _snapshot_boundary():
+    """Require a dedicated read-only repeatable-read transaction in production."""
+    with connection.cursor() as cursor:
+        cursor.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+        cursor.execute("SELECT transaction_timestamp()")
+        return cursor.fetchone()[0].isoformat()
+
+
 def build_native_export():
     """Return seekable temporary file; caller owns it. Never return partial output."""
     output = tempfile.TemporaryFile(mode="w+b")
     try:
         with transaction.atomic():
-            # Set isolation before the first SQL statement in this transaction.
-            with connection.cursor() as cursor:
-                cursor.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
-                cursor.execute("SELECT transaction_timestamp()")
-                boundary = cursor.fetchone()[0].isoformat()
+            # Must be the first SQL operation in this transaction.
+            boundary = _snapshot_boundary()
             models = sorted(apps.get_app_config("config").get_models(),
                             key=lambda model: model._meta.label_lower)
             files, total, budget = {}, 0, [0]
