@@ -282,8 +282,8 @@ var demoTaskProvider = {request: async function(path, method, payload) {
  if(!t)throw Error("Unknown fictional Task");
  if(verb==="GET"&&m[2]==="revisions") {
    var versions=db.revisions.filter(function(x){return x.type==="Task"&&x.objectId===t.id;});
-   var first=versions[0]&&Object.keys(versions[0].before||{}).length?
-     versions[0].before:t;
+   var first=versions[0] ? (Object.keys(versions[0].before||{}).length ?
+     versions[0].before : versions[0].after) : t;
    var states=[first].concat(versions.filter(function(x,i){
      return !(i===0&&Object.keys(x.before||{}).length===0);
    }).map(function(x){return x.after;}));
