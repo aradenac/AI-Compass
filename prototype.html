@@ -251,7 +251,8 @@ function demoTaskVersion(id){
  return "r" + String(Math.max(1,records.length+(isNew?0:1))).padStart(3,"0");
 }
 function demoTaskRow(t){
- return {id:t.id,name:t.name,parent_id:t.parent||null,position:Number(t.order)||0,
+ return {id:t.id,name:t.name,parent_id:t.parent||null,
+   position:Number.isFinite(Number(t.order))?Number(t.order):db.tasks.indexOf(t),
    revision:demoTaskVersion(t.id),properties:{
      phase:t.phase||"",domain:t.domain||"",baseline:Number(t.baseline)||0,
      status:t.status||"active",desc:t.desc||"",criteria:t.criteria||"",
@@ -340,12 +341,17 @@ var demoTaskProvider = {request: async function(path, method, payload) {
 demoTaskProvider.select=function(id){
  if(db.tasks.some(function(t){return t.id===id})){ui.task=id;render();}
 };
+function demoCatalogVersion(id){
+ var records=db.revisions.filter(function(x){return x.type==="Component"&&x.objectId===id;});
+ var isCreated=records.length&&Object.keys(records[0].before||{}).length===0;
+ return "r"+String(Math.max(1,records.length+(isCreated?0:1))).padStart(3,"0");
+}
 var demoSharedCatalog = {};
 ["model","provider","harness","framework"].forEach(function(type){
  var base=demoCatalogProviders[type];
  demoSharedCatalog[type]={
    list:function(){return base.list().map(function(x){return Object.assign({
-     revision:"r"+String(db.revisions.filter(function(y){return y.type==="Component"&&y.objectId===x.id;}).length+1).padStart(3,"0"),
+     revision:demoCatalogVersion(x.id),
      properties:Object.assign({},x.properties||{version:x.version||"",details:x.details||""})
    },x,{type:type});});},
    create:function(data){var x=base.create({name:data.name,properties:data.properties,
