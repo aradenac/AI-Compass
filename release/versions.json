@@ -1,10 +1,10 @@
 {
   "schema": "ai-compass/component-versions@1",
-  "release": "0.2.0",
-  "frontend": "0.1.1",
+  "release": "0.3.0",
+  "frontend": "0.2.0",
   "backend": "0.2.0",
   "api_major": 1,
   "api_min_major": 1,
   "api_max_major": 1,
-  "description": "FUT-02 secured LAN profiles, segregated archive export grants and metadata-only evidence views."
+  "description": "FUT-03 shared Catalog/Task controllers with explicit Demo/Server providers and persona navigation"
 }

@@ -105,6 +105,9 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;b
 <body>
 <div id="app"></div><div id="toast" aria-live="polite"></div>
 <script src="model-catalog.js"></script>
+<script src="shared-runtime.js"></script>
+<script src="shared-catalog.js"></script>
+<script src="server-tasks.js"></script>
 <script>
 "use strict";
 
@@ -239,6 +242,133 @@ var demoCatalogProviders = {model:demoModelProvider};
   revisions:function(id){return db.revisions.filter(function(r){return r.type==="Component"&&r.objectId===id;});}
  });
 });
+
+/* FUT-03: immutable browser-local versions and the same domain-provider contract
+ * consumed by the real authenticated Server widgets. No fetch is ever used here. */
+function demoTaskVersion(id){
+ var records=db.revisions.filter(function(x){return x.type==="Task"&&x.objectId===id;});
+ var isNew=records.length&&Object.keys(records[0].before||{}).length===0;
+ return "r" + String(Math.max(1,records.length+(isNew?0:1))).padStart(3,"0");
+}
+function demoTaskRow(t){
+ return {id:t.id,name:t.name,parent_id:t.parent||null,
+   position:Number.isFinite(Number(t.order))?Number(t.order):db.tasks.indexOf(t),
+   revision:demoTaskVersion(t.id),properties:{
+     phase:t.phase||"",domain:t.domain||"",baseline:Number(t.baseline)||0,
+     status:t.status||"active",desc:t.desc||"",criteria:t.criteria||"",
+     ...(t.properties||{})
+   }};
+}
+var demoTaskProvider = {request: async function(path, method, payload) {
+ var verb=method||"GET",m=/^\/([^/]+)(?:\/(revisions))?$/.exec(path||"");
+ if(!m) {
+   if(path)throw Error("Unknown fictional Task route");
+   if(verb==="GET")return {results:db.tasks.map(demoTaskRow)};
+   if(verb!=="POST")throw Error("Unsupported Task method");
+   if(!canEdit())throw Error("Fictional account has no write permission");
+   if(!payload||!payload.name)throw Error("Task name required");
+   var n={id:next("t"),name:payload.name,parent:payload.parent_id||null,
+     order:db.tasks.filter(function(t){return t.parent===(payload.parent_id||null);}).length};
+   if(n.parent&&!db.tasks.some(function(t){return t.id===n.parent;}))throw Error("Parent does not exist");
+   var props=payload.properties||{};
+   if(Object.keys(props).some(function(k){return ["id","name","parent","order","revision","__proto__","constructor"].includes(k);}))
+     throw Error("Protected Task fields cannot be changed via properties");
+   ["phase","domain","baseline","status","desc","criteria"].forEach(function(k){
+     if(Object.prototype.hasOwnProperty.call(props,k))n[k]=props[k];
+   });
+   n.properties=JSON.parse(JSON.stringify(props));
+   db.tasks.push(n);revision("Task",n.id,{},n);persist();return demoTaskRow(n);
+ }
+ var t=db.tasks.find(function(row){return row.id===m[1]});
+ if(!t)throw Error("Unknown fictional Task");
+ if(verb==="GET"&&m[2]==="revisions") {
+   var versions=db.revisions.filter(function(x){return x.type==="Task"&&x.objectId===t.id;});
+   var first=versions[0] ? (Object.keys(versions[0].before||{}).length ?
+     versions[0].before : versions[0].after) : t;
+   var states=[first].concat(versions.filter(function(x,i){
+     return !(i===0&&Object.keys(x.before||{}).length===0);
+   }).map(function(x){return x.after;}));
+   return {revisions:states.map(function(x,i){return {
+     id:t.id,name:x.name,revision:"r"+String(i+1).padStart(3,"0"),
+     parent_id:x.parent||null,properties:x.properties||{},
+     snapshot:JSON.parse(JSON.stringify(x))
+   };})};
+ }
+ if(verb==="GET")return demoTaskRow(t);
+ if(verb!=="PATCH"||m[2])throw Error("Unsupported fictional Task operation");
+ if(!canEdit())throw Error("Fictional account has no write permission");
+ if(payload.expected_revision!==demoTaskVersion(t.id)) {
+   var conflict=Error("revision_conflict: source changed; reload before saving");
+   conflict.status=409;throw conflict;
+ }
+ var parent=Object.prototype.hasOwnProperty.call(payload,"parent_id")?
+   payload.parent_id:t.parent||null;
+ if(parent&&!db.tasks.some(function(n){return n.id===parent;}))throw Error("Unknown parent");
+ var seen=new Set([t.id]),cursor=parent;
+ while(cursor){if(seen.has(cursor))throw Error("Task cannot become its own ancestor");
+   seen.add(cursor);var found=db.tasks.find(function(n){return n.id===cursor;});
+   cursor=found&&found.parent;
+ }
+ // Validate *all* changes before touching the browser's source of truth.
+ var props=payload.properties;
+ if(props && (typeof props!=="object"||Array.isArray(props)||
+   Object.keys(props).some(function(k){return ["id","name","parent","order","revision","__proto__","constructor"].includes(k); })))
+   throw Error("Invalid Task properties or protected field");
+ var changedParent=parent!==(t.parent||null)||Object.prototype.hasOwnProperty.call(payload,"before");
+ var siblings=null,offset=-1;
+ if(changedParent){
+   siblings=db.tasks.filter(function(n){return n.id!==t.id&&(n.parent||null)===parent;})
+     .sort(function(a,b){return (a.order||0)-(b.order||0);});
+   offset=payload.before?siblings.findIndex(function(n){return n.id===payload.before;}):siblings.length;
+   if(offset<0)throw Error("Invalid sibling positioning");
+ }
+ var previous=JSON.parse(JSON.stringify(t)),changed=false;
+ if(payload.name!==undefined&&payload.name!==t.name){t.name=payload.name;changed=true;}
+ if(props){
+   ["phase","domain","baseline","status","desc","criteria"].forEach(function(k){
+     if(Object.prototype.hasOwnProperty.call(props,k))t[k]=props[k];
+   });
+   t.properties=JSON.parse(JSON.stringify(props));changed=true;
+ }
+ if(changedParent){
+   t.parent=parent;
+   siblings.splice(offset,0,t);siblings.forEach(function(n,i){n.order=i;});
+   changed=true;
+ }
+ if(changed){revision("Task",t.id,previous,t);persist();}
+ return {task:demoTaskRow(t),changed:changed};
+}};
+demoTaskProvider.select=function(id){
+ if(db.tasks.some(function(t){return t.id===id})){ui.task=id;render();}
+};
+function demoCatalogVersion(id){
+ var records=db.revisions.filter(function(x){return x.type==="Component"&&x.objectId===id;});
+ var isCreated=records.length&&Object.keys(records[0].before||{}).length===0;
+ return "r"+String(Math.max(1,records.length+(isCreated?0:1))).padStart(3,"0");
+}
+var demoSharedCatalog = {};
+["model","provider","harness","framework"].forEach(function(type){
+ var base=demoCatalogProviders[type];
+ demoSharedCatalog[type]={
+   list:function(){return base.list().map(function(x){return Object.assign({
+     revision:demoCatalogVersion(x.id),
+     properties:Object.assign({},x.properties||{version:x.version||"",details:x.details||""})
+   },x,{type:type});});},
+   create:function(data){var x=base.create({name:data.name,properties:data.properties,
+     version:data.properties.version,details:data.properties.details});
+     revision("Component",x.id,{},x);persist();return x;},
+   revise:function(id,data){
+     var old=demoSharedCatalog[type].list().find(function(x){return x.id===id;});
+     if(!old||old.revision!==data.expected_revision){var err=Error("revision_conflict");err.status=409;throw err;}
+     var x=base.revise(id,{name:data.name,properties:data.properties,
+       version:data.properties.version,details:data.properties.details});
+     persist();return x;},
+   revisions:function(id){return base.revisions(id);}
+ };
+});
+var demoDomain=window.AICompassRuntime.createProviders("demo", {
+ catalog:demoSharedCatalog,tasks:demoTaskProvider
+}, null).data;
 if(!localStorage.getItem(KEY))persist();
 function ensureDefaults(){
 if(!db.components){
@@ -422,7 +552,9 @@ db.runs.forEach(function(r,i){
 }
 ensureDefaults();persist();
 var currentUser=localStorage.getItem(SESSION)||"";
-var ui={page:"dashboard",task:"t5",solution:"s1",solutionView:"solutions",bench:"runs",matrix:"task",matrixTarget:"t5",filters:{},expanded:{},modal:"",detail:"",selectedCompare:["s1","s2","s3"],adminTab:"queue",taskView:"browse",editingTask:"",inlineDraft:null,draggedTask:""};
+var initialWorkspace=new URLSearchParams(window.location.search).get("workspace");
+var ui={page:initialWorkspace==="workgroup"?"solutions":initialWorkspace==="engineer"?"tasks":
+    initialWorkspace==="management"?"management":"dashboard",task:"t5",solution:"s1",solutionView:"solutions",bench:"runs",matrix:"task",matrixTarget:"t5",filters:{},expanded:{},modal:"",detail:"",selectedCompare:["s1","s2","s3"],adminTab:"queue",taskView:"browse",editingTask:"",inlineDraft:null,draggedTask:""};
 function user(){return db.users.find(function(x){return x.id===currentUser;});}
 function canEdit(){return !!user()&&user().role==="workgroup";}
 function canContribute(){return !!user();}
@@ -654,7 +786,19 @@ return '<div class="event"><div class="row-between"><strong>'+E(x.text)+'</stron
 }).join("")+'</div>';}
 function render(){var pages={dashboard:dashboardPage,tasks:tasksPage,solutions:solutionsPage,recommendations:recommendationsPage,benchmark:benchmarkPage,results:resultsPage,testdesign:testDesignPage,knowledge:knowledgePage,watch:watchPage,feedback:feedbackPage,activity:activityPage,management:managementPage,workgroup:benchmarkPage};
 var labels={dashboard:canEdit()?"Dashboard":"Overview",tasks:canEdit()?"Task management":"Task explorer",solutions:canEdit()?"Technology catalog":"AI solutions",recommendations:"Recommendations",benchmark:"Benchmark workspace",results:"Results explorer",testdesign:"Test design",knowledge:"Guides & charter",watch:"Technology watch",feedback:"Feedback & discussions",activity:"Activity feed",management:"Management view",workgroup:"Benchmark workspace"};
-if(!user()){login();return;}if(ui.page==="workgroup")ui.page=canEdit()?"benchmark":"dashboard";if((ui.page==="benchmark"||ui.page==="testdesign")&&!canEdit())ui.page="results";if(canEdit()&&ui.page==="solutions")ui.solutionView="components";shell((pages[ui.page]||dashboardPage)(),labels[ui.page]);}
+if(!user()){login();return;}if(ui.page==="workgroup")ui.page=canEdit()?"benchmark":"dashboard";if((ui.page==="benchmark"||ui.page==="testdesign")&&!canEdit())ui.page="results";if(canEdit()&&ui.page==="solutions")ui.solutionView="components";shell((pages[ui.page]||dashboardPage)(),labels[ui.page]);
+var runtime=window.AICompassRuntime;
+var requested=new URLSearchParams(window.location.search).get("workspace");
+var persona=runtime.choosePersona(user(), "demo", requested);
+var target=document.querySelector(".content");
+if(target)target.insertAdjacentHTML("afterbegin",runtime.renderPersonaLinks(user(),"demo",persona&&persona.id));
+var taskRoot=document.getElementById("shared-demo-tasks");
+if(taskRoot)window.AICompassServerTasks.mount(taskRoot,function(){return "";},E,demoDomain)
+  .setAccess(true,canEdit());
+var catalogRoot=document.getElementById("shared-demo-catalog");
+if(catalogRoot)window.AICompassSharedCatalog.mount(catalogRoot,demoDomain,{mode:"demo"})
+  .setAccess(true,canEdit());
+}
 function login(){document.getElementById("app").innerHTML='<div class="login-wall"><div class="login-box"><div class="row"><div class="brand-mark">✦</div><div><h1>AI Compass</h1><p class="muted">Interactive product workflow prototype</p></div></div><p class="lead">Select a simulated account to explore role-specific journeys. No password or server authentication is used; all data stays in this browser.</p><div class="login-users">'+db.users.map(function(u){return '<button class="login-user" data-act="login" data-id="'+E(u.id)+'"><span class="avatar">'+E(u.initials)+'</span><span><strong>'+E(u.name)+'</strong><span class="tiny-role">'+E(u.role)+' · '+E(u.bu)+'</span></span></button>';}).join("")+'</div><hr class="divider"><div class="row-between"><span class="muted small">Mock accounts · no real security · shared local data</span>'+btn("Reset demo dataset","reset","","sm")+'</div></div></div>';}
 function modal(){if(!ui.modal)return "";return '<div class="modal-backdrop" id="backdrop"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="dialog-title"><div class="modal-header"><h2 id="dialog-title">'+E(ui.modalTitle||"Details")+'</h2><button class="x" data-act="close" aria-label="Close dialog">×</button></div><div class="modal-body">'+(ui.modalBody||"")+'</div>'+(ui.modalFooter?'<div class="modal-footer">'+ui.modalFooter+'</div>':"")+'</div></div>';}
 function openModal(title,body,footer){ui.modal="shown";ui.modalTitle=title;ui.modalBody=body;ui.modalFooter=footer||"";render();}
@@ -878,6 +1022,14 @@ function tasksPage(){
 var t=rec("tasks",ui.task)||db.tasks[0];ui.task=t.id;var cases=db.cases.filter(function(c){return descendants(t.id).includes(c.task);}),path=ancestors(t.id);
 var criteria=path.filter(function(x){return x.criteria;}).map(function(x){return '<div class="list-row"><div><strong>'+E(x.name)+'</strong><div class="muted small">'+E(x.criteria)+'</div></div></div>';}).join("");
 var details='<div class="card-head"><div><div class="eyebrow">'+E(t.phase)+' · '+E(t.domain)+'</div><h2>'+E(t.name)+'</h2></div><div class="inline-actions">'+badge(cases.length+" cases")+(canEdit()?btn("Edit / move","editTask",t.id,"sm"):"")+'</div></div><p class="muted">'+E(t.desc)+'</p><div class="tags" style="margin-top:13px">'+path.map(function(x){return badge(x.name);}).join("")+'</div><hr class="divider"><div class="row-between"><h3>Definition of Done / expectations</h3>'+(t.baseline?'<span class="tag">Engineer baseline: '+t.baseline+' min</span>':'')+'</div><p class="small" style="margin-top:8px">'+E(t.criteria)+'</p><details style="margin-top:14px"><summary class="pointer small">Show inherited context from ancestors</summary><div class="list">'+criteria+'</div></details><hr class="divider"><div class="row-between"><h3>Attached test cases ('+cases.length+')</h3>'+(canEdit()?btn("+ Add test case","newCase",t.id,"sm"):"")+'</div><div class="list" style="margin-top:9px">'+(cases.map(function(c){return '<div class="list-row"><div>'+linkAction(c.title,"caseDetail",c.id)+'<div class="muted small">'+E(rec("tasks",c.task)?.name||"")+' · '+E(c.objective)+'</div></div>'+badge(c.version)+'</div>';}).join("")||'<p class="muted small">No cases under this branch.</p>')+'</div><hr class="divider">'+taskForecastList(t.id)+'<hr class="divider"><h3>Evidence-based solution comparison</h3><p class="muted small" style="margin:6px 0 12px">Aggregated published runs under this node; untested cases are not failures. Inspect the Test Cases and runs before making a decision.</p>'+taskEvidence(t.id);
+return heading("Explore","Engineering task hierarchy",
+ "Demo and Server share one task-tree editor. Test Cases are challenges attached to tasks, not branches.",
+ "") + '<section id="shared-demo-tasks" class="server-catalog">' +
+ '<div class="server-model-toolbar"><h2>Task taxonomy</h2><button id="server-task-refresh" type="button">Refresh</button></div>' +
+ '<p id="server-task-state" role="status"></p><button id="server-task-add-root" type="button" hidden>+ Root</button>' +
+ '<div id="server-task-list"></div><section id="server-task-editor" hidden></section>' +
+ '<pre id="server-task-history" hidden></pre></section>' +
+ '<section class="card" style="margin-top:16px">'+details+'</section>';
 return heading("Explore","Engineering task hierarchy","An evolving, arbitrary-depth tree. Test Cases are experimental challenges attached to tasks, not branches of the taxonomy.",(canEdit()?btn(ui.taskView==="organize"?"✓ Done organizing":"↗ Organize tree","organizeToggle","","primary")+(ui.taskView==="organize"?btn("+ Root section","organizeAddRoot","",""):btn("+ New task node","newTask",t.id,"")):""))+(canEdit()&&ui.taskView==="organize"?taskOrganizerPage():'<div class="split"><section class="card"><div class="card-head"><h2>Task taxonomy</h2>'+badge(db.tasks.length+" nodes")+'</div><div class="filters"><input class="input" data-filter="taskSearch" placeholder="Find task, domain, specialty…" value="'+E(ui.filters.taskSearch||"")+'"><select data-filter="taskPhase">'+[["all","All activities"],["SWE","Software / SWE"],["SYS","Systems / SYS"],["Support","Support"]].map(function(x){return opt(x[0],x[1],ui.filters.taskPhase||"all");}).join("")+'</select></div><div class="tree">'+treeHtml(null,0)+'</div><p class="helper">Select a node to view its DoD, descendants, attached TCs and evaluated solutions.</p></section><section class="card">'+details+'</section></div>');
 }
 function solutionCard(s){
@@ -905,7 +1057,7 @@ function componentCatalog(){
  '<div class="row-between" style="margin-top:16px"><span class="muted small">'+count+' catalog components · '+db.solutions.filter(function(sol){return db.runs.some(function(r){return r.solution===sol.id;});}).length+' measured configurations</span><span class="muted small">Catalog ≠ measured evidence</span></div>';
 }
 function solutionsPage(){
-if(canEdit())return heading("Workgroup catalog","Models, Providers, Harnesses & Frameworks","Frameworks orchestrate configured AI participants; individual AI Solutions are measured through benchmark runs.",btn("+ Model","newComponentType","model","primary")+btn("+ Provider","newComponentType","provider")+btn("+ Harness","newComponentType","harness")+btn("+ Framework","newComponentType","framework"))+componentCatalog();
+if(canEdit())return heading("Workgroup catalog","Models, Providers, Harnesses & Frameworks","One shared Catalog editor in Demo and Server; each revision and original JSON is preserved.","") + '<div id="shared-demo-catalog"></div>';
 var q=String(ui.filters.solutionSearch||"").toLowerCase(),availability=ui.filters.access||"all",maturity=ui.filters.maturity||"all";
 var solutions=db.solutions.filter(function(s){return visibleSolution(s)&&(s.name+" "+s.model+" "+s.harness+" "+s.provider+" "+s.tags.join(" ")).toLowerCase().includes(q)&&(availability==="all"||(availability==="yes"?s.accessible:!s.accessible))&&(maturity==="all"||s.maturity===maturity);});
 var filters='<div class="filters"><input class="input" data-filter="solutionSearch" placeholder="Search model, harness, provider or capability…" value="'+E(ui.filters.solutionSearch||"")+'"><select data-filter="access">'+[["all","Any access"],["yes","Accessible"],["no","Not accessible"]].map(function(x){return opt(x[0],x[1],availability);}).join("")+'</select><select data-filter="maturity">'+[["all","Any maturity"],["candidate","Candidate"],["experimental","Experimental"],["evaluated","Evaluated"],["qualified","Qualified"]].map(function(x){return opt(x[0],x[1],maturity);}).join("")+'</select></div>';
@@ -2662,7 +2814,6 @@ render();
 }
 
 </script>
-<script src="server-tasks.js"></script>
 <script src="server-users.js"></script>
 <script src="server-activity.js"></script>
 <script src="server-data-health.js"></script>

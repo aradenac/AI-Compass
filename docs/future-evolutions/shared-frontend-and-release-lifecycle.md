@@ -1,6 +1,6 @@
 # Future evolution — Shared Frontend, API Contracts & Release Lifecycle
 
-> **Status (2026-10-10):** Product-owner-approved **technical direction**, not delivered behavior or an approved GitHub issue plan.
+> **Status (2026-10-10):** Product-owner-approved technical direction and [issue-backed plan](implementation-plan.md); first delivery through #75 (release manifest) and #77 (shared first views), remaining migration/operational improvements through #78 and #95. This original specification continues to describe the entire desired outcome, not merely implemented code.
 > **Scope:** One frontend for standalone Demo and authenticated Server; modular monorepo; independently identifiable build artifacts; compatible API evolution; deterministic release qualification, deployment and recovery.
 > **Related:** [Role-Based UX](role-based-user-experience-and-guided-navigation.md) · [Platform architecture](../platform-architecture-and-data-governance.md) · [PLAT release readiness](../release-readiness.md) · [Migration staging](../migration-staging.md) · [Production promotion](../migration-production.md) · [Technical debt](../technical-debt.md).
 

@@ -1,8 +1,8 @@
-/* PLAT-09: Server taxonomy workspace. No access to Demo's browser data provider. */
+/* FUT-03: one Task tree/editor/history presentation in both modes; provider is selected at bootstrap. */
 (function () {
   "use strict";
 
-  function mount(root, csrf, escapeHtml) {
+  function mount(root, csrf, escapeHtml, provider) {
     var rows = [], canRead = false, canWrite = false, generation = 0;
     var state = root.querySelector("#server-task-state");
     var tree = root.querySelector("#server-task-list");
@@ -11,6 +11,11 @@
     var E = escapeHtml;
 
     async function api(url, method, data) {
+      if (provider) return provider.tasks.request(url, method, data);
+      if (window.AICompassRuntime) {
+        return window.AICompassRuntime.ServerTransport(fetch, csrf)
+          .request("/api/v1/tasks" + url, method, data);
+      }
       var opts = {method: method || "GET", credentials: "same-origin", cache: "no-store"};
       if (method && method !== "GET") {
         opts.headers = {"Content-Type": "application/json", "X-CSRFToken": csrf()};
@@ -50,6 +55,7 @@
           'px;padding:9px 5px;border-bottom:1px solid #e3e8f0">' +
           '<strong>' + E(node.name) + '</strong> <small>' + E(node.id) + " · " + E(node.revision) +
           '</small><div class="server-model-actions">' +
+          '<button type="button" data-task-action="select" data-id="' + E(node.id) + '">Inspect</button>' +
           '<button type="button" data-task-action="history" data-id="' + E(node.id) + '">History</button>' +
           (canWrite ?
             '<button type="button" data-task-action="edit" data-id="' + E(node.id) + '">Edit / move</button>' +
@@ -70,18 +76,18 @@
     async function refresh() {
       if (!canRead) return;
       var ticket = ++generation;
-      state.textContent = "Loading authoritative Server tasks…";
+      state.textContent = "Loading " + (provider ? "fictional Demo" : "authoritative Server") + " tasks…";
       try {
         var result = await api("");
         if (ticket !== generation || root.hidden) return;
         if (!Array.isArray(result.results)) throw Error("Invalid Server task response");
         rows = result.results;
         render();
-        state.textContent = rows.length + " persistent task node(s). Each identity and revision is permanent.";
+        state.textContent = rows.length + " task node(s). Each identity and revision is retained.";
       } catch (error) {
         if (ticket !== generation) return;
         rows = []; tree.replaceChildren();
-        state.textContent = "Server task tree unavailable: " + error.message + ". No Demo fallback.";
+        state.textContent = "Task tree unavailable: " + error.message + ". No cross-mode fallback.";
       }
     }
 
@@ -118,7 +124,7 @@
         '<label>Description<textarea name="desc">' + E(p.desc || "") + '</textarea></label>' +
         '<label>Definition of Done<textarea name="criteria">' + E(p.criteria || "") + '</textarea></label>' +
         '<label>Other original properties (JSON)<textarea name="extra">' + E(JSON.stringify(other, null, 2)) +
-        '</textarea></label><button type="submit">Save to Server</button>' +
+        '</textarea></label><button type="submit">Save task revision</button>' +
         '<button type="button" id="server-task-cancel">Cancel</button></form>';
       editor.querySelector("#server-task-cancel").onclick = function () { editor.hidden = true; };
       editor.querySelector("form").onsubmit = async function (event) {
@@ -150,7 +156,7 @@
           await refresh();
         } catch (error) {
           state.textContent = "Save rejected: " + error.message +
-            ". Reload the authoritative tree; Demo data was not altered.";
+            ". Reload the current tree; the rejected revision was not applied.";
         } finally { button.disabled = false; }
       };
     }
@@ -181,6 +187,14 @@
       if (!button) return;
       var node = rows.find(function (r) { return r.id === button.dataset.id; });
       if (!node) return;
+      if (button.dataset.taskAction === "select") {
+        history.hidden = false;
+        history.textContent = JSON.stringify({id: node.id, name: node.name,
+          revision: node.revision, parent_id: node.parent_id,
+          properties: node.properties}, null, 2);
+        if (provider && typeof provider.tasks.select === "function")
+          provider.tasks.select(node.id);
+      }
       if (button.dataset.taskAction === "edit") editorForm(node, node.parent_id);
       if (button.dataset.taskAction === "add") editorForm(null, node.id);
       if (["up", "down"].includes(button.dataset.taskAction)) await reorder(node.id, button.dataset.taskAction);

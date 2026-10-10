@@ -20,7 +20,7 @@ Cross-cutting interaction, slider and tooltip rules: **[Non-Functional Requireme
 
 See **[Product Definition](docs/product-definition.md)** for the agreed product scope, roles, task hierarchy, benchmarking model, evidence and scoring principles, publishing workflow, and evolution roadmap.
 
-For local versus secured LAN server operation, archive export privileges and evidence verification, see **[FUT-02 Deployment and Archive Security](docs/deployment-profiles-and-archive-permissions.md)**. LAN and Internet operational release gates remain separate.
+For the first shared **Demo/Server Catalog and Task controllers**, role navigation and centralized API handling see **[FUT-03 Shared Workspace Bootstrap](docs/shared-workspace-bootstrap.md)**. This is a foundation, not the complete later role-specific UX.\n\nFor local versus secured LAN server operation, archive export privileges and evidence verification, see **[FUT-02 Deployment and Archive Security](docs/deployment-profiles-and-archive-permissions.md)**. LAN and Internet operational release gates remain separate.
 
 For coordinated, individually identified frontend/backend artifacts, automatic manifest verification, and strict API v1 compatibility, see **[FUT-01 Coordinated Release](docs/coordinated-release.md)**. The release still requires human PLAT-32 operational acceptance (**NO-GO** until approved).
 

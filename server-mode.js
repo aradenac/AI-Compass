@@ -38,6 +38,7 @@
     '<main class="server-main"><h1>' +
       (window.location.pathname === "/maintenance" ? "Maintenance & Governance" : "Technology catalog") +
       '</h1>',
+    '<div id="server-personas" class="server-card" style="margin:12px 0" hidden></div>',
     '<p style="margin-bottom:20px;color:#64748b">Real Django session · persistent technology catalog · independent Demo</p>',
     '<div class="server-card">',
     '<p id="server-state" class="server-status" role="status" aria-live="polite">Connecting to backend…</p>',
@@ -53,6 +54,7 @@
     '<div class="server-actions" id="server-actions"></div><button id="server-logout">Sign out</button></section>',
     '</div>',
     '<section id="server-model-catalog" class="server-catalog" hidden>',
+    '<div id="server-shared-catalog"></div>',
     '<div class="server-model-toolbar"><div><h2>Models · Providers · Harnesses · Frameworks</h2><p class="muted small">Persistent catalog · versions and original revisions</p></div>',
     '<button type="button" class="btn" id="server-model-refresh">Refresh from Server</button></div>',
     '<p id="server-model-state" class="server-status" role="status" aria-live="polite"></p>',
@@ -115,6 +117,26 @@
   var refreshGeneration = 0;
   var adapter = modelsUi.ApiDataProvider(csrfFromCookie);
   var escapeHtml = modelsUi.escapeHtml;
+  // FUT-03: exactly one provider for this runtime. Server never reads fictional
+  // browser records or silently changes to Demo after an API/CSRF failure.
+  var serverDomain = window.AICompassRuntime.createProviders("server", null, {
+    catalog: adapters
+  }).data;
+  var sharedCatalog = window.AICompassSharedCatalog.mount(
+    document.getElementById("server-shared-catalog"), serverDomain, {
+      mode: "server",
+      onRows: function (data) { cachedModels = data; },
+      onRaw: function (record) { showRaw(record); },
+      onEvidence: function (id) { showEvidence(id); }
+    });
+  // Legacy editor DOM remains solely for advanced record inspection and
+  // existing regression boundaries, not as an additional displayed catalog.
+  document.getElementById("server-model-list").hidden = true;
+  document.getElementById("server-model-editor").hidden = true;
+  document.getElementById("server-model-history").hidden = true;
+  document.getElementById("server-model-refresh").parentElement.hidden = true;
+  var personas = document.getElementById("server-personas");
+
   var tasks = window.AICompassServerTasks.mount(document.getElementById("server-task-tree"), csrfFromCookie, escapeHtml);
   var testCases = window.AICompassServerTestCases.mount(document.getElementById("server-test-cases"), csrfFromCookie, escapeHtml);
   var guides = window.AICompassServerGuides.mount(document.getElementById("server-guides"), csrfFromCookie, escapeHtml);
@@ -243,6 +265,8 @@
     ++evidenceGeneration;
     if (!data.authenticated) {
       grants = [];
+      sharedCatalog.setAccess(false, false);
+      personas.replaceChildren(); personas.hidden = true;
       tasks.setAccess(false, false);
       testCases.setAccess(false, false);
       guides.setAccess(false, false);
@@ -266,6 +290,14 @@
       return;
     }
     grants = data.permissions || [];
+    var requestedPersona = new URLSearchParams(window.location.search).get("workspace");
+    var activePersona = window.AICompassRuntime.choosePersona(data, "server", requestedPersona);
+    var personaId = maintenanceWorkspace ? "maintenance" : activePersona && activePersona.id;
+    personas.innerHTML = window.AICompassRuntime.renderPersonaLinks(data, "server", personaId);
+    personas.hidden = !personas.textContent.trim();
+    sharedCatalog.setAccess(!maintenanceWorkspace &&
+      ["engineer", "workgroup"].includes(personaId) && grants.includes("business_read"),
+      personaId === "workgroup" && grants.includes("business_write"));
     tasks.setAccess(!maintenanceWorkspace && grants.includes("business_read"), !maintenanceWorkspace && grants.includes("business_write"));
     testCases.setAccess(!maintenanceWorkspace && grants.includes("business_read"), !maintenanceWorkspace && grants.includes("business_write"));
     guides.setAccess(!maintenanceWorkspace && grants.includes("business_read"), !maintenanceWorkspace && grants.includes("business_write"));
@@ -292,7 +324,25 @@
     if (grants.includes("users_manage")) action("User administration check", "user-admin", "GET");
     if (grants.includes("platform_view")) action("Platform operations", "platform", "GET");
     status("Authenticated as " + data.username + ". Permissions are enforced by Django.", false);
-    catalog.hidden = maintenanceWorkspace || !grants.includes("business_read");
+    catalog.hidden = maintenanceWorkspace || !grants.includes("business_read") ||
+      !["engineer", "workgroup"].includes(personaId);
+    // Existing controllers retain full permission-aware API behavior. Persona
+    // entry affects presentation only; the backend always enforces real grants.
+    if (personaId === "management") {
+      tasks.setAccess(false, false);
+      ["server-test-cases","server-guides","server-watch","server-forecasts",
+        "server-campaigns","server-recommendations","server-discussions",
+        "server-users","server-activity"].forEach(function (id) {
+        document.getElementById(id).hidden = true;
+      });
+    } else if (personaId === "engineer") {
+      // Engineer starts with task and catalog discovery; advanced Workgroup
+      // authoring stays in its dedicated entry rather than an extra shell.
+      ["server-test-cases","server-campaigns","server-users","server-data-health",
+        "server-planning"].forEach(function (id) {
+        document.getElementById(id).hidden = true;
+      });
+    }
     if (!catalog.hidden) refreshModels();
   }
 
@@ -657,6 +707,7 @@
       account.hidden = true;
       form.hidden = true;
       catalog.hidden = true;
+      sharedCatalog.setAccess(false, false);
       tasks.setAccess(false, false);
       testCases.setAccess(false, false);
       guides.setAccess(false, false);
