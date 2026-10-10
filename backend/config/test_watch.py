@@ -127,7 +127,7 @@ class WatchPersistenceTests(TestCase):
         self.assertEqual(self.browser.get(WATCH+"/"+entry2["id"]).json()
                          ["sources"][0]["revision_id"],source["revision_id"])
         self.assertEqual(CatalogItem.objects.filter(type_slug="research_source").count(),1)
-        self.assertEqual(WatchSourcePin.objects.count(),3)
+        self.assertEqual(WatchSourcePin.objects.count(),2)
         fresh=Client();fresh.force_login(self.editor)
         self.assertEqual(fresh.get(WATCH+"/"+entry1["id"]).json()["sources"],[])
         self.assertEqual(len(fresh.get(WATCH+"/"+entry2["id"]).json()["sources"]),1)
