@@ -26,6 +26,7 @@
         var data = await Promise.all(TYPES.map(function (type) { return provider.catalog[type].list(); }));
         if (ticket !== generation || !canRead) return;
         rows = data.flat();
+        if (options.onRows) options.onRows(rows);
         list.innerHTML = TYPES.map(function (type, n) {
           // Same presentation and toolbar in Demo and Server, never copied.
           return models.renderLane(data[n], {type: type, canWrite: canWrite, showRevisions: true});
@@ -85,6 +86,7 @@
     element.addEventListener("click", function (event) {
       var button = event.target.closest("button[data-common-action],button[data-act]");
       if (!button) return;
+      event.stopPropagation(); // never also invoke legacy Demo/Server page handlers
       var action = button.dataset.commonAction || button.dataset.act;
       var id = button.dataset.id;
       if (action === "refresh") { editor.hidden = true; history.hidden = true; refresh(); return; }
@@ -95,9 +97,11 @@
       if (action === "editComponent" && canWrite && model.compatibility?.read_only !== true) edit(model, model.type);
       if (action === "modelHistory") showHistory(model);
       if (action === "modelRaw" || action === "catalogEvidence") {
+        if (action === "modelRaw" && options.onRaw) return options.onRaw(model);
+        if (action === "catalogEvidence" && options.onEvidence) return options.onEvidence(model.id);
         history.hidden = false; editor.hidden = true;
         history.textContent = action === "modelRaw" ? JSON.stringify(model, null, 2) :
-          "Original evidence: open the authenticated record inspection in the existing Server tools.";
+          "Evidence is immutable and remains accessible through the authenticated Server detail tools.";
       }
     });
     return {
