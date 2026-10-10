@@ -125,6 +125,11 @@ def _events(perms, filters):
     sources = []
     if perms[0] and kind != "access":
         q = CatalogAuditEvent.objects.select_related("actor", "item", "revision")
+        # PLAT-18 content may be internal even when the caller can read other
+        # business records. Do not leak titles, author or stable IDs through
+        # the generic Activity Feed. A future scoped Watch activity projection
+        # can admit only explicitly public revisions.
+        q = q.exclude(item__type_slug__in=("research_source", "watch_entry"))
         if kind != "all":
             q = q.filter(item__type_slug=kind)
         if actor:
