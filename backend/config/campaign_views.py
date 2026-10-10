@@ -154,10 +154,13 @@ def edit_campaign(request, public_id):
 
 @require_POST
 @csrf_protect
-@capability("business_write")
+@capability("business_read")
 @never_cache
 def transition(request,public_id,action):
     _item(public_id)
+    required="publication_review" if action in ("publish","unpublish") else "business_write"
+    if not request.user.has_perm("auth."+required):
+        return json_no_store({"error":"permission_denied"},403)
     def run():
         if action not in TRANSITIONS:
             raise InvalidCampaign("Unknown lifecycle action")
