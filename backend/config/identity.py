@@ -18,6 +18,8 @@ PERMISSIONS = {
     "platform_manage": "Operate permitted platform configuration",
     "planning_view": "Inspect confidential workload planning profiles and rates",
     "planning_manage": "Create and revise confidential planning profiles",
+    "import_preview": "Review restricted external import previews",
+    "import_apply": "Apply explicit approved-source imports on permitted targets",
 }
 
 ROLES = {
@@ -28,6 +30,7 @@ ROLES = {
     "user-admin": ("users_view", "users_manage"),
     "platform-admin": ("platform_view", "platform_manage"),
     "deployment-planner": ("planning_view", "planning_manage"),
+    "import-operator": ("import_preview", "import_apply"),
 }
 
 

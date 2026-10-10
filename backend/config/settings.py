@@ -77,3 +77,16 @@ EVIDENCE_STORE_ROOT = Path(os.environ.get("AI_COMPASS_EVIDENCE_ROOT", "/var/lib/
 EVIDENCE_MAX_BYTES = 16 * 1024 * 1024
 FILE_UPLOAD_MAX_MEMORY_SIZE = 0  # stream uploaded files via Django's temp file handler
 DATA_UPLOAD_MAX_MEMORY_SIZE = 128 * 1024
+
+
+# PLAT-33 mock adapter: intentionally impossible to switch on in a normal
+# production Server. Runs only in a disposable restore staging identity.
+import re
+EXTERNAL_MOCK_IMPORT_ENABLED = bool(
+    os.environ.get("AI_COMPASS_MOCK_IMPORT_ENABLED") == "1"
+    and os.environ.get("AI_COMPASS_STAGING") == "1"
+    and re.fullmatch(r"[0-9a-f]{16}", os.environ.get("AI_COMPASS_STAGING_CANDIDATE", ""))
+    and DATABASES["default"]["NAME"] == "ai_compass_restore_verify"
+    and DATABASES["default"]["USER"] == "ai_compass_restore"
+    and DATABASES["default"]["HOST"] == "db"
+)

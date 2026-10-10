@@ -135,6 +135,8 @@ jobs:
         run: docker compose exec -T api python manage.py test config.test_data_health -v 2
       - name: Verify confidential immutable workloads, inheritance and cohort planning
         run: docker compose exec -T api python manage.py test config.test_workloads -v 2
+      - name: Verify mock external import preview, idempotent apply, provenance and isolation
+        run: docker compose exec -T api python manage.py test config.test_external_mock_import -v 2
       - name: Verify task taxonomy ancestry, version history and permissions
         run: docker compose exec -T api python manage.py test config.test_tasks -v 2
       - name: Verify persistent Test Case forks, version history, task links and permissions
