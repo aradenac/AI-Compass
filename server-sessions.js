@@ -1,4 +1,4 @@
-/* PLAT-14: browser-independent Server-only session draft workspace. No Demo or localStorage. */
+/* PLAT-14: browser-independent Server-only session draft workspace. No browser-side persistence. */
 (function(){
 "use strict";
 function mount(root,api,escapeHtml){
