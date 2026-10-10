@@ -151,6 +151,9 @@ class WatchPersistenceTests(TestCase):
         self.assertEqual(browser.get(WATCH+"/"+w["id"]).status_code,404)
         self.assertEqual(browser.get("/api/v1/catalog/items/"+s["id"]).status_code,404)
         self.assertEqual(browser.get("/api/v1/catalog/items/"+w["id"]).status_code,404)
+        activity=browser.get("/api/v1/activity").json()["results"]
+        self.assertNotIn(s["id"],[row["object_id"] for row in activity])
+        self.assertNotIn(w["id"],[row["object_id"] for row in activity])
         self.assertEqual(browser.get("/api/v1/catalog/items/"+s["id"]+"/evidence").status_code,404)
         self.assertEqual(browser.get("/api/v1/evidence/"+draft["id"]).status_code,404)
         self.assertEqual(browser.get("/api/v1/evidence/"+draft["id"]+"/download").status_code,404)
