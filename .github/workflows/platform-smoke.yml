@@ -125,6 +125,8 @@ jobs:
         run: docker compose exec -T api python manage.py test config.test_setup_guides -v 2
       - name: Verify canonical Research Sources and revision-pinned Technology Watch
         run: docker compose exec -T api python manage.py test config.test_watch -v 2
+      - name: Verify theoretical Forecast lifecycle, immutable predictions and campaign validation
+        run: docker compose exec -T api python manage.py test config.test_forecasts -v 2
       - name: Verify immutable Server campaigns, transitions and historical method context
         run: docker compose exec -T api python manage.py test config.test_campaigns -v 2
       - name: Verify stable Framework participants, immutable trio pins and defensive validation
@@ -242,6 +244,7 @@ jobs:
           node --check server-guides.js
           node scripts/test-server-guides.js
           node scripts/test-server-watch.js
+          node scripts/test-server-forecasts.js
           node scripts/test-server-test-cases.js
           node --check server-users.js
           node scripts/test-server-users.js
