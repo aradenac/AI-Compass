@@ -1,4 +1,7 @@
 /* FUT-04 single Workgroup knowledge map and scoped draft hints */
+/* Explicitly win over existing .card/.grid display rules when swapping views. */
+.content > [hidden], .shared-studio [hidden], .server-main > [hidden] {display:none!important}
+
 .shared-studio{max-width:1180px;margin:12px auto 26px;font:inherit;color:var(--ink,#15233b)}
 .shared-studio-intro{padding:12px 0 22px}
 .shared-studio-intro p{color:#596a83;max-width:750px;margin:8px 0}
