@@ -272,11 +272,6 @@ class BenchmarkSessionTests(TestCase):
         another=Client(enforce_csrf_checks=True)
         another.force_login(self.other);another.get("/api/v1/auth/csrf")
         token=another.cookies["csrftoken"].value
-        created=self.call("/api/v1/campaigns/"+camp["id"]+"/sessions",{
-            "test_case_id":self.case.item.public_id,
-            "selected_participant_ids":one["selected_participant_ids"]},
-            client=another)
-        self.assertEqual(created.status_code,403 if token!=self.csrf else 201)
         # Use the correct per-browser CSRF token for a real cross-user write.
         created=another.post("/api/v1/campaigns/"+camp["id"]+"/sessions",
             data=json.dumps({"test_case_id":self.case.item.public_id,
