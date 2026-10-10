@@ -618,3 +618,60 @@ class DiscussionMessage(models.Model):
                                related_name="messages")
     parent = models.ForeignKey("self", null=True, blank=True, on_delete=models.PROTECT,
                                related_name="replies")
+
+
+class WorkloadProfile(models.Model):
+    """Stable planning identity. Not an AI Compass account or a Task."""
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    public_id = models.CharField(max_length=120, unique=True)
+    kind = models.CharField(max_length=16, choices=[
+        ("role", "Job Role"), ("specialty", "Specialty"),
+        ("person", "Person"), ("cohort", "Planning Cohort"),
+    ])
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["kind", "public_id"]
+
+
+class WorkloadRevision(models.Model):
+    """Append-only planning snapshot; old rate and membership never disappear."""
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    profile = models.ForeignKey(WorkloadProfile, on_delete=models.PROTECT, related_name="revisions")
+    number = models.PositiveIntegerField()
+    name = models.CharField(max_length=160)
+    role = models.ForeignKey(WorkloadProfile, null=True, blank=True,
+                             on_delete=models.PROTECT, related_name="role_dependents")
+    specialty = models.ForeignKey(WorkloadProfile, null=True, blank=True,
+                                  on_delete=models.PROTECT, related_name="specialty_dependents")
+    linked_user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
+                                    on_delete=models.PROTECT, related_name="workload_revisions")
+    headcount = models.PositiveIntegerField(default=1)
+    hourly_rate_eur = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    notes = models.JSONField(default=dict)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+                                   related_name="authored_workload_revisions")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["profile", "number"], name="uniq_workload_revision_number"),
+        ]
+        ordering = ["profile", "number"]
+
+
+class WorkloadAllocation(models.Model):
+    """Original annual Task estimates; null is unknown, 0 is explicit zero."""
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    revision = models.ForeignKey(WorkloadRevision, on_delete=models.PROTECT, related_name="allocations")
+    task = models.ForeignKey(TaskNode, on_delete=models.PROTECT, related_name="workload_allocations")
+    annual_occurrences = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    baseline_human_hours = models.DecimalField(max_digits=8, decimal_places=2,
+                                               null=True, blank=True)
+    excluded = models.BooleanField(default=False)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["revision", "task"], name="uniq_workload_revision_task"),
+        ]
+        ordering = ["task__item__public_id"]

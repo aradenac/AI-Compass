@@ -1,9 +1,15 @@
 from django.urls import path
 
-from . import auth_views, catalog_views, catalog_type_views, evidence_views, task_views, user_admin_views, activity_views, data_health_views, test_case_views, setup_guide_views, campaign_views, session_views, run_views, watch_views, forecast_views, results_views, recommendation_views, discussion_views, archive_views
+from . import auth_views, catalog_views, catalog_type_views, evidence_views, task_views, user_admin_views, activity_views, data_health_views, test_case_views, setup_guide_views, campaign_views, session_views, run_views, watch_views, forecast_views, results_views, recommendation_views, discussion_views, archive_views, workload_views
 from .api import api
 
 urlpatterns = [
+    path("api/v1/planning/tasks", workload_views.task_choices),
+    path("api/v1/planning/profiles", workload_views.collection),
+    path("api/v1/planning/profiles/<slug:public_id>", workload_views.detail),
+    path("api/v1/planning/profiles/<slug:public_id>/revisions", workload_views.revisions),
+    path("api/v1/planning/profiles/<slug:public_id>/revisions/<int:number>", workload_views.revision),
+    path("api/v1/planning/profiles/<slug:public_id>/effective", workload_views.effective_workload),
     path("api/v1/archives/native", archive_views.native_export),
     path("api/v1/discussions", discussion_views.threads),
     path("api/v1/discussions/<slug:public_id>", discussion_views.thread_detail),

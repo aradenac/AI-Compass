@@ -16,6 +16,8 @@ PERMISSIONS = {
     "users_manage": "Manage accounts and group grants",
     "platform_view": "Inspect platform health and operations",
     "platform_manage": "Operate permitted platform configuration",
+    "planning_view": "Inspect confidential workload planning profiles and rates",
+    "planning_manage": "Create and revise confidential planning profiles",
 }
 
 ROLES = {
@@ -25,6 +27,7 @@ ROLES = {
     "data-maintainer": ("maintenance_view", "maintenance_triage"),
     "user-admin": ("users_view", "users_manage"),
     "platform-admin": ("platform_view", "platform_manage"),
+    "deployment-planner": ("planning_view", "planning_manage"),
 }
 
 
