@@ -3,7 +3,8 @@ import ipaddress
 import re
 from urllib.parse import urlsplit
 
-from django.core.exceptions import ImproperlyConfigured
+class ProfileError(ValueError):
+    pass
 
 LOOPBACK = {"localhost", "127.0.0.1", "::1"}
 DEV_HOSTS = LOOPBACK | {"api", "testserver"}
@@ -12,7 +13,7 @@ HOST = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9.-]{0,251}[a-zA-Z0-9]$")
 
 def _required(cond, message):
     if not cond:
-        raise ImproperlyConfigured("Unsafe deployment profile: " + message)
+        raise ProfileError("Unsafe deployment profile: " + message)
 
 
 def _private_address(value):
