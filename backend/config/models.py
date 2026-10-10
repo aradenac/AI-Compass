@@ -570,3 +570,31 @@ class EvaluationCompositeRunPin(models.Model):
             models.UniqueConstraint(fields=("snapshot", "run"), name="uniq_evaluation_composite_run"),
             models.UniqueConstraint(fields=("snapshot", "position"), name="uniq_evaluation_composite_order"),
         ]
+
+
+class RecommendationSnapshot(models.Model):
+    """Exact immutable task/individual-solution decision and reviewer provenance."""
+    revision = models.OneToOneField(CatalogRevision, primary_key=True, on_delete=models.PROTECT,
+                                    related_name="recommendation_snapshot")
+    task = models.ForeignKey(TaskNode, on_delete=models.PROTECT, related_name="+")
+    task_revision = models.ForeignKey(CatalogRevision, on_delete=models.PROTECT, related_name="+")
+    solution = models.ForeignKey(MeasuredSolution, on_delete=models.PROTECT, related_name="+")
+    solution_revision = models.ForeignKey(CatalogRevision, on_delete=models.PROTECT, related_name="+")
+    evaluation = models.ForeignKey(EvaluationSnapshot, null=True, blank=True,
+                                   on_delete=models.PROTECT, related_name="recommendations")
+    reviewed_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
+                                    on_delete=models.PROTECT, related_name="+")
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+
+
+class RecommendationRunPin(models.Model):
+    """Original measured individual Run; composite runs cannot be solution evidence."""
+    id = models.BigAutoField(primary_key=True)
+    snapshot = models.ForeignKey(RecommendationSnapshot, on_delete=models.PROTECT,
+                                 related_name="run_pins")
+    run = models.ForeignKey(BenchmarkRun, on_delete=models.PROTECT, related_name="recommendation_pins")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=("snapshot", "run"), name="uniq_recommendation_run"),
+        ]
