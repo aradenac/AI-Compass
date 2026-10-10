@@ -39,6 +39,7 @@
       (window.location.pathname === "/maintenance" ? "Maintenance & Governance" : "Technology catalog") +
       '</h1>',
     '<div id="server-personas" class="server-card" style="margin:12px 0" hidden></div>',
+    '<section id="server-environment-profile" class="server-catalog" hidden></section>',
     '<section id="server-workgroup-home" class="server-catalog" hidden></section>',
     '<section id="server-workgroup-summary" class="server-catalog" hidden></section>',
     '<p style="margin-bottom:20px;color:#64748b">Real Django session · persistent technology catalog · independent Demo</p>',
@@ -142,6 +143,9 @@
   document.getElementById("server-model-editor").hidden = true;
   document.getElementById("server-model-history").hidden = true;
   document.getElementById("server-model-refresh").parentElement.hidden = true;
+  var environment = window.AICompassEnvironment.mount(
+    document.getElementById("server-environment-profile"),
+    window.AICompassEnvironment.serverProvider(fetch, csrfFromCookie),"server");
   var personas = document.getElementById("server-personas");
 
   var tasks = window.AICompassServerTasks.mount(document.getElementById("server-task-tree"), csrfFromCookie, escapeHtml);
@@ -276,6 +280,7 @@
       document.getElementById("server-workgroup-home").hidden = true;
       document.getElementById("server-workgroup-summary").hidden = true;
       sharedCatalog.setAccess(false, false);
+      environment.setAccess(false);
       pricing.setAccess(false,false);
       personas.replaceChildren(); personas.hidden = true;
       tasks.setAccess(false, false);
@@ -301,6 +306,7 @@
       return;
     }
     grants = data.permissions || [];
+    environment.setAccess(!maintenanceWorkspace && grants.includes("business_read"));
     window.AICompassDraftAccount = data.username;
     var requestedPersona = new URLSearchParams(window.location.search).get("workspace");
     var activePersona = window.AICompassRuntime.choosePersona(data, "server", requestedPersona);
