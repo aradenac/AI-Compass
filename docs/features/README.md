@@ -10,10 +10,13 @@ a long spec or making the spec look implemented.
 specification document or a partial implementation is **not** authorization
 to automatically create/execute the next GitHub feature issue. The project
 owner must validate the scoped issue plan (dependencies, delivery order,
-acceptance and priority) first. Existing unclosed **PLAT** items #35,
-#26, #32 and #33 have priority. Do not mix candidate features with the
-approved migration/release work or infer that a numbering sequence is
-approved just because one issue was delivered.
+acceptance and priority) first. The previously approved **PLAT** issues #35, #26, #32 and #33 are now
+closed as code-delivery items; real staging acceptance, migration rehearsal
+and production GO/NO-GO remain **deferred operational gates**, not evidence
+that deployment was approved. Do not mix candidate features with future
+[platform-consolidation proposals](../future-evolutions/README.md#platform-consolidation-prerequisites--accepted-technical-direction)
+or infer implementation authorization merely because technical scope was
+discussed and documented.
 
 | Candidate feature | Source specification | Status in repository | Approved delivery plan |
 | --- | --- | --- | --- |
