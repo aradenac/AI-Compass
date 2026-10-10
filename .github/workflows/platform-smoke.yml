@@ -14,6 +14,7 @@ on:
       - "server-tasks.js"
       - "server-test-cases.js"
       - "server-guides.js"
+      - "server-campaigns.js"
       - "server-users.js"
       - "server-activity.js"
       - "server-data-health.js"
@@ -31,6 +32,7 @@ on:
       - "server-tasks.js"
       - "server-test-cases.js"
       - "server-guides.js"
+      - "server-campaigns.js"
       - "server-users.js"
       - "server-activity.js"
       - "server-data-health.js"
@@ -119,6 +121,10 @@ jobs:
         run: docker compose exec -T api python manage.py test config.test_test_cases -v 2
       - name: Verify reusable text and URL guides, immutable history and permissions
         run: docker compose exec -T api python manage.py test config.test_setup_guides -v 2
+      - name: Verify immutable Server campaigns, transitions and historical method context
+        run: docker compose exec -T api python manage.py test config.test_campaigns -v 2
+      - name: Verify Server-only campaign UI regression
+        run: node scripts/test-server-campaigns.js
       - name: Run backend, persistence and backup/restore checks
         run: bash scripts/smoke-platform.sh
       - name: Verify DB-only recovery manifest flags uncovered evidence files
@@ -181,6 +187,7 @@ jobs:
           curl -fsS http://127.0.0.1:18081/server-tasks.js | cmp - server-tasks.js
           curl -fsS http://127.0.0.1:18081/server-test-cases.js | cmp - server-test-cases.js
           curl -fsS http://127.0.0.1:18081/server-guides.js | cmp - server-guides.js
+          curl -fsS http://127.0.0.1:18081/server-campaigns.js | cmp - server-campaigns.js
           curl -fsS http://127.0.0.1:18081/server-users.js | cmp - server-users.js
           curl -fsS http://127.0.0.1:18081/server-activity.js | cmp - server-activity.js
           curl -fsS http://127.0.0.1:18081/server-data-health.js | cmp - server-data-health.js
