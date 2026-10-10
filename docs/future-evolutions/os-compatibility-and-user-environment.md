@@ -1,6 +1,6 @@
 # Future evolution — OS Compatibility & User Environment
 
-> **Status:** Proposed **small, independent** product enhancement; no implementation, migrations, issues or release plan approved by this page.  
+> **Status (2026-10-10):** Owner-approved functionality; bounded implementation tracked by [FUT-06 #80](https://github.com/aradenac/AI-Compass/issues/80). Engineer recommendations and deployment consumers remain future outcomes (#86, #89); this document is authoritative on semantics, not proof those later features are shipped.  
 > **Decision context:** October 2026 refinement.  
 > **Scope:** User self-declared Windows/Linux environments; mandatory supported-OS declaration for Harness and Framework catalog records; practical compatibility filtering and opportunity discovery.  
 > **Related future experience:** [Role-Based User Experience & Guided Navigation](role-based-user-experience-and-guided-navigation.md).  
