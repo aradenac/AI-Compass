@@ -104,7 +104,7 @@ jobs:
           AI_COMPASS_TEST_PASSWORD="$contributor_pw" python3 scripts/smoke_evidence.py ci-contributor
           docker compose exec -T api python manage.py reconcile_evidence --json
       - name: Check that catalog ORM models match checked-in migrations
-        run: docker compose exec -T api python manage.py makemigrations --check --dry-run --verbosity 3
+        run: docker compose exec -T api python manage.py makemigrations --check --dry-run
       - name: Validate staging-only registered migration in Django test database
         run: docker compose exec -T api python manage.py test config.test_migration_staging -v 1
       - name: Verify Users & Access permission, CSRF and audit boundaries
