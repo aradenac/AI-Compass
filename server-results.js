@@ -112,7 +112,7 @@ function mount(root,csrf,escapeHtml){
       data.results.map(function(r){
         var forecast=r.kind==="forecast",metrics=forecast?r.predicted_metrics:r.metrics;
         return '<div class="list-row" style="border-bottom:1px solid #dae1ef;padding:12px 0">'+
-          '<strong>'+esc(r.id)+'</strong> · '+
+          '<strong>'+esc(r.id)+'</strong> · '+esc(r.evidence_class)+' · '+
           (forecast?'<strong>THEORETICAL FORECAST</strong> · '+esc(r.status):
             '<strong>MEASURED '+esc(r.kind.toUpperCase())+'</strong> · '+esc(r.outcome))+
           '<p class="muted small">Task '+esc(r.task_id)+' · Candidate '+esc(r.candidate)+
