@@ -23,7 +23,7 @@ def native_export(request):
         logger.warning("archive_export_refused actor_id=%s reason=integrity", request.user.pk)
         return json_no_store({"error": "archive_integrity_failed",
                               "message": str(error)}, 409)
-    logger.info("archive_export_built actor_id=%s format=native-v1", request.user.pk)
+    logger.warning("security_audit archive_export_built actor_id=%s format=native-v1", request.user.pk)
     response = FileResponse(
         archive, as_attachment=True, filename="ai-compass-native-v1.zip",
         content_type="application/zip",
