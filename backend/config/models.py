@@ -406,3 +406,56 @@ class BenchmarkRunEvidence(models.Model):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=("run", "evidence"), name="uniq_benchmark_run_evidence")]
+
+
+class CompositeBenchmarkRun(models.Model):
+    """One immutable Framework-wide observation, with no individual Solution FK."""
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    public_id = models.CharField(max_length=120, unique=True)
+    session = models.OneToOneField(BenchmarkSession, on_delete=models.PROTECT,
+                                   related_name="composite_run")
+    closing_checkpoint = models.OneToOneField(SessionCheckpoint, on_delete=models.PROTECT,
+                                               related_name="composite_run")
+    framework = models.ForeignKey(CatalogItem, on_delete=models.PROTECT, related_name="+")
+    framework_revision = models.ForeignKey(CatalogRevision, on_delete=models.PROTECT, related_name="+")
+    outcome = models.CharField(max_length=12)
+    metrics = models.JSONField(default=dict)
+    result = models.JSONField(default=dict)
+    provenance = models.JSONField(default=dict)
+    participant_snapshots = models.JSONField(default=list)
+    recorded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+                                    related_name="composite_benchmark_runs")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class CompositeRunParticipant(models.Model):
+    """Relational pin to the precise campaign participant revision and role."""
+    id = models.BigAutoField(primary_key=True)
+    run = models.ForeignKey(CompositeBenchmarkRun, on_delete=models.PROTECT,
+                            related_name="participant_pins")
+    participant_pin = models.ForeignKey(CampaignParticipantPin, on_delete=models.PROTECT,
+                                        related_name="composite_run_memberships")
+    position = models.PositiveIntegerField()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=("run","participant_pin"),
+                                    name="uniq_composite_run_member"),
+            models.UniqueConstraint(fields=("run","position"),
+                                    name="uniq_composite_run_position"),
+        ]
+        ordering = ["position"]
+
+
+class CompositeRunEvidence(models.Model):
+    """Immutable references to the existing content-checked #17 evidence store."""
+    id = models.BigAutoField(primary_key=True)
+    run = models.ForeignKey(CompositeBenchmarkRun, on_delete=models.PROTECT,
+                            related_name="evidence_pins")
+    evidence = models.ForeignKey(EvidenceLink, on_delete=models.PROTECT,
+                                 related_name="composite_run_pins")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=("run","evidence"), name="uniq_composite_run_evidence"),
+        ]
