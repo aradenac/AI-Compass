@@ -97,6 +97,7 @@ def _allowed_evidence(session, state):
                 raise InvalidSession("Invalid evidence link identifier") from exc
             ids.append(ref)
     append(state["setup"].get("evidence_link_ids",[]))
+    append(state.get("closing_evidence_link_ids",[]))
     for row in state["steps"].values():
         append(row.get("evidence_link_ids",[]))
     for row in state["interactions"]:
@@ -322,6 +323,11 @@ def append(*, actor, public_id, expected_revision, action, data, step_key=None):
         return session
 
 
+def _individual_setup(session):
+    from .individual_setup_services import serialize as serialize_setup
+    return serialize_setup(session)
+
+
 def serialize(session, checkpoint=None, include_state=True):
     cp=checkpoint or _checkpoint(session)
     snap=session.campaign_snapshot
@@ -341,8 +347,7 @@ def serialize(session, checkpoint=None, include_state=True):
         "guide_id":session.guide.public_id if session.guide_id else None,
         "guide_revision_id":str(session.guide_revision_id) if session.guide_revision_id else None,
         "selected_participant_ids":session.selected_participants,
-        "individual_setup":__import__(
-            "config.individual_setup_services",fromlist=["serialize"]).serialize(session),
+        "individual_setup":_individual_setup(session),
         "created_by":session.created_by.get_username(),
         "created_at":session.created_at.isoformat(),
     }
