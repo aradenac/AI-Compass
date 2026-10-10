@@ -146,6 +146,7 @@
         }).join("")+'</select></label>'+
         '<label>Fixed configuration and parameters (JSON object)<textarea name="configuration">'+
           esc(JSON.stringify(source?source.configuration:{},null,2))+'</textarea></label>'+
+        (source?'<label><input name="repin" type="checkbox" style="display:inline;width:auto"> Re-pin unchanged linked records to their latest revisions</label>':'')+
         '<button type="submit">Save '+(source?"new revision":"campaign")+'</button>'+
         '<button type="button" id="campaign-cancel">Cancel</button></form>';
       var form=el("#campaign-form");
@@ -208,7 +209,10 @@
           if(selectedMode==="task_centred")payload.task_id=form.elements.task_id.value;
           else payload.component_ids=Object.fromEntries(["model","provider","harness"].map(function(k){
             return [k,form.elements[k].value];}));
-          if(source)payload.expected_revision=source.revision;
+          if(source){
+            payload.expected_revision=source.revision;
+            payload.repin=form.elements.repin.checked;
+          }
           var saved=source?await api("campaigns/"+encodeURIComponent(source.id),"PATCH",payload):
             await api("campaigns","POST",payload);
           target.hidden=true;await refresh();
