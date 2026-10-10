@@ -202,7 +202,9 @@ class BenchmarkSessionTests(TestCase):
         self.assertEqual(recent["method_version"],2)
         self.assertEqual([x["key"] for x in recent["method_descriptor"]["steps"]],
                          ["execution","planning","security"])
-        self.assertEqual(list(recent["state"]["steps"]),["execution","planning","security"])
+        # PostgreSQL JSONB dictionaries are not ordered. Step order is carried
+        # by the frozen method descriptor's steps array, not the state map.
+        self.assertEqual(set(recent["state"]["steps"]),{"execution","planning","security"})
         self.assertEqual(self.client.get("/api/v1/sessions/"+old["id"]).json()
                          ["method_descriptor"],old_schema)
         self.assertEqual(self.client.get("/api/v1/sessions/"+old["id"]).json()
