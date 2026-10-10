@@ -1,6 +1,6 @@
 # Future evolution — Secure Operations, Remote Archives & Capacity Governance
 
-> **Status (2026-10-10):** Product-owner-approved **technical direction**, not an implemented capability or authorized issue backlog.
+> **Status (2026-10-10):** Product-owner-approved direction with implementation issues [FUT-02](https://github.com/aradenac/AI-Compass/issues/76) (initial development/LAN safeguarding, archive permission split, evidence-list optimization), [FUT-19](https://github.com/aradenac/AI-Compass/issues/93) (asynchronous archive delivery) and [FUT-20](https://github.com/aradenac/AI-Compass/issues/94) (Internet exposure/capacity). Consult each merged PR for actual implementation status; the proposals below include **future unimplemented capabilities**.
 > **Scope:** Development/LAN/Internet deployment profiles; secure and resumable remote export/recovery transfers; operations policy, capacity controls and proactive health. Preserve existing integrity and role-separation guarantees.
 > **Related:** [Shared Frontend & Release Lifecycle](shared-frontend-and-release-lifecycle.md) · [Native export](../native-archive-export.md) · [Native restore](../native-archive-restore.md) · [Backup and recovery](../backup-and-recovery.md) · [PLAT readiness](../release-readiness.md) · [Technical debt](../technical-debt.md).
 
@@ -65,6 +65,6 @@ Do not confuse this operational overview with the [Data Governance Audit Explore
 
 ## 6. Delivery governance
 
-The user has accepted the direction but **not** a prioritized set of implementation issues. Avoid pre-emptively implementing export tokens, production ingress, rate-limit middleware or resource quotas without an approved plan. Track the current coarse export grant, synchronous export ceiling and LAN/Internet readiness in the [technical-debt register](../technical-debt.md), but do not duplicate functional ownership in that register.
+The project owner approved the linked issues #76, #93 and #94; **follow their boundaries**. Initial permission/profile safeguards belong to #76; do not pre-emptively implement #93 export tokens or #94 Internet ingress, rate-limit middleware or resource quotas. Track the current coarse export grant, synchronous export ceiling and LAN/Internet readiness in the [technical-debt register](../technical-debt.md), but do not duplicate functional ownership in that register.
 
 Volume/stress testing, multi-browser UX testing and live Internet deployment acceptance are consciously **deferred verifications**; minimum focused functional/security/integrity tests remain necessary whenever the underlying capability changes.
