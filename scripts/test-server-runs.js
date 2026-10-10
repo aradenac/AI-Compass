@@ -14,8 +14,8 @@ assert(!sessions.includes("sessionStorage"));
 assert(!sessions.includes("mode=demo"));
 for(const text of [
   'api("catalog/"+k)',
-  '"component_ids"',
-  '"individual_setup"',
+  'payload.component_ids',
+  's.individual_setup',
   'session-new-settings',
   'data-new-component',
   '"sessions/"+encodeURIComponent(s.id)+"/close","POST"',
