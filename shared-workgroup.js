@@ -133,7 +133,7 @@
     if (!Array.isArray(rows))throw Error("Untrusted list shape");
     var spec=STABLE[section];
     return '<div class="shared-list" data-shared-list="'+escape(section)+'"><h3>'+escape(spec.title)+
-      '</h3><p class="muted">Same read-only presentation in Demo and Server. Editing, publication, attachments and revisions remain in the existing authorized workspace.</p>'+
+      '</h3><p class="muted">The same read-only projection of existing records; editing, publication, attachments and immutable revision history remain in the authorized domain workspace.</p>'+
       (rows.length?rows.map(function(original) {
         var r=summary(original,section);
         var to=detailLink&&detailLink(r.id);
@@ -153,6 +153,21 @@
         var data=await provider.list(section);
         if(token!==generation)return;
         node.innerHTML=renderList(data,section,mode,options&&options.link);
+        if(options&&options.recordId){
+          var selected=data.find(function(x){return x.id===options.recordId;});
+          var detail=root.document.createElement("section");
+          detail.className="server-card";
+          detail.setAttribute("aria-label","Selected current source record");
+          if(selected){
+            var r=summary(selected,section);
+            detail.innerHTML='<h4>'+escape(r.title)+'</h4><p>Current authorized record · '+
+              escape(r.id)+' · '+escape(r.revision||"unversioned")+'</p>'+
+              '<p class="muted">This is the currently listed projection. For pinned historical revisions open the complete workspace history; never assume this is an earlier version.</p>'+
+              '<pre></pre>';
+            detail.querySelector("pre").textContent=JSON.stringify(selected,null,2);
+          }else detail.textContent="Record unavailable or not visible to this account. No cross-mode fallback.";
+          node.insertBefore(detail,node.firstChild);
+        }
         return data;
       }catch(err){
         if(token!==generation)return;
