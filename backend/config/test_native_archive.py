@@ -1,16 +1,16 @@
 """PLAT-30: exact historical archive, permissions, bytes and fail-closed behavior."""
 import hashlib
-from importlib import import_module
 import io
 import json
 from pathlib import Path
+from unittest.mock import patch
 import tempfile
 import zipfile
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import Client, TransactionTestCase, override_settings
+from django.test import Client, TestCase, override_settings
 
 from .catalog_services import create_model, revise_model
 from .evidence_store import attach, blob_path
@@ -21,14 +21,8 @@ ROOT = "/api/v1/archives/native"
 PDF = b"%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF\n"
 
 
-class NativeArchiveTests(TransactionTestCase):
-    # TransactionTestCase permits a real read-only REPEATABLE READ snapshot.
+class NativeArchiveTests(TestCase):
     def _create_identities(self):
-        # flush() removes migration seed data; seed a valid immutable schema
-        # without deserializing protected rows (which SQL triggers prohibit).
-        schema = import_module("config.migrations.0002_model_schema_v2").MODEL_SCHEMA_V2
-        ObjectTypeVersion.objects.get_or_create(type_slug="model", version=2,
-                                               defaults={"json_schema": schema})
         ensure_roles()
         User = get_user_model()
         self.operator = User.objects.create_user(username="native-operator",
@@ -42,6 +36,12 @@ class NativeArchiveTests(TransactionTestCase):
         self.maintainer.groups.add(Group.objects.get(name="data-maintainer"))
 
     def setUp(self):
+        # Django TestCase keeps the technical migrations untouched. A separate
+        # live-Server CI smoke verifies the actual PostgreSQL isolation command.
+        isolated = patch("config.archive_services._snapshot_boundary",
+                         return_value="2026-10-10T12:00:00+00:00")
+        isolated.start()
+        self.addCleanup(isolated.stop)
         self._create_identities()
         workdir = tempfile.TemporaryDirectory(prefix="ai-native-test-")
         self.addCleanup(workdir.cleanup)
