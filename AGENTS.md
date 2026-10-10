@@ -4,18 +4,16 @@ Use this file together with the GitHub issue assigned to you. **The repository, 
 
 ## Delivery scope and planning lanes
 
-Only issues from the **existing approved PLAT roadmap** are eligible for automatic
-"next priority issue" work. Concepts documented in
-[Feature proposals](docs/features/README.md) or
-[Future evolutions](docs/future-evolutions/README.md) are **not** a delivery
-backlog and must not be implemented, split into GitHub issues, or prioritized
-without an explicit approved issue plan from the project owner. Previously
-shipped DAP-01 is historical, **not** implicit approval for DAP-02 or later.
+**Current development queue:** The product owner approved the **21 scoped FUT implementation issues #75–#95** on 2026-10-10. Use [Future Evolutions Implementation Plan](docs/future-evolutions/implementation-plan.md#approved-github-implementation-backlog--maximal-coherent-issue-slices) to select the next dependency-ready priority, **not issue number alone**. Every FUT issue links its own phase and original detailed specification(s); read all of them. Do not create speculative issues or begin unassigned future features. The earlier [PLAT roadmap](docs/platform-implementation-roadmap.md) is historical/delivered, with operational release-readiness still **NO-GO**.
+
+One issue is intended as **one maximal coherent agent-conversation implementation** with a focused PR and complete acceptance; do not overdecompose into tiny tickets. If technical evidence proves an issue too large to finish safely, document the blocker and ask for explicit replan rather than dropping requirements.
 
 ## Authoritative references
 - [Product semantics](docs/product-definition.md) and [benchmark workflow](docs/benchmark-workflow.md)
 - [Persistence, immutable evidence, migration and recovery rules](docs/platform-architecture-and-data-governance.md)
-- [Roadmap and issue dependencies](docs/platform-implementation-roadmap.md)
+- [Active FUT roadmap and GitHub issue dependencies](docs/future-evolutions/implementation-plan.md)
+- [Original future-evolution specifications and coverage map](docs/future-evolutions/README.md)
+- [Completed PLAT roadmap and preserved release gates](docs/platform-implementation-roadmap.md)
 - [Local installation, commands and safe operation](docs/local-installation.md)
 - [Current Model REST API](docs/model-catalog-architecture.md)
 
@@ -39,4 +37,4 @@ shipped DAP-01 is historical, **not** implicit approval for DAP-02 or later.
 - Verify standalone Demo still works if touching frontend and Server persists across sessions if touching business UI/API. Verify unchanged historical revisions and backup/recovery behavior when affecting persistence.
 - Document reproducible setup/smoke commands, affected API/schema and any migration/rollback requirements. Do not add long testing suites unrelated to the issue.
 
-See [the roadmap's multi-agent PR workflow](docs/platform-implementation-roadmap.md#multi-agent-pr-workflow) for how several PRs for one issue are compared.
+Use the [existing multi-agent PR workflow](docs/platform-implementation-roadmap.md#multi-agent-pr-workflow) to compare implementations of the **same** FUT issue, while taking active phase dependencies from the [FUT issue plan](docs/future-evolutions/implementation-plan.md#approved-github-implementation-backlog--maximal-coherent-issue-slices).
