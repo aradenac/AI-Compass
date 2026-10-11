@@ -459,8 +459,7 @@
       catalog.hidden = true;
       home.hidden = false;
       function showHome(counts) {
-        home.innerHTML = group.breadcrumbs("server", section) +
-          (section === "studio" ?
+        home.innerHTML = (section === "studio" ?
             group.renderMap("server", data, grants, true, counts) :
             '<div class="server-card"><h2>' + modelsUi.escapeHtml(section.replaceAll("-"," ")) +
             '</h2><p class="muted">Real Server data, exact revision history and authorized actions.</p>' +
