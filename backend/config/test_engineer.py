@@ -136,7 +136,7 @@ class EngineerJourneyTests(IndividualRunTests.__bases__[0]):
         self.assertFalse(post.json()["entitlement_granted"])
         self.assertEqual(post.json()["status"],"discussion_recorded_not_a_ticket")
         self.assertEqual(DiscussionThread.objects.count(),1)
-        messages=reader.get("/api/v1/discussions/"+post.json()["id"]+"/messages")
+        messages=reader.get("/api/v1/discussions/"+post.json()["id"])
         self.assertEqual(messages.status_code,200,messages.content)
         self.assertIn("no entitlement",json.dumps(messages.json()).lower())
 
