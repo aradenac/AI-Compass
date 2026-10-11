@@ -44,11 +44,27 @@ def from_revision(guide_revision, configuration, *, require_wiring=False):
         groups = effective.setdefault("required_groups", [])
         # A Framework guide must explicitly cover every selected participant
         # and the actual routing/handoff integration, not merely the framework.
-        participant_ids = [p["id"] for p in configuration.get("participants", [])]
+        participants = configuration.get("participants")
+        if not isinstance(participants, list) or not 1 <= len(participants) <= 64:
+            raise SetupCompositionError("Framework requires selected pinned participants")
+        if any(not isinstance(p, dict) or not isinstance(p.get("id"), str)
+               or not p["id"].strip() or len(p["id"]) > 120
+               for p in participants):
+            raise SetupCompositionError("Invalid Framework participant identifier")
+        participant_ids = [p["id"] for p in participants]
+        if len(participant_ids) != len(set(participant_ids)):
+            raise SetupCompositionError("Duplicate Framework participant identities")
         for group in ["framework_wiring"] + ["participant:"+pid for pid in participant_ids]:
             if group not in groups:
                 groups.append(group)
     result = compose(effective, snapshots_for_recipe(recipe), configuration)
+    # A recipe can add integration/wiring/verification steps after shared modules.
+    # Historical guide revisions are read verbatim, never refreshed from current.
+    if properties.get("text") or properties.get("url"):
+        result["sections"].append({
+            "id": reference["id"], "revision": reference["revision"],
+            "name": guide_revision.display_name,
+            "text": properties.get("text"), "url": properties.get("url")})
     result["recipe"] = reference
     return result
 
