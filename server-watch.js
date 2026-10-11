@@ -178,7 +178,8 @@ function mount(root,csrf,escapeHtml){
         api("catalog/items/"+encodeURIComponent(row.id)+"/evidence")
       ]);
       if(!active||seq!==ticket)return;
-      area.innerHTML='<h3>'+esc(row.name)+' · immutable history</h3>'+
+      area.innerHTML=window.AICompassWorkgroup.renderKnowledgeDetail(row,{domain:kind==="sources"?"sources":"watch",mode:"server"})+
+        '<h4>Immutable history</h4>'+
         (histories[0].revisions||[]).map(function(r){
           return '<details><summary>'+esc(r.revision)+' · '+esc(r.created_at)+
             ' · '+esc(r.created_by)+'</summary><pre style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></details>';
