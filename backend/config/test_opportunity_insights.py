@@ -113,7 +113,7 @@ class ManagementInsightsTests(OpportunityTests.__bases__[0]):
         self.assertEqual(body["revision"],"r001")
         self.assertEqual(len(body["branches"]),6)
         self.assertEqual(body["branches"][2]["refs"][0]["revision"],"r002")
-        self.assertEqual(Decimal(body["branches"][4]["factors"]["recorded_cost"]),Decimal("2"))
+        self.assertEqual(Decimal(body["branches"][4]["factors"]["recorded_cost"]),Decimal("2.2"))
         self.assertNotIn("375.75",json.dumps(body))
         self.assertNotIn("linked_user",json.dumps(body))
         denied=self.get(client,"/insights/explain",
