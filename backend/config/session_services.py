@@ -98,6 +98,9 @@ def _allowed_evidence(session, state):
             ids.append(ref)
     append(state["setup"].get("evidence_link_ids",[]))
     append(state.get("closing_evidence_link_ids",[]))
+    # Pending results must pin original uploaded artifacts before metering is
+    # complete, exactly as permanent close evidence does.
+    append(state.get("results_draft",{}).get("evidence_link_ids",[]))
     for row in state["steps"].values():
         append(row.get("evidence_link_ids",[]))
     for row in state["interactions"]:
@@ -231,10 +234,28 @@ def create(*, actor, campaign_id, data):
     if snapshot.revision.properties.get("pricing_policy")=="offer_revisions_v1":
         from .pricing_services import pricing_status, prepare_selections, readiness
         if snapshot.framework_id or snapshot.revision.properties.get("mode")=="solution_centred":
-            check=pricing_status(snapshot)
-            if not check["complete"]:
-                raise SessionConflict("Pricing incomplete; choose complete campaign "
-                                      "tariff revisions: "+"; ".join(check["reasons"]))
+            if snapshot.framework_id:
+                from .pricing_services import readiness
+                required={"root:framework"}|{
+                    pid+":"+kind for pid in participant_ids
+                    for kind in ("model","provider","harness")
+                }
+                priced={pin.source_key:pin for pin in
+                    snapshot.pricing_pins.select_related("offer_revision")}
+                missing=sorted(required-set(priced))
+                bad=(["Unselected source(s): "+", ".join(missing)] if missing else [])
+                for key in sorted(required&set(priced)):
+                    checked=readiness(priced[key].offer_revision)
+                    if not checked["complete"]:
+                        bad.extend(key+": "+msg for msg in checked["reasons"])
+                if bad:
+                    raise SessionConflict("Pricing incomplete for selected Framework "
+                                          "participants: "+"; ".join(bad))
+            else:
+                check=pricing_status(snapshot)
+                if not check["complete"]:
+                    raise SessionConflict("Pricing incomplete; choose complete campaign "
+                                          "tariff revisions: "+"; ".join(check["reasons"]))
             if "pricing_selections" in data:
                 raise InvalidSession("Session tariff override forbidden for fixed campaign pricing")
         else:
@@ -276,6 +297,10 @@ def create(*, actor, campaign_id, data):
                                       offer=offer,offer_revision=rev)
                     for key,component,offer,rev in session_prices
                 ])
+                from .run_cost_services import contract as cost_contract
+                gate=cost_contract(session)
+                if gate is not None and not gate["complete"]:
+                    raise SessionConflict("Pre-execution tariff incomplete: "+"; ".join(gate["reasons"]))
                 _save(session,actor,"created",_initial_state(session,evaluation_id),1)
                 return session
         except IntegrityError:
@@ -349,6 +374,48 @@ def append(*, actor, public_id, expected_revision, action, data, step_key=None):
                     continue
                 step[key]=value
             state["current_step"]=step_key if "current_step" not in data else state["current_step"]
+        elif action=="metering":
+            from .run_cost_services import contract as cost_contract, decimal as price_decimal
+            schema=cost_contract(session)
+            if schema is None:
+                raise InvalidSession("Legacy Runs do not have a pinned usage tariff")
+            if not schema["complete"]:
+                raise SessionConflict("Original tariff is not complete")
+            allowed={(m["source_key"],m["meter"]) for m in schema["required_meters"]}
+            if set(data)!={"consumption"} or not isinstance(data["consumption"],dict):
+                raise InvalidSession("Consumption must be a source-keyed JSON object")
+            recorded=copy.deepcopy(state.get("metering",{}))
+            for source,values in data["consumption"].items():
+                if not isinstance(source,str) or not isinstance(values,dict) or len(values)>32:
+                    raise InvalidSession("Invalid source metering object")
+                for meter,value in values.items():
+                    if (source,meter) not in allowed:
+                        raise InvalidSession("Meter is not required by the original tariff")
+                    if value is None:
+                        if source in recorded:recorded[source].pop(meter,None)
+                    else:
+                        from .run_cost_services import InvalidMeter
+                        try:amount=price_decimal(value,source+"/"+meter)
+                        except InvalidMeter as exc:raise InvalidSession(str(exc)) from exc
+                        recorded.setdefault(source,{})[meter]=str(amount)
+                if not recorded.get(source):recorded.pop(source,None)
+            state["metering"]=recorded
+        elif action=="results":
+            # Durable incomplete result capture is independent of Run finality;
+            # a missing required usage meter never discards experiment outputs.
+            from .run_services import _metrics
+            allowed={"outcome","quality_score","quality_evaluation",
+                "information_utility_score","information_utility_evaluation",
+                "tokens_count","tokens_multiplier","cost_mode","cost_eur",
+                "human_review_minutes","human_correction_minutes",
+                "produced_outputs","notes","extensions","evidence_link_ids"}
+            if set(data)-allowed:
+                raise InvalidSession("Unsupported results draft fields")
+            draft=dict(state.get("results_draft",{}))
+            draft.update(data)
+            if len(json.dumps(draft,ensure_ascii=False,allow_nan=False))>65536:
+                raise InvalidSession("Results draft exceeds maximum size")
+            state["results_draft"]=draft
         elif action=="interaction":
             if set(data)-{"type","content","occurred_at","human_minutes","agent_minutes",
                           "participant_id","notes","extensions","evidence_link_ids","schema_version"}:
@@ -424,9 +491,12 @@ def serialize(session, checkpoint=None, include_state=True):
         "pricing_source":"session" if session.pricing_pins.exists()
             else ("campaign" if snap.revision.properties.get("pricing_policy")=="offer_revisions_v1"
                   else "legacy_unclassified"),
+        "metering":None,
         "created_by":session.created_by.get_username(),
         "created_at":session.created_at.isoformat(),
     }
+    from .run_cost_services import metering_state
+    result["metering"]=metering_state(session,cp.state)
     if include_state:
         result["state"]=cp.state
         result["evidence"]=[{"id":str(pin.evidence_id),

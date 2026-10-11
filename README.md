@@ -20,6 +20,8 @@ Cross-cutting interaction, slider and tooltip rules: **[Non-Functional Requireme
 
 See **[Product Definition](docs/product-definition.md)** for the agreed product scope, roles, task hierarchy, benchmarking model, evidence and scoring principles, publishing workflow, and evolution roadmap.
 
+For **tariff-driven Run metering**, reference variable cost, fixed subscription separation, immutable pending measurements/DoD, Framework participant attribution and setup provenance, see [FUT-09 Tariff-driven Runs](docs/tariff-driven-runs-server.md).
+
 For the Workgroup **Task × AI configuration × Test Case evaluation matrix**, attributable waivers, exact planned Runs, historical revisions and partial review, see [FUT-08 Campaign Evaluation Matrix](docs/campaign-evaluation-matrix-server.md). Legacy campaign methods and Demo-only fixtures remain independent.
 
 For composable, revision-pinned installation guides covering exact setups and Framework participants, see **[FUT-07 Composable Setup Guides](docs/composable-setup-guides-implementation.md)**. Setup composition reports declared coverage; actual installation validation and production rollout approvals remain separate.

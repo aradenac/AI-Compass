@@ -265,7 +265,10 @@ function mount(root,api,escapeHtml){
     if(!target||!session)return;
     var s=session,steps=s.method_descriptor.steps||[],state=s.state,
         isComposite=s.selected_participant_ids.length>=2,
-        editable=canWrite&&state.status==="in_progress";
+        editable=canWrite&&state.status==="in_progress",
+        priced=!!s.metering,
+        draft=state.results_draft||{},
+        savedUsage=state.metering||{};
     target.hidden=false;
     target.innerHTML='<h4>Session '+esc(s.id)+' · '+esc(s.revision)+'</h4>'+
       '<p class="muted small">Frozen campaign '+esc(s.campaign_id)+' '+esc(s.campaign_revision)+
@@ -349,6 +352,24 @@ function mount(root,api,escapeHtml){
           '<p>'+esc(x.notes)+' · '+(x.evidence_link_ids||[]).length+' evidence attachment(s)</p>'+
           '</details>';
       }).join("")+'</div>'+
+      (priced?'<fieldset id="session-metering"><legend>4. Offer-driven usage · independently saved</legend>'+
+        '<p class="muted small">Counters come from exact selected offer revisions. Blank means unknown, explicit 0 means measured zero. Shared pooled credits and fixed seats are never amortized.</p>'+
+        (s.metering.schema.required_meters||[]).map(function(item){
+          var previous=(savedUsage[item.source_key]||{})[item.meter];
+          return '<label>'+esc(item.source_key)+' · '+esc(item.meter)+
+            (item.namespace?' · '+esc(item.namespace):'')+
+            '<input type="number" data-meter-source="'+esc(item.source_key)+
+            '" data-meter-name="'+esc(item.meter)+'" step="any" min="0" value="'+
+            esc(previous==null?"":previous)+'"></label>';
+        }).join("")+
+        '<p>Fixed commitments: '+esc(JSON.stringify(s.metering.schema.fixed_commitments||[]))+'</p>'+
+        '<p>Metering status: <strong>'+esc(s.metering.ready?"complete":"pending")+'</strong>'+
+        (s.metering.missing||[]).map(function(m){return '<span> · '+esc(m)+'</span>';}).join("")+'</p>'+
+        (s.metering.quote?'<pre style="white-space:pre-wrap;overflow-wrap:anywhere">'+
+          esc(JSON.stringify(s.metering.quote.variable_reference_by_currency,null,2))+
+          '</pre>':'')+
+        (editable?'<button type="button" id="session-save-metering">Save observed meters</button>':'')+
+        '</fieldset>':'')+
       '<button type="button" id="session-history">View immutable checkpoint history</button>'+
       '<div id="session-history-content"></div>'+
       (state.status==="closed"?
@@ -360,24 +381,29 @@ function mount(root,api,escapeHtml){
           esc(s.selected_participant_ids.length)+' version-pinned participant roles. Quality, cost, tokens and time will not be assigned to any individual AI Solution.</p>':'')+
         '<p class="muted small">DoD is mandatory. Unknown numeric values stay unknown, not zero. Run closure is irreversible.</p>'+
         '<label>Definition of Done outcome<select name="outcome">'+
-         option("accepted","Accepted",false)+option("failed","Failed",false)+'</select></label>'+
-        '<label>Quality (0–100; blank = unmeasured)<input type="number" min="0" max="100" step="any" name="quality_score"></label>'+
-        '<label>Quality rationale<textarea name="quality_evaluation"></textarea></label>'+
-        '<label>Information utility (0–100; blank = unmeasured)<input type="number" min="0" max="100" step="any" name="information_utility_score"></label>'+
-        '<label>Information utility rationale<textarea name="information_utility_evaluation"></textarea></label>'+
-        '<label>Known tokens (blank = unknown)<input type="number" min="0" step="1" name="tokens_count"></label>'+
+         option("","Choose observed DoD outcome",!draft.outcome)+
+         option("accepted","Accepted",draft.outcome==="accepted")+
+         option("failed","Failed",draft.outcome==="failed")+'</select></label>'+
+        '<label>Quality (0–100; blank = unmeasured)<input type="number" min="0" max="100" step="any" name="quality_score" value="'+esc(draft.quality_score==null?"":draft.quality_score)+'"></label>'+
+        '<label>Quality rationale<textarea name="quality_evaluation">'+esc(draft.quality_evaluation||"")+'</textarea></label>'+
+        '<label>Information utility (0–100; blank = unmeasured)<input type="number" min="0" max="100" step="any" name="information_utility_score" value="'+esc(draft.information_utility_score==null?"":draft.information_utility_score)+'"></label>'+
+        '<label>Information utility rationale<textarea name="information_utility_evaluation">'+esc(draft.information_utility_evaluation||"")+'</textarea></label>'+
+        '<label>Known tokens (blank = unknown)<input type="number" min="0" step="1" name="tokens_count" value="'+esc(draft.tokens_count==null?"":draft.tokens_count)+'"></label>'+
         '<label>Token multiplier<select name="tokens_multiplier">'+
          [1,10,100,1000,1000000].map(function(n){return option(n,n+"×",n===1);}).join("")+'</select></label>'+
-        '<label>Run cost classification<select name="cost_mode">'+
-         option("unknown","Unknown",true)+option("flat_rate","Flat-rate / subscription",false)+
-         option("amount","Run-specific EUR amount",false)+'</select></label>'+
-        '<label>Run-specific EUR amount (only with Amount)<input type="number" name="cost_eur" min="0" step="any"></label>'+
+        (priced?'':'<label>Run cost classification<select name="cost_mode">'+
+         option("unknown","Unknown",draft.cost_mode==="unknown"||!draft.cost_mode)+
+         option("flat_rate","Flat-rate / subscription",draft.cost_mode==="flat_rate")+
+         option("amount","Run-specific EUR amount",draft.cost_mode==="amount")+'</select></label>'+
+        '<label>Run-specific EUR amount (only with Amount)<input type="number" name="cost_eur" min="0" step="any" value="'+
+         esc(draft.cost_eur==null?"":draft.cost_eur)+'"></label>')+
         '<label>Final human review minutes (blank = unknown)<input type="number" name="human_review_minutes" min="0" step="any"></label>'+
         '<label>Final human correction minutes (blank = unknown)<input type="number" name="human_correction_minutes" min="0" step="any"></label>'+
-        '<label>Produced code, reports, paths and artifacts (required)<textarea name="produced_outputs" required></textarea></label>'+
+        '<label>Produced code, reports, paths and artifacts (required)<textarea name="produced_outputs" required>'+esc(draft.produced_outputs||"")+'</textarea></label>'+
         '<label>Additional notes<textarea name="notes"></textarea></label>'+
         '<label>Extensible measured evidence (JSON object)<textarea name="extensions">{}</textarea></label>'+
         '<label>Additional immutable evidence links'+selectEvidence([])+'</label>'+
+        '<button type="button" id="session-save-results">Save pending results / DoD</button> '+
         '<button type="button" id="session-close-run">Close as permanent Run</button></fieldset>':
         !s.individual_setup?'<p class="muted small">This legacy draft lacks a pinned AI setup and cannot be closed. Start a new session with explicit components.</p>':'');
     $("#session-method-json").textContent=JSON.stringify(s.method_descriptor,null,2);
@@ -410,36 +436,69 @@ function mount(root,api,escapeHtml){
           "POST",{},"Session "+action);
       });
     }
+    function resultPayload(requireOutputs){
+      var f=$("#session-results");
+      var tokens=f.querySelector('[name="tokens_count"]').value;
+      var payload={
+        outcome:f.querySelector('[name="outcome"]').value,
+        quality_score:optionalMinutes(f.querySelector('[name="quality_score"]').value),
+        quality_evaluation:f.querySelector('[name="quality_evaluation"]').value,
+        information_utility_score:optionalMinutes(f.querySelector('[name="information_utility_score"]').value),
+        information_utility_evaluation:f.querySelector('[name="information_utility_evaluation"]').value,
+        tokens_count:tokens===""?null:Number(tokens),
+        tokens_multiplier:tokens===""?1:Number(f.querySelector('[name="tokens_multiplier"]').value),
+        human_review_minutes:optionalMinutes(f.querySelector('[name="human_review_minutes"]').value),
+        human_correction_minutes:optionalMinutes(f.querySelector('[name="human_correction_minutes"]').value),
+        produced_outputs:f.querySelector('[name="produced_outputs"]').value,
+        notes:f.querySelector('[name="notes"]').value,
+        extensions:json(f.querySelector('[name="extensions"]').value,"Run extensions"),
+        evidence_link_ids:selected(f.querySelector("[data-evidence]"))
+      };
+      if(!priced){
+        payload.cost_mode=f.querySelector('[name="cost_mode"]').value;
+        payload.cost_eur=payload.cost_mode==="amount"?
+          optionalMinutes(f.querySelector('[name="cost_eur"]').value):null;
+        if(payload.cost_mode==="amount"&&f.querySelector('[name="cost_eur"]').value==="")
+          throw Error("Amount cost requires an EUR value");
+      }
+      if(tokens!==""&&!Number.isSafeInteger(payload.tokens_count))
+        throw Error("Total token count must be an integer");
+      if(requireOutputs&&!payload.produced_outputs.trim())
+        throw Error("Produced outputs are required to finalize");
+      if(requireOutputs&&!payload.outcome)
+        throw Error("Choose the observed Definition of Done outcome");
+      return payload;
+    }
+    if(editable&&priced){
+      $("#session-save-metering").addEventListener("click",function(){
+        var observations={},nodes=$("#session-metering").querySelectorAll("[data-meter-source]");
+        nodes.forEach(function(input){
+          var source=input.dataset.meterSource;
+          if(!observations[source])observations[source]={};
+          observations[source][input.dataset.meterName]=input.value===""?null:input.value;
+        });
+        submit("sessions/"+encodeURIComponent(s.id)+"/metering","PATCH",{
+          consumption:observations},"Observed metering");
+      });
+    }
     if(editable&&(s.individual_setup||isComposite)){
+      $("#session-save-results").addEventListener("click",function(){
+        try{submit("sessions/"+encodeURIComponent(s.id)+"/results","PATCH",
+                   resultPayload(false),"Pending experimental results");}
+        catch(error){note("Results draft not saved: "+error.message,true);}
+      });
       $("#session-close-run").addEventListener("click",async function(){
         var f=$("#session-results"),button=$("#session-close-run");
         button.disabled=true;
         try{
-          var cost_mode=f.querySelector('[name="cost_mode"]').value;
-          var tokens=f.querySelector('[name="tokens_count"]').value;
-          var payload={
-            expected_revision:s.revision,
-            outcome:f.querySelector('[name="outcome"]').value,
-            quality_score:optionalMinutes(f.querySelector('[name="quality_score"]').value),
-            quality_evaluation:f.querySelector('[name="quality_evaluation"]').value,
-            information_utility_score:optionalMinutes(f.querySelector('[name="information_utility_score"]').value),
-            information_utility_evaluation:f.querySelector('[name="information_utility_evaluation"]').value,
-            tokens_count:tokens===""?null:Number(tokens),
-            tokens_multiplier:tokens===""?1:Number(f.querySelector('[name="tokens_multiplier"]').value),
-            cost_mode:cost_mode,
-            cost_eur:cost_mode==="amount"?optionalMinutes(f.querySelector('[name="cost_eur"]').value):null,
-            human_review_minutes:optionalMinutes(f.querySelector('[name="human_review_minutes"]').value),
-            human_correction_minutes:optionalMinutes(f.querySelector('[name="human_correction_minutes"]').value),
-            produced_outputs:f.querySelector('[name="produced_outputs"]').value,
-            notes:f.querySelector('[name="notes"]').value,
-            extensions:json(f.querySelector('[name="extensions"]').value,"Run extensions"),
-            evidence_link_ids:selected(f.querySelector("[data-evidence]"))
-          };
-          if(tokens!==""&&!Number.isSafeInteger(payload.tokens_count))
-            throw Error("Total token count must be an integer");
-          if(cost_mode==="amount"&&f.querySelector('[name="cost_eur"]').value==="")
-            throw Error("Amount cost requires an EUR value");
-          if(!payload.produced_outputs.trim())throw Error("Produced outputs are required");
+          var payload=resultPayload(true);
+          if(priced){
+            // Persist outcome and artifacts *before* attempting metering-gated
+            // finalization. On 409, this is a resumable pending checkpoint.
+            session=await api("sessions/"+encodeURIComponent(s.id)+"/results",
+                              "PATCH",{expected_revision:session.revision,...payload});
+          }
+          payload.expected_revision=session.revision;
           note("Closing as an immutable run…");
           var run=await api("sessions/"+encodeURIComponent(s.id)+"/close","POST",payload);
           session=await api("sessions/"+encodeURIComponent(s.id));

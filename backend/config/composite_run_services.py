@@ -9,6 +9,7 @@ import copy
 from django.db import IntegrityError, transaction
 
 from .catalog_ids import new_public_id
+from .run_provenance import snapshot as setup_snapshot
 from .models import (BenchmarkRun, BenchmarkSession, CampaignParticipantPin,
                      CompositeBenchmarkRun, CompositeRunEvidence, CompositeRunParticipant)
 from .run_services import _metrics
@@ -70,7 +71,28 @@ def close(*,actor,public_id,expected_revision,data):
         if not current.state.get("interactions"):
             raise InvalidSession("At least one recorded interaction is required")
         state=copy.deepcopy(current.state)
-        metrics=_metrics(data,state)
+        from .run_cost_services import quote, contract, InvalidMeter, MissingMeter
+        prices=contract(session)
+        results={**state.get("results_draft",{}),**data}
+        cost_snapshot=None
+        if prices is not None:
+            if set(data)&{"cost_mode","cost_eur"}:
+                raise InvalidSession("Collaborative tariff cost is computed, not manually assigned")
+            try:cost_snapshot=quote(session,state.get("metering",{}))
+            except MissingMeter as exc:
+                raise SessionConflict("Composite Run remains pending with saved work: "+str(exc)) from exc
+            except InvalidMeter as exc:
+                raise SessionConflict("Original composite tariff is not computable: "+str(exc)) from exc
+            totals=cost_snapshot["variable_reference_by_currency"]
+            if not cost_snapshot["variable_charges"]:
+                results.update(cost_mode="flat_rate",cost_eur=None)
+            elif set(totals)=={"EUR"}:
+                results.update(cost_mode="amount",cost_eur=float(totals["EUR"]))
+            else:
+                results.update(cost_mode="unknown",cost_eur=None)
+        metrics=_metrics(results,state)
+        if cost_snapshot is not None:
+            metrics["reference_cost"]=cost_snapshot
         final_links=metrics.pop("evidence_link_ids")
         state["closing_evidence_link_ids"]=final_links
         evidence=_allowed_evidence(session,state)  # Verifies bytes and exact scopes.
@@ -81,6 +103,10 @@ def close(*,actor,public_id,expected_revision,data):
         snap=session.campaign_snapshot
         provenance={
             "scope":"composite",
+            "evaluation_id":state.get("evaluation_id"),
+            "setup_composition":setup_snapshot(session),
+            "execution_environment":state["setup"].get("environment",{}),
+            "setup_deviations":state["setup"].get("notes",""),
             "campaign_id":snap.revision.item.public_id,
             "campaign_revision_id":str(session.campaign_snapshot_id),
             "campaign_mode":snap.revision.properties["mode"],
