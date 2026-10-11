@@ -14,6 +14,9 @@ class Migration(migrations.Migration):
             fields=[
                 ("id", models.UUIDField(primary_key=True, serialize=False, editable=False,
                                          default=config.catalog_ids.uuid7)),
+                ("audit_event", models.OneToOneField(to="config.catalogauditevent",
+                    on_delete=django.db.models.deletion.PROTECT,
+                    related_name="run_amendment")),
                 ("number", models.PositiveIntegerField()),
                 ("action", models.CharField(max_length=16)),
                 ("outcome", models.CharField(max_length=12)),
