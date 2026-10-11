@@ -112,7 +112,7 @@ def apply(*,actor,item,expected_revision,operation):
         "evaluation_id","decision","reason"}:
         raise InvalidCampaign("Unknown evaluation-plan edit fields")
     with transaction.atomic():
-        locked=item.__class__.objects.select_for_update().select_related("current_revision").get(pk=item.pk)
+        locked=item.__class__.objects.select_for_update(of=("self",)).select_related("current_revision").get(pk=item.pk)
         rev=locked.current_revision
         if expected_revision!=f"r{rev.number:03d}":
             from .catalog_services import RevisionConflict
