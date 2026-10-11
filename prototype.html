@@ -1944,10 +1944,10 @@ function demoTariffCheck(spec){
      seen.has(l.source_key+"|"+l.charge_id))throw Error("Duplicate or missing billed source / charge");
   seen.add(l.source_key+"|"+l.charge_id);
   if(l.charge_type==="fixed"){
-   if(!l.period||l.rate==null||String(l.rate).trim()===""||!Number.isFinite(Number(l.rate))||Number(l.rate)<0)
+   if(!l.period||typeof l.rate==="boolean"||l.rate==null||String(l.rate).trim()===""||!Number.isFinite(Number(l.rate))||Number(l.rate)<0)
     throw Error("Fixed commitment needs a nonnegative rate and billing period");
   }else if(l.charge_type==="variable"){
-   if(!allowed.has(l.meter)||!Number.isFinite(Number(l.unit_size))||Number(l.unit_size)<=0)
+   if(!allowed.has(l.meter)||typeof l.unit_size==="boolean"||!Number.isFinite(Number(l.unit_size))||Number(l.unit_size)<=0)
     throw Error("Unknown meter or unit size");
    if(l.meter==="provider_credits"&&!l.provider_credit_namespace)
     throw Error("Provider credits require an original namespace");
@@ -1955,12 +1955,12 @@ function demoTariffCheck(spec){
     if(!Array.isArray(l.tiers)||!l.tiers.length)throw Error("Missing progressive tiers");
     var prev=0;
     l.tiers.forEach(function(t,i){
-     if(t.rate==null||String(t.rate).trim()===""||!Number.isFinite(Number(t.rate))||Number(t.rate)<0||
+     if(typeof t.rate==="boolean"||t.rate==null||String(t.rate).trim()===""||!Number.isFinite(Number(t.rate))||Number(t.rate)<0||
         (t.up_to!==null&&(!Number.isFinite(Number(t.up_to))||Number(t.up_to)<=prev))||
         (t.up_to===null&&i!==l.tiers.length-1))throw Error("Invalid progressive bracket");
      if(t.up_to!==null)prev=Number(t.up_to);
     });
-   }else if(l.rate==null||String(l.rate).trim()===""||!Number.isFinite(Number(l.rate))||Number(l.rate)<0)
+   }else if(typeof l.rate==="boolean"||l.rate==null||String(l.rate).trim()===""||!Number.isFinite(Number(l.rate))||Number(l.rate)<0)
      throw Error("Variable rate cannot be unknown");
   }else if(l.charge_type!=="free")throw Error("Demo tariffs support free, variable and fixed charges");
  });
