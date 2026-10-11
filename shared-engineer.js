@@ -122,8 +122,30 @@ function demoProvider(db,actor,persist){
   };
 }
 function mount(container,provider,mode){
-  var active=false,view="task",all=false,selected=null,opened={},
+  var routeParams=new URLSearchParams(root.location.search);
+  var active=false,view=routeParams.get("view")==="tool"?"tool":"task",
+      all=routeParams.get("all_tasks")==="true",selected=null,opened={},
       generation=0,draft={kind:"feedback",body:""},latest=null,alert="";
+  String(routeParams.get("collapsed")||"").split(",").slice(0,60).forEach(function(id){
+    if(/^[a-zA-Z0-9_-]{1,70}$/.test(id))opened[id]=false;
+  });
+  function scopedLink(task,solution,extra) {
+    var p={view:view,from:root.AICompassContext.returnTo(mode,"")};
+    if(all)p.all_tasks="true";
+    if(task)p.task=task;
+    if(solution)p.solution=solution;
+    var url=new URL(root.AICompassContext.route(mode,
+      routeParams.get("workspace")==="workgroup"?"workgroup":"engineer",
+      routeParams.get("workspace")==="workgroup"?"engineer":"home",p),root.location.origin);
+    // view and expansion are ephemeral navigation filters only.
+    if(all)url.searchParams.set("all_tasks","true");
+    var closed=Object.keys(opened).filter(function(k){return opened[k]===false;}).slice(0,60);
+    if(closed.length)url.searchParams.set("collapsed",closed.join(","));
+    if(extra)Object.keys(extra).forEach(function(k){
+      if(extra[k]==null)url.searchParams.delete(k);else url.searchParams.set(k,String(extra[k]));
+    });
+    return url.pathname+url.search;
+  }
   function message(text){alert=text||"";var node=container.querySelector("[data-engineer-status]");
     if(node)node.textContent=alert;}
   function shell(){
@@ -216,10 +238,17 @@ function mount(container,provider,mode){
       '<p class="muted small">Theoretical Forecasts are NOT measured results. '+
       'Use the separate Results Explorer / Technology Watch for experimental candidates.</p>';
     body.querySelectorAll("[data-engineer-view]").forEach(function(b){b.onclick=function(){
-      view=b.dataset.engineerView;refresh();};});
-    body.querySelector("[data-engineer-all]").onclick=function(){all=!all;refresh();};
+      root.location.assign(scopedLink(null,null,{view:b.dataset.engineerView}));};});
+    body.querySelector("[data-engineer-all]").onclick=function(){
+      root.location.assign(scopedLink(null,null,{all_tasks:all?null:"true"}));};
     body.querySelectorAll("[data-engineer-expand]").forEach(function(b){b.onclick=function(){
-      opened[b.dataset.engineerExpand]=b.getAttribute("aria-expanded")==="true"?false:true;content();};});
+      opened[b.dataset.engineerExpand]=b.getAttribute("aria-expanded")==="true"?false:true;
+      var u=new URL(root.location.href);
+      var ids=Object.keys(opened).filter(function(id){return opened[id]===false;}).slice(0,60);
+      if(ids.length)u.searchParams.set("collapsed",ids.join(","));
+      else u.searchParams.delete("collapsed");
+      root.history.replaceState(root.history.state,"",u.pathname+u.search+u.hash);
+      content();};});
     body.querySelectorAll("[data-engineer-more]").forEach(function(b){b.onclick=function(){
       var task=b.dataset.engineerMore,t=latest.tasks.find(function(x){return x.id===task;});
       var options=t.configurations.filter(function(x){return x.suitability==="supported_observation";});
@@ -229,7 +258,7 @@ function mount(container,provider,mode){
   }
   function bindDetail(){
     container.querySelectorAll("[data-engineer-detail]").forEach(function(b){b.onclick=function(){
-      inspect(b.dataset.engineerDetail,b.dataset.engineerTask);};});
+      root.location.assign(scopedLink(b.dataset.engineerTask,b.dataset.engineerDetail));};});
   }
   async function inspect(id,task){
     selected={id:id,task:task,record:null};
@@ -263,8 +292,8 @@ function mount(container,provider,mode){
         ' · '+safe(x.evidence_freshness||"not verified")+'</p>'+
         '<p>'+safe(x.rationale||"")+'</p><p>Limitations: '+safe(x.limitations||"")+'</p></div>';
     }).join("")||"<p>No published editorial Recommendation for this Task and configuration.</p>";
-    body.innerHTML='<nav aria-label="Engineer breadcrumbs"><button type="button" data-engineer-back>'+
-      'My AI Workspace</button> › '+safe(row.task_id)+' › '+safe(row.name)+'</nav>'+
+    body.innerHTML='<nav aria-label="Engineer breadcrumbs" class="ux-engineer-breadcrumbs"><a data-engineer-home href="'+safe(scopedLink(null,null,{task:null,solution:null}))+'">'+
+      'My AI Workspace</a> › '+safe(row.task_id)+' › '+safe(row.name)+'</nav>'+
       '<h3>'+safe(row.name)+'</h3>'+
       '<p>'+badge(o)+'</p>'+accessibility(o)+
       '<h4>My verified deployment state</h4>'+
@@ -278,11 +307,14 @@ function mount(container,provider,mode){
       ' · No numeric ranking until an authorized scoring policy is defined.</p>'+
       '<h4>Measured Test Case coverage and original sources</h4>'+
       (o.evidence_refs||[]).map(function(r){
-        var uri=mode==="server"?"/api/v1/runs/"+encodeURIComponent(r.id):"";
+        var uri=root.AICompassContext.route(mode,
+          mode==="server"?"engineer":"engineer","results",{
+          record:r.id,revision:r.revision,task:row.task_id,solution:row.id
+        });
         return '<p>'+safe(r.test_case_id)+' · '+safe(r.id)+' · '+safe(r.revision)+
-          ' · '+safe(r.outcome)+(uri?' · <a href="'+safe(uri)+'" target="_blank" rel="noopener">Source Run (JSON)</a>':'')+'</p>';
+          ' · '+safe(r.outcome)+' · <a href="'+safe(uri)+'">Open measured Run and provenance</a></p>';
       }).join("")+
-      '<h4>Setup Guide for this configuration</h4>'+guide+historical+
+      '<section id="ux-engineer-setup"><h4>Setup Guide for this configuration</h4>'+guide+historical+'</section>'+
       '<p>User Guide / charter: '+safe(g.user_guide||"not_registered")+
       ' (separate from technical Setup Guide).</p>'+
       '<h4>Published editorial context</h4>'+notes+
@@ -296,22 +328,21 @@ function mount(container,provider,mode){
       '<h4>Other measured Tasks</h4>'+
       (row.other_tasks||[]).map(function(t){return '<button type="button" data-engineer-other="'+safe(t.id)+
         '">'+safe(t.id)+'</button>';}).join("")+
-      '<h4>Feedback and unmet needs</h4>'+
+      '<section id="ux-engineer-feedback"><h4>Feedback and unmet needs</h4>'+
       '<p class="muted small">Feedback is self-reported. Access interest is not a grant, approval, purchase or support ticket.</p>'+
       '<label>Purpose<select data-engineer-kind>'+
       '<option value="feedback">Feedback on actual use</option>'+
       '<option value="request">Express interest in access</option>'+
       '<option value="idea">Suggest an unmet need for this Task</option></select></label>'+
       '<label>Comment<textarea data-engineer-comment maxlength="16000"></textarea></label>'+
-      '<button type="button" data-engineer-send>Record discussion</button>';
+      '<button type="button" data-engineer-send>Record discussion</button></section>';
     var purpose=body.querySelector("[data-engineer-kind]"),
         comment=body.querySelector("[data-engineer-comment]");
     purpose.value=draft.kind;comment.value=draft.body;
     purpose.onchange=function(){draft.kind=purpose.value;};
     comment.oninput=function(){draft.body=comment.value;};
-    body.querySelector("[data-engineer-back]").onclick=back;
     body.querySelectorAll("[data-engineer-other]").forEach(function(b){
-      b.onclick=function(){inspect(row.id,b.dataset.engineerOther);};});
+      b.onclick=function(){root.location.assign(scopedLink(b.dataset.engineerOther,row.id));};});
     body.querySelector("[data-engineer-send]").onclick=async function(){
       var kind=purpose.value,ctx=kind==="idea"?row.task_id:row.id;
       if(comment.value.trim().length<8){message("Add a meaningful comment (at least 8 characters).");return;}
@@ -340,6 +371,8 @@ function mount(container,provider,mode){
       if(!active||at!==generation)return;
       var data=responses[0];data.deployment_status=responses[1].results||[];
       selected=null;latest=data;content();message("");
+      var sourceId=routeParams.get("solution"),taskId=routeParams.get("task");
+      if(sourceId && taskId)inspect(sourceId,taskId);
     }
     catch(error){if(!active||at!==generation)return;latest=null;
       container.querySelector("[data-engineer-body]").textContent=
