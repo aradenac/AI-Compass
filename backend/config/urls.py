@@ -1,7 +1,7 @@
 from django.urls import path
 
 from . import auth_views, catalog_views, catalog_type_views, evidence_views, task_views, user_admin_views, activity_views, data_health_views, test_case_views, setup_guide_views, campaign_views, session_views, run_views, watch_views, forecast_views, results_views, recommendation_views, discussion_views, archive_views, workload_views, external_import_views
-from . import pricing_views, environment_views, setup_recipe_views, publication_views
+from . import pricing_views, environment_views, setup_recipe_views, publication_views, run_lifecycle_views
 from .api import api
 
 urlpatterns = [
@@ -69,6 +69,8 @@ urlpatterns = [
     path("api/v1/sessions/<slug:public_id>/steps/<slug:step_key>", session_views.update_step),
     path("api/v1/sessions/<slug:public_id>/interactions", session_views.add_interaction),
     path("api/v1/runs", run_views.list_runs),
+    path("api/v1/runs/<slug:public_id>/revisions", run_lifecycle_views.history),
+    path("api/v1/runs/<slug:public_id>/actions/<slug:action>", run_lifecycle_views.action),
     path("api/v1/runs/<slug:public_id>", run_views.get_run),
     path("api/v1/solutions", run_views.solutions),
     path("api/v1/solutions/<slug:public_id>", run_views.solution),
