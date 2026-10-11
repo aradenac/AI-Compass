@@ -148,6 +148,12 @@ jobs:
           node --check shared-budgets.js
           node scripts/test-shared-budgets.js
           node --check server-planning.js
+      - name: Verify FUT-17 role-scoped committed governance audit, diffs and Activity parity
+        run: |
+          docker compose exec -T api python manage.py test config.test_governance_audit -v 2
+          node --check server-governance-audit.js
+          node scripts/test-server-governance-audit.js
+          node scripts/test-server-activity.js
       - name: Assert fresh Server has no seeded business data
         run: |
           docker compose exec -T api python manage.py shell -c \
