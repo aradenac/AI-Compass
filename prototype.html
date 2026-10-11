@@ -1929,6 +1929,77 @@ function refreshCampaignInstallationGuides(form){
  selector.innerHTML=installationGuideOptions(chosen?.id||"",campaign.frameworkId||"").map(function(o){return opt(o[0],o[1],selected);}).join("");
  if(!Array.from(selector.options).some(function(o){return o.value===selected;}))selector.value="";
 }
+/* FUT-09 fictional Demo tariff: selected once before a Trial; never read from Server.
+ * This never infers pooled credits, FX, or an unmeasured quantity as zero. */
+function demoTariffCheck(spec){
+ if(!spec||typeof spec!=="object"||Array.isArray(spec)||!Array.isArray(spec.lines)||
+    spec.lines.length<1||spec.lines.length>64||!/^r\\d{3,8}$/.test(spec.revision||"")||
+    !/^[A-Z]{3}$/.test(spec.currency||""))
+  throw Error("Demo tariff needs revision rNNN, ISO currency and 1–64 lines");
+ var seen=new Set(),allowed=new Set(["input_tokens","output_tokens","cached_input_tokens",
+  "reasoning_tokens","requests","seconds","minutes","hours","jobs","executions",
+  "provider_credits","gpu_hours","custom_units"]);
+ spec.lines.forEach(function(l){
+  if(!l||typeof l!=="object"||!l.source_key||!l.charge_id||
+     seen.has(l.source_key+"|"+l.charge_id))throw Error("Duplicate or missing billed source / charge");
+  seen.add(l.source_key+"|"+l.charge_id);
+  if(l.charge_type==="fixed"){
+   if(!l.period||!Number.isFinite(Number(l.rate))||Number(l.rate)<0)
+    throw Error("Fixed commitment needs a nonnegative rate and billing period");
+  }else if(l.charge_type==="variable"){
+   if(!allowed.has(l.meter)||!Number.isFinite(Number(l.unit_size))||Number(l.unit_size)<=0)
+    throw Error("Unknown meter or unit size");
+   if(l.meter==="provider_credits"&&!l.provider_credit_namespace)
+    throw Error("Provider credits require an original namespace");
+   if(l.tiers){
+    if(!Array.isArray(l.tiers)||!l.tiers.length)throw Error("Missing progressive tiers");
+    var prev=0;
+    l.tiers.forEach(function(t,i){
+     if(!Number.isFinite(Number(t.rate))||Number(t.rate)<0||
+        (t.up_to!==null&&(!Number.isFinite(Number(t.up_to))||Number(t.up_to)<=prev))||
+        (t.up_to===null&&i!==l.tiers.length-1))throw Error("Invalid progressive bracket");
+     if(t.up_to!==null)prev=Number(t.up_to);
+    });
+   }else if(!Number.isFinite(Number(l.rate))||Number(l.rate)<0)
+     throw Error("Variable rate cannot be unknown");
+  }else if(l.charge_type!=="free")throw Error("Demo tariffs support free, variable and fixed charges");
+ });
+ return JSON.parse(JSON.stringify(spec));
+}
+function demoTariffQuote(spec,observed){
+ var missing=[],charges=[],fixed=[],total=0;
+ spec.lines.forEach(function(line){
+  if(line.charge_type==="fixed"){
+   fixed.push({source_key:line.source_key,charge_id:line.charge_id,
+      rate:String(line.rate),period:line.period,currency:spec.currency});return;
+  }
+  if(line.charge_type!=="variable")return;
+  var qty=observed?.[line.source_key]?.[line.meter];
+  if(qty==null||String(qty).trim()===""){
+   missing.push(line.source_key+"/"+line.meter);return;
+  }
+  qty=Number(qty);
+  if(!Number.isFinite(qty)||qty<0||qty>1e15)throw Error("Invalid measured value");
+  var amount=0;
+  if(line.tiers){
+   var left=qty,lower=0;
+   for(var t of line.tiers){
+    var width=t.up_to===null?left:Math.min(left,Number(t.up_to)-lower);
+    amount+=width/Number(line.unit_size)*Number(t.rate);
+    left-=width;
+    if(left<=0)break;
+    if(t.up_to!==null)lower=Number(t.up_to);
+   }
+   if(left>0)missing.push("Tariff tier not applicable to "+line.charge_id);
+  }else amount=qty/Number(line.unit_size)*Number(line.rate);
+  total+=amount;charges.push({source_key:line.source_key,charge_id:line.charge_id,
+    meter:line.meter,quantity:qty,amount:amount,currency:spec.currency});
+ });
+ return {ready:!missing.length,missing:missing,
+   policy:"fictional-reference-usage-v1",currency:spec.currency,
+   variable_reference_cost:Math.round(total*1e9)/1e9,variable_charges:charges,
+   fixed_commitments:fixed,offer_revision:spec.revision};
+}
 function campaignTrialStart(campaignId,caseId){
 var c=rec("campaigns",campaignId),tc=rec("cases",caseId);
 if(!c||!tc||c.stage!=="active"||!canEdit()||!c.caseIds.includes(caseId))return;
@@ -1969,6 +2040,9 @@ guidedField("newGuideBody","Installation steps (optional when URL provided)","",
  }).map(function(cell){var cfg=c.matrixPlan.configurations.find(function(x){
    return x.id===cell.configurationId;
  });return [cell.id,(cfg?.label||"Configuration")+" · "+cell.id];})),"",true):"")+
+guidedField("tariffPlan","Selected fictional offer, frozen before execution (JSON; blank = legacy manual cost)",
+ '{"revision":"r001","currency":"EUR","lines":[{"source_key":"root:model","charge_id":"input","charge_type":"variable","meter":"input_tokens","unit_size":1000000,"rate":"2.5"},{"source_key":"root:harness","charge_id":"seat","charge_type":"fixed","period":"seat_month","rate":"20"}]}',
+ "textarea","full","This offline example offer is fictional and revisioned, never a current vendor quote. Required consumption counters will be generated from its variable charge lines.")+
 guidedField("setupNotes","Installation deviations / deployment environment (optional)","","textarea","full","Record OS, machine, deviations from the selected guide and environment constraints. If validating a Technology Watch forecast, document deviations from its proposed configuration here.");
 openForm("Step 3 · Installation & setup","campaignTrialSetup",fields,campaignId,"Save setup → interactions");
 }
@@ -2016,8 +2090,17 @@ guidedField("utilityAssessment","Information Utility evaluation","","textarea",n
 '<div class="metric-range-pair"><input class="input" id="f_tokenCount" name="tokenCount" type="number" min="0" step="any" placeholder="Unknown" style="width:100%">'+
 '<select name="tokenScale" aria-label="Token unit multiplier"><option value="1">×1 units</option><option value="10">×10 tens</option><option value="100">×100 hundreds</option><option value="1000">×1,000 thousands</option><option value="1000000">×1,000,000 millions</option></select></div>'+
 '<span class="muted small" data-token-preview>Unknown (optional)</span></div>'+
+(t.tariffPlan?'<div class="span2 note"><strong>Original selected tariff '+E(t.tariffPlan.revision)+
+ '</strong> · '+E(t.tariffPlan.currency)+'. Enter required observed units below; blank is pending, 0 means measured zero. Fixed commitments are separate.</div>'+
+ Array.from(new Map(t.tariffPlan.lines.filter(function(l){return l.charge_type==="variable";})
+  .map(function(l){return [l.source_key+"|"+l.meter,l];})).values()).map(function(l){
+  return guidedField("meter_"+l.source_key+"_"+l.meter,
+    "Measured "+l.source_key+" / "+l.meter+(l.provider_credit_namespace?
+      " ("+l.provider_credit_namespace+")":""),t.observedMeters?.[l.source_key]?.[l.meter]??"",
+    "number","full","Native meter units for this original charge. Not a price field.");
+ }).join(""):
 selectField("costMode","Estimated total AI/tool cost",[["amount","Amount in EUR for this run"],["flat","Flat-rate / subscription (not allocated per run)"],["unknown","Unknown"]],"amount",true).replace('</label>',metricHelp("Choose Amount only for a run-specific total. Flat-rate means the cost is covered by a subscription and is not allocated to this test; Unknown means no reliable price estimate.")+'</label>')+
-'<div class="span2" data-metered-cost>'+guidedField("cost","Estimated total amount (EUR)","","number","full","Enter the run-specific estimated amount in EUR, inclusive of model/provider and tooling charges where possible; zero only when genuinely free.")+'</div>'+
+'<div class="span2" data-metered-cost>'+guidedField("cost","Estimated total amount (EUR)","","number","full","Enter the run-specific estimated amount in EUR, inclusive of model/provider and tooling charges where possible; zero only when genuinely free.")+'</div>) +
 durationField("reviewMinutes","Final human review duration (minutes)",0,"Time spent checking deliverables after the interactions, separate from reviews already logged as interactions.")+
 durationField("correctionMinutes","Final human correction duration (minutes)",0,"Time spent manually fixing remaining errors after the final review, not counted in earlier iterations.")+
 '<div class="span2"><h3>Produced outputs</h3></div>'+
@@ -2717,6 +2800,11 @@ if(kind==="campaignReview"){
  if((newGuideTitle&&!newGuideBody&&!newGuideUrl)||(!newGuideTitle&&(newGuideBody||newGuideUrl))){toast("A new guide requires a title and text or URL.");return;}
  if(!validSetupUrl(newGuideUrl)){toast("Setup guide URL must use HTTP or HTTPS.");return;}
 if(!Number.isFinite(Number(d.setupMinutes))||String(d.setupMinutes).trim()===""||Number(d.setupMinutes)<0||Number(d.setupMinutes)>10080){toast("Specify installation duration in minutes (0–10080).");return;}
+ var selectedTariff=null;
+ try{
+  if(String(d.tariffPlan||"").trim())selectedTariff=demoTariffCheck(JSON.parse(d.tariffPlan));
+ }catch(error){toast("Fictional tariff incomplete: "+error.message);return;}
+
  if(newGuideTitle&&(newGuideBody||newGuideUrl)){
   var associated=String(d.existingSolution||"");
   if(!associated&&!collaborative){var found=findBenchSolutionForSetup(cfg);if(found)associated=found.id;}
@@ -2732,6 +2820,7 @@ if(!guide||guide.type!=="Installation"){toast("Select an installation guide.");r
   frameworkParticipantsSnapshots:JSON.parse(JSON.stringify(selectedParticipants)),
   frameworkSnapshot:framework?JSON.parse(JSON.stringify(framework)):null,
   participantSnapshot:participant?JSON.parse(JSON.stringify(participant)):null,
+  tariffPlan:selectedTariff,observedMeters:{},pendingResults:null,
   startedAt:d.startedAt,setupMinutes:Number(d.setupMinutes),
   installationGuideId:guide.id,installationGuideSnapshot:JSON.parse(JSON.stringify(guide)),
   evaluationId:plannedEvaluation?.id||"",
