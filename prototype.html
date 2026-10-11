@@ -1533,13 +1533,14 @@ function watchPage(){
 var status=ui.filters.watchStatus||"all",filtered=db.watch.filter(function(w){return watchVisible(w)&&(status==="all"||w.status===status);})
  .sort(function(a,b){return String(b.date).localeCompare(String(a.date));});
 var signals='<div class="filters"><select data-filter="watchStatus">'+[["all","All signals"],["watching","Under review"],["pending","Evidence collection"],["reviewed","Documented"]].map(function(x){return opt(x[0],x[1],status);}).join("")+'</select>'+badge(filtered.length+" signals")+'</div>'+
-'<div class="list">'+filtered.map(function(w){
-var evidence=watchEvidence(w.id),forecasts=db.proposals.filter(function(p){return p.watchIds.includes(w.id);});
-return '<div class="list-row"><div class="short"><div class="tags">'+badge(w.kind)+badge(w.status)+badge(evidence.length+" sources")+'</div>'+
-'<div style="margin:8px 0 4px">'+linkAction(w.title,"watchDetail",w.id)+'</div><p class="muted small">'+E(w.hypothesis||w.summary||"")+'</p>'+
-'<div class="muted small">'+E(w.date)+' · '+forecasts.length+' forecast(s) linked</div></div>'+
-'<div class="inline-actions">'+btn("Open evidence","watchDetail",w.id,"sm")+(canEdit()?btn("Build forecast","forecastFromWatch",w.id,"sm"):"")+'</div></div>';
-}).join("")+'</div>';
+window.AICompassWorkgroup.renderRecords(filtered.map(function(w){
+ var sources=watchEvidence(w.id),forecasts=db.proposals.filter(function(p){return p.watchIds.includes(w.id);});
+ return {id:w.id,title:w.title,status:w.status,description:w.hypothesis||w.summary||"",
+   facts:[w.kind,sources.length+" sources",w.date,forecasts.length+" forecast(s) linked"],
+   actions:[{label:"Open evidence",attributes:{"data-act":"watchDetail","data-id":w.id}}].concat(
+     canEdit()?[{label:"Build forecast",attributes:{"data-act":"forecastFromWatch","data-id":w.id}}]:[])
+ };
+}),{domain:"watch",mode:"demo",emptyText:"No Watch entries match this filter."});
 var forecasts=db.proposals.filter(forecastVisible).sort(function(a,b){return String(b.updated).localeCompare(String(a.updated));});
 var estimates='<p class="muted small" style="margin-bottom:12px">These are <strong>predictions, not measured benchmark outcomes</strong>. Drafts remain editable; staged hypotheses can be compared, reviewed and explicitly published with their theoretical provenance intact.</p>'+
 simpleTable(["Configuration / task","Source basis","Forecast (quality, cost)","Lifecycle",""],forecasts.map(function(p){
@@ -1578,12 +1579,16 @@ var search=(ui.filters.feedbackSearch||"").toLowerCase();
 var items=db.feedback.filter(function(x){return (x.title+" "+x.body+" "+x.type).toLowerCase().includes(search);})
  .sort(function(a,b){return String(b.date).localeCompare(String(a.date));});
 var rows=items.map(function(x){
-var target=rec("tasks",x.target)||rec("solutions",x.target),
-replies=db.feedbackMessages.filter(function(m){return m.feedback===x.id&&(canEdit()||m.visibility==="public");});
-return '<tr>'+td(linkAction(x.title,"feedbackDetail",x.id)+'<div class="muted small">'+E(x.body.slice(0,120))+'</div>')+
-td(badge(x.type))+td(target?E(target.name):"—")+td(E(actor(x.author)))+
-td(replies.length+" messages"+(canEdit()?" · "+replies.filter(function(x){return x.visibility==="internal";}).length+" internal":""))+
-td(btn("Read conversation","feedbackDetail",x.id,"sm"))+'</tr>';
+ var target=rec("tasks",x.target)||rec("solutions",x.target);
+ var replies=db.feedbackMessages.filter(function(m){
+   return m.feedback===x.id&&(canEdit()||m.visibility==="public");
+ });
+ return {id:x.id,title:x.title,status:x.type,description:String(x.body||"").slice(0,120),
+   facts:[target?.name||"No linked task or solution","Author: "+actor(x.author),
+      replies.length+" visible messages"].concat(canEdit()?
+     [replies.filter(function(r){return r.visibility==="internal";}).length+" internal"]:[]),
+   actions:[{label:"Read conversation",attributes:{"data-act":"feedbackDetail","data-id":x.id}}]
+ };
 });
 return heading("Collaboration","Feedback & discussions",
 "One chronological conversation per contribution. Each message has its own public or workgroup-only visibility; actions and bug tracking are managed outside feedback.",
