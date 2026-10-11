@@ -142,3 +142,38 @@ class PublicationTests(IndividualRunTests.__bases__[0]):
                                   "/publication").json()["publication"]
         self.assertEqual(current["runs"][0]["guide"], pinned)
         self.assertEqual(current["reviewed_by"], published.json()["publication"]["reviewed_by"])
+
+    def test_explicit_withdrawal_after_reopening_keeps_working_plan_and_history(self):
+        self.ready_guide()
+        camp = self.campaign()
+        run = self.completed(camp)
+        reviewed = self.review(camp)
+        self.publisher()
+        published = self.publish(reviewed, [run["id"]])
+        self.assertEqual(published.status_code, 200, published.content)
+        original = published.json()["publication"]
+        self.client.force_login(self.editor)
+        reopened = self.send("/api/v1/campaigns/" + camp["id"] +
+                             "/actions/reopen", {
+            "expected_revision": published.json()["campaign"]["revision"]})
+        self.assertEqual(reopened.status_code, 200, reopened.content)
+        work = reopened.json()["campaign"]
+        self.assertEqual(work["status"], "in_progress")
+        self.assertEqual(effective_ids(camp["id"]), {run["id"]})
+        self.publisher()
+        stale = self.send("/api/v1/campaigns/" + camp["id"] +
+                          "/publication/withdraw", {"expected_revision": "r003"})
+        self.assertEqual(stale.status_code, 409, stale.content)
+        withdrawn = self.send("/api/v1/campaigns/" + camp["id"] +
+                              "/publication/withdraw", {
+            "expected_revision": work["revision"]})
+        self.assertEqual(withdrawn.status_code, 200, withdrawn.content)
+        self.assertEqual(withdrawn.json()["campaign"]["status"], "in_progress")
+        self.assertEqual(effective_ids(camp["id"]), set())
+        old = self.client.get("/api/v1/campaigns/" + camp["id"] +
+                              "/revisions/4").json()
+        self.assertEqual(old["effective_publication"]["revision_id"],
+                         original["campaign_revision_id"])
+        reader = Client()
+        reader.force_login(self.reader)
+        self.assertEqual(reader.get("/api/v1/runs/" + run["id"]).status_code, 404)
