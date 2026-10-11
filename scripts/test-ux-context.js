@@ -50,6 +50,8 @@ function context(path,search,protocol){
   const run=ctx.route("demo","engineer","results",{record:"r1",revision:"r001"});
   assert(run.startsWith("/prototype.html?mode=demo"));
   assert(run.includes("record=r1"));
+  assert(run.includes("workspace=engineer"),"Demo deep link must retain persona");
+  assert(ctx.route("demo","workgroup","watch",{record:"w1"}).includes("workspace=workgroup"),"Demo Workgroup context must survive navigation");
   assert(!run.includes("mode=server"));
 }
 {
