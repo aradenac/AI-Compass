@@ -2259,6 +2259,74 @@ event("Feedback",visibility==="internal"?"Internal comment added":"Public respon
 persist();detailsFeedback(id);
 toast(visibility==="internal"?"Internal note saved.":"Public reply saved.");
 }
+
+/* FUT-08: fictional offline evaluation planning; no Server fallback or measured
+ * evidence is invented by changes to an evaluation decision. */
+function demoMatrixStatus(c,cell){
+ var trials=db.campaignTrials.filter(function(t){
+  return t.campaign===c.id&&t.evaluationId===cell.id;
+ });
+ var closed=db.runs.filter(function(r){
+  return r.campaignId===c.id&&r.initialSetup?.evaluationId===cell.id;
+ });
+ return {state:cell.decision==="waived"?"waived":cell.decision==="not_selected"?
+  "not_selected":closed.length?"evaluated":trials.some(function(t){return t.status!=="completed";})?
+  "in_progress":"pending",runs:closed,attempts:trials};
+}
+function demoMatrixMarkup(c){
+ var plan=c.matrixPlan;if(!plan)return '<div class="note"><strong>Evaluation Matrix:</strong> not configured for this legacy Demo campaign.'+
+ (canEdit()?btn("+ Plan Task × configuration evaluations","campaignMatrixAdd",c.id,"sm"):"")+'</div>';
+ var byId=Object.fromEntries(plan.configurations.map(function(x){return[x.id,x];}));
+ var stats={candidates:plan.cells.length,pending:0,in_progress:0,evaluated:0,waived:0,not_selected:0};
+ plan.cells.forEach(function(cell){stats[demoMatrixStatus(c,cell).state]++;});
+ var tasks=Array.from(new Set(plan.configurations.map(function(x){return x.taskId;})));
+ return '<div class="card tight" style="margin-top:14px"><h3>Campaign Evaluation Matrix</h3>'+
+ '<p class="small">Candidate cells: '+stats.candidates+' · Evaluated: '+stats.evaluated+
+ ' · Pending: '+stats.pending+' · In Progress: '+stats.in_progress+' · Waived: '+stats.waived+
+ ' · Not Selected: '+stats.not_selected+'</p>'+
+ '<p class="small"><strong>Full plan: '+(stats.pending+stats.in_progress?"outstanding":"complete")+
+ '</strong>. Failed DoD Runs count as completed attempts, not successful outcomes. Waivers and non-selection are not evidence.</p>'+
+ tasks.map(function(taskId){
+  var configs=plan.configurations.filter(function(x){return x.taskId===taskId;}),
+   cells=plan.cells.filter(function(x){return byId[x.configurationId]?.taskId===taskId;}),
+   caseIds=Array.from(new Set(cells.map(function(x){return x.caseId;})));
+  return '<h4>'+E(rec("tasks",taskId)?.name||taskId)+'</h4><div style="overflow-x:auto"><table style="width:100%"><thead><tr><th>Test Case</th>'+
+   configs.map(function(cfg){return '<th>'+E(cfg.label)+'</th>';}).join("")+'</tr></thead><tbody>'+
+   caseIds.map(function(id){return '<tr><th>'+E(rec("cases",id)?.title||id)+'</th>'+
+    configs.map(function(cfg){var cell=cells.find(function(x){return x.caseId===id&&x.configurationId===cfg.id;});
+     if(!cell)return '<td>—</td>';
+     var state=demoMatrixStatus(c,cell);
+     return '<td'+(state.state==="not_selected"?' style="opacity:.55"':"")+'>'+
+      badge(state.state)+' <span class="small">'+state.runs.length+' run(s)</span>'+
+      (cell.waiver?'<p class="small">Waiver: '+E(cell.waiver.reason)+'</p>':"")+
+      (canEdit()?btn("Decision","campaignMatrixDecision",c.id+"|"+cell.id,"sm"):"")+'</td>';
+    }).join("")+'</tr>';}).join("")+'</tbody></table></div>';
+ }).join("")+
+ (canEdit()?btn("+ Add Task configuration","campaignMatrixAdd",c.id,"sm primary"):"")+'</div>';
+}
+function dialogDemoMatrixAdd(id){
+ var c=rec("campaigns",id);if(!c||!canEdit()||!["planned","active"].includes(c.stage))return;
+ openForm("Add Task-associated configuration","matrixConfig",
+ selectField("task","Task",db.tasks.map(function(t){return[t.id,t.name];}),c.task||"")+
+ field("label","Configuration label","","text","full")+
+ ["model","provider","harness"].map(function(k){
+  return selectField(k,k,comboComponentOptions(k),"",true);
+ }).join("")+
+ field("version","Configuration version","1","text","full")+
+ '<div class="span2 note">All available Test Cases for the selected Task will initially be selected. You can deselect or waive cells individually; completed Runs remain immutable.</div>',
+ id,"Add evaluation column");
+}
+function dialogDemoMatrixDecision(id){
+ var pair=id.split("|"),c=rec("campaigns",pair[0]),
+ cell=c?.matrixPlan?.cells.find(function(x){return x.id===pair[1];});
+ if(!c||!cell||!canEdit()||!["planned","active"].includes(c.stage))return;
+ openForm("Evaluation decision","matrixDecision",
+ selectField("decision","Decision",[["selected","Selected / Pending"],["not_selected","Not Selected"],["waived","Waived"]],
+ cell.decision)+
+ field("reason","Waiver explanation (required only when waived)","","textarea","full")+
+ '<p class="span2 muted small">Waiver is a deliberate release from an existing obligation, not a failed Test Run.</p>',
+ id,"Save decision");
+}
 function detailsCampaign(id){
 var c=rec("campaigns",id);if(!c||c.archived||(!canEdit()&&c.stage!=="published"))return;
 var trials=db.campaignTrials.filter(function(t){return t.campaign===id;}),runs=campaignRuns(c),
@@ -2298,7 +2366,7 @@ var trialList=trials.map(function(t){return '<div class="list-row"><div class="s
 (t.status==="completed"?btn("View run","runDetail",t.runId,"sm"):btn("Resume","campaignResumeTrial",t.id,"sm primary"))+'</div>';}).join("");
 var review='<div class="card tight" style="margin-top:14px"><h3>Closure and review</h3><p class="muted small">'+E(c.reviewNotes||"No review notes yet")+'</p>'+
 (c.reviewer?'<p class="muted small">Reviewed by '+E(actor(c.reviewer))+'</p>':"")+'</div>';
-var body=head+'<h3 style="margin:18px 0 10px">Test Cases in campaign</h3>'+
+var body=head+demoMatrixMarkup(c)+'<h3 style="margin:18px 0 10px">Test Cases in campaign</h3>'+
 '<div class="list">'+(cases||'<p class="muted small">No Test Cases yet. Add a new one or attach an existing challenge.</p>')+'</div>'+
 (c.stage==="active"?'<div class="inline-actions" style="margin:11px 0">'+btn("+ New Test Case","campaignNewCase",id,"sm primary")+btn("Attach existing Test Case","campaignAttachCase",id,"sm")+'</div>':"")+
 '<h3 style="margin:19px 0 8px">Experiment sessions</h3><div class="list">'+(trialList||'<div class="empty">No sessions recorded</div>')+'</div>'+review;
@@ -2446,6 +2514,46 @@ var req=function(v,label){if(!String(v||"").trim()){toast(label+" is required.")
 try{
 if(kind==="campaignReview"){
  campaignDecision(id,d);return;
+}else if(kind==="matrixConfig"){
+ var campaign=rec("campaigns",id),task=rec("tasks",d.task);
+ if(!campaign||!task||!["planned","active"].includes(campaign.stage))return;
+ if(!String(d.label||"").trim()){toast("Configuration label is required.");return;}
+ if(["model","provider","harness"].some(function(k){
+  return rec("components",d[k])?.type!==k;
+ })){toast("Choose a valid Model, Provider and Harness.");return;}
+ var eligible=db.cases.filter(function(tc){return tc.task===task.id;});
+ if(!eligible.length){toast("Create a Test Case for this Task first.");return;}
+ var before=JSON.parse(JSON.stringify(campaign));
+ if(!campaign.matrixPlan)campaign.matrixPlan={configurations:[],cells:[]};
+ var config={id:next("cfg"),taskId:task.id,label:d.label.trim(),
+  model:d.model,provider:d.provider,harness:d.harness,version:d.version||"1"};
+ campaign.matrixPlan.configurations.push(config);
+ eligible.forEach(function(tc){campaign.matrixPlan.cells.push({
+  id:next("evaluation"),configurationId:config.id,caseId:tc.id,
+  decision:"selected",history:[]});});
+ revision("Campaign plan",campaign.id,before,campaign);event("Campaign","Updated evaluation matrix",true);
+ persist();detailsCampaign(campaign.id);return;
+}else if(kind==="matrixDecision"){
+ var parts=id.split("|"),campaign=rec("campaigns",parts[0]),
+  cell=campaign?.matrixPlan?.cells.find(function(x){return x.id===parts[1];});
+ if(!campaign||!cell||!["planned","active"].includes(campaign.stage))return;
+ if(!["selected","not_selected","waived"].includes(d.decision)||cell.decision===d.decision){
+  toast("Choose a different valid decision.");return;
+ }
+ if(d.decision==="waived"&&(cell.decision!=="selected"||!String(d.reason||"").trim())){
+  toast("A previously selected evaluation requires an explicit waiver reason.");return;
+ }
+ if(d.decision!=="waived"&&String(d.reason||"").trim()){
+  toast("Only waived evaluations accept a justification.");return;
+ }
+ var before=JSON.parse(JSON.stringify(campaign));
+ var evt={from:cell.decision,to:d.decision,reason:d.decision==="waived"?d.reason.trim():"",
+  actor:currentUser,at:new Date().toISOString()};
+ cell.history.push(evt);cell.decision=d.decision;
+ if(d.decision==="waived")cell.waiver=evt;else delete cell.waiver;
+ revision("Campaign plan",campaign.id,before,campaign);
+ event("Campaign","Recorded evaluation decision "+d.decision,true);
+ persist();detailsCampaign(campaign.id);return;
 }else if(kind==="campaign"){
  var existing=id?rec("campaigns",id):null,mode=d.mode==="solution_scope"?"solution_scope":"task_compare";
   var watchIds=db.watch.filter(function(w){return d["watch_"+w.id]==="yes";}).map(function(w){return w.id;});
@@ -2864,6 +2972,8 @@ if(act==="addFrameworkParticipant"){
  return;
 }
 if(act==="removeFrameworkParticipant"){b.closest("[data-framework-participant]")?.remove();return;}
+if(act==="campaignMatrixAdd"){dialogDemoMatrixAdd(id);return;}
+if(act==="campaignMatrixDecision"){dialogDemoMatrixDecision(id);return;}
 if(act==="campaignDetail"){detailsCampaign(id);return;}
 if(act==="campaignPeek"){campaignSummary(id);return;}
 if(act==="openCampaign"){ui.page="benchmark";ui.modal="";render();detailsCampaign(id);return;}
