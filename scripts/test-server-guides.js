@@ -32,6 +32,7 @@ const sandbox={window:{},fetch:async(url,opts)=>{
   assert.equal(opts.cache,"no-store");
   return {ok:true,json:async()=>({results:[fixture]})};
 }};
+vm.runInNewContext(fs.readFileSync("shared-workgroup.js","utf8"),sandbox,{filename:"shared-workgroup.js"});
 vm.runInNewContext(source,sandbox,{filename:"server-guides.js"});
 const escape=s=>String(s).replaceAll("&","&amp;").replaceAll("<","&lt;")
   .replaceAll(">","&gt;").replaceAll('"',"&quot;");
