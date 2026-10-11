@@ -7,7 +7,7 @@ from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 
 from .auth_views import capability, json_no_store
-from .models import BudgetPlan, DeploymentTarget, CatalogItem, WorkloadProfile
+from .models import BudgetPlan, DeploymentTarget, CatalogItem, WorkloadProfile, ForecastSnapshot
 from .opportunity_services import candidates
 from .deployment_services import status as deployment_status
 from .pricing_services import readiness
@@ -64,7 +64,7 @@ def options(request):
             "profiles": [{"id": p.public_id, "kind": p.kind,
                           "name": p.revisions.order_by("-number").first().name}
                          for p in profiles],
-            "candidates": candidates(),
+            "candidates": [dict(c, components=({"root:" + k: getattr(s, k).public_id for k in ("model", "provider", "harness")} if s else {}))\n                for c in candidates() for s in [ForecastSnapshot.objects.select_related(\n                    "model", "provider", "harness").filter(\n                        revision__item__public_id=c["candidate_id"],\n                        revision__item__type_slug="forecast",\n                        revision__item__current_revision_id__isnull=False).first()\n                    if c["kind"] == "forecast" else None]],
             "targets": [deployment_status(t, private=False) for t in targets
                         if t.kind == "benchmark"],
             "offers": [{"id": x.public_id,
