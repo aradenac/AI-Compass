@@ -53,37 +53,12 @@
     function render() {
       var list=el("#case-list");
       if(!list)return;
-      if(!cases.length){list.textContent="No real Server Test Cases yet. Create an engineering task first.";return;}
-      var taskLabels=new Map(tasks.map(function(t){return [t.id,t.name];}));
-      var byTask=new Map();
-      cases.forEach(function(x){if(!byTask.has(x.task_id))byTask.set(x.task_id,[]);byTask.get(x.task_id).push(x);});
-      var html="";
-      byTask.forEach(function(group,taskId){
-        var lookup=new Map(group.map(function(c){return [c.id,c];}));
-        group.sort(function(a,b){return a.case_version.localeCompare(b.case_version,undefined,{numeric:true});});
-        var ordered=[],seen=new Set();
-        function walk(c,depth){
-          if(seen.has(c.id))return;
-          seen.add(c.id);ordered.push([c,depth]);
-          group.filter(function(f){return f.fork_parent_id===c.id;}).forEach(function(child){walk(child,depth+1);});
-        }
-        group.filter(function(c){return !c.fork_parent_id || !lookup.has(c.fork_parent_id);}).forEach(function(c){walk(c,0);});
-        group.forEach(function(c){walk(c,0);});
-        html+='<h3>'+escapeHtml(taskLabels.get(taskId)||taskId)+'</h3>';
-        html+=ordered.map(function(pair){
-          var c=pair[0],depth=pair[1];
-          return '<div class="list-row" style="padding:12px 0 12px '+Math.min(depth*24,144)+'px;border-bottom:1px solid #edf1f6">' +
-            '<strong>'+escapeHtml(c.case_version)+' · '+escapeHtml(c.name)+'</strong>' +
-            '<div class="muted small">'+escapeHtml(c.id)+' · '+escapeHtml(c.revision) +
-            (c.fork_parent_id?' · fork of '+escapeHtml(c.fork_parent_id):' · original root')+'</div>' +
-            '<button type="button" data-case="'+escapeHtml(c.id)+'" data-action="history">Details / history</button>' +
-            (canWrite?'<button type="button" data-case="'+escapeHtml(c.id)+'" data-action="edit">Edit</button>'+
-            '<button type="button" data-case="'+escapeHtml(c.id)+'" data-action="fork">Fork</button>':'')+
-            '</div>';
-        }).join("");
+      list.innerHTML=window.AICompassWorkgroup.renderCases(cases,tasks,{
+        mode:"server",canWrite:canWrite,
+        emptyText:"No real Server Test Cases yet. Create an engineering task first."
       });
-      list.innerHTML=html;
     }
+
     async function refresh(){
       if(!allowed)return;
       var run=++ticket;
