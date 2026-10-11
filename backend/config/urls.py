@@ -21,6 +21,7 @@ urlpatterns = [
     path("api/v1/imports/mock-models/batches/<uuid:batch_id>", external_import_views.batch),
     path("api/v1/planning/opportunities", opportunity_views.collection),
     path("api/v1/planning/opportunities/preview", opportunity_views.preview),
+    path("api/v1/planning/opportunities/candidates", opportunity_views.candidates),
     path("api/v1/planning/opportunities/<slug:public_id>", opportunity_views.detail),
     path("api/v1/planning/opportunities/<slug:public_id>/revisions", opportunity_views.history),
     path("api/v1/planning/opportunities/<slug:public_id>/revisions/<int:number>", opportunity_views.revision),
