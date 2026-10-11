@@ -231,6 +231,54 @@ class OpportunityTests(IndividualRunTests.__bases__[0]):
             "scenario":self.config("benchmark",run["solution_id"])}).json()
         self.assertIn("labor_rate_unknown",missing["cells"][0]["reasons"])
 
+    def test_published_failed_only_run_and_missing_marginal_cost_never_gain(self):
+        actor,client,token,profile=self.plan()
+        run,_=self.priced_published(outcome="failed")
+        result=self.request(client,token,BASE+"/preview",{
+            "profile_id":profile.public_id,
+            "scenario":self.config("benchmark",run["solution_id"])})
+        self.assertEqual(result.status_code,200,result.content)
+        cell=result.json()["cells"][0]
+        self.assertEqual(cell["status"],"unquantifiable")
+        self.assertIn("failed_or_conflicting_DOD_no_positive_gain",cell["reasons"])
+        self.assertEqual(result.json()["totals"]["positive_modeled_total_eur"],"0.00")
+
+    def test_missing_amount_does_not_mean_free_marginal_ai_usage(self):
+        actor,client,token,profile=self.plan()
+        self.ready_guide()
+        camp=self.campaign()
+        session=self.session(camp)
+        self.interaction(session)
+        closed=self.close(session,self.result(cost_mode="flat_rate",cost_eur=None))
+        self.assertEqual(closed.status_code,201,closed.content)
+        run=closed.json()
+        reviewed=self.review(camp)
+        reviewer=self.publisher()
+        self.assertEqual(self.publish(reviewed,[run["id"]]).status_code,200)
+        change_run(actor=reviewer,identifier=run["id"],expected_revision="r001",
+            action="corrected",reason="Populate actual human effort for economics",
+            metrics_patch={"installation_minutes":0,"interaction_human_minutes":60})
+        result=self.request(client,token,BASE+"/preview",{
+            "profile_id":profile.public_id,
+            "scenario":self.config("benchmark",run["solution_id"])})
+        self.assertEqual(result.status_code,200,result.content)
+        cell=result.json()["cells"][0]
+        self.assertEqual(cell["status"],"unquantifiable")
+        self.assertIn("measured_marginal_tariff_or_cost_missing",cell["reasons"])
+        self.assertIsNone(cell["economic"])
+        self.assertEqual(result.json()["totals"]["positive_modeled_total_eur"],"0.00")
+
+    def test_incomplete_selection_rejected_without_server_exception(self):
+        _,client,token,profile=self.plan()
+        incomplete={"name":"Incomplete","benchmark_weight":"0.8",
+            "choices":[{"task_id":self.task.item.public_id,
+                        "kind":"forecast","forecast_id":"fct-fake"}]}
+        response=self.request(client,token,BASE+"/preview",{
+            "profile_id":profile.public_id,"scenario":incomplete})
+        self.assertEqual(response.status_code,400,response.content)
+        self.assertEqual(response.json()["error"],"invalid_opportunity")
+
+
     def test_partial_activation_mathematical_partition_without_fake_provisioning(self):
         six=allocate_slices(Decimal("100"),Decimal("20"),10,6,"measured")
         self.assertEqual(six["activated_potential_eur"],"12000.00")
