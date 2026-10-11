@@ -372,7 +372,9 @@ def explain(*, profile_id, scenario_id, task_id, kind, candidate_id, revision=No
              "factors": theory},
             {"type": "tariff", "label": "Recorded marginal EUR reference",
              "factors": {"basis": cell.get("cost_basis"),
-                         "recorded_cost": (exposed.get("economic") or {}).get(
+                         "recorded_cost": (cell.get("measured_economics") or {}).get(
+                             "marginal_reference_ai_cost_eur"),
+                         "blended_projected_cost": (exposed.get("economic") or {}).get(
                              "marginal_reference_ai_cost_eur"),
                          "current_supplier_quote_verified": False}},
             {"type": "deployment", "label": "Entitlement and first use",
