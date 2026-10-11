@@ -243,3 +243,39 @@ def projection(item, revision):
     plan["revision"]=f"r{revision.number:03d}"
     plan["configured"]=True
     return plan
+
+def prepared_for_session(snapshot, config, data, participant_ids):
+    """Resolve the selected exact revision pins, never silently repin to latest."""
+    from .session_services import InvalidSession
+    from .models import CatalogItem, CatalogRevision
+    if config["kind"]=="framework":
+        if not snapshot.framework_id or config.get("framework_id")!=snapshot.framework.public_id:
+            raise InvalidSession("Framework configuration is not pinned to this campaign")
+        if participant_ids!=config["participant_ids"]:
+            raise InvalidSession("Selected Framework participants differ from the matrix plan")
+        if any(k in data for k in ("component_ids","settings","configuration_version","properties")):
+            raise InvalidSession("Framework session setup is fixed by participant pins")
+        return None
+    if snapshot.framework_id:
+        raise InvalidSession("Framework campaign requires its configured participant group")
+    if participant_ids:
+        raise InvalidSession("Individual matrix evaluation cannot select Framework participants")
+    ids=config["component_ids"]
+    if "component_ids" in data and data["component_ids"]!=ids:
+        raise InvalidSession("Selected setup differs from pinned evaluation")
+    if "settings" in data and data["settings"]!=config["settings"]:
+        raise InvalidSession("Settings differ from pinned evaluation")
+    if "configuration_version" in data and data["configuration_version"]!=config["configuration_version"]:
+        raise InvalidSession("Configuration version differs from pinned evaluation")
+    if data.get("properties",{})!={}:
+        raise InvalidSession("Unplanned capabilities are not permitted in the pinned evaluation")
+    parts={}
+    for kind in ("model","provider","harness"):
+        item=CatalogItem.objects.filter(type_slug=kind,public_id=ids[kind]).first()
+        revision=CatalogRevision.objects.filter(
+            item=item,pk=config["component_revision_ids"][kind]).first() if item else None
+        if revision is None:
+            raise InvalidSession("Evaluation's exact component revision is missing")
+        parts[kind]=(item,revision)
+    return {"parts":parts,"settings":config["settings"],"properties":{},
+            "configuration_version":config["configuration_version"]}
