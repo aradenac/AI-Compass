@@ -2,7 +2,7 @@
 
 > **Reference:** Product/domain specification maintained with the implemented application. The delivery tracker and outstanding UX acceptance work are maintained in the [implementation plan](future-evolutions/implementation-plan.md).
 
-> **Status:** Proposed feature — product decisions captured, implementation pending.  
+> **Contract:** Reusable Setup Guide modules, exact applicability, composed recipes, rendered guide history and validation semantics.
 > **Discussed:** 2026-10-10  
 > **Area:** Knowledge & Collaboration / Guides & Charter; Technology Catalog; Benchmark Workspace; solution-facing documentation.  
 > **Existing baseline:** [Setup Guides Server](setup-guides-server.md), [Benchmark Workflow](benchmark-workflow.md), [Product Definition](product-definition.md).  
