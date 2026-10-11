@@ -94,13 +94,18 @@ function mount(root,csrf,escapeHtml){
         '<p><strong>Review required: '+esc(row.reason)+'</strong> · '+esc(row.new_run_ids.length)+
         ' new controlled Run(s), '+esc(row.contradictory_run_ids.length)+' failed. '+
         'Published decision remains frozen until explicit review.</p>':"";
+      var freshness=row.eligible_for_current_suitability===false?
+        '<p><strong>Not currently qualified by active published evidence.</strong> '+
+        'Source evidence is missing, withdrawn or superseded; review is required before this recommendation can inform suitability or economic projections. '+
+        'Evidence freshness: '+esc(row.evidence_freshness||"unknown")+'.</p>':
+        '<p class="muted small">Qualification inputs current as of last review.</p>';
       return '<article class="list-row" style="padding:14px;border-bottom:1px solid #dde5ee">'+
         '<h3>'+esc(row.name)+'</h3><p class="muted small">'+esc(row.id)+' · '+esc(row.revision)+
         ' · '+esc(row.state)+' · '+esc(p.decision)+' · '+esc(row.task_id)+
         ' · '+esc(row.solution_id)+'</p>'+
         '<p>'+esc(p.rationale)+'</p><p class="muted small">'+esc(row.run_refs.length)+
         ' original Run(s) linked · reviewer: '+esc(row.reviewed_by||"awaiting review")+'</p>'+
-        alerts+
+        freshness+alerts+
         '<button type="button" data-recommendation="'+esc(row.id)+'" data-action="history">Original history / evidence</button>'+
         (writer?'<button type="button" data-recommendation="'+esc(row.id)+'" data-action="edit">New draft revision</button>':'')+
         (writer&&row.state==="draft"?
