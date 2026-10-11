@@ -210,8 +210,62 @@
     }
     return {show:show,dispose:function(){generation++;node.replaceChildren();}};
   }
+
+  // UX-R04 shared read projection; no data provider or privilege is inferred.
+  function renderCases(cases,tasks,options) {
+    if(!Array.isArray(cases)||!Array.isArray(tasks))throw Error("Authorized Test Cases and tasks required");
+    options=options||{};
+    var mode=options.mode;
+    if(mode!=="demo"&&mode!=="server")throw Error("Explicit Demo or Server mode required");
+    if(!cases.length)return '<p class="muted" data-shared-case-empty>'+
+      escape(options.emptyText||"No Test Cases defined.")+'</p>';
+    var names=new Map(tasks.map(function(t){return [String(t.id),t.name||t.title||t.id];}));
+    var groups=new Map(),visited=new Set(),result="";
+    function task(r){return String(mode==="demo"?r.task||"":r.task_id||"");}
+    function parent(r){return mode==="demo"?r.parentCaseId:r.fork_parent_id;}
+    function version(r){return String(mode==="demo"?r.version||"":r.case_version||"");}
+    function sort(a,b){return version(a).localeCompare(version(b),undefined,{numeric:true});}
+    cases.forEach(function(c){var t=task(c);if(!groups.has(t))groups.set(t,[]);groups.get(t).push(c);});
+    function item(c,group) {
+      if(visited.has(c.id))return "";
+      visited.add(c.id);
+      var id=escape(c.id),title=escape(mode==="demo"?c.title:c.name),
+          revision=c.revision?' · '+escape(c.revision):"",
+          summary=mode==="demo"?c.objective:(c.properties||{}).objective,
+          label=summary?escape(summary)+" · ":"";
+      var counts=options.publishedRunCounts||{};
+      if(mode==="demo"&&Object.prototype.hasOwnProperty.call(counts,c.id))
+        label+=escape(counts[c.id])+" published run(s) · ";
+      var actions=mode==="demo"?
+        '<button type="button" data-act="caseDetail" data-id="'+id+'">Inspect</button>':
+        '<button type="button" data-case="'+id+'" data-action="history">Details / history</button>'+
+        (options.canWrite?'<button type="button" data-case="'+id+'" data-action="edit">Edit</button>'+
+        '<button type="button" data-case="'+id+'" data-action="fork">Fork</button>':"");
+      var children=group.filter(function(x){return x.id!==c.id&&parent(x)===c.id;}).sort(sort);
+      return '<div class="case-tree-item shared-case-item" data-shared-case="'+id+'">'+
+        '<div class="case-main"><div class="case-meta"><strong>'+title+'</strong>'+
+        '<span class="case-version">v'+escape(version(c))+'</span>'+
+        (parent(c)?'<span class="muted small">Fork</span>':"")+'</div>'+
+        '<div class="case-subtitle">'+label+id+revision+'</div></div>'+
+        '<div class="server-model-actions">'+actions+'</div></div>'+
+        (children.length?'<div class="case-branch">'+children.map(function(x){return item(x,group);}).join("")+'</div>':"");
+    }
+    groups.forEach(function(group,t){
+      var ids=new Set(group.map(function(c){return c.id;}));
+      var roots=group.filter(function(c){return !parent(c)||!ids.has(parent(c))||parent(c)===c.id;}).sort(sort);
+      var html=roots.map(function(c){return item(c,group);}).join("");
+      // Broken historical cycles remain visible, never automatically reparented.
+      html+=group.filter(function(c){return !visited.has(c.id);}).sort(sort)
+        .map(function(c){return item(c,group);}).join("");
+      result+='<section class="shared-case-group" data-shared-case-task="'+escape(t)+'">'+
+        '<div class="case-tree-task"><strong>'+escape(names.get(t)||t||"Unknown task")+
+        '</strong><span class="muted small"> · '+group.length+' Test Case(s)</span></div>'+html+'</section>';
+    });
+    return '<div class="shared-case-tree" data-shared-cases="'+mode+'">'+result+'</div>';
+  }
+
   root.AICompassWorkgroup={ZONES:ZONES,STABLE:STABLE,SECTION_TO_DEMO:SECTION_TO_DEMO,
     SECTION_TO_SERVER:SECTION_TO_SERVER,canVisit:canVisit,renderMap:renderMap,
     breadcrumbs:breadcrumbs,attention:attention,href:href,renderList:renderList,
-    serverProvider:serverProvider,demoProvider:demoProvider,mountSummary:mountSummary};
+    serverProvider:serverProvider,demoProvider:demoProvider,mountSummary:mountSummary,renderCases:renderCases};
 })(window);
