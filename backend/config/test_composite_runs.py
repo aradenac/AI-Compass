@@ -200,8 +200,7 @@ class CompositeBenchmarkTests(TestCase):
         self.assertEqual(self.send("/api/v1/sessions/"+ses["id"]+"/interactions",
                                   {"expected_revision":"r004","content":"try to mutate"}).status_code,409)
         self.assertEqual(reader.get("/api/v1/sessions/"+ses["id"]+
-                                   "/checkpoints/2").json()["state"]["interactions"][0]["content"],
-                         "Implement SPI driver and check errors")
+                                   "/checkpoints/2").status_code,404)
 
         revise_case(actor=self.editor,public_id=self.case.item.public_id,
                     expected_revision="r001",properties={"dod":"Stricter DoD"})
