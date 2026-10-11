@@ -2,7 +2,7 @@
 
 > **Reference:** Product/domain specification maintained with the implemented application. The delivery tracker and outstanding UX acceptance work are maintained in the [implementation plan](future-evolutions/implementation-plan.md).
 
-> **Status:** DAP-01 workload foundations, FUT-13/14 opportunity analysis, FUT-15 external access targeting and **FUT-16 budget planning** implemented. Further evolution remains proposed. See [DAP-01](workload-planning.md) and [resource budgets](resource-budget-planning.md).  
+> **Contract:** Workload profiles; versioned Task × configuration economic projections and history; deployment access targeting; resource and rollout budgets.
 > **Decision context:** Discussions through 2026-10-10.  
 > **Scope:** Enterprise workload profiles; Task × AI configuration opportunity matrix; profitability simulations and historical trends; exploratory provenance; deployment/access tracking; experimental and rollout resource budgets.  
 > **Related baseline:** [Product Definition](product-definition.md) · [Platform Architecture & Data Governance](platform-architecture-and-data-governance.md) · [Benchmark Workflow](benchmark-workflow.md) · [Users & Access](users-and-access.md) · [Campaign Evaluation Matrix](campaign-evaluation-matrix.md) · [Technology Accessibility & Pricing Management](technology-accessibility-and-pricing.md) · [Data Governance Audit Explorer](data-governance-audit-explorer.md) · [Composable Setup Guides](composable-setup-guides.md)
@@ -404,14 +404,14 @@ Resolve these during issue breakdown/design without forcing end users to fill re
 ## 18. Explicit exclusions and boundaries
 
 - **No merged all-in-one simulation/deployment/budget editor;** exactly three coordinated purpose-built views.
-- **No credential renewal/rotation, password/secret custody, enterprise credit-wallet ledger, live invoice reconciliation, global shared-credit deduction, automatic licenses purchasing or mandatory external provisioning** in this future feature.
+- **No credential renewal/rotation, password/secret custody, enterprise credit-wallet ledger, live invoice reconciliation, global shared-credit deduction, automatic licenses purchasing or mandatory external provisioning** in this domain.
 - **No automatic To-Dos, assignments or mandated innovation pipeline** from heatmap intuition or Forecast presence.
 - **No invented savings or quota** for intuition-only, missing data or noncomparable evidence.
 - **No automatic rewriting of Run evidence, published Forecasts, historical pricing, original opinions or frozen historical simulation values.**
 - **No assumption that deployment equates to realized cash savings.** Confirmed first use only changes the *activated modeled potential* classification.
 - **No hardcoded required cloud identity provider or enterprise IAM integration**; reserve interface boundaries for future connectors.
 
-This page is a **proposed future feature specification**, not evidence that the described matrix, analytics, access workflow, quota calculator or provenance explorer are deployed. Implementation should be split into appropriately scoped issues/PRs while preserving the existing architecture and accepted invariants.
+This page defines the shared planning, evidence, eligibility and financial projection semantics consumed by Workgroup, Management and deployment/resource workflows.
 
 ## 19. Cross-feature ownership and current-vs-historical publication
 
