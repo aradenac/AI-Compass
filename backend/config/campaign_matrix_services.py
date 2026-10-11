@@ -128,13 +128,15 @@ def apply(*,actor,item,expected_revision,operation):
             if len(configs)>=MAX_CONFIGS:
                 raise InvalidCampaign("Too many matrix configurations")
             config,added=_configuration(actor,operation,snap,{c["id"] for c in configs})
+            config["introduced_revision"]=f"r{rev.number+1:03d}"
             configs.append(config)
             existing={c["id"] for c in cells}|{c["id"] for c in configs}
             for cid in added:
                 if len(cells)>=MAX_CELLS:raise InvalidCampaign("Matrix size limit exceeded")
                 case_ids.add(cid)
                 cells.append({"id":_unique("evl",existing),"configuration_id":config["id"],
-                              "test_case_id":cid,"decision":"selected","history":[]})
+                              "test_case_id":cid,"decision":"selected","history":[],
+                              "introduced_revision":f"r{rev.number+1:03d}"})
         elif action=="add_cases":
             config=next((c for c in configs if c["id"]==operation.get("configuration_id")),None)
             if config is None:raise InvalidCampaign("Unknown Task/configuration association")
@@ -153,7 +155,8 @@ def apply(*,actor,item,expected_revision,operation):
                         if len(cells)>=MAX_CELLS:raise InvalidCampaign("Matrix size limit exceeded")
                         cells.append({"id":_unique("evl",occupied),
                                       "configuration_id":peer["id"],"test_case_id":cid,
-                                      "decision":"selected","history":[]})
+                                      "decision":"selected","history":[],
+                                      "introduced_revision":f"r{rev.number+1:03d}"})
                         known.add(key)
                 case_ids.add(cid)
         elif action=="decide":
