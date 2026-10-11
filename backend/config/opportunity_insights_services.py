@@ -103,7 +103,8 @@ def _cell(task_id, candidate, result, chosen):
     positive = status == "quantified_annual_potential" and raw is not None
     value = Decimal(raw) if raw is not None else None
     # One maturity/deployment icon only; intensity never encodes status.
-    maturity = ("B" if result["evidence_class"] == "measured" else "F")
+    verified = (result.get("slices") or {}).get("verified_headcount", 0)
+    maturity = ("D" if verified else "B" if result["evidence_class"] == "measured" else "F")
     if status == "unquantifiable":
         maturity = "?"
     return {
@@ -113,6 +114,7 @@ def _cell(task_id, candidate, result, chosen):
         "annual_eur": raw, "intensity_eur": str(value) if positive and value > 0 else None,
         "maturity": maturity, "evidence_class": result["evidence_class"],
         "coverage": result.get("measured_sample_size", 0),
+        "activated_headcount": verified,
         "confidence": result.get("confidence"), "calculation_available": raw is not None,
     }
 
@@ -319,6 +321,10 @@ def delta_factors(before, after, old_assumptions, new_assumptions):
         factors.append("measured_run_revision_or_eligibility_changed")
     if refs(before,"forecast_reference") != refs(after,"forecast_reference"):
         factors.append("forecast_source_revision_or_eligibility_changed")
+    if any((a.get("slices") or {}).get("verified_headcount") !=
+           (b.get("slices") or {}).get("verified_headcount") for a,b in zip(
+               before.get("cells", []), after.get("cells", []))):
+        factors.append("confirmed_deployment_coverage_changed")
     if _slice_totals(before) != _slice_totals(after):
         factors.append("modeled_slice_values_changed")
     if not factors:
