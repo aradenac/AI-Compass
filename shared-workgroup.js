@@ -31,7 +31,7 @@
     catalog:"server-model-catalog",tasks:"server-task-tree",testdesign:"server-test-cases",
     forecasts:"server-forecasts",benchmark:"server-campaigns",results:"server-results",
     recommendations:"server-recommendations",guides:"server-guides",
-    opportunities:"server-planning",deployment:"server-planning",engineer:"server-task-tree",
+    opportunities:"server-planning",deployment:"server-planning",engineer:"server-engineer",
     activity:"server-activity"});
   var STABLE = Object.freeze({
     feedback:{api:"discussions",local:"feedback",title:"Feedback & Discussions"},
