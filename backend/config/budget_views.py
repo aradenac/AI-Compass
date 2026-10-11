@@ -69,7 +69,7 @@ def options(request):
                     "model", "provider", "harness").filter(
                         revision__item__public_id=c["candidate_id"],
                         revision__item__type_slug="forecast",
-                        revision__item__current_revision_id__isnull=False).first()
+                        revision__item__current_revision__isnull=False).first()
                     if c["kind"] == "forecast" else None]],
             "targets": [deployment_status(t, private=False) for t in targets
                         if t.kind == "benchmark"],

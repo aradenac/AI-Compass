@@ -69,7 +69,10 @@ def months_for(period, months):
 def _inputs(data):
     if not isinstance(data, dict) or set(data) != {"profile_id", "plan"}:
         raise InvalidBudget("Select exactly profile_id and plan")
-    profile = _profile(data["profile_id"])
+    try:
+        profile = _profile(data["profile_id"])
+    except ValueError as exc:
+        raise InvalidBudget(str(exc)) from exc
     plan = data["plan"]
     if not isinstance(plan, dict) or set(plan) - {
             "name", "start_date", "period_months", "margin_pct",
@@ -189,6 +192,13 @@ def _source(item):
         forecast_metrics = forecast["metrics"]
         # The Forecast's 'tokens' is a total, NEVER a fabricated split.
         observations = item["meter_overrides"]
+        expected = {k: {line["meter"] for source_key, _, rev in pins if source_key == k
+                        for line in rev.properties.get("lines", [])
+                        if line["charge_type"] == "variable"}
+                    for k in components}
+        for source_key, meters in observations.items():
+            if source_key not in expected or set(meters) - expected[source_key]:
+                raise InvalidBudget("Qualified usage must match selected priced source/meter")
         maturity = "forecast_qualified_manual_usage" if observations else "forecast_no_exact_meters"
         return components, pins, observations, source, maturity, forecast_metrics
     target = DeploymentTarget.objects.select_related(
@@ -254,7 +264,7 @@ def _line_prices(buckets, money_totals, gaps, months):
     for key, entry in sorted(buckets.items()):
         prop, line = entry["properties"], entry["line"]
         amount = entry["quantity"]
-        seats = entry["seats"]
+        seats = max(entry["seat_scopes"].values(), default=0)
         currency = prop["currency"]
         result = None
         if line["charge_type"] == "variable":
@@ -377,11 +387,11 @@ def project(profile, plan):
                     entry = buckets.setdefault(invoice, {"properties": rev.properties,
                         "offer_id": offer.public_id, "offer_revision_id": str(rev.pk),
                         "line": line, "quantity": D0 if base is not None else None,
-                        "seats": 0, "source": key, "evidence": []})
+                        "seat_scopes": defaultdict(int), "source": key, "evidence": []})
                     if line["charge_type"] == "fixed":
                         # Seat counts across distinct non-overlapping Tasks of
                         # the SAME population are capacity, not summed invoices.
-                        entry["seats"] = max(entry["seats"], count)
+                        entry["seat_scopes"][task_id] += count
                     elif line["charge_type"] == "variable":
                         val = observations.get(key, {}).get(line["meter"])
                         if base is None or val is None:
