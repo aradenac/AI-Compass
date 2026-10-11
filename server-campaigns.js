@@ -52,16 +52,37 @@
       if(canWrite)el("#campaign-add").addEventListener("click",function(){editor(null);});
       el("#campaign-list").addEventListener("click",function(e){
         var btn=e.target.closest("button[data-id]");
-        if(!btn)return;
-        var row=campaigns.find(function(c){return c.id===btn.dataset.id;});
-        if(!row)return;
-        if(btn.dataset.action==="matrix")showMatrix(row);
-        else if(btn.dataset.action==="publication")showPublication(row);
-        else if(btn.dataset.action==="sessions"&&sessionWorkspace)sessionWorkspace.openCampaign(row);
-        else if(btn.dataset.action==="history")history(row);
-        else if(canWrite&&btn.dataset.action==="edit")editor(row);
-        else if(btn.dataset.action&&(["publish","unpublish"].includes(btn.dataset.action)?canReview:canWrite))transition(row,btn.dataset.action);
+        if(btn)dispatch(btn);
       });
+      // The shared lifecycle bar of the detail panel routes through the same
+      // dispatch, so a transition means exactly the same thing wherever it is
+      // offered.
+      el("#campaign-detail").addEventListener("click",function(e){
+        var btn=e.target.closest("button[data-action][data-id]");
+        if(btn)dispatch(btn);
+      });
+    }
+    function dispatch(button){
+      var row=campaigns.find(function(c){return c.id===button.dataset.id;});
+      if(!row)return;
+      var action=button.dataset.action;
+      if(action==="matrix")showMatrix(row);
+      else if(action==="publication")showPublication(row);
+      else if(action==="sessions"&&sessionWorkspace)sessionWorkspace.openCampaign(row);
+      else if(action==="history")history(row);
+      else if(canWrite&&action==="edit")editor(row);
+      else if(action&&(["publish","unpublish"].includes(action)?canReview:canWrite))
+        transition(row,action);
+    }
+    // Same offered transitions and labels as the offline Demo campaign detail.
+    function campaignLifecycleBar(row){
+      var keys=window.AICompassWorkgroup.campaignLifecycleActionKeys(
+        row.archived?"archived":row.status).filter(function(key){
+          return ["publish","unpublish"].includes(key)?canReview:canWrite;});
+      return window.AICompassWorkgroup.renderLifecycleActions(keys.map(function(key){
+        return {key:key,attributes:{"data-id":row.id,"data-action":key}};}),
+        {mode:"server",domain:"campaigns",
+         notice:"Every transition appends an immutable campaign revision; archived history stays readable."});
     }
     function render(){
       var lane=el("#campaign-pipeline"),list=el("#campaign-list");
@@ -596,6 +617,7 @@
           window.AICompassWorkgroup.renderStepper(
             window.AICompassWorkgroup.campaignLifecycleSteps(row.status),
             {mode:"server",domain:"campaign"})+
+          campaignLifecycleBar(row)+
           (row.archived?'<p class="muted small" role="status">This campaign revision is archived; '+
             'the lifecycle above is historical.</p>':"")+
           '<p class="muted small">Task-associated configurations only · each pair has a stable evaluation ID. Candidate planning is distinct from immutable measured Runs. Historical decisions are frozen; attempt counts are the live observed projection.</p>'+

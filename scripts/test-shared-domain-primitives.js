@@ -178,6 +178,33 @@ assert.throws(()=>ui.renderLifecycleActions([{key:"stage",attributes:{onclick:"x
   {mode:"demo",domain:"forecasts"}),/Invalid matrix attribute/);
 assert.throws(()=>ui.renderLifecycleActions([],{mode:"demo",domain:"Forecasts"}),/lifecycle domain/);
 
+/* Campaign transitions and labels are offered identically in both modes. */
+assert.equal(ui.campaignLifecycleActionKeys("planned").join(","),"start,archive");
+assert.equal(ui.campaignLifecycleActionKeys("in_progress").join(","),
+  "close,close_partial,archive");
+assert.equal(ui.campaignLifecycleActionKeys("under_review").join(","),
+  "rework,publish,reopen,archive");
+assert.equal(ui.campaignLifecycleActionKeys("published").join(","),"unpublish,reopen,archive");
+assert.equal(ui.campaignLifecycleActionKeys("archived").join(","),"restore");
+assert.throws(()=>ui.campaignLifecycleActionKeys("active"),/Unsupported campaign lifecycle status/);
+const campaignKeys=ui.campaignLifecycleActionKeys("in_progress");
+const campaignLabels=campaignKeys.map(key=>ui.LIFECYCLE_ACTION_LABELS.campaigns[key]);
+assert(campaignLabels.includes("Close full plan")&&campaignLabels.includes("Archive campaign"),
+  "Campaign transitions must keep their canonical labels");
+const demoBar=ui.renderLifecycleActions(campaignKeys.map(key=>({key:key,
+  attributes:{"data-act":key}})),{mode:"demo",domain:"campaigns"});
+const serverBar=ui.renderLifecycleActions(campaignKeys.map(key=>({key:key,
+  attributes:{"data-action":key}})),{mode:"server",domain:"campaigns"});
+for(const label of campaignLabels) {
+  assert(demoBar.includes(label)&&serverBar.includes(label),
+    "Campaign label missing in one mode: "+label);
+}
+assert(demoBar.indexOf("Close full plan")<demoBar.indexOf("Archive campaign"),
+  "Offered transitions must keep the same order in both modes");
+assert(!demoBar.includes("Request rework"),"Offered transitions must match the status");
+assert.throws(()=>ui.renderLifecycleActions([{key:"start",attributes:{"data-act":"x"}}],
+  {mode:"demo",domain:"watch"}),/Unknown lifecycle domain labels/);
+
 /* Shared loading/error/denied presentation. */
 assert(ui.renderDomainStatus({mode:"demo",state:"loading",message:"Loading fictional Demo…"})
   .includes('role="status"'));
@@ -196,12 +223,13 @@ const servers={
   "server-results.js":["EVALUATION_FIELDS"],
   "server-guides.js":["GUIDE_RECIPE_FIELDS"],
   "server-sessions.js":["renderStepper("],
-  "server-campaigns.js":["renderCampaignMatrix","renderStepper"],
+  "server-campaigns.js":["renderCampaignMatrix","renderStepper","campaignLifecycleBar","renderLifecycleActions("],
   "server-forecasts.js":["FORECAST_FIELDS","renderLifecycleActions("]
 };
 assert(page.includes("renderDomainFields(")&&page.includes("renderStepper(")&&
-  page.includes("renderThread(")&&page.includes("renderLifecycleActions("),
-  "Demo must use the shared form, stepper, thread and lifecycle primitives");
+  page.includes("renderThread(")&&page.includes("renderLifecycleActions(")&&
+  page.includes('domain:"campaigns"'),
+  "Demo must use the shared form, stepper, thread and campaign lifecycle primitives");
 for(const [file,markers] of Object.entries(servers)) {
   const source=fs.readFileSync(file,"utf8");
   for(const marker of markers)

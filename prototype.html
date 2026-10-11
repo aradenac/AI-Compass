@@ -2653,10 +2653,27 @@ var body=head+demoMatrixMarkup(c)+'<h3 style="margin:18px 0 10px">Test Cases in 
 '<div class="list">'+(cases||'<p class="muted small">No Test Cases yet. Add a new one or attach an existing challenge.</p>')+'</div>'+
 (c.stage==="active"?'<div class="inline-actions" style="margin:11px 0">'+btn("+ New Test Case","campaignNewCase",id,"sm primary")+btn("Attach existing Test Case","campaignAttachCase",id,"sm")+'</div>':"")+
 '<h3 style="margin:19px 0 8px">Experiment sessions</h3><div class="list">'+(trialList||'<div class="empty">No sessions recorded</div>')+'</div>'+review;
-var actions=btn("Close","close","","")+(canEdit()&&ui.page==="benchmark"?btn("Edit campaign","editCampaign",id,"")+
-(c.stage==="planned"?btn("Open campaign","campaignActivate",id,"primary"):c.stage==="active"?btn("Close full plan","campaignClose",id,"primary")+
-  (c.matrixPlan?btn("Partial review","campaignClosePartial",id,""):""):c.stage==="review"?btn("Record review","campaignReview",id,"primary"):"")+
-(c.stage==="published"?btn("Unpublish → review","campaignUnpublish",id,""):"")+(c.stage!=="active"?btn("Reopen","campaignReopen",id,""):"")+btn("Delete / archive","campaignDelete",id,""):"");
+/* UX-R04: the offered lifecycle transitions and their labels are the shared
+ * campaign presentation; Demo keeps its own fictional persistence. */
+var stageKey={planned:"planned",active:"in_progress",review:"under_review",
+ published:"published"}[c.stage||"planned"]||"planned";
+var demoLifecycleActions=canEdit()?window.AICompassWorkgroup.campaignLifecycleActionKeys(
+  c.archived?"archived":stageKey).filter(function(key){
+   if(key==="close_partial"&&!c.matrixPlan)return false;
+   // Demo records the review decision (publish or rework) in one review step.
+   return !(stageKey==="under_review"&&key==="rework");
+  }).map(function(key){
+   var act={start:"campaignActivate",close:"campaignClose",close_partial:"campaignClosePartial",
+    publish:"campaignReview",reopen:"campaignReopen",unpublish:"campaignUnpublish",
+    archive:"campaignDelete",restore:"campaignRestore"}[key];
+   return {key:key,attributes:{"data-act":act,"data-id":id}};}):[];
+// Keep the shared lifecycle bar visible in the modal footer, exactly as the
+// Server keeps it next to the campaign detail it belongs to.
+var actions=window.AICompassWorkgroup.renderLifecycleActions(demoLifecycleActions,{mode:"demo",
+ domain:"campaigns",
+ notice:"Lifecycle changes create a new campaign revision; published evidence stays immutable."})+
+ btn("Close","close","","")+(canEdit()&&ui.page==="benchmark"?
+ btn("Edit campaign","editCampaign",id,""):"");
 openModal("Benchmark campaign",body,actions);
 }
 function detailsWatch(id){

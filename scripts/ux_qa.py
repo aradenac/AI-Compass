@@ -418,6 +418,16 @@ def demo_journey(browser, demo_url, artifacts, role, label, viewport):
                 raise AssertionError("Shared Demo matrix rendered no evaluation cell")
             if not page.locator('[data-shared-stepper][data-stepper-mode="demo"]').count():
                 raise AssertionError("Demo campaign lifecycle does not use the shared stepper")
+            demo_lifecycle = page.locator(
+                '[data-shared-lifecycle="campaigns"][data-lifecycle-mode="demo"]')
+            demo_lifecycle.wait_for(state="visible", timeout=20000)
+            demo_labels = sorted(demo_lifecycle.locator("button").all_inner_texts())
+            # Canonical labels shared with the authenticated Server for a
+            # planned campaign: start and archive, in the same wording.
+            expected_labels = sorted(["Start / open campaign", "Archive campaign"])
+            if demo_labels != expected_labels:
+                raise AssertionError(
+                    "Demo planned campaign transitions are not canonical: " + str(demo_labels))
             assert_no_horizontal_overflow(page)
             capture(page, artifacts, "demo-shared-campaign-matrix-" + str(viewport["width"]))
             matrix.locator("[data-shared-matrix-cell] button").first.click()
@@ -705,6 +715,16 @@ def server_journey(browser, base_url, creds, artifacts, role, viewport):
                 matrix.wait_for(state="visible", timeout=30000)
                 if not page.locator('[data-shared-stepper][data-stepper-mode="server"]').count():
                     raise AssertionError("Server campaign lifecycle does not use the shared stepper")
+                server_lifecycle = page.locator(
+                    '[data-shared-lifecycle="campaigns"][data-lifecycle-mode="server"]')
+                server_lifecycle.wait_for(state="visible", timeout=20000)
+                # Same canonical wording as the offline Demo for a planned campaign.
+                expected_labels = sorted(["Start / open campaign", "Archive campaign"])
+                server_labels = sorted(server_lifecycle.locator("button").all_inner_texts())
+                if server_labels != expected_labels:
+                    raise AssertionError(
+                        "Server planned campaign transitions differ from the shared Demo "
+                        "presentation: " + str(server_labels))
                 # The add-configuration form is disclosed, not always open.
                 page.locator("details:has(#matrix-add-form)").locator("summary").first.click()
                 add_form = page.locator("#matrix-add-form")
