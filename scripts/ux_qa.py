@@ -224,6 +224,31 @@ def demo_journey(browser, demo_url, artifacts, role, label, viewport):
             if detail.locator("h3").count() != 1:
                 raise AssertionError("Shared Test Case detail lacks semantic heading")
             page.get_by_role("dialog").get_by_role("button", name="Close dialog").click()
+
+        if role == "u1":
+            # Real Demo form -> local save -> same semantic Guide read view.
+            page.locator('[data-act="nav"][data-id="knowledge"]').click()
+            page.locator('[data-act="newGuide"]').first.click()
+            dialog = page.get_by_role("dialog")
+            dialog.wait_for(state="visible")
+            form = dialog.locator('[data-shared-guide-fields="demo"]')
+            form.locator('input[name="title"]').fill("UX-R04 complete Demo guide")
+            form.locator('textarea[name="body"]').fill("Shared instructions survive")
+            form.locator('textarea[name="description"]').fill("Keep immutable context")
+            form.locator('input[name="url"]').fill("https://example.org/demo-guide")
+            dialog.get_by_role("button", name="Create document").click()
+            card = page.locator('[data-business-domain="guides"] [data-business-record]').filter(
+                has_text="UX-R04 complete Demo guide").first
+            card.wait_for(state="visible", timeout=20000)
+            card.locator('button[data-act="guideDetail"]').click()
+            detail = page.locator('[data-shared-guide-detail="demo"]')
+            detail.wait_for(state="visible")
+            for expected in ("Shared instructions survive", "Keep immutable context",
+                             "https://example.org/demo-guide"):
+                if expected not in detail.inner_text():
+                    raise AssertionError("Demo Guide content missing: " + expected)
+            page.get_by_role("dialog").get_by_role("button", name="Close dialog").click()
+            capture(page, artifacts, "demo-shared-guide-detail-" + str(viewport["width"]))
         if role == "u1":
             # The actual Demo form must honor the same NFR modal contract.
             page.locator('[data-act="nav"][data-id="testdesign"]').click()
@@ -397,6 +422,38 @@ def server_journey(browser, base_url, creds, artifacts, role, viewport):
                 assert_no_horizontal_overflow(page)
                 if domain in ("guides", "campaigns"):
                     capture(page, artifacts, "server-shared-" + domain + "-" + str(viewport["width"]))
+
+        if role == "workgroup":
+            # Real Server write must remain persisted and revision-addressable.
+            page.goto(base_url + "/?mode=server&workspace=workgroup&section=guides&view=editor",
+                      wait_until="domcontentloaded")
+            page.locator("#guide-add").wait_for(state="visible", timeout=30000)
+            page.locator("#guide-add").click()
+            form = page.locator("#guide-editor form.guide-form")
+            form.wait_for(state="visible", timeout=12000)
+            fields = form.locator('[data-shared-guide-fields="server"]')
+            fields.locator('input[name="name"]').fill("UX-R04 persisted setup guide")
+            fields.locator('textarea[name="text"]').fill("Original controlled instructions")
+            fields.locator('textarea[name="description"]').fill("Keep revisions and provenance")
+            fields.locator('input[name="url"]').fill("https://example.org/server-guide")
+            form.locator('button[type="submit"]').click()
+            card = page.locator('[data-business-domain="guides"] [data-business-record]').filter(
+                has_text="UX-R04 persisted setup guide").first
+            card.wait_for(state="visible", timeout=30000)
+            page.reload(wait_until="domcontentloaded")
+            card = page.locator('[data-business-domain="guides"] [data-business-record]').filter(
+                has_text="UX-R04 persisted setup guide").first
+            card.wait_for(state="visible", timeout=30000)
+            card.locator('button[data-action="inspect"]').click()
+            detail = page.locator('[data-shared-guide-detail="server"]')
+            detail.wait_for(state="visible", timeout=30000)
+            for expected in ("Original controlled instructions",
+                             "Keep revisions and provenance",
+                             "https://example.org/server-guide"):
+                if expected not in detail.inner_text():
+                    raise AssertionError("Server Guide content missing: " + expected)
+            page.locator("#guide-history details").first.wait_for(state="visible")
+            capture(page, artifacts, "server-shared-guide-detail-" + str(viewport["width"]))
         if role in ("workgroup", "multi_role"):
             page.goto(base_url + "/?mode=server&workspace=workgroup&section=testdesign&view=editor",
                       wait_until="domcontentloaded")
