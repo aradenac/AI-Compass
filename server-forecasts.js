@@ -206,7 +206,10 @@ function mount(root,csrf,escapeHtml){
       '<p>Current '+esc(f.status)+' · changes in assumptions require a fresh review cycle.</p>'+
       (actions.includes("review")?
         '<label>Required reviewer justification<textarea id="forecast-review-notes" maxlength="10000"></textarea></label>':"")+
-      actions.map(function(k){return '<button type="button" data-stage-action="'+esc(k)+'">'+esc(k)+'</button>';}).join("");
+      window.AICompassWorkgroup.renderLifecycleActions(
+        actions.map(function(k){return {key:k,attributes:{"data-stage-action":k}};}),
+        {mode:"server",domain:"forecasts",
+         emptyText:"No lifecycle transition is permitted for this revision."});
     node.querySelectorAll("[data-stage-action]").forEach(function(btn){
       btn.addEventListener("click",async function(){
         btn.disabled=true;

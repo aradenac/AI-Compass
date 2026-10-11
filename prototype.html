@@ -1901,8 +1901,16 @@ sources.map(function(e){return '<div class="list-row"><div><strong>'+E(e.title)+
 '<h3 style="margin:15px 0 6px">Review</h3><p class="muted small">'+E(p.reviewNotes||"Not reviewed yet")+'</p>'+
 (p.linkedSolution?'<div class="note">A measured AI solution was later created from this hypothesis: '+linkAction(rec("solutions",p.linkedSolution)?.name||p.linkedSolution,"solution",p.linkedSolution)+'</div>':"")+
 '<div class="note" style="margin-top:12px">Publishing a theoretical forecast never turns its estimated scores into measured benchmark results.</div>';
-var footer=btn("Close","close","","")+(canEdit()?btn("Compare evidence","forecastCompare",id,"")+(p.status!=="published"?btn("Edit","editForecast",id,""):"")+
-(p.status==="draft"?btn("Stage forecast","stageForecast",id,"primary"):p.status==="staged"?btn("Mark reviewed","reviewForecast",id,"primary"):p.status==="reviewed"?btn("Publish as theoretical","publishForecast",id,"primary"):btn("Create new revision","forkForecast",id,"primary")):"");
+var lifecycle=[];
+if(canEdit()){
+ if(p.status==="draft")lifecycle.push({key:"stage",attributes:{"data-act":"stageForecast","data-id":id}});
+ else if(p.status==="staged")lifecycle.push({key:"review",attributes:{"data-act":"reviewForecast","data-id":id}});
+ else if(p.status==="reviewed")lifecycle.push({key:"publish",attributes:{"data-act":"publishForecast","data-id":id}});
+ else lifecycle.push({key:"fork",attributes:{"data-act":"forkForecast","data-id":id}});
+}
+html+=window.AICompassWorkgroup.renderLifecycleActions(lifecycle,{mode:"demo",domain:"forecasts",
+ notice:"Current "+p.status+" · publishing a theoretical forecast never turns its estimates into measured results."});
+var footer=btn("Close","close","","")+(canEdit()?btn("Compare evidence","forecastCompare",id,"")+(p.status!=="published"?btn("Edit","editForecast",id,""):""):"");
 openModal("Theoretical configuration · "+p.name,html,footer);
 }
 function dialogWatch(id){

@@ -274,6 +274,16 @@ def demo_journey(browser, demo_url, artifacts, role, label, viewport):
             forecast_detail.wait_for(state="visible")
             if "never measured" not in forecast_detail.inner_text().lower():
                 raise AssertionError("Forecast missing explicit theoretical provenance")
+            # The same shared review/publication bar, with the canonical labels
+            # used by the authenticated Server, inside the Forecast detail.
+            lifecycle = page.locator(
+                '[data-shared-lifecycle="forecasts"][data-lifecycle-mode="demo"]')
+            lifecycle.wait_for(state="visible", timeout=20000)
+            if lifecycle.locator("button").count() == 0:
+                raise AssertionError("Demo forecast detail exposes no permitted transition")
+            if "never turns its estimates into measured results" not in lifecycle.inner_text():
+                raise AssertionError("Forecast review bar lost its theoretical provenance notice")
+            capture(page, artifacts, "demo-shared-forecast-lifecycle-" + str(viewport["width"]))
             page.get_by_role("dialog").get_by_role("button", name="Close dialog").click()
         if role == "u1":
             # The actual Demo form must honor the same NFR modal contract.

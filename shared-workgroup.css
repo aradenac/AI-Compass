@@ -161,3 +161,16 @@ table.shared-matrix-grid tbody th { font-weight:650; }
   overflow-wrap:anywhere;
 }
 .shared-thread-actions { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+
+/* One review/publication action bar for Demo and Server. */
+.shared-lifecycle { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:10px 0; }
+.shared-lifecycle button {
+  border:1px solid #cbd7e5;
+  border-radius:9px;
+  background:#f7f9fd;
+  color:#253f69;
+  font:600 13px system-ui,sans-serif;
+  padding:8px 12px;
+  cursor:pointer;
+}
+.shared-lifecycle button:focus-visible { outline:3px solid #4b6ad4; outline-offset:2px; }

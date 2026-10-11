@@ -158,6 +158,26 @@ assert.throws(()=>ui.renderStepper([{label:"x",state:"almost"}],{mode:"demo",dom
   /Unsupported stepper state/);
 assert.throws(()=>ui.renderStepper([],{mode:"demo",domain:"campaign"}),/steps required/);
 
+/* One review/publication action bar with canonical labels in both modes. */
+const reviewBar=ui.renderLifecycleActions([
+  {key:"review",attributes:{"data-stage-action":"review"}},
+  {key:"rework",attributes:{"data-stage-action":"rework"}}
+],{mode:"server",domain:"forecasts",notice:"Current staged"});
+assert(reviewBar.includes('data-shared-lifecycle="forecasts"'));
+assert(reviewBar.includes(">Mark reviewed</button>")&&reviewBar.includes(">Request rework</button>"));
+assert(reviewBar.includes("Current staged"));
+assert(ui.renderLifecycleActions([],{mode:"demo",domain:"forecasts",emptyText:"None permitted"})
+  .includes("None permitted"));
+assert(ui.renderLifecycleActions([{key:"stage",attributes:{"data-act":"stageForecast"}}],
+  {mode:"demo",domain:"forecasts"}).includes(">Stage forecast</button>"));
+assert.throws(()=>ui.renderLifecycleActions([{key:"invent",attributes:{"data-act":"x"}}],
+  {mode:"demo",domain:"forecasts"}),/Unknown lifecycle action key/);
+assert.throws(()=>ui.renderLifecycleActions([{attributes:{}}],{mode:"demo",domain:"forecasts"}),
+  /requires its exact key/);
+assert.throws(()=>ui.renderLifecycleActions([{key:"stage",attributes:{onclick:"x"}}],
+  {mode:"demo",domain:"forecasts"}),/Invalid matrix attribute/);
+assert.throws(()=>ui.renderLifecycleActions([],{mode:"demo",domain:"Forecasts"}),/lifecycle domain/);
+
 /* Shared loading/error/denied presentation. */
 assert(ui.renderDomainStatus({mode:"demo",state:"loading",message:"Loading fictional Demo…"})
   .includes('role="status"'));
@@ -176,10 +196,12 @@ const servers={
   "server-results.js":["EVALUATION_FIELDS"],
   "server-guides.js":["GUIDE_RECIPE_FIELDS"],
   "server-sessions.js":["renderStepper("],
-  "server-campaigns.js":["renderCampaignMatrix","renderStepper"]
+  "server-campaigns.js":["renderCampaignMatrix","renderStepper"],
+  "server-forecasts.js":["FORECAST_FIELDS","renderLifecycleActions("]
 };
 assert(page.includes("renderDomainFields(")&&page.includes("renderStepper(")&&
-  page.includes("renderThread("),"Demo must use the shared form, stepper and thread primitives");
+  page.includes("renderThread(")&&page.includes("renderLifecycleActions("),
+  "Demo must use the shared form, stepper, thread and lifecycle primitives");
 for(const [file,markers] of Object.entries(servers)) {
   const source=fs.readFileSync(file,"utf8");
   for(const marker of markers)

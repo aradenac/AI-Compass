@@ -746,6 +746,33 @@
       '" data-status-mode="'+escape(mode)+'" role="'+(alert?"alert":"status")+'">'+
       escape(options.message||"")+'</p>';
   }
+  /* One review/publication action bar: the reviewer or writer sees the same
+   * labels and ordering in both modes; each mode supplies only the transitions
+   * its own authorization and business rules permit. */
+  var LIFECYCLE_ACTION_LABELS=Object.freeze({
+    stage:"Stage forecast",review:"Mark reviewed",publish:"Publish as theoretical",
+    unpublish:"Unpublish",rework:"Request rework",fork:"Create new revision"
+  });
+  function renderLifecycleActions(actions, options) {
+    options=options||{};
+    var mode=domainMode(options.mode),domain=String(options.domain||"");
+    if(!/^[a-z][a-z0-9-]*$/.test(domain))
+      throw Error("Explicit lifecycle domain required");
+    if(!Array.isArray(actions))throw Error("Authorized lifecycle actions required");
+    return '<div class="shared-lifecycle" data-shared-lifecycle="'+escape(domain)+
+      '" data-lifecycle-mode="'+escape(mode)+'">'+
+      (options.notice?'<p class="muted small">'+escape(options.notice)+'</p>':"")+
+      actions.map(function(action){
+        if(!action||!action.key)throw Error("Lifecycle action requires its exact key");
+        var label=action.label||LIFECYCLE_ACTION_LABELS[action.key];
+        if(!label)throw Error("Unknown lifecycle action key");
+        return matrixCommand({label:label,attributes:action.attributes});
+      }).join("")+
+      (actions.length?"":'<p class="muted small" data-shared-lifecycle-empty>'+
+        escape(options.emptyText||"No lifecycle transition is permitted for this record.")+
+        '</p>')+'</div>';
+  }
+
   /* One campaign lifecycle presentation; each mode maps its own status names. */
   var CAMPAIGN_LIFECYCLE=Object.freeze([
     {key:"planned",label:"Planned"},
@@ -1085,6 +1112,7 @@
     renderDomainFields:renderDomainFields,renderDomainDetail:renderDomainDetail,
     renderDomainStatus:renderDomainStatus,renderStepper:renderStepper,renderThread:renderThread,
     CAMPAIGN_LIFECYCLE:CAMPAIGN_LIFECYCLE,campaignLifecycleSteps:campaignLifecycleSteps,
+    LIFECYCLE_ACTION_LABELS:LIFECYCLE_ACTION_LABELS,renderLifecycleActions:renderLifecycleActions,
     WATCH_SOURCE_FIELDS:WATCH_SOURCE_FIELDS,WATCH_ENTRY_FIELDS:WATCH_ENTRY_FIELDS,
     FORECAST_FIELDS:FORECAST_FIELDS,FEEDBACK_THREAD_FIELDS:FEEDBACK_THREAD_FIELDS,
     FEEDBACK_REPLY_FIELDS:FEEDBACK_REPLY_FIELDS,
