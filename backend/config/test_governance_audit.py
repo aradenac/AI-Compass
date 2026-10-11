@@ -168,9 +168,47 @@ class GovernanceAuditTests(ActivityFeedTests.__bases__[0]):
             "after":[{"charge_id":"token-line","charge_type":"variable",
                       "family":"token","meter":"input_tokens","rate":"2.0",
                       "unit_size":"1000"}]},body["changes"])
+        self.assertTrue(body["restricted_change_present"])
         self.assertNotIn("PRIVATE-",response.content.decode())
         self.assertNotIn("api_secret",response.content.decode())
         self.assertNotIn("PRIVATE-",self.client.get(BASE+"/export").content.decode())
+
+    def test_native_import_batch_and_schema_migration_receipts_are_not_backfilled(self):
+        from .models import (ExternalImportBinding, ExternalImportBatch,
+                             ExternalImportEvent, ProductionMigrationReceipt)
+        model=self.make_model("Catalog import scope")
+        edited=self.post("/api/v1/models/"+model["id"]+"/revisions",{
+            "expected_revision":"r001","name":"Imported renamed model"})
+        self.assertEqual(edited.status_code,201,edited.content)
+        item=CatalogItem.objects.get(public_id=model["id"])
+        old=CatalogRevision.objects.get(item=item,number=1)
+        new=CatalogRevision.objects.get(item=item,number=2)
+        source=ExternalImportBinding.objects.create(
+            source_system="synthetic-test",source_key="remote-fixture",
+            item=item,last_import_revision=new)
+        batch=ExternalImportBatch.objects.create(
+            source_system="synthetic-test",input_sha256="4"*64,
+            row_count=1,actor=self.writer)
+        event=ExternalImportEvent.objects.create(
+            batch=batch,binding=source,item=item,revision=new,
+            source_key="remote-fixture",row_sha256="5"*64,action="revised")
+        migrated=ProductionMigrationReceipt.objects.create(
+            item=item,source_revision=old,target_revision=new,actor=self.writer,
+            candidate_id="candidate-01",migration_key="synthetic",
+            migration_sha256="0"*64,app_commit="1"*40,
+            recovery_id="synthetic-private-recovery-ref",
+            recovery_manifest_sha256="2"*64,approved_report_sha256="3"*64)
+        self._as_auditor()
+        imported=self.client.get(BASE+"/import:"+str(event.pk))
+        self.assertEqual(imported.status_code,200,imported.content)
+        self.assertEqual(imported.json()["event"]["correlation_id"],str(batch.pk))
+        self.assertIn("display_name",[x["field"] for x in imported.json()["changes"]])
+        promoted=self.client.get(BASE+"/migration:"+str(migrated.pk))
+        self.assertEqual(promoted.status_code,200,promoted.content)
+        self.assertEqual(promoted.json()["event"]["object_id"],model["id"])
+        self.assertNotIn("synthetic-private-recovery-ref",promoted.content.decode())
+        self.assertEqual(len(self.client.get(BASE+"?source=import").json()["results"]),1)
+        self.assertEqual(len(self.client.get(BASE+"?source=migration").json()["results"]),1)
 
     def test_bounded_queries_strict_filters_readonly_and_nonfabrication(self):
         self._as_auditor()
