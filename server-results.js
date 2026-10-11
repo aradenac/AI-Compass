@@ -162,28 +162,30 @@ function mount(root,csrf,escapeHtml){
       table.style.width="100%";
       table.style.overflowWrap="anywhere";
     });
-    $("#results-rows").innerHTML=(data.results||[]).length?
-      data.results.map(function(r){
-        var forecast=r.kind==="forecast",metrics=forecast?r.predicted_metrics:r.metrics;
-        return '<div class="list-row" style="border-bottom:1px solid #dae1ef;padding:12px 0">'+
-          '<strong>'+esc(r.id)+'</strong> · '+esc(r.evidence_class)+' · '+
-          (forecast?'<strong>THEORETICAL FORECAST</strong> · '+esc(r.status):
-            '<strong>MEASURED '+esc(r.kind.toUpperCase())+'</strong> · '+esc(r.outcome))+
-          '<p class="muted small">Task '+esc(r.task_id)+' · Candidate '+esc(r.candidate)+
-          (r.experimental_method_version?" · Experimental method v"+esc(r.experimental_method_version):"")+'</p>'+
-          '<p>Quality: '+format(metrics.quality_score)+' · Cost EUR: '+
-            format(forecast?metrics.ai_cost_eur:metrics.cost_eur)+
-            ' · Human min: '+format(forecast?metrics.human_minutes:metrics.human_total_minutes)+
-          '</p>'+
-          (forecast?'<p class="muted small">Estimates only · Uncertainty: '+
-            esc(r.uncertainty||"Unspecified")+'</p>':
-            '<p class="muted small">Unknown fields: '+esc((r.missing_fields||[]).join(", ")||"none")+
-            ' · <a href="'+esc(window.AICompassContext.route("server",writer?"workgroup":"engineer","results",{
-              record:r.id,revision:r.revision||"",task:r.task_id,solution:r.solution_id||r.candidate
-            }))+'">Open Run context</a></p>'+
-            (reviewer?'<button type="button" data-amend-run="'+esc(r.id)+'">Correct / withdraw</button>':''))+
-          '</div>';
-      }).join(""):'<p>No source observations.</p>';
+    $("#results-rows").innerHTML=window.AICompassWorkgroup.renderRecords(
+      (data.results||[]).map(function(r){
+        var forecast=r.kind==="forecast",metrics=(forecast?r.predicted_metrics:r.metrics)||{};
+        var facts=[
+          r.evidence_class,forecast?"THEORETICAL FORECAST":"MEASURED "+r.kind.toUpperCase(),
+          "Task "+r.task_id,"Candidate "+r.candidate,
+          "Quality: "+format(metrics.quality_score),
+          "Cost EUR: "+format(forecast?metrics.ai_cost_eur:metrics.cost_eur),
+          "Human min: "+format(forecast?metrics.human_minutes:metrics.human_total_minutes)
+        ];
+        if(r.experimental_method_version)facts.push("Experimental method v"+r.experimental_method_version);
+        var notices=forecast?["Estimates only. Uncertainty: "+(r.uncertainty||"Unspecified")]:
+          ["Unknown fields: "+(r.missing_fields||[]).join(", ")||"none"];
+        var links=forecast?[]:[{label:"Open Run context",
+          href:window.AICompassContext.route("server",writer?"workgroup":"engineer","results",{
+            record:r.id,revision:r.revision||"",task:r.task_id,
+            solution:r.solution_id||r.candidate})}];
+        var actions=(!forecast&&reviewer)?[{label:"Correct / withdraw",
+          attributes:{"data-amend-run":r.id}}]:[];
+        return {id:r.id,title:forecast?"Theoretical forecast":"Measured Run",
+          status:r.outcome||r.status||"",revision:r.revision||"",
+          facts:facts,notices:notices,links:links,actions:actions};
+      }),{domain:"results",mode:"server",emptyText:"No source observations."});
+
   }
   async function loadMatrix(){
     if(!enabled)return;
@@ -203,17 +205,18 @@ function mount(root,csrf,escapeHtml){
     }
   }
   function renderEvaluations(){
-    $("#results-evaluations").innerHTML=evaluations.length?
-      evaluations.map(function(row){
-        return '<p><strong>'+esc(row.name)+'</strong> · '+esc(row.id)+' · '+esc(row.revision)+
-          ' · interpretation · '+esc(row.inputs.length)+' measured run(s) · '+
-          esc(row.properties.comparability)+
-          ' <button type="button" data-evaluation="'+esc(row.id)+
-          '" data-action="history">Details / immutable history</button>'+
-          (writer?' <button type="button" data-evaluation="'+esc(row.id)+
-          '" data-action="edit">New interpretation revision</button>':'')+'</p>';
-      }).join(""):'<p>No saved evaluations.</p>';
+    $("#results-evaluations").innerHTML=window.AICompassWorkgroup.renderRecords(
+      evaluations.map(function(r){
+        var actions=[{label:"Details / immutable history",
+          attributes:{"data-evaluation":r.id,"data-action":"history"}}];
+        if(writer)actions.push({label:"New interpretation revision",
+          attributes:{"data-evaluation":r.id,"data-action":"edit"}});
+        return {id:r.id,title:r.name,status:"interpretation",revision:r.revision,
+          facts:[(r.inputs||[]).length+" measured run(s)",(r.properties||{}).comparability||"not specified"],
+          actions:actions};
+      }),{domain:"evaluations",mode:"server",emptyText:"No saved evaluations."});
   }
+
   async function refresh(){
     if(!enabled)return;
     var version=++ticket;
