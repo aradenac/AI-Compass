@@ -42,8 +42,12 @@ def from_revision(guide_revision, configuration, *, require_wiring=False):
     effective = deepcopy(recipe)
     if require_wiring:
         groups = effective.setdefault("required_groups", [])
-        if "framework_wiring" not in groups:
-            groups.append("framework_wiring")
+        # A Framework guide must explicitly cover every selected participant
+        # and the actual routing/handoff integration, not merely the framework.
+        participant_ids = [p["id"] for p in configuration.get("participants", [])]
+        for group in ["framework_wiring"] + ["participant:"+pid for pid in participant_ids]:
+            if group not in groups:
+                groups.append(group)
     result = compose(effective, snapshots_for_recipe(recipe), configuration)
     result["recipe"] = reference
     return result
