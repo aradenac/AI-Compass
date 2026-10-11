@@ -31,83 +31,95 @@
   function demoProvider(db, persist) {
     var saved = db.demoResourceBudgets || (db.demoResourceBudgets = []);
     function candidates() {
-      var task = (db.tasks || [])[0] || {id:"tsk-demo",name:"Fictional sample task"};
+      var task = (db.tasks || [])[0] || {id:"tsk-demo",name:"Fictional task"};
       return [{kind:"forecast",task_id:task.id,candidate_id:"fct-demo-budget",
         name:"Fictional forecast / unmeasured pilot",
         components:{"root:model":"mdl-demo","root:provider":"prv-demo","root:harness":"hrn-demo"}}];
     }
-    function options() {
-      var targets = (db.demoDeploymentTargets || []).filter(function(t){return t.kind==="benchmark";})
-        .map(function(t){return {id:t.id,task_id:t.task_id,candidate_id:t.candidate_id,
-          profile_id:t.profile_id,kind:"benchmark",ready_count:t.ready_count||0,
-          activated_count:t.activated_count||0};});
+    async function options() {
+      var targets=[];
+      if(root.AICompassDemoDeployments) {
+        var data=await root.AICompassDemoDeployments.provider(db,persist)("deployments","GET");
+        targets=data.results.filter(function(t){return t.kind==="benchmark";});
+      } else {
+        targets=(db.demoDeploymentTargets||[]).filter(function(t){return t.kind==="benchmark";})
+          .map(function(t){return {id:t.id,task_id:t.task_id,kind:t.kind,
+            candidate_id:t.candidate_id,profile_id:t.profile_id,
+            status:"selected",ready_count:0,activated_count:0};});
+      }
       return {profiles:[{id:"wlp-demo",name:"Fictional Demo cohort",kind:"cohort"}],
         candidates:candidates(),targets:targets,offers:[
           {id:"off-demo-sample",revision_id:"fictional-revision",component_id:"prv-demo",
             name:"Fictional Demo tariff (not real)",currency:"EUR",complete:true}]};
     }
-    function preview(req) {
+    async function preview(req) {
       var p=req.plan, m=Number(p.period_months||3),margin=Number(p.margin_pct||0);
-      var items=p.items||[], segments=[],quantities=[],charges=[],gaps=[],variable=0,fixed=0;
-      items.forEach(function(item){
-        var pilot=item.purpose==="pilot",count=pilot?Number(item.pilot_headcount):2;
-        if (!pilot && p.include_active) {
-          var target=options().targets.find(function(t){return t.id===item.target_id;});
-          count=Math.max(0,4-(target?target.ready_count:0));
-          segments.push({purpose:"active",task_id:target?target.task_id:"tsk-demo",
-            headcount:target?target.activated_count:0});
+      var items=p.items||[], segments=[],quantities=[],charges=[],gaps=[],variable=0;
+      var targets=(await options()).targets;
+      for (var item of items) {
+        var pilot=item.purpose==="pilot",target=targets.find(function(t){
+          return t.id===item.target_id;});
+        var count=pilot?Number(item.pilot_headcount):Math.max(0,2-(target?target.ready_count:0));
+        if(!pilot && !target)gaps.push("fictional_rollout_target_unknown");
+        var allocations=[{purpose:item.purpose,headcount:count}];
+        if(!pilot && p.include_active)allocations.push({purpose:"active",
+          headcount:target?target.activated_count:0});
+        for(var allocation of allocations){
+          var total=Number((allocation.headcount * 12 * m/12 * (1+margin/100)).toFixed(2));
+          segments.push({purpose:allocation.purpose,
+            task_id:item.task_id||(target?target.task_id:"tsk-demo"),
+            headcount:allocation.headcount,estimated_task_occurrences:String(total),
+            evidence_class:pilot?"fictional_forecast":"fictional_benchmark"});
+          if(pilot && !(item.offer_pins||[]).length)gaps.push("fictional_pilot_offer_unselected");
+          else {
+            var amount=total*0.1;variable+=amount;
+            charges.push({charge_type:"variable",native_currency:"EUR",amount:amount.toFixed(2),
+              charge_id:"fictional_usage"});
+            quantities.push({meter:"requests",quantity:String(total),unit:"requests"});
+          }
         }
-        var total=Number((count * 12 * m/12 * (1+margin/100)).toFixed(2));
-        segments.push({purpose:item.purpose,task_id:item.task_id || "tsk-demo",
-          headcount:count,estimated_task_occurrences:String(total),
-          evidence_class:pilot?"fictional_forecast":"fictional_benchmark"});
-        if(pilot && !(item.offer_pins||[]).length)gaps.push("fictional_pilot_offer_unselected");
-        else {
-          var amount=total*0.1;variable+=amount;
-          charges.push({charge_type:"variable",native_currency:"EUR",amount:amount.toFixed(2),
-            charge_id:"fictional_usage"});
-          quantities.push({meter:"requests",quantity:String(total),unit:"requests"});
-        }
-      });
+      }
       return {algorithm:"fictional-demo-resource-v1",fictional_demo_only:true,
         profile_id:req.profile_id,period_months:m,segments:segments,quantities:quantities,
-        charges:charges,amounts_by_native_currency:{EUR:{fixed:fixed.toFixed(2),
-          variable:variable.toFixed(2),total:(fixed+variable).toFixed(2)}},
+        charges:charges,amounts_by_native_currency:{EUR:{fixed:"0.00",
+          variable:variable.toFixed(2),total:variable.toFixed(2)}},
         gaps:gaps,ready_for_request:!gaps.length,
         purpose:"fictional_example_not_real_quote",no_fx_wallet_iam_or_procurement:true};
     }
-    function latest(b) {
+    async function latest(b) {
       var r=b.revisions[b.revisions.length-1];
       return {id:b.id,profile_id:b.profile_id,revision:"r"+String(r.number).padStart(3,"0"),
         revision_id:"fictional-"+r.number,plan:r.plan,snapshot:r.projection,
-        current:preview({profile_id:b.profile_id,plan:r.plan}),fictional_demo_only:true,
+        current:await preview({profile_id:b.profile_id,plan:r.plan}),fictional_demo_only:true,
         source_changed:false};
     }
     function get(id) {var b=saved.find(function(x){return x.id===id;});
       if(!b)throw Error("Unknown fictional Demo budget");return b;}
-    function create(req) {
-      if(!req || !req.plan || !req.profile_id)throw Error("Invalid Demo request");
-      var b={id:"bdg-demo-"+(saved.length+1),profile_id:req.profile_id,revisions:[]};
-      saved.push(b);revision(b,req.plan);return latest(b);
-    }
-    function revision(b,plan) {
+    async function revision(b,plan) {
+      var frozen=await preview({profile_id:b.profile_id,plan:plan});
       b.revisions.push({number:b.revisions.length+1,plan:JSON.parse(JSON.stringify(plan)),
-        projection:preview({profile_id:b.profile_id,plan:plan})});
+        projection:frozen});
       if(persist)persist();
     }
-    return {options:async function(){return options();},list:async function(){return {
-      results:saved.map(function(b){return {id:b.id,profile_id:b.profile_id,
-        revision:latest(b).revision};})};},preview:async function(req){return preview(req);},
-      create:async function(req){return create(req);},
+    return {options:options,list:async function(){return {results:saved.map(function(b){
+      return {id:b.id,profile_id:b.profile_id,
+        revision:"r"+String(b.revisions.length).padStart(3,"0")};})};},
+      preview:preview,
+      create:async function(req){
+        if(!req||!req.plan||!req.profile_id)throw Error("Invalid Demo request");
+        var b={id:"bdg-demo-"+(saved.length+1),profile_id:req.profile_id,revisions:[]};
+        await revision(b,req.plan);saved.push(b);return latest(b);
+      },
       update:async function(id,req){var b=get(id);
-        if(req.expected_revision!==latest(b).revision)throw Error("Stale Demo revision");
-        revision(b,req.plan);return latest(b);},
+        if(req.expected_revision!=="r"+String(b.revisions.length).padStart(3,"0"))
+          throw Error("Stale Demo revision");
+        await revision(b,req.plan);return latest(b);},
       detail:async function(id){return latest(get(id));},
       history:async function(id){return {revisions:get(id).revisions.map(function(r){
         return {revision:"r"+String(r.number).padStart(3,"0"),
           ready_for_request:r.projection.ready_for_request,source_frozen:true};})};},
       export:async function(id){return {type:"resource_request_summary",fictional_demo_only:true,
-        budget:latest(get(id))};}};
+        budget:await latest(get(id))};}};
   }
   function mount(host, provider, mode) {
     if (!host) return {setAccess:function(){}};
