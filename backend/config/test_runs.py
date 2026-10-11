@@ -167,14 +167,12 @@ class IndividualRunTests(TestCase):
         self.assertEqual(run["evidence"][0]["id"],link["id"])
         self.assertEqual(run["evidence"][0]["sha256"],hashlib.sha256(stored).hexdigest())
         browser_b=Client();browser_b.force_login(self.reader)
-        self.assertEqual(browser_b.get("/api/v1/runs/"+run["id"]).json(),run)
-        self.assertEqual(len(browser_b.get("/api/v1/runs?campaign_id="+camp["id"]).json()
-                             ["results"]),1)
+        self.assertEqual(browser_b.get("/api/v1/runs/"+run["id"]).status_code,404)
+        self.assertEqual(browser_b.get("/api/v1/runs?campaign_id="+camp["id"]).json()["results"],[])
         self.assertEqual(len(browser_b.get("/api/v1/solutions").json()["results"]),1)
         self.assertEqual(browser_b.get("/api/v1/solutions/"+run["solution_id"]).json()
                          ["recommended"],False)
-        self.assertEqual(b"".join(browser_b.get(run["evidence"][0]["download"])
-                          .streaming_content),stored)
+        self.assertEqual(browser_b.get(run["evidence"][0]["download"]).status_code,404)
         self.assertEqual(self.send("/api/v1/sessions/"+session["id"]+"/interactions",{
             "expected_revision":"r004","content":"mutate closed"}).status_code,409)
         self.assertEqual(self.close(session,payload).status_code,409)
@@ -185,8 +183,8 @@ class IndividualRunTests(TestCase):
             expected_revision="r001",properties={"text":"New setup"})
         revise_component(item=self.catalog["model"],type_slug="model",actor=self.editor,
                          expected_revision="r001",name="Model newer")
-        after=browser_b.get("/api/v1/runs/"+run["id"]).json()
-        self.assertEqual(after,run)
+        self.assertEqual(browser_b.get("/api/v1/runs/"+run["id"]).status_code,404)
+        self.assertEqual(self.client.get("/api/v1/runs/"+run["id"]).json(),run)
         self.assertEqual(CatalogItem.objects.filter(type_slug="ai_solution").count(),1)
 
     def test_reuse_identical_solution_and_distinct_changed_configuration(self):
