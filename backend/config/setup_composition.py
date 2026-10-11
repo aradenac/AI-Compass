@@ -117,7 +117,7 @@ def compose(recipe, revisions, configuration):
             raise SetupCompositionError("Conflicting declarations for pinned module")
         lookup[key] = entry
 
-    def visit(key):
+    def visit(key, *, required_dependency=False):
         if key in active:
             raise SetupCompositionError("Cyclic module dependency")
         if key in seen:
@@ -129,7 +129,7 @@ def compose(recipe, revisions, configuration):
         if not _matches(entry.get("applies_to", {}), configuration):
             # Unselected alternative variants are expected; ungrouped required
             # modules must instead report precise incompatibility.
-            if not entry.get("group"):
+            if required_dependency or not entry.get("group"):
                 missing.append({"kind": "inapplicable", "module": list(key)})
             return
         group = entry.get("group")
@@ -149,7 +149,7 @@ def compose(recipe, revisions, configuration):
             ident = (dep.get("id"), dep.get("revision"))
             if not all(isinstance(v, str) and v for v in ident):
                 raise SetupCompositionError("dependency missing ID or revision")
-            visit(ident)
+            visit(ident, required_dependency=True)
         active.remove(key)
         snapshot = revisions.get(key)
         if not isinstance(snapshot, Mapping):
