@@ -149,12 +149,8 @@ def create(actor, data):
         item__public_id=data["task_id"]).first() if _id(data["task_id"], "tsk") else None
     kind = data["kind"]
     candidate = CatalogItem.objects.filter(public_id=data["candidate_id"],
-        type_slug="measured_solution" if kind == "benchmark" else "forecast").first() if (
+        type_slug="ai_solution" if kind == "benchmark" else "forecast").first() if (
             kind in ("benchmark", "forecast") and isinstance(data["candidate_id"], str)) else None
-    # Measured Solution CatalogItem type is "solution", not a fabricated alias.
-    if kind == "benchmark" and candidate is None:
-        candidate = CatalogItem.objects.filter(public_id=data["candidate_id"],
-                                               type_slug="solution").first()
     if not all((profile, task, candidate)):
         raise InvalidDeployment("Unknown population, Task or typed candidate")
     components, source, guide = _source(kind, candidate, task)
