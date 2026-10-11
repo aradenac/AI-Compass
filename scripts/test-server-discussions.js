@@ -44,6 +44,7 @@ const sandbox={window:{},fetch:async(url,options)=>{
   return {ok:true,json:async()=>url.includes("auth/account")?
     {authenticated:true,username:"engineer"}:{results:[]}};
 }};
+vm.runInNewContext(fs.readFileSync("shared-workgroup.js","utf8"),sandbox,{filename:"shared-workgroup.js"});
 vm.runInNewContext(src,sandbox,{filename:"server-discussions.js"});
 const ui=sandbox.window.AICompassServerDiscussions.mount(root,()=>"csrf",String);
 ui.setAccess(false,false,false);
