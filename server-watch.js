@@ -97,6 +97,11 @@ function mount(root,csrf,escapeHtml){
       '<input name="'+key+'" value="'+text+'" '+(required?"required":"")+'>';
     return '<label>'+label+field+'</label>';
   }
+  function routeForKind(kind){
+    if(kind==="sources")return "sources";
+    if(kind==="entries"||kind==="watch-entries")return "watch-entries";
+    throw Error("Unsupported Watch record kind");
+  }
   function edit(kind,row){
     if(!active||!writer)return;
     var isSource=kind==="sources",p=row&&row.properties||{},area=$("#watch-editor");
@@ -161,7 +166,7 @@ function mount(root,csrf,escapeHtml){
           });
         }
         if(row)data.expected_revision=row.revision;
-        await api(kind+(row?"/"+encodeURIComponent(row.id):""),row?"PATCH":"POST",data);
+        await api(routeForKind(kind)+(row?"/"+encodeURIComponent(row.id):""),row?"PATCH":"POST",data);
         if(!active)return;
         if(draft)draft.clear();
         area.hidden=true;await refresh();
@@ -174,7 +179,7 @@ function mount(root,csrf,escapeHtml){
     var ticket=seq,area=$("#watch-detail");area.hidden=false;area.textContent="Loading history…";
     try{
       var histories=await Promise.all([
-        api(kind+"/"+encodeURIComponent(row.id)+"/revisions"),
+        api(routeForKind(kind)+"/"+encodeURIComponent(row.id)+"/revisions"),
         api("catalog/items/"+encodeURIComponent(row.id)+"/evidence")
       ]);
       if(!active||seq!==ticket)return;
@@ -227,7 +232,7 @@ function mount(root,csrf,escapeHtml){
       button.addEventListener("click",async function(){
         button.disabled=true;
         try{
-          await api(kind+"/"+encodeURIComponent(row.id)+"/actions/"+button.dataset.review,
+          await api(routeForKind(kind)+"/"+encodeURIComponent(row.id)+"/actions/"+button.dataset.review,
                     "POST",{expected_revision:row.revision});
           node.hidden=true;await refresh();
         }catch(error){note("Review blocked: "+error.message,true);}
