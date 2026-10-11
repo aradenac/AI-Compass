@@ -57,6 +57,7 @@ const sandbox={window:{location:{pathname:"/",search:"?mode=server&workspace=eng
     scoring_policy:"no invented averages"};
   return {ok:true,json:async()=>result};
 }};
+vm.runInNewContext(fs.readFileSync("shared-workgroup.js","utf8"),sandbox,{filename:"shared-workgroup.js"});
 vm.runInNewContext(source,sandbox,{filename:"server-results.js"});
 const ui=sandbox.window.AICompassServerResults.mount(root,()=>"csrf",String);
 ui.setAccess(false,false);
