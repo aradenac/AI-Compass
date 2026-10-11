@@ -32,7 +32,13 @@ The method form adapter reads `session.method_descriptor.steps` and `fields`, al
 | PATCH | `/api/v1/sessions/<ses-id>/steps/<key>` | Save a frozen-method step's partial values/status/timing/notes and evidence |
 | POST | `/api/v1/sessions/<ses-id>/interactions` | Append one timestamped first/follow-up interaction and evidence |
 
-All mutations require business write privileges and CSRF. Only the **draft creator**, the **campaign owner** or a superuser may mutate a particular session. Other workgroup readers can inspect original context and checkpoints. For each PATCH/POST action include `expected_revision: "rNNN"`; a stale write receives HTTP 409 and does not mutate a previously accepted draft. Each write is a single atomic transaction with its FK evidence pins and returns a new confirmed revision.
+All mutations require business write privileges and CSRF. **One experimenter owns one active Run**: since UX-R05 ([#124](https://github.com/aradenac/AI-Compass/issues/124)) only the **account that created the session** (or a superuser) may append checkpoints or close it into a Run; the campaign owner is no longer an implicit co-writer. Other workgroup readers, including the campaign owner, keep read access to the original context and checkpoints, and any authorized contributor may create a **separate** session for the same campaign. A refused write returns HTTP 403 and appends no checkpoint. For each PATCH/POST action include `expected_revision: "rNNN"`; a stale write receives HTTP 409 and does not mutate a previously accepted draft. Each write is a single atomic transaction with its FK evidence pins and returns a new confirmed revision.
+
+## Run interaction stepper and unsaved local input (UX-R05)
+
+The workspace presents the frozen workflow as an explicit sequential stepper — **Setup → each frozen method step → Interactions → Results** — and only one step panel is shown at a time. Moving between steps is **purely local**: it writes no checkpoint, creates no phantom session and never promotes a browser cache into measured evidence. Only the explicit Save/Append/Close buttons append an immutable checkpoint. An acknowledged save updates the displayed `rNNN` revision and the affected sub-view without re-rendering the whole form, so unsaved input in other steps survives.
+
+Unsaved inputs and the active step use the scoped ephemeral draft described in [Draft resume, Run stepper and conflict-safe concurrent editing](draft-conflict-and-run-stepper.md): leaving the screen, reloading or returning offers an explicit *Resume* that restores the values and the remembered step, a 409 keeps the draft and names both revisions, and closing the Run as a permanent Run clears it. The persisted PostgreSQL checkpoint always remains authoritative.
 
 POST create body:
 ```json
@@ -60,6 +66,8 @@ A typical incremental interaction write:
 
 After the confirmation returns `r004`, another interaction can be saved with `expected_revision: "r004"`. Backend rejects missing/foreign links, wrong campaign/Test Case, missing permissions, malformed dates, negative durations, unsupported step keys, replayed revisions and overlarge payloads. Read endpoints never silently fall back to Demo.
 
+A write attempt by any other account — including the campaign owner — is rejected with `403 permission_denied` (`Only the experimenter who created this active Run may edit its session`) and appends no checkpoint. The rejected account can still read the session, its checkpoints and original evidence, and can create its own session for the same campaign.
+
 ## Reproduce and manually demonstrate
 
 ```bash
@@ -76,7 +84,8 @@ node scripts/test-server-sessions.js
 3. Append a first prompt and a follow-up, with distinct human/agent times and unknown values where appropriate; each is immediately and separately submitted to Server and appears in the saved timeline. To attach original artefacts, first upload a valid file to the existing `/api/v1/catalog/items/<cmp-id>/evidence/upload` endpoint (or Test Case equivalent) using `curl -F file=@... -F revision=r001` with session auth/CSRF, then reopen the session and select the evidence entry on the relevant form. The original SHA-256 is returned with the session. This issue intentionally does not implement an additional binary uploader.
 4. Refresh, sign out/in, then use browser B → **Sessions / resume**. Check that step order, original method descriptors, prompt texts, unknown extension fields, elapsed times, evidence UUIDs and downloaded bytes/hash are unchanged. Recreate the API container (not the database volume) and resume again.
 5. Edit the catalogued guide/Test Case, then revise the campaign's experimental method and step ordering. The pre-existing session must still show the **original** Test Case, guide, campaign revision and method/step order. New sessions may select the newer version.
-6. Attempt a stale `expected_revision`, a wrong step, foreign evidence and a draft update by an unrelated contributor: all must fail. Read and compare `/checkpoints/1` and the latest checkpoint to confirm originals were not overwritten.
-7. In `?mode=demo`, use the original independent fake workflow without Docker, login or connection to Server. No sample sessions have been imported into a fresh Server.
+6. Attempt a stale `expected_revision`, a wrong step, foreign evidence and a draft update by an unrelated contributor — including the **campaign owner** — : all must fail with HTTP 409/403 and append no checkpoint. Read and compare `/checkpoints/1` and the latest checkpoint to confirm originals were not overwritten. A second contributor may still create their own separate session for the same campaign.
+7. Exercise the Run stepper: move between Setup, method steps, Interactions and Results without pressing a Save button, leave the screen and return. No checkpoint may be appended by navigation alone, and the unsaved input plus the remembered step must be offered as an explicit Resume.
+8. In `?mode=demo`, use the original independent fake workflow without Docker, login or connection to Server. No sample sessions have been imported into a fresh Server.
 
 The additive `0013_benchmark_sessions` migration adds only new tables, foreign keys, constraints and immutable guards; no existing business records are modified or backfilled. The current verified PostgreSQL + evidence backup and isolated staging mechanisms cover these draft records. There is no destructive migration, schema conversion or automatic production data promotion.

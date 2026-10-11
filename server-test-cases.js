@@ -10,7 +10,8 @@
     ["environment","Environment / setup"],
   ];
   function mount(root, csrf, escapeHtml) {
-    var allowed=false, canWrite=false, ticket=0, cases=[], tasks=[], editing=null, mode="create";
+    var allowed=false, canWrite=false, ticket=0, cases=[], tasks=[], editing=null, mode="create",
+      activeDraft=null;
     function el(query) { return root.querySelector(query); }
     function status(message,error) {
       var node=el("#case-status");
@@ -24,8 +25,14 @@
       }
       var response=await fetch("/api/v1/"+path,options);
       var data=await response.json().catch(function(){return {};});
-      if(!response.ok) throw Error(data.detail || data.error || "HTTP "+response.status);
+      if(!response.ok) throw(window.AICompassRuntime&&window.AICompassRuntime.httpError?
+        window.AICompassRuntime.httpError(response.status,data):
+        Error(data.detail || data.error || "HTTP "+response.status));
       return data;
+    }
+    function failure(error){
+      return window.AICompassRuntime&&window.AICompassRuntime.failureInfo?
+        window.AICompassRuntime.failureInfo(error):{conflict:false,detail:error&&error.message};
     }
     function label(row) {return row.name+" ("+row.id+")";}
     function build() {
@@ -83,6 +90,8 @@
     function editor(source,nextMode){
       mode=nextMode;editing=source;
       var container=el("#case-editor"),p=(source&&source.properties)||{};
+      if(activeDraft&&activeDraft.dispose)activeDraft.dispose();
+      activeDraft=null;
       container.hidden=false;el("#case-detail").hidden=true;
       var name=source?source.name:"",taskId=source?source.task_id:"";
       var taskSelector=mode==="create" ?
@@ -102,11 +111,14 @@
         '<button type="button" id="case-cancel">Cancel</button></form>';
       if(mode==="create"&&taskId)container.querySelector('select[name="task_id"]').value=taskId;
       el("#case-cancel").addEventListener("click",function(){container.hidden=true;});
-      var draft=window.AICompassDrafts && window.AICompassDraftAccount ?
-        window.AICompassDrafts.attach(el("#case-form"),{
-          mode:"server",account:window.AICompassDraftAccount,kind:"test-case-"+mode,
-          id:source?source.id:"new",revision:source?source.revision:"new",schema:"test-case-v1"
-        }):null;
+      var drafts=window.AICompassDrafts,
+          scope=drafts&&drafts.forMode?drafts.forMode("server","test-case-"+mode,{
+            id:source?source.id:"new",revision:source?source.revision:"new",
+            schema:"test-case-v1",label:source?source.name:"New Test Case",
+            guardUnload:true,
+            onConflictReload:function(info){reloadLatestCase(source,info);}}):null;
+      var draft=scope?drafts.attach(el("#case-form"),scope):null;
+      activeDraft=draft;
       el("#case-form").addEventListener("submit",async function(event){
         event.preventDefault();
         if(!allowed||!canWrite)return;
@@ -128,14 +140,43 @@
             result=await api("test-cases/"+encodeURIComponent(source.id)+"/fork","POST",payload);
           }
           if(draft)draft.clear();
+          activeDraft=null;
           container.hidden=true;
           await refresh();
           status("Saved "+result.id+" · "+result.case_version+" · "+result.revision);
           var created=cases.find(function(x){return x.id===result.id;});
           if(created) details(created);
-        }catch(error){if(draft&&/409|revision_conflict/.test(error.message))draft.conflict();status("Test Case save refused: "+error.message,true);}
+        }catch(error){
+          var info=failure(error);
+          if(draft&&info.conflict){
+            var latest=null;
+            if(source&&mode==="edit"){
+              try{latest=await api("test-cases/"+encodeURIComponent(source.id));}catch(_){}
+            }
+            draft.conflict({label:source?source.name:"New Test Case",
+              baseRevision:source?source.revision:"new",
+              latestRevision:latest?latest.revision:"unknown",message:info.detail});
+          }
+          status("Test Case save refused"+(info.conflict?" (409 revision conflict)":
+            info.denied?" (not authorized)":"")+": "+info.detail,true);
+        }
         finally{button.disabled=false;}
       });
+    }
+    /* Reload the newest authoritative Test Case revision; never reapply the draft. */
+    async function reloadLatestCase(source,info){
+      if(!source)return;
+      var run=++ticket;
+      try{
+        var fresh=await api("test-cases/"+encodeURIComponent(source.id));
+        if(!allowed||run!==ticket)return;
+        editor(fresh,"edit");
+        status("Reloaded Test Case "+fresh.id+" at Server revision "+fresh.revision+
+          ". Your unsaved draft stays on this device for manual reapplication.");
+      }catch(error){
+        if(allowed&&run===ticket)status("Could not reload the latest Test Case: "+
+          failure(error).detail,true);
+      }
     }
     async function details(row){
       var generation=ticket,target=el("#case-detail");
@@ -167,6 +208,8 @@
     }
     function setAccess(read,write){
       ++ticket;allowed=!!read;canWrite=!!write&&allowed;
+      if(activeDraft&&activeDraft.dispose)activeDraft.dispose();
+      activeDraft=null;
       cases=[];tasks=[];editing=null;root.replaceChildren();root.hidden=!allowed;
       if(allowed){build();refresh();}
     }

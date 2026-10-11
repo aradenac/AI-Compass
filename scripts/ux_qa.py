@@ -2009,6 +2009,466 @@ def recommendation_lifecycle(browser, base_url, creds, artifacts, viewport):
     finally:
         writer_context.close()
         reviewer_context.close()
+# --- UX-R05 (#124): draft resume, Run stepper, conflict and Run ownership ----
+
+def _demo_counts(page):
+    return page.evaluate("""() => ({campaigns: db.campaigns.length,
+        trials: db.campaignTrials.length, runs: db.runs.length})""")
+
+
+def demo_draft_stepper_journey(browser, demo_url, artifacts, viewport):
+    """Fictional Demo: unsaved campaign/step drafts and one explicit Run close."""
+    context = browser.new_context(viewport=viewport, reduced_motion="reduce")
+    context.tracing.start(screenshots=True, snapshots=True, sources=True)
+    page = context.new_page()
+    page.set_default_timeout(15000)
+    errors = []
+    page.on("pageerror", lambda e: errors.append(str(e)))
+    try:
+        page.goto(demo_url + "?mode=demo&workspace=workgroup", wait_until="domcontentloaded")
+        page.locator('[data-act="login"][data-id="u1"]').click()
+        page.locator(".app").wait_for(state="visible", timeout=20000)
+        page.locator('[data-act="nav"][data-id="benchmark"]').click()
+        before = _demo_counts(page)
+
+        # 1. Unsaved campaign form -> route switch -> Resume restores, Discard writes nothing.
+        page.locator('[data-act="newCampaign"]').first.click()
+        dialog = page.get_by_role("dialog")
+        dialog.wait_for(state="visible")
+        dialog.locator('#modalForm [name="title"]').fill("UX-R05 unsaved Demo campaign")
+        dialog.locator('#modalForm [name="purpose"]').fill(
+            "Unsaved local draft survives a route switch without a Server-like write")
+        assert_no_horizontal_overflow(page)
+        capture(page, artifacts, "demo-uxr05-campaign-draft-" + str(viewport["width"]))
+        dialog.get_by_role("button", name="Close dialog").click()
+        dialog.wait_for(state="hidden")
+        page.locator('[data-act="nav"][data-id="knowledge"]').click()
+        page.locator('[data-act="nav"][data-id="benchmark"]').click()
+        page.locator('[data-act="newCampaign"]').first.click()
+        dialog = page.get_by_role("dialog")
+        dialog.wait_for(state="visible")
+        banner = dialog.locator('[data-draft-banner="campaign"]')
+        banner.wait_for(state="visible", timeout=10000)
+        text = banner.inner_text()
+        if "Unsaved draft on this device" not in text or "not saved" not in text:
+            raise AssertionError("Demo did not offer an explicit resume of the campaign draft: " + text[:200])
+        if dialog.locator('#modalForm [name="title"]').input_value() != "":
+            raise AssertionError("An incompatible or unconfirmed draft was applied without Resume")
+        capture(page, artifacts, "demo-uxr05-campaign-resume-" + str(viewport["width"]))
+        banner.get_by_role("button", name="Resume draft").click()
+        if dialog.locator('#modalForm [name="title"]').input_value() != "UX-R05 unsaved Demo campaign":
+            raise AssertionError("Resume did not restore the unsaved Demo campaign fields")
+        if _demo_counts(page) != before:
+            raise AssertionError("Resuming a local Demo draft wrote a business record")
+        dialog.get_by_role("button", name="Close dialog").click()
+        dialog.wait_for(state="hidden")
+        # Reopen and explicitly discard: neither action may write a business record.
+        page.locator('[data-act="newCampaign"]').first.click()
+        dialog = page.get_by_role("dialog")
+        dialog.wait_for(state="visible")
+        banner = dialog.locator('[data-draft-banner="campaign"]')
+        banner.get_by_role("button", name="Discard").click()
+        if "Draft discarded" not in banner.inner_text():
+            raise AssertionError("Discard did not clear the Demo draft")
+        if _demo_counts(page) != before:
+            raise AssertionError("Discarding a local Demo draft wrote a business record")
+        if page.evaluate("() => Object.keys(localStorage).some(k => k.includes('working-draft'))"):
+            raise AssertionError("Discarded Demo draft was not removed from local storage")
+        dialog.get_by_role("button", name="Close dialog").click()
+        dialog.wait_for(state="hidden")
+
+        # 2. Real Run stepper: setup -> interactions -> results, resumed offline.
+        page.locator('[data-business-record="demo_campaign_planned"] button',
+                     has_text="Open campaign").click()
+        detail = page.get_by_role("dialog")
+        detail.wait_for(state="visible")
+        detail.locator('[data-act="campaignActivate"]').click()
+        detail.locator('[data-act="campaignNewCase"]').click()
+        case_form = page.get_by_role("dialog")
+        case_form.wait_for(state="visible")
+        case_form.locator('#modalForm [name="title"]').fill("UX-R05 stepper challenge")
+        case_form.locator('#modalForm [name="objective"]').fill("Verify the Run stepper")
+        case_form.locator('#modalForm [name="dod"]').fill("Finalize exactly once")
+        case_form.locator(".modal-footer button[type=submit]").click()
+        case_form.locator('[data-act="campaignStartTrial"]').first.wait_for(
+            state="visible", timeout=15000)
+        case_form.locator('[data-act="campaignStartTrial"]').first.click()
+        setup = page.get_by_role("dialog")
+        setup.wait_for(state="visible")
+        for kind in ("modelComponent", "providerComponent", "harnessComponent"):
+            options = [value for value in page.eval_on_selector_all(
+                f'#modalForm [name={kind}] option', "els => els.map(e => e.value)") if value]
+            if options:
+                setup.locator(f'#modalForm [name="{kind}"]').select_option(options[0])
+        setup.locator('#modalForm [name="configuration"]').fill("model=alpha; harness=beta")
+        setup.locator('#modalForm [name="installationGuide"]').select_option("guide_install_mock")
+        setup.locator('#modalForm [name="setupMinutes"]').fill("30")
+        # Keep this Run on the legacy manual-cost path so the results step stays
+        # focused on draft/stepper behaviour instead of the fictional tariff example.
+        setup.locator('#modalForm [name="tariffPlan"]').fill("")
+        before_setup = _demo_counts(page)
+        setup.locator(".modal-footer button[type=submit]").click()
+        interactions = page.get_by_role("dialog")
+        interactions.wait_for(state="visible", timeout=15000)
+        if "Timed interactions" not in interactions.inner_text():
+            raise AssertionError("Saving the setup step did not open the Interactions step")
+        after_setup = _demo_counts(page)
+        if after_setup["trials"] != before_setup["trials"] + 1:
+            raise AssertionError("The setup step did not create exactly one session: " +
+                                 json.dumps(after_setup))
+        interactions.locator('#modalForm [name="description"]').fill(
+            "UNSAVED-UXR05 interaction body")
+        interactions.get_by_role("button", name="Close dialog").click()
+        interactions.wait_for(state="hidden")
+        page.locator('[data-business-record="demo_campaign_planned"] button',
+                     has_text="Open campaign").click()
+        detail = page.get_by_role("dialog")
+        detail.wait_for(state="visible")
+        stepper = detail.locator("ol.shared-draft-step[data-trial-steps]")
+        stepper.wait_for(state="visible", timeout=15000)
+        if stepper.locator('li[aria-current="step"]').inner_text().strip().startswith("2") is False:
+            raise AssertionError("Demo Run stepper does not mark the current step")
+        capture(page, artifacts, "demo-uxr05-run-stepper-" + str(viewport["width"]))
+        detail.locator('[data-act="campaignResumeTrial"]').first.click()
+        interactions = page.get_by_role("dialog")
+        interactions.wait_for(state="visible")
+        interactions_banner = interactions.locator('[data-draft-banner="campaignInteraction"]')
+        interactions_banner.wait_for(state="visible", timeout=10000)
+        if _demo_counts(page) != after_setup:
+            raise AssertionError("Reopening the Run step created a phantom session")
+        interactions_banner.get_by_role("button", name="Resume draft").click()
+        if interactions.locator('#modalForm [name="description"]').input_value() != \
+                "UNSAVED-UXR05 interaction body":
+            raise AssertionError("Resume did not restore the unsaved Run interaction input")
+        count_after_resume = _demo_counts(page)
+        if count_after_resume != after_setup:
+            raise AssertionError("Resuming unsaved Run input wrote a session or Run")
+
+        # 3. Finish the Run once and confirm no duplicate Run appears.
+        interactions.locator(".modal-footer button[type=submit]").click()
+        interactions.wait_for(state="visible", timeout=15000)
+        interactions.locator('[data-act="campaignFinishIterations"]').click()
+        outcome = page.get_by_role("dialog")
+        outcome.wait_for(state="visible")
+        outcome.locator('#modalForm [name="score"]').fill("72")
+        outcome.locator('#modalForm [name="utility"]').fill("64")
+        outcome.locator('#modalForm [name="reviewMinutes"]').fill("5")
+        outcome.locator('#modalForm [name="correctionMinutes"]').fill("2")
+        outcome.locator('#modalForm [name="outputDocuments"]').fill(
+            "UX-R05 produced driver diff and test log")
+        outcome.locator('#modalForm [name="costMode"]').select_option("amount")
+        outcome.locator('#modalForm [name="cost"]').fill("12")
+        runs_before = count_after_resume["runs"]
+        outcome.locator(".modal-footer button[type=submit]").click()
+        page.wait_for_timeout(1200)
+        final = _demo_counts(page)
+        if final["runs"] != runs_before + 1:
+            raise AssertionError("Run was not finalized exactly once: " + json.dumps(final))
+        capture(page, artifacts, "demo-uxr05-run-finalized-" + str(viewport["width"]))
+        page.reload(wait_until="domcontentloaded")
+        page.wait_for_timeout(800)
+        reloaded = _demo_counts(page)
+        if reloaded["runs"] != runs_before + 1:
+            raise AssertionError("Reload duplicated a finalized Demo Run: " + json.dumps(reloaded))
+        if errors:
+            raise AssertionError("Demo JS runtime error(s): " + "; ".join(errors[:3]))
+        return {"draft_resume": True, "run_steps": "setup→interactions→results",
+                "runs_without_duplicate": 1}
+    finally:
+        context.tracing.stop(path=str(artifacts / ("demo-uxr05-" + str(viewport["width"]) + ".zip")))
+        context.close()
+
+
+# Fixture creation runs through the real authenticated API inside the browser
+# session, so every object used by the UX-R05 journeys is a genuine Django record.
+SERVER_FIXTURE_JS = r"""async () => {
+  const csrf = () => document.cookie.split('; ')
+    .find(c => c.startsWith('csrftoken=')).split('=')[1];
+  const call = async (path, method, body) => {
+    const r = await fetch('/api/v1/' + path, {method: method || 'GET', credentials: 'same-origin',
+      cache: 'no-store',
+      headers: method && method !== 'GET' ? {'Content-Type': 'application/json',
+        'X-CSRFToken': csrf()} : {},
+      body: method && method !== 'GET' ? JSON.stringify(body) : undefined});
+    let data = null;
+    try { data = await r.json(); } catch (e) { data = null; }
+    return {status: r.status, data: data};
+  };
+  const stamp = String(Date.now()).slice(-6);
+  const kinds = ['model', 'provider', 'harness'];
+  const comps = {};
+  for (const kind of kinds) {
+    const res = await call(kind === 'model' ? 'models' : 'catalog/' + kind, 'POST',
+      {name: 'UXR05 ' + kind + ' ' + stamp, properties: {}});
+    if (res.status !== 201) return {error: 'component ' + kind + ' ' + res.status};
+    comps[kind] = res.data.id || res.data.item.id;
+  }
+  const offers = {};
+  for (const kind of kinds) {
+    const res = await call('pricing/offers', 'POST', {name: 'UXR05 offer ' + kind + ' ' + stamp,
+      properties: {component_id: comps[kind], billing_owner: kind + '-owner', currency: 'EUR',
+        source: 'https://example.invalid/uxr05', checked_on: '2026-10-11', status: 'active',
+        effective_from: null, effective_to: null,
+        lines: [{charge_id: kind + '-tokens', family: 'token', charge_type: 'variable',
+          meter: 'input_tokens', unit_size: 1000000, rate: '2.500'}]}});
+    if (res.status !== 201) return {error: 'offer ' + kind + ' ' + res.status};
+    offers[kind] = res.data;
+  }
+  const task = await call('tasks', 'POST', {name: 'UXR05 draft task ' + stamp, properties: {}});
+  if (task.status !== 201) return {error: 'task ' + task.status};
+  const testCase = await call('test-cases', 'POST', {name: 'UXR05 draft challenge ' + stamp,
+    task_id: task.data.id, properties: {objective: 'Verify drafts and stepper',
+      dod: 'One Run, never a phantom session'}});
+  if (testCase.status !== 201) return {error: 'case ' + testCase.status};
+  const selection = kind => ({source_key: 'root:' + kind, component_id: comps[kind],
+    offer_id: offers[kind].id, offer_revision_id: offers[kind].revision_id});
+  const campaign = await call('campaigns', 'POST', {name: 'UXR05 draft campaign ' + stamp,
+    objective: 'Verify conflict-safe concurrent editing', mode: 'solution_centred',
+    method_version: 1, component_ids: comps, test_case_ids: [testCase.data.id],
+    configuration: {}, pricing_selections: kinds.map(selection)});
+  if (campaign.status !== 201) return {error: 'campaign ' + campaign.status};
+  const row = campaign.data.campaign || campaign.data;
+  const started = await call('campaigns/' + row.id + '/actions/start', 'POST',
+    {expected_revision: row.revision});
+  if (started.status !== 200) return {error: 'start ' + started.status};
+  const session = await call('campaigns/' + row.id + '/sessions', 'POST',
+    {test_case_id: testCase.data.id});
+  if (session.status !== 201) return {error: 'session ' + session.status +
+    ' ' + JSON.stringify(session.data)};
+  return {campaign: row.id, session: session.data.id, case: testCase.data.id,
+    task: task.data.id, owner: 'alice', stamp: stamp};
+}"""
+
+
+def _server_login(page, base_url, creds, role, path="/?mode=server&workspace=workgroup"):
+    page.goto(base_url + path, wait_until="domcontentloaded")
+    page.locator("#server-login-form").wait_for(state="visible", timeout=25000)
+    page.locator("#server-username").fill(creds[role]["username"])
+    page.locator("#server-password").fill(creds[role]["password"])
+    page.get_by_role("button", name="Sign in to Server").click()
+    page.locator('#ux-screen-host[data-ux-current]').wait_for(state="visible", timeout=25000)
+    page.locator("#server-login-form").wait_for(state="hidden", timeout=25000)
+
+
+def _row(payload):
+    """Campaign reads may be returned directly or wrapped in {campaign: ...}."""
+    if isinstance(payload, dict) and isinstance(payload.get("campaign"), dict):
+        return payload["campaign"]
+    return payload
+
+
+def _api(page, path, method="GET", body=None):
+    return page.evaluate("""async ({path, method, body}) => {
+      const csrf = () => document.cookie.split('; ')
+        .find(c => c.startsWith('csrftoken=')).split('=')[1];
+      const r = await fetch('/api/v1/' + path, {method, credentials: 'same-origin',
+        cache: 'no-store',
+        headers: method !== 'GET' ? {'Content-Type': 'application/json',
+          'X-CSRFToken': csrf()} : {},
+        body: method !== 'GET' ? JSON.stringify(body || {}) : undefined});
+      let data = null;
+      try { data = await r.json(); } catch (e) { data = null; }
+      return {status: r.status, data: data};
+    }""", {"path": path, "method": method, "body": body})
+
+
+def server_draft_stepper_conflict_journey(browser, base_url, creds, artifacts, viewport):
+    """Real Server: local Run/step draft, 409 conflict retention and Run ownership."""
+    alice = browser.new_context(viewport=viewport, reduced_motion="reduce")
+    bob = browser.new_context(viewport=viewport, reduced_motion="reduce")
+    page_a = alice.new_page(); page_b = bob.new_page()
+    for page in (page_a, page_b):
+        page.set_default_timeout(15000)
+    errors = []
+    page_a.on("pageerror", lambda e: errors.append("alice:" + str(e)))
+    page_b.on("pageerror", lambda e: errors.append("bob:" + str(e)))
+    writes = []
+    page_a.on("request", lambda r: writes.append(r.method + " " + r.url)
+              if r.method in ("POST", "PATCH") and "/api/v1/sessions/" in r.url else None)
+    traced = False
+    try:
+        _server_login(page_a, base_url, creds, "workgroup",
+                      "/?mode=server&workspace=workgroup&section=benchmark&view=editor")
+        _server_login(page_b, base_url, creds, "multi_role",
+                      "/?mode=server&workspace=workgroup&section=benchmark&view=editor")
+        alice.tracing.start(screenshots=True, snapshots=True, sources=True)
+        bob.tracing.start(screenshots=True, snapshots=True, sources=True)
+        traced = True
+        fixtures = page_a.evaluate(SERVER_FIXTURE_JS)
+        if fixtures.get("error"):
+            raise AssertionError("Real Server fixture creation failed: " + fixtures["error"])
+        campaign, session = fixtures["campaign"], fixtures["session"]
+
+        # 1. The Server Run stepper is local-only: no checkpoint on navigation.
+        page_a.goto(base_url + "/?mode=server&workspace=workgroup&section=benchmark&view=editor",
+                    wait_until="domcontentloaded")
+        page_a.locator(f'[data-id="{campaign}"][data-action="sessions"]').wait_for(
+            state="visible", timeout=30000)
+        page_a.locator(f'[data-id="{campaign}"][data-action="sessions"]').click()
+        page_a.locator(f'[data-open-session="{session}"]').wait_for(state="visible", timeout=30000)
+        page_a.locator(f'[data-open-session="{session}"]').click()
+        stepper = page_a.locator("#session-stepper")
+        stepper.wait_for(state="visible", timeout=30000)
+        steps = stepper.locator("[data-session-goto]")
+        if steps.count() < 3:
+            raise AssertionError("Server Run stepper lacks sequential steps")
+        panels = page_a.locator("[data-session-panel]")
+        visible = page_a.locator("[data-session-panel]:not([hidden])")
+        writes.clear()
+        for index in range(steps.count()):
+            steps.nth(index).click()
+            if visible.count() != 1:
+                raise AssertionError("Exactly one Run step panel must be visible")
+        if writes:
+            raise AssertionError("Step navigation wrote checkpoints: " + str(writes[:2]))
+        capture(page_a, artifacts, "server-uxr05-run-stepper-" + str(viewport["width"]))
+
+        # 2. Unsaved step input survives leaving the screen and is resumed explicitly.
+        steps.filter(has_text="Interactions").first.click()
+        page_a.locator("#session-interaction [name=content]").fill(
+            "UXR05 unsaved interaction content")
+        page_a.goto(base_url + "/?mode=server&workspace=workgroup&section=guides&view=editor",
+                    wait_until="domcontentloaded")
+        page_a.goto(base_url + "/?mode=server&workspace=workgroup&section=benchmark&view=editor",
+                    wait_until="domcontentloaded")
+        page_a.locator(f'[data-id="{campaign}"][data-action="sessions"]').wait_for(
+            state="visible", timeout=30000)
+        page_a.locator(f'[data-id="{campaign}"][data-action="sessions"]').click()
+        page_a.locator(f'[data-open-session="{session}"]').click()
+        banner = page_a.locator('[data-draft-banner="session"]')
+        banner.wait_for(state="visible", timeout=30000)
+        if "Unsaved draft on this device" not in banner.inner_text():
+            raise AssertionError("Server Run draft was not offered for resume")
+        if page_a.locator("#session-interaction [name=content]").input_value() != "":
+            raise AssertionError("A Server Run draft was applied without explicit Resume")
+        capture(page_a, artifacts, "server-uxr05-run-resume-" + str(viewport["width"]))
+        banner.get_by_role("button", name="Resume draft").click()
+        if page_a.locator("#session-interaction [name=content]").input_value() != \
+                "UXR05 unsaved interaction content":
+            raise AssertionError("Resume did not restore the unsaved Server Run input")
+        if not page_a.locator('[data-session-panel="interactions"]').is_visible():
+            raise AssertionError("Resume did not return to the remembered Run step")
+
+        # 3. Explicit saves: one checkpoint per action, never a duplicate Run.
+        before_state = _api(page_a, "sessions/" + session)
+        revision_before = before_state["data"]["revision"]
+        page_a.locator("#session-stepper [data-session-goto]").filter(has_text="Setup").first.click()
+        page_a.locator('[data-session-panel="setup"]').wait_for(state="visible")
+        page_a.locator("#session-save-setup").click()
+        page_a.wait_for_function(
+            "rev => document.getElementById('session-revision').textContent !== rev",
+            arg=revision_before, timeout=20000)
+        if page_a.locator("#session-interaction [name=content]").input_value() != \
+                "UXR05 unsaved interaction content":
+            raise AssertionError("Saving one Run step discarded unsaved input in another step")
+        page_a.locator("#session-stepper [data-session-goto]").filter(
+            has_text="Interactions").first.click()
+        page_a.locator("#session-add-interaction").click()
+        page_a.wait_for_function(
+            "() => document.querySelectorAll('#session-timeline details').length === 1",
+            timeout=20000)
+        after_state = _api(page_a, "sessions/" + session)
+        if len(after_state["data"]["state"]["interactions"]) != 1:
+            raise AssertionError("Interaction checkpoint did not persist exactly once")
+        sessions_list = _api(page_a, f"campaigns/{campaign}/sessions")
+        if len(sessions_list["data"]["results"]) != 1:
+            raise AssertionError("Stepper/save flow generated a phantom session")
+        runs = _api(page_a, f"runs?campaign_id={campaign}")
+        if runs["data"]["results"]:
+            raise AssertionError("Step navigation created an unintended Run")
+
+        # 4. A second contributor cannot write alice's active Run, but can start their own.
+        page_b.goto(base_url + "/?mode=server&workspace=workgroup&section=benchmark&view=editor",
+                    wait_until="domcontentloaded")
+        page_b.locator(f'[data-id="{campaign}"][data-action="sessions"]').wait_for(
+            state="visible", timeout=30000)
+        page_b.locator(f'[data-id="{campaign}"][data-action="sessions"]').click()
+        page_b.locator(f'[data-open-session="{session}"]').click()
+        page_b.locator("#session-stepper").wait_for(state="visible", timeout=30000)
+        checkpoints_before = _api(page_b, "sessions/" + session + "/checkpoints")
+        page_b.locator("#session-save-setup").click()
+        page_b.locator("#session-status").filter(
+            has_text="one experimenter").wait_for(state="visible", timeout=20000)
+        checkpoints_after = _api(page_b, "sessions/" + session + "/checkpoints")
+        if len(checkpoints_before["data"]["checkpoints"]) != \
+                len(checkpoints_after["data"]["checkpoints"]):
+            raise AssertionError("A refused co-worker write appended a checkpoint")
+        denied = _api(page_b, "sessions/" + session + "/setup", "PATCH",
+                      {"expected_revision": after_state["data"]["revision"], "notes": "tamper"})
+        if denied["status"] != 403:
+            raise AssertionError("Backend accepted a foreign Run write: " +
+                                 str(denied["status"]))
+        capture(page_b, artifacts, "server-uxr05-run-ownership-" + str(viewport["width"]))
+        # Dismiss the promoted Run dialog before starting a separate own session.
+        page_b.get_by_role("button", name="Close dialog").click()
+        page_b.locator("#session-create").click()
+        page_b.wait_for_function(
+            "() => document.querySelectorAll('[data-open-session]').length === 2",
+            timeout=25000)
+        own = _api(page_b, f"campaigns/{campaign}/sessions")
+        if len(own["data"]["results"]) != 2:
+            raise AssertionError("A co-worker could not start a separate permitted Run session")
+
+        # 5. Concurrent Campaign edit: 409 with the draft intact and no overwrite.
+        page_b.goto(base_url + "/?mode=server&workspace=workgroup&section=benchmark&view=editor",
+                    wait_until="domcontentloaded")
+        page_b.locator(f'[data-id="{campaign}"][data-action="edit"]').wait_for(
+            state="visible", timeout=30000)
+        page_b.locator(f'[data-id="{campaign}"][data-action="edit"]').click()
+        editor = page_b.locator("#campaign-form")
+        editor.wait_for(state="visible")
+        editor.locator('[name="name"]').fill("UXR05 Bob concurrent edit")
+        editor.locator('[name="objective"]').fill("Bob unsaved concurrent change")
+        page_b.locator('[data-draft-banner="campaign"]').filter(
+            has_text="Unsaved draft on this device").wait_for(state="visible", timeout=10000)
+        # Alice commits the newer revision from her own authenticated session.
+        page_a.goto(base_url + "/?mode=server&workspace=workgroup&section=benchmark&view=editor",
+                    wait_until="domcontentloaded")
+        page_a.locator(f'[data-id="{campaign}"][data-action="edit"]').wait_for(
+            state="visible", timeout=30000)
+        page_a.locator(f'[data-id="{campaign}"][data-action="edit"]').click()
+        alice_editor = page_a.locator("#campaign-form")
+        alice_editor.wait_for(state="visible")
+        alice_name = "UXR05 alice revision " + fixtures["stamp"]
+        alice_editor.locator('[name="name"]').fill(alice_name)
+        alice_editor.locator('button[type="submit"]').click()
+        page_a.locator("#campaign-status").filter(
+            has_text="new immutable Server revision").wait_for(state="visible", timeout=25000)
+        latest = _api(page_a, "campaigns/" + campaign)
+        new_revision = _row(latest["data"])["revision"]
+        editor.locator('button[type="submit"]').click()
+        notice = page_b.locator(".shared-conflict-notice")
+        notice.wait_for(state="visible", timeout=25000)
+        text = notice.inner_text()
+        for expected in ["changed since you opened it", new_revision, "preserved"]:
+            if expected not in text:
+                raise AssertionError("409 conflict notice missing " + expected + ": " + text[:240])
+        if editor.locator('[name="name"]').input_value() != "UXR05 Bob concurrent edit":
+            raise AssertionError("A 409 overwrote the collaborator's unsaved Campaign draft")
+        authoritative = _api(page_a, "campaigns/" + campaign)
+        if _row(authoritative["data"])["name"] != alice_name:
+            raise AssertionError("A stale write replaced the newer Campaign revision")
+        capture(page_b, artifacts, "server-uxr05-conflict-" + str(viewport["width"]))
+        notice.get_by_role("button", name="Reload latest").click()
+        editor = page_b.locator("#campaign-form")
+        editor.wait_for(state="visible")
+        page_b.wait_for_function(
+            "name => document.querySelector('#campaign-form [name=name]').value === name",
+            arg=alice_name, timeout=25000)
+        if "Copy my unsaved text" not in page_b.locator(
+                '[data-draft-banner="campaign"]').inner_text():
+            raise AssertionError("Reload latest discarded the unsaved draft without recovery")
+        if errors:
+            raise AssertionError("Server JS runtime error(s): " + "; ".join(errors[:3]))
+        return {"run_stepper": "local-only", "session_checkpoints": 2,
+                "conflict": "409 retained draft", "ownership": "creator-only writes"}
+    finally:
+        if traced:
+            alice.tracing.stop(path=str(artifacts / ("server-uxr05-alice-" +
+                                                     str(viewport["width"]) + ".zip")))
+            bob.tracing.stop(path=str(artifacts / ("server-uxr05-bob-" +
+                                                   str(viewport["width"]) + ".zip")))
+        alice.close(); bob.close()
 
 
 def run_tests(base_url, demo_url, credentials, artifacts):
@@ -2045,12 +2505,17 @@ def run_tests(base_url, demo_url, credentials, artifacts):
             viewports = [{"width": 1366, "height": 900}]
             for viewport in viewports:
                 width = viewport["width"]
+                run(f"Standalone Demo draft/Run-stepper {width}",
+                    lambda v=viewport: demo_draft_stepper_journey(browser, demo_url, directory, v))
                 run(f"Standalone Demo workgroup {width}",
                     lambda v=viewport: demo_journey(browser, demo_url, directory, "u1", "workgroup", v))
                 run(f"Standalone Demo engineer {width}",
                     lambda v=viewport: demo_journey(browser, demo_url, directory, "u2", "engineer", v))
                 run(f"Standalone Demo management {width}",
                     lambda v=viewport: demo_journey(browser, demo_url, directory, "u3", "management", v))
+                run(f"Authenticated Server draft/stepper/conflict/ownership {width}",
+                    lambda v=viewport: server_draft_stepper_conflict_journey(
+                        browser, base_url, creds, directory, v))
                 for role in ROLES:
                     run(f"Authenticated Server {role} {width}",
                         lambda k=role, v=viewport: server_journey(
@@ -2073,7 +2538,7 @@ def run_tests(base_url, demo_url, credentials, artifacts):
     failed = [record for record in records if record["result"] == "FAIL"]
     report = {
         "version": 1,
-        "suite": "UX-R03 Chromium role-journey and contextual-origin acceptance",
+        "suite": "UX-R05 Chromium draft, Run stepper, conflict and ownership acceptance",
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "status": "FAIL" if failed else "PASS",
         "ui_conformance": "CONTEXTUAL_JOURNEYS_CHECKED; MANUAL_STAGING_AND_FULL_PERSONA_DATA_REQUIRE_SEPARATE_REVIEW",

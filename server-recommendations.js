@@ -3,7 +3,7 @@
 (function(){
 "use strict";
 function mount(root,csrf,escapeHtml){
-  var active=false,writer=false,reviewer=false,generation=0;
+  var active=false,writer=false,reviewer=false,generation=0,activeDraft=null;
   var recommendations=[],tasks=[],solutions=[],runs=[],evaluations=[];
   function $(q){return root.querySelector(q);}
   function esc(value){return escapeHtml(value==null?"":String(value));}
@@ -18,8 +18,14 @@ function mount(root,csrf,escapeHtml){
     }
     var response=await fetch("/api/v1/"+path,options);
     var result=await response.json().catch(function(){return {};});
-    if(!response.ok)throw Error(result.detail||result.error||"HTTP "+response.status);
+    if(!response.ok)throw(window.AICompassRuntime&&window.AICompassRuntime.httpError?
+      window.AICompassRuntime.httpError(response.status,result):
+      Error(result.detail||result.error||"HTTP "+response.status));
     return result;
+  }
+  function failure(error){
+    return window.AICompassRuntime&&window.AICompassRuntime.failureInfo?
+      window.AICompassRuntime.failureInfo(error):{conflict:false,detail:error&&error.message};
   }
   function status(message,error){
     var node=$("#rec-status");
@@ -126,6 +132,8 @@ function mount(root,csrf,escapeHtml){
   function form(row){
     if(!writer)return;
     var p=row&&row.properties||{},area=$("#rec-editor");area.hidden=false;
+    if(activeDraft&&activeDraft.dispose)activeDraft.dispose();
+    activeDraft=null;
     area.innerHTML='<h3>'+(row?"Revise original recommendation":"Draft a new recommendation")+'</h3>'+
       '<form id="rec-form">'+
       window.AICompassWorkgroup.renderDomainFields(
@@ -147,6 +155,12 @@ function mount(root,csrf,escapeHtml){
       '<button type="submit">Save immutable draft</button> <button type="button" id="rec-cancel">Cancel</button>'+
       '</form>';
     $("#rec-cancel").addEventListener("click",function(){area.hidden=true;});
+    var drafts=window.AICompassDrafts,
+        scope=drafts&&drafts.forMode?drafts.forMode("server","recommendation",{
+          id:row?row.id:"new",revision:row?row.revision:"new",schema:"recommendation-v1",
+          label:row?row.name:"New editorial recommendation",guardUnload:true,
+          onConflictReload:function(info){reloadLatest(row,info);}}):null;
+    activeDraft=scope?drafts.attach($("#rec-form"),scope):null;
     $("#rec-form").addEventListener("submit",async function(event){
       event.preventDefault();var f=event.target,button=f.querySelector('[type="submit"]');button.disabled=true;
       try{
@@ -164,12 +178,42 @@ function mount(root,csrf,escapeHtml){
         if(row)record.expected_revision=row.revision;
         var response=await api("recommendations"+(row?"/"+encodeURIComponent(row.id):""),
                                row?"PATCH":"POST",record);
-        if(!active)return;area.hidden=true;await refresh();
+        if(!active)return;
+        if(activeDraft&&activeDraft.clear)activeDraft.clear();
+        activeDraft=null;
+        area.hidden=true;await refresh();
         status("Saved "+(response.record||response).revision+
                "; previous published recommendation remains visible until withdrawal.");
-      }catch(error){status("Recommendation NOT saved: "+error.message,true);}
+      }catch(error){
+        var info=failure(error);
+        if(activeDraft&&info.conflict){
+          var latest=null;
+          if(row){try{latest=await api("recommendations/"+encodeURIComponent(row.id));}catch(_){}}
+          activeDraft.conflict({label:row?row.name:"New editorial recommendation",
+            baseRevision:row?row.revision:"new",
+            latestRevision:latest?latest.revision:"unknown",message:info.detail});
+        }
+        status("Recommendation NOT saved"+(info.conflict?" (409 revision conflict)":
+          info.denied?" (not authorized)":"")+": "+info.detail,true);
+      }
       finally{button.disabled=false;}
     });
+  }
+  /* Reload the newest authoritative recommendation; never reapply the draft. */
+  async function reloadLatest(row,info){
+    if(!row)return;
+    var ticket=++generation;
+    try{
+      var fresh=await api("recommendations/"+encodeURIComponent(row.id));
+      if(!active||ticket!==generation)return;
+      var record=fresh.record||fresh;
+      form(record);
+      status("Reloaded recommendation "+record.id+" at Server revision "+record.revision+
+        ". Your unsaved draft stays on this device for manual reapplication.");
+    }catch(error){
+      if(active&&ticket===generation)status("Could not reload the latest recommendation: "+
+        failure(error).detail,true);
+    }
   }
   async function transition(row,action){
     if(action==="submit"&&!writer)return;
@@ -188,7 +232,25 @@ function mount(root,csrf,escapeHtml){
       await api("recommendations/"+encodeURIComponent(row.id)+"/actions/"+action,
                 "POST",payload);
       await refresh();status("Recommendation "+action+" action recorded as an immutable, attributable revision.");
-    }catch(error){status("Review action refused: "+error.message,true);}
+    }catch(error){
+      var info=failure(error);
+      var host=$("#rec-list");
+      if(info.conflict&&host&&window.AICompassDrafts&&window.AICompassDrafts.notice){
+        window.AICompassDrafts.notice(host,{kind:"recommendation-conflict",tone:"error",
+          title:"Conflict: recommendation "+row.id+" changed since it was opened",
+          message:info.detail+" Nothing was overwritten or merged; review the latest revision and reapply manually.",
+          actions:[
+            {label:"Reload latest",primary:true,onClick:function(){
+              refresh().then(function(){status("Reloaded the latest recommendation revision.");});}},
+            {label:"Copy my review note",onClick:function(){
+              if(note)window.AICompassDrafts.copyText(note);}},
+            {label:"Discard my note",onClick:function(){
+              status("Unsaved review note discarded. Server data was never overwritten.");}}
+          ]});
+      }
+      status("Review action refused"+(info.conflict?" (409 revision conflict)":
+        info.denied?" (not authorized)":"")+": "+info.detail,true);
+    }
   }
   /* One shared Recommendation detail projection: exact immutable revisions,
    * decision/rationale/limitations and the original measured Run references.
@@ -249,6 +311,8 @@ function mount(root,csrf,escapeHtml){
   function setAccess(read,write,review){
     ++generation;active=!!read;writer=active&&!!write;reviewer=active&&!!review;
     recommendations=[];tasks=[];solutions=[];runs=[];evaluations=[];
+    if(activeDraft&&activeDraft.dispose)activeDraft.dispose();
+    activeDraft=null;
     root.replaceChildren();root.hidden=!active;
     if(active){init();refresh();}
   }

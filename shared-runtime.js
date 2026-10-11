@@ -20,6 +20,32 @@
     e.status = status; e.code = code;
     return e;
   }
+  /* UX-R05: preserve the authoritative detail so 409/403 can be shown as a
+   * first-class conflict notice instead of a generic failure line. */
+  function httpError(status, payload) {
+    var e = error(status, payload);
+    e.detail = (payload && (payload.detail || (payload.error && payload.error.detail))) || e.message;
+    e.payload = payload || {};
+    e.conflict = status === 409;
+    e.denied = status === 403 || status === 401;
+    return e;
+  }
+  /* Normalize anything thrown by a module's own fetch wrapper or the shared
+   * transport into the same shape, without assuming a particular module. */
+  function failureInfo(cause) {
+    var error_ = cause || {};
+    var payload = error_.payload || {};
+    return {
+      status: Number(error_.status) || 0,
+      code: error_.code || (payload.error && payload.error.code) || null,
+      detail: error_.detail || (payload.detail) || error_.message || String(cause),
+      baseRevision: payload.expected_revision || payload.base_revision || null,
+      latestRevision: payload.revision || payload.latest_revision || null,
+      objectId: payload.id || payload.public_id || null,
+      conflict: Number(error_.status) === 409,
+      denied: Number(error_.status) === 403 || Number(error_.status) === 401
+    };
+  }
   function ServerTransport(fetcher, csrf) {
     async function request(path, method, payload) {
       if (typeof path !== "string" || !path.startsWith("/api/v1/"))
@@ -36,7 +62,7 @@
       var data;
       try { data = await response.json(); }
       catch (_) { throw error(response.status, {error: "invalid_server_json"}); }
-      if (!response.ok) throw error(response.status, data);
+      if (!response.ok) throw httpError(response.status, data);
       return data;
     }
     return {request: request};
@@ -81,7 +107,8 @@
   }
   root.AICompassRuntime = {
     MODES: MODES, modeFromLocation: modeFromLocation, ServerTransport: ServerTransport,
-    error: error, availablePersonas: availablePersonas, choosePersona: choosePersona,
+    error: error, httpError: httpError, failureInfo: failureInfo,
+    availablePersonas: availablePersonas, choosePersona: choosePersona,
     renderPersonaLinks: renderPersonaLinks, createProviders: createProviders
   };
 })(window);

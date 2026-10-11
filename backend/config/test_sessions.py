@@ -269,8 +269,9 @@ class BenchmarkSessionTests(TestCase):
         self.assertEqual(self.call(b+"/interactions",{"expected_revision":"r002",
                  "content":"Foreign agent","participant_id":"ptp-fake"}).status_code,400)
 
-        # Contributor B may create and update their own draft in a shared campaign;
-        # contributor C cannot mutate it, but campaign owner A can.
+        # UX-R05 §10.1: one experimenter owns one active Run. Contributor B may
+        # create and update their own session in a shared campaign; contributor C
+        # and even the campaign owner A cannot write B's active session.
         another=Client(enforce_csrf_checks=True)
         another.force_login(self.other);another.get("/api/v1/auth/csrf")
         token=another.cookies["csrftoken"].value
@@ -288,7 +289,17 @@ class BenchmarkSessionTests(TestCase):
           content_type="application/json",
           HTTP_X_CSRFTOKEN=outsider.cookies["csrftoken"].value).status_code,403)
         self.assertEqual(self.call("/api/v1/sessions/"+other_session["id"]+"/setup",{
-          "expected_revision":"r001","notes":"Campaign owner review"},"PATCH").status_code,200)
+          "expected_revision":"r001","notes":"Campaign owner review"},"PATCH").status_code,403)
+        self.assertEqual(self.client.get("/api/v1/sessions/"+other_session["id"]).status_code,200)
+        self.assertEqual(SessionCheckpoint.objects.filter(
+            session__public_id=other_session["id"]).count(),1,
+            "a refused co-worker write never appends a checkpoint")
+        owned=another.patch("/api/v1/sessions/"+other_session["id"]+"/setup",
+          data=json.dumps({"expected_revision":"r001","notes":"Own experiment"}),
+          content_type="application/json",
+          HTTP_X_CSRFTOKEN=token)
+        self.assertEqual(owned.status_code,200,owned.content)
+        self.assertEqual(owned.json()["state"]["setup"]["notes"],"Own experiment")
         anon=Client()
         self.assertEqual(anon.get(b).status_code,401)
         maintenance=Client();maintenance.force_login(self.maint)

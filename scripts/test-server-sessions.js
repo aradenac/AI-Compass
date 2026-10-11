@@ -24,6 +24,20 @@ assert(js.includes("server-confirmed revision"));
 assert(js.includes("evidence_link_ids"));
 assert(js.includes('"/interactions","POST"'));
 assert(js.includes('"/setup","PATCH"'));
+/* UX-R05: a real sequential stepper whose navigation is local-only. */
+assert(js.includes("data-session-goto"),"Run stepper must expose explicit step buttons");
+assert(js.includes("shared-draft-step"),"Run stepper reuses the shared step presentation");
+assert(js.includes("data-session-panel"),"Run steps must be real panels, not one long page");
+assert(js.includes("Moving between steps writes nothing"),
+  "step navigation must never commit a checkpoint");
+assert(js.includes("drafts.forMode(\"server\",\"session\""),
+  "unsaved Run input must use the scoped ephemeral draft helper");
+assert(js.includes("draftHandle.rebase"),"a confirmed save must move the local draft base");
+assert(js.includes("draftHandle.conflict"),"409 must surface as an explicit conflict notice");
+assert(js.includes("one experimenter owns one Run"),
+  "ownership refusal must explain the single-writer Run rule");
+assert(!js.includes("localStorage")&&!js.includes("sessionStorage"),
+  "the session module must not touch browser storage directly");
 
 const root={
  hidden:true,innerHTML:"",replaceChildren(){this.innerHTML="";},

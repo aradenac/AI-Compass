@@ -29,7 +29,7 @@ All requested output values are validated before the transaction commits. A wron
 
 | Method | Endpoint | Purpose |
 | --- | --- | --- |
-| POST | `/api/v1/sessions/<ses-id>/close` | CSRF + `auth.business_write`, session creator or campaign owner, single atomic closure |
+| POST | `/api/v1/sessions/<ses-id>/close` | CSRF + `auth.business_write`, **session creator only** (single-writer Run; UX-R05 [#124](https://github.com/aradenac/AI-Compass/issues/124)) or superuser, single atomic closure |
 | GET | `/api/v1/runs?campaign_id=<cmp-id>` | Read-only original run list (also `solution_id` filter) |
 | GET | `/api/v1/runs/<run-id>` | Original result, full timeline, known/unknown metrics, evidence SHA-256 and provenance |
 | GET | `/api/v1/solutions` | Only registered (measured) stable AI Solution identities, no untested candidates |

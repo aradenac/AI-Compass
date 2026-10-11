@@ -1027,6 +1027,7 @@ if(pricingRoot)window.AICompassPricing.mount(pricingRoot,demoPricingAdapter,{mod
 var catalogRoot=document.getElementById("shared-demo-catalog");
 if(catalogRoot)window.AICompassSharedCatalog.mount(catalogRoot,demoDomain,{mode:"demo"})
   .setAccess(true,canEdit());
+resyncModalDraft();
 }
 function login(){document.getElementById("app").innerHTML='<div class="login-wall"><div class="login-box"><div class="row"><div class="brand-mark">✦</div><div><h1>AI Compass</h1><p class="muted">Interactive product workflow prototype</p></div></div><p class="lead">Select a simulated account to explore role-specific journeys. No password or server authentication is used; all data stays in this browser.</p><div class="login-users">'+db.users.map(function(u){return '<button class="login-user" data-act="login" data-id="'+E(u.id)+'"><span class="avatar">'+E(u.initials)+'</span><span><strong>'+E(u.name)+'</strong><span class="tiny-role">'+E(u.role)+' · '+E(u.bu)+'</span></span></button>';}).join("")+'</div><hr class="divider"><div class="row-between"><span class="muted small">Mock accounts · no real security · shared local data</span>'+btn("Reset demo dataset","reset","","sm")+'</div></div></div>';}
 function modal(){if(!ui.modal)return "";return '<div class="modal-backdrop" id="backdrop"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="dialog-title"><div class="modal-header"><h2 id="dialog-title">'+E(ui.modalTitle||"Details")+'</h2><button class="x" data-act="close" aria-label="Close dialog">×</button></div><div class="modal-body">'+(ui.modalBody||"")+'</div>'+(ui.modalFooter?'<div class="modal-footer">'+ui.modalFooter+'</div>':"")+'</div></div>';}
@@ -1055,6 +1056,9 @@ function openModal(title,body,footer){
  if(closer&&typeof closer.focus==="function")closer.focus();
 }
 function closeModal(){
+ // A dialog's uncommitted draft must not survive closing it.
+ if(ui.modalDraft&&ui.modalDraft.dispose)ui.modalDraft.dispose();
+ ui.modalDraft=null;ui.modalDraftScope=null;ui.modalDraftForm=null;
  var opener=ui.modalOpener;ui.modalOpener=null;ui.modal="";render();
  restoreModalOpener(opener);
 }
@@ -1572,10 +1576,69 @@ var providers=section("Observed spend by provider",Object.keys(spendByProvider).
 return heading("Portfolio insight","Management & group view","Coverage, operational value, adoption and workgroup throughput, consolidated from shared experiment records.",btn("Export evidence data","export","",""))+'<div class="note warn" style="margin-bottom:16px">All metrics on this page use synthetic demo data. Human effort and baseline estimates are approximations, so value figures are indicative rather than financial statements.</div><div class="grid g4">'+stat("Task coverage",tested.size+"/"+countTask,"Tasks with ≥1 published run")+stat("Observed AI spend",money(cost),"Mock benchmark expenditure")+stat("Potential effort saving",Math.round(grossSaved/60)+" h","Across accepted demo runs")+stat("Acceptance rate",Math.round(100*accepted.length/(published.length||1))+"%","Published runs only")+'</div><div class="grid g2" style="margin-top:18px">'+coverage+adoption+providers+workgroup+'</div>';
 }
 function editable(){if(canEdit())return true;toast("Workgroup account required for this action.");return false;}
+/* UX-R05: Demo forms keep unsaved input and the active Run step in the same
+ * scoped, per-account ephemeral draft namespace as Server. Demo records remain
+ * the authoritative fictional dataset; drafts are never business records. */
+var DEMO_DRAFT_KINDS={
+campaign:{schema:"demo-campaign-v1",step:"campaign"},
+campaignCase:{schema:"demo-campaign-case-v1",step:"campaign"},
+campaignAttachCase:{schema:"demo-campaign-case-v1",step:"campaign"},
+campaignTrialSetup:{schema:"demo-trial-v1",step:"setup"},
+campaignInteraction:{schema:"demo-trial-v1",step:"interactions"},
+campaignTrialOutcome:{schema:"demo-trial-v1",step:"results"},
+"case":{schema:"demo-test-case-v1",step:"case"},
+guide:{schema:"demo-guide-v1",step:"guide"},
+run:{schema:"demo-run-v1",step:"results"}};
+function demoDraftRevision(kind,id){
+var rows={campaign:"campaigns",campaignCase:"campaigns",campaignAttachCase:"campaigns",
+campaignTrialSetup:"campaignTrials",campaignInteraction:"campaignTrials",
+campaignTrialOutcome:"campaignTrials",run:"runs","case":"cases",guide:"guides"};
+var row=rows[kind]?rec(rows[kind],id):null;
+return String(row&&(row.revision||row.updated||row.startedAt)||"new");
+}
+function demoDraftScope(kind,id){
+var drafts=window.AICompassDrafts,spec=DEMO_DRAFT_KINDS[kind];
+if(!drafts||!drafts.forMode||!spec||!currentUser)return null;
+return drafts.forMode("demo",kind,{account:currentUser,id:id||"new",
+revision:demoDraftRevision(kind,id),schema:spec.schema,
+label:spec.step+" draft",step:spec.step,steps:["campaign","setup","interactions","results"],
+guardUnload:true});
+}
+function attachDemoDraft(kind,id){
+var form=document.getElementById("modalForm"),scope=demoDraftScope(kind,id);
+ui.modalDraftScope=scope;ui.modalDraftForm=null;
+if(!scope||!form)return null;
+ui.modalDraftForm=form;
+return window.AICompassDrafts.attach(form,scope);
+}
+/* Demo re-renders the whole shell on every ui state change, so the modal form
+ * DOM node is replaced: re-attach the same scope to the new node without
+ * repeating the Resume prompt, keeping autosave and the unsaved-change cue. */
+function resyncModalDraft(){
+var drafts=window.AICompassDrafts,scope=ui.modalDraftScope;
+if(!drafts||!scope)return;
+var form=document.getElementById("modalForm");
+if(!form)return;
+if(ui.modalDraft&&ui.modalDraftForm===form)return;
+var pending=null;try{pending=drafts.read(scope);}catch(_){pending=null;}
+if(ui.modalDraft&&ui.modalDraft.dispose)ui.modalDraft.dispose();
+ui.modalDraftForm=form;
+ui.modalDraft=drafts.attach(form,Object.assign({},scope,{quiet:true}));
+// Demo re-renders the modal footer after openForm(), which replaces the form
+// node: re-display the still-unanswered Resume/Discard offer, never the values.
+if(pending&&ui.modalDraft&&ui.modalDraft.reoffer)ui.modalDraft.reoffer();
+}
 function openForm(title,kind,body,id,buttonTitle){if(kind!=="feedback"&&!editable())return;
 var form='<form id="modalForm" data-form="'+E(kind)+'" data-id="'+E(id||"")+'"><div class="form-grid">'+body+'</div></form>';
 openModal(title,form,'<button class="btn" data-act="close">Cancel</button><button class="btn primary" type="submit" form="modalForm">'+E(buttonTitle||"Save to browser")+'</button>');
+ui.modalDraft=attachDemoDraft(kind,id);
 }
+function clearModalDraft(){if(ui.modalDraft&&ui.modalDraft.clear)ui.modalDraft.clear();
+ui.modalDraft=null;ui.modalDraftScope=null;ui.modalDraftForm=null;}
+// Leaving the workspace (logout / account switch) detaches the live handler
+// without clearing the entry: drafts stay inside their own account namespace.
+function disposeModalDraft(){if(ui.modalDraft&&ui.modalDraft.dispose)ui.modalDraft.dispose();
+ui.modalDraft=null;ui.modalDraftScope=null;ui.modalDraftForm=null;}
 function dialogTask(parent,existing){
 var old=rec("tasks",existing),t=old||rec("tasks",parent)||rec("tasks",ui.task),parents=[["","Root level"]].concat(db.tasks.filter(function(x){return !old||!descendants(old.id).includes(x.id);}).map(function(x){return[x.id,x.name];}));
 openForm(old?"Edit and reorganize task node":"Create task hierarchy node",old?"taskEdit":"task",
@@ -2574,7 +2637,8 @@ return '<div class="list-row"><div class="short"><strong>'+E(tc.title)+'</strong
 (c.stage==="active"?btn("+ Execute test","campaignStartTrial",c.id+"|"+cid,"sm primary"):"")+'</div>';
 }).join("");
 var trialList=trials.map(function(t){return '<div class="list-row"><div class="short">'+badge(t.status==="completed"?"Completed":"Step "+t.step+" of 3")+' <strong>'+E(rec("cases",t.case)?.title||"Test Case")+'</strong>'+
-'<div class="muted small">'+t.interactions.length+' logged interactions · '+E(t.startedAt||"Not started")+'</div></div>'+
+'<div class="muted small">'+t.interactions.length+' logged interactions · '+E(t.startedAt||"Not started")+'</div>'+
+demoTrialSteps(t)+'</div>'+
 (t.status==="completed"?btn("View run","runDetail",t.runId,"sm"):btn("Resume","campaignResumeTrial",t.id,"sm primary"))+'</div>';}).join("");
 var review='<div class="card tight" style="margin-top:14px"><h3>Closure and review</h3><p class="muted small">'+E(c.reviewNotes||"No review notes yet")+'</p>'+
 (c.reviewer?'<p class="muted small">Reviewed by '+E(actor(c.reviewer))+'</p>':"")+'</div>';
@@ -2626,6 +2690,22 @@ if(!canEdit())return;var rev=db.revisions.find(function(x){return x.id===id;});i
 openModal("Audit revision · "+rev.type,'<div class="row-between">'+badge(rev.type)+'<span class="muted small">'+E(rev.date)+' · '+E(actor(rev.by))+'</span></div><h3 style="margin:15px 0 7px">Previous record</h3><pre class="code">'+E(JSON.stringify(rev.before,null,2))+'</pre><h3 style="margin:15px 0 7px">Updated record</h3><pre class="code">'+E(JSON.stringify(rev.after,null,2))+'</pre>');
 }
 function campaignTrialsExistingOrCases(c){return c.caseIds.length>0||db.campaignTrials.some(function(x){return x.campaign===c.id;});}
+/* UX-R05: an explicit Run stepper. The persisted Demo session stays
+ * authoritative: a step move only opens the matching step form and never
+ * records a second session or promotes local input into measured evidence. */
+function demoTrialSteps(t){
+if(t.status==="completed")return '<ol class="shared-draft-step" aria-label="Run steps">'+
+'<li aria-current="step"><button type="button" disabled>1. Setup ✓</button></li>'+
+'<li aria-current="step"><button type="button" disabled>2. Interactions ✓</button></li>'+
+'<li aria-current="step"><button type="button" disabled>3. Results ✓</button></li></ol>';
+var current=t.step>=3?"results":"interactions";
+return '<ol class="shared-draft-step" data-trial-steps="'+E(t.id)+'" aria-label="Run steps">'+
+'<li><button type="button" disabled data-step-visited="true">1. Setup ✓</button></li>'+
+'<li'+(current==="interactions"?' aria-current="step"':'')+'><button type="button" data-act="campaignResumeTrial" data-id="'+E(t.id)+'"'+
+(current==="interactions"?' aria-current="step"':'')+'>2. Interactions</button></li>'+
+'<li'+(current==="results"?' aria-current="step"':'')+'><button type="button" data-act="campaignFinishIterations" data-id="'+E(t.id)+'"'+
+(current==="results"?' aria-current="step"':'')+'>3. Results</button></li></ol>';
+}
 function setCampaignStage(id,stage,partial){
 if(!canEdit())return;var c=rec("campaigns",id);if(!c||c.archived)return;
 var allowed=stage==="active"?["planned","review","published"].includes(c.stage):
@@ -3219,7 +3299,18 @@ if(kind==="task"||kind==="taskEdit"){
 ui.modal="";persist();render();toast("Changes saved in this browser.");
 }catch(ex){if(ex.message!=="form validation")throw ex;}
 }
-document.addEventListener("submit",function(ev){if(ev.target.matches(".feedback-reply-form")){ev.preventDefault();handleFeedbackReply(ev.target);return;}if(ev.target.matches("#modalForm")){ev.preventDefault();handleForm(ev.target);}});
+document.addEventListener("submit",function(ev){
+ if(ev.target.matches(".feedback-reply-form")){ev.preventDefault();handleFeedbackReply(ev.target);return;}
+ if(ev.target.matches("#modalForm")){
+  ev.preventDefault();
+  // UX-R05: a rejected form keeps its draft; a committed one clears it.
+  var submitted=ui.modalDraft,fingerprintBefore=db.events.length+":"+JSON.stringify(db).length;
+  handleForm(ev.target);
+  if(fingerprintBefore!==db.events.length+":"+JSON.stringify(db).length&&submitted&&submitted.clear){
+   if(ui.modalDraft===submitted){ui.modalDraft=null;ui.modalDraftForm=null;ui.modalDraftScope=null;}
+   submitted.clear();
+  }
+ }});
 document.addEventListener("input",function(ev){
  if(updateMetricControl(ev.target))return;
  if(ev.target?.name==="tokenCount")tokenPreview(ev.target.closest("form"));
@@ -3271,7 +3362,7 @@ document.addEventListener("click",function(ev){
 var b=ev.target.closest("[data-act]");if(!b)return;
 var act=b.dataset.act,id=b.dataset.id||"";
 if(act==="login"){currentUser=id;localStorage.setItem(SESSION,id);ui.page=initialWorkspace==="engineer"?"tasks":initialWorkspace==="management"?"management":canEdit()?"studio":"dashboard";render();return;}
-if(act==="switch"){currentUser="";localStorage.removeItem(SESSION);ui.modal="";render();return;}
+if(act==="switch"){disposeModalDraft();currentUser="";localStorage.removeItem(SESSION);ui.modal="";render();return;}
 if(act==="close"){closeModal();return;}
 if(act==="nav"){ui.page=id;ui.modal="";render();window.scrollTo(0,0);return;}
 if(act==="task"){ui.task=id;ui.matrixTarget=id;ui.modal="";ui.page="tasks";render();return;}
@@ -3321,7 +3412,17 @@ if(act==="campaignUnpublish"){unpublishCampaign(id);return;}
 if(act==="campaignNewCase"){campaignNewCase(id);return;}
 if(act==="campaignAttachCase"){campaignAttachCase(id);return;}
 if(act==="campaignStartTrial"){var parts=id.split("|");campaignTrialStart(parts[0],parts[1]);return;}
-if(act==="campaignResumeTrial"){var t=rec("campaignTrials",id);if(t&&t.status!=="completed")campaignTrialInteraction(id);return;}
+if(act==="campaignResumeTrial"){
+ var t=rec("campaignTrials",id);if(!t||t.status==="completed")return;
+ // UX-R05: reopen the step the user was last on; unsaved input is offered by its draft.
+ var drafts=window.AICompassDrafts,remembered=null;
+ if(drafts&&demoDraftScope){
+  var outcomeScope=demoDraftScope("campaignTrialOutcome",id);
+  if(outcomeScope)remembered=drafts.read(outcomeScope);
+ }
+ if(remembered&&remembered.step==="results"&&t.interactions.length)campaignTrialOutcome(id);
+ else campaignTrialInteraction(id);
+ return;}
 if(act==="campaignFinishIterations"){campaignTrialOutcome(id);return;}
 
 if(act==="watchDetail"){detailsWatch(id);return;}

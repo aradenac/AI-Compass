@@ -2,7 +2,8 @@
 (function(){
 "use strict";
 function mount(root,api,escapeHtml){
-  var canRead=false,canWrite=false,active=null,ticket=0,availableEvidence=[],session=null;
+  var canRead=false,canWrite=false,active=null,ticket=0,availableEvidence=[],session=null,
+    draftHandle=null,sessionStep=null;
   function $(q){return root.querySelector(q);}
   function esc(v){return escapeHtml(v==null?"":String(v));}
   function note(message,error){
@@ -16,9 +17,10 @@ function mount(root,api,escapeHtml){
   function option(value,label,selected){
     return '<option value="'+esc(value)+'"'+(selected?' selected':'')+'>'+esc(label)+'</option>';
   }
-  function selectEvidence(selected){
+  function selectEvidence(selected,name){
     var ids=Array.isArray(selected)?selected:[];
-    return '<select multiple size="3" data-evidence style="width:100%">'+
+    return '<select multiple size="3" '+(name?'name="'+esc(name)+'" ':'')+
+      'data-evidence style="width:100%">'+
       availableEvidence.map(function(x){return option(x.id,x.filename+' · '+x.sha256.slice(0,12),
                                            ids.includes(x.id));}).join("")+
       '</select><small class="muted">Select pre-uploaded immutable campaign/Test Case evidence (Ctrl/Command). No binary upload in this step.</small>';
@@ -44,16 +46,97 @@ function mount(root,api,escapeHtml){
     return new Date(date.getTime()-offset).toISOString().slice(0,16);
   }
   function latestStatus(name,revision){note(name+" saved in PostgreSQL · "+revision+" · confirmed");}
+  function failure(error){
+    return window.AICompassRuntime&&window.AICompassRuntime.failureInfo?
+      window.AICompassRuntime.failureInfo(error):{conflict:false,detail:error&&error.message};
+  }
+  /* The Run workflow is intrinsically sequential: Setup, the frozen method
+   * steps, Interactions, then Results. Navigating between them is purely local
+   * and never writes a checkpoint: only an explicit Save button commits. */
+  function stepKeys(s){
+    var keys=["setup"];
+    (s.method_descriptor.steps||[]).forEach(function(step){keys.push("step:"+step.key);});
+    keys.push("interactions");
+    if(s.individual_setup||(s.selected_participant_ids||[]).length>=2)keys.push("results");
+    return keys;
+  }
+  function stepLabel(key,s){
+    if(key==="setup")return "Setup";
+    if(key==="interactions")return "Interactions";
+    if(key==="results")return "Results";
+    var found=(s.method_descriptor.steps||[]).filter(function(step){
+      return "step:"+step.key===key;})[0];
+    return found?(found.label||found.key):key;
+  }
+  function stepNav(s,keys,current){
+    return '<p id="session-step-cue" class="muted small" role="status"></p>'+
+      '<ol class="shared-draft-step" id="session-stepper" aria-label="Run steps">'+
+      keys.map(function(key,index){
+        return '<li'+(key===current?' aria-current="step"':'')+'>'+
+          '<button type="button" data-session-goto="'+esc(key)+'">'+
+          esc((index+1)+". "+stepLabel(key,s))+'</button></li>';
+      }).join("")+'</ol>';
+  }
+  function renderTimeline(){
+    var state=session.state,node=$("#session-timeline");
+    if(node)node.innerHTML=state.interactions.map(function(x){
+      return '<details><summary>#'+(x.order+1)+' · '+esc(x.type)+' · '+esc(x.occurred_at)+
+        ' · human '+esc(x.human_minutes===null?"unknown":x.human_minutes)+
+        ' / agent '+esc(x.agent_minutes===null?"unknown":x.agent_minutes)+' min</summary>'+
+        '<pre style="white-space:pre-wrap;overflow-wrap:anywhere">'+esc(x.content)+'</pre>'+
+        '<p>'+esc(x.notes)+' · '+(x.evidence_link_ids||[]).length+' evidence attachment(s)</p>'+
+        '</details>';
+    }).join("");
+    var title=$("#session-timeline-title");
+    if(title)title.textContent="Recorded interactions · "+state.interactions.length;
+    var totals=$("#session-measurements");
+    if(totals)totals.textContent="Summed human time: "+
+      (state.measurements.human_total_minutes===null?"unknown":
+        state.measurements.human_total_minutes+" minutes")+
+      " · summed agent time: "+(state.measurements.agent_total_minutes===null?"unknown":
+        state.measurements.agent_total_minutes+" minutes");
+  }
+  /* Acknowledged save: update only the parts of the screen the Server confirmed,
+   * so unsaved input in other steps survives and no extra write is triggered. */
+  async function refreshAfterSave(name){
+    var revision=$("#session-revision");
+    if(revision)revision.textContent=session.revision;
+    if(name==="Interaction"){
+      renderTimeline();
+      var panel=$("#session-interaction");
+      if(panel)["content","occurred_at","human_minutes","agent_minutes","interaction_notes",
+        "interaction_extensions"].forEach(function(field){
+          var node=panel.querySelector('[name="'+field+'"]');
+          if(node)node.value=field==="interaction_extensions"?"{}":"";
+        });
+    }
+    var status2=$("#session-step-status");
+    if(status2)status2.textContent="Last acknowledged Server checkpoint "+
+      session.revision+(name?" (from "+name+")":"")+
+      ". Nothing else has been written; unsaved entries remain on this device only.";
+  }
   async function submit(path,method,payload,name){
     note("Saving "+name+" to Server…");
     try{
       payload.expected_revision=session.revision;
       var result=await api(path,method,payload);
       session=result;
-      await renderSession();
+      /* Keep the entered DOM values and move the local draft to the new base
+       * revision: nothing else is written and no second Run can be created. */
+      if(draftHandle&&draftHandle.rebase)draftHandle.rebase(session.revision);
+      await refreshAfterSave(name);
       latestStatus(name,result.revision);
     }catch(error){
-      note(name+" NOT saved: "+error.message+". Review your entries or reload the Server revision.",true);
+      var info=failure(error);
+      if(draftHandle&&info.conflict){
+        draftHandle.conflict({label:"Test Case session "+session.id,
+          baseRevision:session.revision,latestRevision:info.latestRevision||"unknown",
+          message:info.detail});
+      }
+      note(name+" NOT saved"+(info.conflict?" (409 revision conflict)":
+        info.denied?" (one experimenter owns one Run; not authorized)":"")+": "+
+        (info.detail||error.message)+
+        ". Review your entries or reload the Server revision.",true);
     }
   }
   function panel(){
@@ -64,6 +147,8 @@ function mount(root,api,escapeHtml){
       '<div id="session-collection"></div><div id="session-editor" class="server-card" hidden></div>'+
       '<button type="button" id="session-close">Close session workspace</button>';
     $("#session-close").addEventListener("click",function(){
+      if(draftHandle&&draftHandle.dispose)draftHandle.dispose();
+      draftHandle=null;
       ticket++;active=null;session=null;root.hidden=true;root.replaceChildren();
     });
   }
@@ -274,7 +359,10 @@ function mount(root,api,escapeHtml){
         draft=state.results_draft||{},
         savedUsage=state.metering||{};
     target.hidden=false;
-    target.innerHTML='<h4>Session '+esc(s.id)+' · '+esc(s.revision)+'</h4>'+
+    var stepList=stepKeys(s),
+        activeStep=(sessionStep&&stepList.indexOf(sessionStep)>=0)?sessionStep:stepList[0];
+    target.innerHTML='<h4>Session '+esc(s.id)+' · Server revision <span id="session-revision">'+
+      esc(s.revision)+'</span></h4>'+
       '<p class="muted small">Frozen campaign '+esc(s.campaign_id)+' '+esc(s.campaign_revision)+
       ' · Test Case '+esc(s.test_case_id)+' · method v'+esc(s.method_version)+
       ' · '+esc(s.created_by)+' · '+esc(state.status||"in_progress")+'</p>'+
@@ -283,6 +371,10 @@ function mount(root,api,escapeHtml){
       '<details><summary>Original method descriptor & evidence provenance</summary>'+
       '<pre id="session-method-json" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre>'+
       '<p>'+s.evidence.length+' pinned evidence link(s), unchanged SHA-256 hashes.</p></details>'+
+      stepNav(s,stepList,activeStep)+
+      '<p id="session-step-status" class="muted small"></p>'+
+      '<form id="session-form" novalidate>'+
+      '<div data-session-panel="setup">'+
       '<fieldset id="session-setup"><legend>1. Installation and environment · explicit save</legend>'+
       '<p class="muted small">Guide previews use the frozen configuration and the last saved environment. Save changes before inspecting.</p>'+
       '<button type="button" id="session-show-guide">Show original pinned Setup Guide</button>'+
@@ -293,31 +385,22 @@ function mount(root,api,escapeHtml){
         esc(state.setup.installation_duration_minutes) +'"></label>'+
       '<label>Environment / deployed options (JSON object)<textarea name="environment">'+
         esc(JSON.stringify(state.setup.environment,null,2))+'</textarea></label>'+
-      '<label>Installation notes<textarea name="notes">'+esc(state.setup.notes)+'</textarea></label>'+
-      '<label>Additional setup properties (JSON object)<textarea name="extensions">'+
+      '<label>Installation notes<textarea name="setup_notes">'+esc(state.setup.notes)+'</textarea></label>'+
+      '<label>Additional setup properties (JSON object)<textarea name="setup_extensions">'+
         esc(JSON.stringify(state.setup.extensions,null,2))+'</textarea></label>'+
-      '<label>Supporting evidence'+selectEvidence(state.setup.evidence_link_ids)+'</label>'+
+      '<label>Supporting evidence'+selectEvidence(state.setup.evidence_link_ids,"setup_evidence")+'</label>'+
       (editable?'<button type="button" id="session-save-setup">Save installation checkpoint</button>':'')+
-      '</fieldset>'+
-      '<h4>2. Method-guided progress · saved one step at a time</h4>'+
-      '<p class="muted small">Steps and fields come from the original frozen method definition, not the current campaign schema.</p>'+
-      // Same guided-execution stepper presentation as the offline Demo.
-      (function(){
-        var firstOpen=steps.find(function(step){
-          return !(state.steps[step.key]&&Object.keys(state.steps[step.key]).length);});
-        return window.AICompassWorkgroup.renderStepper(steps.map(function(step){
-          var saved=state.steps[step.key]&&Object.keys(state.steps[step.key]).length;
-          return {label:step.label||step.key,
-            state:saved?"done":(step===firstOpen?"current":"todo")};
-        }),{mode:"server",domain:"session"});
-      })()+
+      '</fieldset></div>'+
+      '<h4 data-session-step-only>2. Method-guided progress · saved one step at a time</h4>'+
+      '<p class="muted small" data-session-step-only>Steps and fields come from the original frozen method definition, not the current campaign schema.</p>'+
       '<div id="session-steps">'+steps.map(function(step){
         var values=state.steps[step.key]||{},fields=(s.method_descriptor.fields||[]).filter(function(f){
           return !f.step||f.step===step.key;
         });
-        return '<fieldset data-session-step="'+esc(step.key)+'" style="padding:12px;margin:12px 0;border:1px solid #d6dfed">'+
+        return '<div data-session-panel="step:'+esc(step.key)+'">'+
+          '<fieldset data-session-step="'+esc(step.key)+'" style="padding:12px;margin:12px 0;border:1px solid #d6dfed">'+
           '<legend>'+esc(step.label||step.key)+' · '+esc(step.key)+'</legend>'+
-          '<label>Status<select name="status">'+
+          '<label>Status<select name="step:'+esc(step.key)+':status" data-step-status>'+
              ["pending","in_progress","done"].map(function(x){
                return option(x,x,values.status===x);}).join("")+'</select></label>'+
           // Same shared field presentation as every other domain; the fields
@@ -330,15 +413,18 @@ function mount(root,api,escapeHtml){
             fields.reduce(function(accumulator,f){
               accumulator[f.key]=(values.values||{})[f.key];return accumulator;},{}),
             "server",{idPrefix:"session-step-"+step.key})+
-          '<label>Step notes<textarea name="notes">'+esc(values.notes||"")+'</textarea></label>'+
-          '<label>Human step duration, minutes (blank = unknown)<input type="number" min="0" step="any" name="duration_minutes" value="'+
+          '<label>Step notes<textarea name="step:'+esc(step.key)+':notes" data-step-notes>'+esc(values.notes||"")+'</textarea></label>'+
+          '<label>Human step duration, minutes (blank = unknown)<input type="number" min="0" step="any" name="step:'+esc(step.key)+
+            ':duration_minutes" data-step-duration value="'+
            esc(values.duration_minutes) +'"></label>'+
-          '<label>Extensible step metadata (JSON object)<textarea name="extensions">'+
+          '<label>Extensible step metadata (JSON object)<textarea name="step:'+esc(step.key)+':extensions" data-step-extensions>'+
            esc(JSON.stringify(values.extensions||{},null,2))+'</textarea></label>'+
-          '<label>Evidence'+selectEvidence(values.evidence_link_ids)+'</label>'+
+          '<label>Evidence'+selectEvidence(values.evidence_link_ids,
+            "step:"+step.key+":evidence")+'</label>'+
           (editable?'<button type="button" data-save-step="'+esc(step.key)+'">Save this step</button>':'')+
-          '</fieldset>';
+          '</fieldset></div>';
       }).join("")+'</div>'+
+      '<div data-session-panel="interactions">'+
       '<fieldset id="session-interaction"><legend>3. Timed interaction · append immediately</legend>'+
       '<label>Type<select name="type">'+["human_prompt","agent_response","tool_action","review","note","other"].map(function(x){
         return option(x,x,false);}).join("")+'</select></label>'+
@@ -346,16 +432,16 @@ function mount(root,api,escapeHtml){
       '<label>Occurred at (blank = server timestamp)<input type="datetime-local" name="occurred_at"></label>'+
       '<label>Human minutes (blank = unknown)<input type="number" min="0" step="any" name="human_minutes"></label>'+
       '<label>Agent minutes (blank = unknown)<input type="number" min="0" step="any" name="agent_minutes"></label>'+
-      '<label>Notes<textarea name="notes"></textarea></label>'+
-      '<label>Unknown or future interaction metadata (JSON object)<textarea name="extensions">{}</textarea></label>'+
+      '<label>Notes<textarea name="interaction_notes"></textarea></label>'+
+      '<label>Unknown or future interaction metadata (JSON object)<textarea name="interaction_extensions">{}</textarea></label>'+
       (s.selected_participant_ids.length?'<label>Responsible participant<select name="participant_id">'+
         option("","Coordinator / unspecified",true)+s.selected_participant_ids.map(function(id){
           return option(id,id,false);}).join("")+'</select></label>':'')+
-      '<label>Interim artefact links'+selectEvidence([])+'</label>'+
+      '<label>Interim artefact links'+selectEvidence([],"interaction_evidence")+'</label>'+
       (editable?'<button type="button" id="session-add-interaction">Append interaction & save now</button>':'')+
       '</fieldset>'+
-      '<h4>Recorded interactions · '+state.interactions.length+'</h4>'+
-      '<p class="muted small">Summed human time: '+(state.measurements.human_total_minutes===null?
+      '<h4 id="session-timeline-title">Recorded interactions · '+state.interactions.length+'</h4>'+
+      '<p class="muted small" id="session-measurements">Summed human time: '+(state.measurements.human_total_minutes===null?
         "unknown":esc(state.measurements.human_total_minutes)+" minutes")+
       ' · summed agent time: '+(state.measurements.agent_total_minutes===null?
         "unknown":esc(state.measurements.agent_total_minutes)+" minutes")+'</p>'+
@@ -367,13 +453,16 @@ function mount(root,api,escapeHtml){
           '<p>'+esc(x.notes)+' · '+(x.evidence_link_ids||[]).length+' evidence attachment(s)</p>'+
           '</details>';
       }).join("")+'</div>'+
+      '</div>'+
+      '<div data-session-panel="results">'+
       (priced?'<fieldset id="session-metering"><legend>4. Offer-driven usage · independently saved</legend>'+
         '<p class="muted small">Counters come from exact selected offer revisions. Blank means unknown, explicit 0 means measured zero. Shared pooled credits and fixed seats are never amortized.</p>'+
         (s.metering.schema.required_meters||[]).map(function(item){
           var previous=(savedUsage[item.source_key]||{})[item.meter];
           return '<label>'+esc(item.source_key)+' · '+esc(item.meter)+
             (item.namespace?' · '+esc(item.namespace):'')+
-            '<input type="number" data-meter-source="'+esc(item.source_key)+
+            '<input type="number" name="meter:'+esc(item.source_key)+':'+esc(item.meter)+
+            '" data-meter-source="'+esc(item.source_key)+
             '" data-meter-name="'+esc(item.meter)+'" step="any" min="0" value="'+
             esc(previous==null?"":previous)+'"></label>';
         }).join("")+
@@ -415,12 +504,62 @@ function mount(root,api,escapeHtml){
         '<label>Final human review minutes (blank = unknown)<input type="number" name="human_review_minutes" min="0" step="any"></label>'+
         '<label>Final human correction minutes (blank = unknown)<input type="number" name="human_correction_minutes" min="0" step="any"></label>'+
         '<label>Produced code, reports, paths and artifacts (required)<textarea name="produced_outputs" required>'+esc(draft.produced_outputs||"")+'</textarea></label>'+
-        '<label>Additional notes<textarea name="notes"></textarea></label>'+
-        '<label>Extensible measured evidence (JSON object)<textarea name="extensions">{}</textarea></label>'+
-        '<label>Additional immutable evidence links'+selectEvidence([])+'</label>'+
+        '<label>Additional notes<textarea name="run_notes"></textarea></label>'+
+        '<label>Extensible measured evidence (JSON object)<textarea name="run_extensions">{}</textarea></label>'+
+        '<label>Additional immutable evidence links'+selectEvidence([],"run_evidence")+'</label>'+
         '<button type="button" id="session-save-results">Save pending results / DoD</button> '+
         '<button type="button" id="session-close-run">Close as permanent Run</button></fieldset>':
-        !s.individual_setup?'<p class="muted small">This legacy draft lacks a pinned AI setup and cannot be closed. Start a new session with explicit components.</p>':'');
+        !s.individual_setup?'<p class="muted small">This legacy draft lacks a pinned AI setup and cannot be closed. Start a new session with explicit components.</p>':'')+
+      '</div></form>';
+    /* Stepper: pure local navigation. It never writes a checkpoint, so a step
+     * move cannot create a phantom Run or duplicate any session artifact. */
+    function showStep(key,options){
+      if(stepList.indexOf(key)===-1)key=stepList[0];
+      sessionStep=key;
+      var panels=target.querySelectorAll("[data-session-panel]"),
+          buttons=target.querySelectorAll("[data-session-goto]"),panel=null;
+      Array.prototype.forEach.call(panels,function(node){
+        var mine=node.getAttribute("data-session-panel")===key;
+        node.hidden=!mine;
+        if(mine)panel=node;
+      });
+      Array.prototype.forEach.call(target.querySelectorAll("[data-session-step-only]"),function(node){
+        node.hidden=key.indexOf("step:")!==0;
+      });
+      Array.prototype.forEach.call(buttons,function(button){
+        var mine=button.getAttribute("data-session-goto")===key;
+        if(mine)button.setAttribute("aria-current","step");
+        else button.removeAttribute("aria-current");
+      });
+      var cue=$("#session-step-cue");
+      if(cue)cue.textContent=stepLabel(key,s)+" · step "+(stepList.indexOf(key)+1)+
+        " of "+stepList.length+". Moving between steps writes nothing; only an explicit "+
+        "Save button appends a Server checkpoint.";
+      if(draftHandle)draftHandle.setStep(key);
+      if(!options||options.focus!==false){
+        var first=panel&&panel.querySelector("input:not([type=hidden]),select,textarea,button");
+        if(first&&first.focus){try{first.focus();}catch(_){/* focus is best effort */}
+        }
+      }
+      return key;
+    }
+    Array.prototype.forEach.call(target.querySelectorAll("[data-session-goto]"),function(button){
+      button.addEventListener("click",function(){showStep(button.getAttribute("data-session-goto"));});
+    });
+    /* Unsaved inputs and the active step stay on this device only, keyed by mode,
+     * account, session and base revision; the Server checkpoint stays authoritative. */
+    if(draftHandle&&draftHandle.dispose)draftHandle.dispose();
+    draftHandle=null;
+    var form=$("#session-form"),
+        drafts=window.AICompassDrafts,
+        scope=drafts&&drafts.forMode&&form?drafts.forMode("server","session",{
+          id:s.id,revision:s.revision,schema:"session-form-v1",
+          label:"Test Case session "+s.id,step:activeStep,steps:stepList,
+          maxFields:120,maxLength:6000,guardUnload:true,
+          onStep:function(key){showStep(key,{focus:false});}}):null;
+    if(scope)draftHandle=drafts.attach(form,scope);
+    if(form)form.addEventListener("submit",function(event){event.preventDefault();});
+    showStep(activeStep,{focus:false});
     $("#session-method-json").textContent=JSON.stringify(s.method_descriptor,null,2);
     $("#session-show-guide").addEventListener("click",async function(){
       var display=$("#session-rendered-guide"),button=this;button.disabled=true;
@@ -465,8 +604,8 @@ function mount(root,api,escapeHtml){
         human_review_minutes:optionalMinutes(f.querySelector('[name="human_review_minutes"]').value),
         human_correction_minutes:optionalMinutes(f.querySelector('[name="human_correction_minutes"]').value),
         produced_outputs:f.querySelector('[name="produced_outputs"]').value,
-        notes:f.querySelector('[name="notes"]').value,
-        extensions:json(f.querySelector('[name="extensions"]').value,"Run extensions"),
+        notes:f.querySelector('[name="run_notes"]').value,
+        extensions:json(f.querySelector('[name="run_extensions"]').value,"Run extensions"),
         evidence_link_ids:selected(f.querySelector("[data-evidence]"))
       };
       if(!priced){
@@ -517,6 +656,10 @@ function mount(root,api,escapeHtml){
           note("Closing as an immutable run…");
           var run=await api("sessions/"+encodeURIComponent(s.id)+"/close","POST",payload);
           session=await api("sessions/"+encodeURIComponent(s.id));
+          /* The Run is final: the ephemeral local draft is obsolete, and no
+           * local cache is ever promoted into the measured evidence. */
+          if(draftHandle&&draftHandle.clear)draftHandle.clear();
+          draftHandle=null;
           await renderSession();
           note("Permanent "+(run.kind==="composite"?"composite Framework":"individual")+
             " Run "+run.id+" saved · "+run.outcome+
@@ -538,8 +681,8 @@ function mount(root,api,escapeHtml){
             started_at:selectedTime(f.querySelector('[name="started_at"]').value),
             installation_duration_minutes:optionalMinutes(f.querySelector('[name="installation_duration_minutes"]').value),
             environment:json(f.querySelector('[name="environment"]').value,"Environment"),
-            notes:f.querySelector('[name="notes"]').value,
-            extensions:json(f.querySelector('[name="extensions"]').value,"Setup extensions"),
+            notes:f.querySelector('[name="setup_notes"]').value,
+            extensions:json(f.querySelector('[name="setup_extensions"]').value,"Setup extensions"),
             evidence_link_ids:selected(f.querySelector("[data-evidence]"))
           },"Installation");
         }catch(error){note("Installation NOT saved: "+error.message,true);}
@@ -555,10 +698,10 @@ function mount(root,api,escapeHtml){
               else values[field.name]=field.value;
             });
             submit("sessions/"+encodeURIComponent(s.id)+"/steps/"+encodeURIComponent(button.dataset.saveStep),
-              "PATCH",{status:f.querySelector('[name="status"]').value,
-                values:values,notes:f.querySelector('[name="notes"]').value,
-                duration_minutes:optionalMinutes(f.querySelector('[name="duration_minutes"]').value),
-                extensions:json(f.querySelector('[name="extensions"]').value,"Step extensions"),
+              "PATCH",{status:f.querySelector("[data-step-status]").value,
+                values:values,notes:f.querySelector("[data-step-notes]").value,
+                duration_minutes:optionalMinutes(f.querySelector("[data-step-duration]").value),
+                extensions:json(f.querySelector("[data-step-extensions]").value,"Step extensions"),
                 evidence_link_ids:selected(f.querySelector("[data-evidence]")),
                 schema_version:String(s.method_version)},"Step "+button.dataset.saveStep);
           }catch(error){note("Step NOT saved: "+error.message,true);}
@@ -571,8 +714,8 @@ function mount(root,api,escapeHtml){
             content:f.querySelector('[name="content"]').value,
             human_minutes:optionalMinutes(f.querySelector('[name="human_minutes"]').value),
             agent_minutes:optionalMinutes(f.querySelector('[name="agent_minutes"]').value),
-            notes:f.querySelector('[name="notes"]').value,
-            extensions:json(f.querySelector('[name="extensions"]').value,"Interaction extensions"),
+            notes:f.querySelector('[name="interaction_notes"]').value,
+            extensions:json(f.querySelector('[name="interaction_extensions"]').value,"Interaction extensions"),
             evidence_link_ids:selected(f.querySelector("[data-evidence]")),
             schema_version:String(s.method_version)};
           if(f.querySelector('[name="occurred_at"]').value)
@@ -611,6 +754,8 @@ function mount(root,api,escapeHtml){
   }
   function setAccess(read,write){
     ticket++;canRead=!!read;canWrite=!!write&&canRead;active=null;session=null;
+    if(draftHandle&&draftHandle.dispose)draftHandle.dispose();
+    draftHandle=null;
     root.hidden=true;root.replaceChildren();
   }
   root.hidden=true;
