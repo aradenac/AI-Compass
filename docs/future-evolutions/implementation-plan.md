@@ -4,6 +4,20 @@
 > **Source of truth:** GitHub merge/issue state for delivery; [current product documentation](../product-definition.md) for implemented domain specifications; this plan for priority and dependencies.
 > **Original approval/history:** [2026-10-10 complete phase plan](../history/fut-plan-approved-2026-10-10.md). Original requirements are retained, not erased.
 
+## Phased outcome map
+
+| Phase | Actual completion checkpoint | Current disposition |
+| --- | --- | --- |
+| P0 — Release and secure delivery foundations | #75–#76 merged | **Completed code** |
+| P1 — Shared frontend and persona entry | #77–#78 merged | **Completed code; UX acceptance recovery prioritized** |
+| P2 — Pricing, environment and setup contracts | #79–#81 merged | **Completed code** |
+| P3 — Campaign evaluations and tariff-driven Runs | #82–#83 merged | **Completed code** |
+| P4 — Publication and Engineer usage | #84–#86 merged | **Completed code; UX acceptance recovery prioritized** |
+| P5 — Opportunity modelling and Management | #87–#88 merged | **Completed code; UX acceptance recovery prioritized** |
+| P6 — Deployment and resources | #89–#90 merged | **Completed code** |
+| P7 — Audit, purge, archives, security/capacity and release CLI | #91 merged; #92–#95 open | **Partially delivered; remaining P7 deferred behind UX** |
+| P0-UX → P2-UX — UI acceptance correction | #114 → #115 → #116 open | **First priority before P7 continuation** |
+
 ## Status and phase vocabulary
 
 - **Code merged**: the implementation PR was merged and its original FUT issue closed; does **not** imply independent UX acceptance, real staging acceptance, user sign-off or production GO.
@@ -22,6 +36,8 @@
 **Authority boundary:** all previously approved business outcomes and P7 scope are preserved. Priorities change, not the original technical requirements. Distinguish a delivered incremental implementation from successful whole-product visual acceptance.
 
 ## Completed code — recorded, not re-planned
+
+## Approved GitHub implementation backlog — maximal coherent issue slices
 
 | Phase | Issue | Delivered increment | Status |
 | --- | --- | --- | --- |
