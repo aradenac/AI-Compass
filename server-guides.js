@@ -18,14 +18,7 @@
     known=known||[];
     return '<h3>'+escape(heading)+'</h3>'+
       '<form class="guide-form">'+
-      '<label>Guide title <input name="name" maxlength="160" required value="'+
-      escape(guide&&guide.name||"")+'"></label>'+
-      '<label>Procedure text (optional if URL present) <textarea name="text" rows="6" maxlength="32768">'+
-      escape(properties.text||"")+'</textarea></label>'+
-      '<label>Setup URL (optional if text present) <input name="url" type="url" maxlength="2048" value="'+
-      escape(properties.url||"")+'" placeholder="https://example.com/setup"></label>'+
-      '<label>Notes / description <textarea name="description" rows="2" maxlength="4000">'+
-      escape(properties.description||"")+'</textarea></label>'+
+      window.AICompassWorkgroup.renderGuideFields(guide||{},"server")+
       '<fieldset><legend>Composable recipe (optional)</legend>'+
       '<p class="muted small">Reuse exact guide revisions. For OS/versions and variants, edit the JSON recipe.</p>'+
       '<label>Reusable modules<select name="recipe_modules" multiple size="5">'+
@@ -186,8 +179,8 @@
         var response=await request(csrf,"/"+encodeURIComponent(item.id)+"/revisions");
         if(!active||current!==ticket)return;
         node=find("#guide-history");
-        node.innerHTML='<h3>'+escapeHtml(item.name)+' · '+escapeHtml(item.id)+'</h3>'+
-          (response.revisions||[]).map(function(r){
+        node.innerHTML=window.AICompassWorkgroup.renderGuideDetail(item,"server")+
+          '<h4>Immutable revision history</h4>'+(response.revisions||[]).map(function(r){
             return '<details><summary>'+escapeHtml(r.revision)+' · '+
               escapeHtml(r.created_at)+' · '+escapeHtml(r.created_by)+'</summary>'+
               '<pre style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></details>';

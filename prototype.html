@@ -1785,10 +1785,8 @@ var g=rec("guides",id);
 openForm(g?"Edit document":"Create knowledge document","guide",
 selectField("type","Document type",[["Charter","Charter"],["Guide","User guide"],["Installation","Installation guide"],["FAQ","FAQ"],["Training","Training"]],g?.type||"Guide")+
 selectField("status","Publication",[["draft","Draft"],["published","Published"]],g?.status||"draft")+
-field("title","Title",g?.title||"","text","full")+
 selectField("solution","Related measured AI Solution (optional)",[["","Reusable / unassigned"]].concat(db.solutions.map(function(x){return[x.id,x.name];})),g?.solution||"")+
-field("body","Installation instructions (optional with URL)",g?.body||"","textarea","full")+
-field("url","Setup/reference URL (optional with text)",g?.url||"","url","full")+
+window.AICompassWorkgroup.renderGuideFields(g||{},"demo")+
  '<div class="span2 muted small">Optional offline Demo recipe: reuse guide IDs and pinned revisions (r001, r002…). This is not an OS compatibility validation.</div>'+
  field("recipe","Composable recipe (JSON; optional)",g?.recipe?JSON.stringify(g.recipe,null,2):"","textarea","full")+
 selectField("framework","Related Framework (optional)",[["","Reusable / no Framework"]].concat(db.components.filter(function(x){return x.type==="framework";}).map(function(x){return[x.id,x.name];})),g?.framework||"",true),id,g?"Save document":"Create document");
@@ -2465,10 +2463,12 @@ function demoComposedGuide(g){
 function detailsGuide(id){
  var g=rec("guides",id);if(!g||(!canEdit()&&g.status!=="published"))return;
  var source=String(g.url||"").trim(),safeUrl=validSetupUrl(source);
- var body='<div class="row-between"><div>'+badge(g.type)+' '+badge(g.status)+'</div><span class="muted small">Last update: '+E(g.date)+' · '+E(actor(g.owner))+'</span></div>'+
- (g.body?'<pre class="text-block" style="margin-top:18px;white-space:pre-wrap;font-family:inherit">'+E(g.body)+'</pre>':'<p class="muted small" style="margin-top:16px">Instructions supplied as an external reference.</p>')+
- (source&&safeUrl?'<p style="margin-top:14px"><strong>Setup reference: </strong><a href="'+E(source)+'" target="_blank" rel="noopener noreferrer">'+E(source)+'</a></p>':"")+
- (g.framework?'<p class="small"><strong>Framework:</strong> '+E(rec("components",g.framework)?.name||"Unknown")+'</p>':"")+demoComposedGuide(g);
+ var body='<div class="row-between"><div>'+badge(g.type)+' '+badge(g.status)+
+ '</div><span class="muted small">Last update: '+E(g.date)+' · '+E(actor(g.owner))+'</span></div>'+
+ window.AICompassWorkgroup.renderGuideDetail(g,"demo")+
+ (g.framework?'<p class="small"><strong>Framework:</strong> '+
+ E(rec("components",g.framework)?.name||"Unknown")+'</p>':"")+
+ demoComposedGuide(g);
  openModal(g.title,body,btn("Close","close","","")+(canEdit()?btn("Edit document","editGuide",id,"")+(g.status==="draft"?btn("Publish document","publishGuide",id,"primary"):""):""));
 }
 function feedbackThreadMarkup(id){
@@ -3140,7 +3140,7 @@ if(kind==="task"||kind==="taskEdit"){
  }
  Object.assign(g,{title:req(d.title,"Title"),type:d.type,status:d.status,recipe:recipe,
   framework:d.type==="Installation"?d.framework||"":"",solution:d.type==="Installation"&&d.framework?"":d.solution||"",
-  body:d.body||"",url:d.url||"",owner:currentUser,date:new Date().toISOString().slice(0,10)});
+  body:d.body||"",url:d.url||"",description:d.description||"",owner:currentUser,date:new Date().toISOString().slice(0,10)});
  if(!id)db.guides.push(g);else revision("Guide",id,prevGuide,g);ui.page="knowledge";event("Guide",(id?"Updated":"Created")+" "+g.type.toLowerCase()+": "+g.title,g.status!=="published");
 }else if(kind==="qualification"||kind==="qualificationEdit"){
  if(d.solution&&!db.runs.some(function(r){return r.solution===d.solution;})){toast("Choose an already benchmarked solution or leave it blank.");return;}

@@ -81,4 +81,29 @@ assert.throws(()=>ui.renderRecords([{id:"x",actions:[{label:"Go",attributes:{onc
 assert.throws(()=>ui.renderRecords([{id:"x",links:[{href:"https://evil.example"}]}],
  {domain:"watch",mode:"server"}),/same-origin/);
 
+
+const guideDemo={id:"g1",title:"<Guide>",body:"Steps & details",url:"https://example.test/setup?a=1&b=2",
+  description:"Keep <original> references",type:"Installation",revision:"r004",status:"published"};
+const guideServer={id:"g1",name:guideDemo.title,type:"setup_guide",revision:"r004",
+  properties:{text:guideDemo.body,url:guideDemo.url,description:guideDemo.description}};
+for(const [row,mode,fields] of [
+  [guideDemo,"demo",["title","body","url","description"]],
+  [guideServer,"server",["name","text","url","description"]]
+]) {
+  const markup=ui.renderGuideFields(row,mode);
+  assert(markup.includes('data-shared-guide-fields="'+mode+'"'));
+  for(const name of fields)assert(markup.includes('name="'+name+'"'));
+  assert(markup.includes("&lt;Guide&gt;")&&!markup.includes("<Guide>"));
+  const detail=ui.renderGuideDetail(row,mode);
+  assert(detail.includes("&lt;Guide&gt;"));
+  assert(detail.includes("Steps &amp; details"));
+  assert(detail.includes('rel="noopener noreferrer"'));
+  assert(detail.includes('data-shared-guide-detail="'+mode+'"'));
+}
+assert(!ui.renderGuideDetail({...guideDemo,url:"invalid-url"},"demo").includes('href="invalid-url"'));
+assert.throws(()=>ui.renderGuideDetail(guideDemo,"other"),/Explicit authorized Guide/);
+assert(page.includes('renderGuideFields(g||{},"demo")'));
+assert(page.includes('renderGuideDetail(g,"demo")'));
+assert(page.includes("description:d.description"));
+
 console.log("UX-R04 shared Test Design tree: Demo, Server, forks, roles, escaping PASS");
