@@ -56,6 +56,15 @@ def collection(request):
     except svc.InvalidOpportunity as exc:return failure(exc)
 
 
+@require_GET
+@never_cache
+@capability("planning_view")
+def candidates(request):
+    if request.GET:return json_no_store({"error":"invalid_filter"},400)
+    try:return json_no_store({"results":svc.candidates()})
+    except svc.InvalidOpportunity as exc:return failure(exc)
+
+
 @require_POST
 @never_cache
 @csrf_protect
