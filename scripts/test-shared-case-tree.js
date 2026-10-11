@@ -131,8 +131,9 @@ for(const [row,mode] of [[forecastDemo,"demo"],[forecastServer,"server"]]) {
  assert(!d.includes("Predicted quality / 100</h4>"),"Missing metrics must not become zero");
 }
 const source=ui.renderKnowledgeDetail({id:"src1",name:"External paper",
-  properties:{url:"Citation reference",assessment:"Preliminary"}},{domain:"sources",mode:"server"});
+  properties:{url:"Citation reference",claim:"Independent <finding>",citation:"Published 2026",assessment:"Preliminary"}},{domain:"sources",mode:"server"});
 assert(source.includes("External source material is not controlled"));
+assert(source.includes("Independent &lt;finding&gt;") && source.includes("Published 2026"));
 assert.throws(()=>ui.renderKnowledgeDetail(watchDemo,{domain:"runs",mode:"demo"}),/Explicit authorized/);
 assert(page.includes('renderKnowledgeDetail(w,{domain:"watch",mode:"demo"})'));
 assert(page.includes('renderKnowledgeDetail(p,{domain:"forecasts",mode:"demo"})'));
