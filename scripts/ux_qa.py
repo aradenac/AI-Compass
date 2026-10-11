@@ -205,7 +205,7 @@ def demo_journey(browser, demo_url, artifacts, role, label, viewport):
 
 def server_journey(browser, base_url, creds, artifacts, role, viewport):
     context = browser.new_context(viewport=viewport, reduced_motion="reduce")
-    context.tracing.start(screenshots=True, snapshots=True, sources=True)
+    traced = False  # Keep the password entry entirely outside the downloadable trace.
     page = context.new_page()
     page.set_default_timeout(15000)
     errors = []
@@ -230,6 +230,10 @@ def server_journey(browser, base_url, creds, artifacts, role, viewport):
             page.locator("#server-management-insights").wait_for(state="visible", timeout=20000)
         elif role == "maintenance":
             page.locator("#server-governance-audit").wait_for(state="visible", timeout=20000)
+        context.tracing.start(screenshots=True, snapshots=True, sources=True)
+        traced = True
+        page.reload(wait_until="domcontentloaded")
+        page.locator("#server-account").wait_for(state="visible", timeout=25000)
         capture(page, artifacts, "server-" + role + "-" + str(viewport["width"]))
         if errors:
             raise AssertionError("Server JS runtime error(s): " + "; ".join(errors[:3]))
@@ -241,7 +245,8 @@ def server_journey(browser, base_url, creds, artifacts, role, viewport):
         count = page.locator(selectors).filter(visible=True).count()
         return {"visible_legacy_domains": count, "legacy_stack_observed": count > 1}
     finally:
-        context.tracing.stop(path=str(artifacts / ("server-" + role + "-" + str(viewport["width"]) + ".zip")))
+        if traced:
+            context.tracing.stop(path=str(artifacts / ("server-" + role + "-" + str(viewport["width"]) + ".zip")))
         context.close()
 
 
