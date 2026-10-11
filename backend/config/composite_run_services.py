@@ -9,6 +9,7 @@ import copy
 from django.db import IntegrityError, transaction
 
 from .catalog_ids import new_public_id
+from .run_provenance import snapshot as setup_snapshot
 from .models import (BenchmarkRun, BenchmarkSession, CampaignParticipantPin,
                      CompositeBenchmarkRun, CompositeRunEvidence, CompositeRunParticipant)
 from .run_services import _metrics
@@ -103,7 +104,7 @@ def close(*,actor,public_id,expected_revision,data):
         provenance={
             "scope":"composite",
             "evaluation_id":state.get("evaluation_id"),
-            "setup_composition":__import__("config.run_provenance",fromlist=["snapshot"]).snapshot(session),
+            "setup_composition":setup_snapshot(session),
             "execution_environment":state["setup"].get("environment",{}),
             "setup_deviations":state["setup"].get("notes",""),
             "campaign_id":snap.revision.item.public_id,
