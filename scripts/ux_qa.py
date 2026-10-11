@@ -240,6 +240,33 @@ def demo_journey(browser, demo_url, artifacts, role, label, viewport):
                 raise AssertionError("Demo modal unexpectedly discarded unsaved form")
             demo_dialog.get_by_role("button", name="Close dialog").click()
             demo_dialog.wait_for(state="hidden")
+            # Same form fields as Server: persist a fictional complete
+            # challenge and inspect its semantic values after re-render.
+            page.locator('[data-act="newCase"]').first.click()
+            sample = page.get_by_role("dialog")
+            sample.wait_for(state="visible")
+            sample.locator('input[name="title"]').fill("UX-R04 Demo challenge completeness")
+            sample.locator('textarea[name="objective"]').fill("Verify complete shared form")
+            sample.locator('textarea[name="constraints"]').fill("Offline only")
+            sample.locator('textarea[name="expected_outputs"]').fill("Six fields retained")
+            sample.locator('textarea[name="environment"]').fill("Disposable Chromium")
+            sample.locator('textarea[name="inputs"]').fill("Fictional fixture")
+            sample.locator('textarea[name="dod"]').fill("All values remain visible")
+            sample.get_by_role("button", name="Create Test Case").click()
+            page.locator('[data-shared-case]').filter(
+                has_text="UX-R04 Demo challenge completeness").first.wait_for(state="visible")
+            page.locator('[data-shared-case]').filter(
+                has_text="UX-R04 Demo challenge completeness").first.locator(
+                    'button[data-act="caseDetail"]').click()
+            details = page.locator('[data-shared-case-detail="demo"]')
+            details.wait_for(state="visible")
+            detail_text = details.inner_text()
+            for expected in ("Offline only", "Six fields retained",
+                             "Disposable Chromium", "All values remain visible"):
+                if expected not in detail_text:
+                    raise AssertionError("Demo did not preserve Test Case field: " + expected)
+            page.get_by_role("dialog").get_by_role("button", name="Close dialog").click()
+
         if role == "u1":
             # Real seeded Workgroup path: Studio → Watch → selected record → origin
             page.locator('[data-act="nav"][data-id="studio"]').click()
