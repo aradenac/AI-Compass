@@ -366,7 +366,8 @@ function mount(element,provider,mode){
      (r.source_role?'<span> · '+escape(r.source_role)+'</span>':"")+'</div>').join("");
  }
  function contextLocation(extra){
-   const p={profile:profile,scenario:scenario,revision:revision,from:""};
+   const p={profile:profile,scenario:scenario,revision:revision,
+     from:extra&&extra.task?root.location.pathname+root.location.search:""};
    Object.assign(p,extra||{});
    return root.AICompassContext.route(mode,"management","home",p);
  }
@@ -377,6 +378,7 @@ function mount(element,provider,mode){
    }
    ["task","kind","candidate"].forEach(k=>u.searchParams.delete(k));
    root.history.replaceState(root.history.state,"",u.pathname+u.search+u.hash);
+   route=new URLSearchParams(u.search);
  }
  function inspector(){
    if(!detail)return "";
