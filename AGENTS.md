@@ -34,8 +34,10 @@ One issue is intended as **one maximal coherent agent-conversation implementatio
 
 ## UI acceptance gate (priority before further feature work)
 
+**Approved device scope (2026-10-11): Desktop web only.** Keep Playwright Chromium real-browser checks for Demo and Server, but do not implement or mandate mobile/tablet breakpoints, emulators, snapshots or touch-specific testing. Retain existing CSS fallback rules if harmless; do not expand mobile UX scope. Browser CI runs the single desktop reference viewport (1366×900).
+
 - Follow [UX-R01 #114](https://github.com/aradenac/AI-Compass/issues/114), [UX-R02 #115](https://github.com/aradenac/AI-Compass/issues/115), and [UX-R03 #116](https://github.com/aradenac/AI-Compass/issues/116) in that order. Do not start the deferred #92–#95 without the completed UI gate, regardless of numeric ticket order.
-- For every PR that alters user-visible UI, perform actual Chromium Playwright journeys in BOTH Demo and authenticated Server, including a multi-role user. Inspect screenshots/traces and console exceptions. Verify exactly one active domain view, intended modals and form close behavior (NFR-UX-001/002), responsive presentation, breadcrumbs and meaningful round-trip navigation.
+- For every PR that alters user-visible UI, perform actual Chromium Playwright journeys in BOTH Demo and authenticated Server, including a multi-role user. Inspect screenshots/traces and console exceptions. Verify exactly one active domain view, intended modals and form close behavior (NFR-UX-001/002), desktop-browser presentation (1366×900 reference, no mobile acceptance requirement), breadcrumbs and meaningful round-trip navigation.
 - Compare visual output to APPROVED intended references, never snapshots of a known-broken UI. A green JS-only test is not visual acceptance; report actual tests and artifacts, and block merge if required UI validation is missing/failed. Keep prior backend/data-integrity/security tests.
 
 ## Minimum verification for each PR

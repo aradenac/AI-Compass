@@ -57,7 +57,7 @@
     return grants.includes("business_read");
   }
   function href(mode, section, identity) {
-    return (mode==="demo"?"?mode=demo":"/?mode=server")+"&workspace=workgroup&section="+encodeURIComponent(section);
+    return root.AICompassContext.route(mode,"workgroup",section);
   }
   // A count is displayed ONLY for the explicit lifecycle states whose exit
   // is modeled. Failed/denied data means NO count, not zero or a fabricated ToDo.
@@ -92,13 +92,8 @@
       '<p class="shared-studio-relations">Needs → Tasks → Test Design → Campaign Runs → Results → Recommendations and Guides → User adoption → Feedback. Technology Watch and Forecasts inform studies without manufacturing measured evidence.</p>'+
       '<a href="'+escape(href(mode,"activity",identity))+'">Activity Feed · historical changes</a></div>';
   }
-  function breadcrumbs(mode, section, detail) {
-    var zone=ZONES.find(function(z){return z.blocks.some(function(b){return b[0]===section;});});
-    var name=zone&&zone.blocks.find(function(b){return b[0]===section;})[1]||"Workgroup Studio";
-    return '<nav aria-label="Breadcrumb" class="shared-crumbs"><a href="'+
-      escape(href(mode,"studio"))+'">Workgroup Studio</a> → '+
-      (section==="studio"?"Overview":escape(name))+
-      (detail?' → '+escape(detail):"")+'</nav>';
+  function breadcrumbs(mode,section,detail) {
+    return root.AICompassContext.breadcrumb(mode,"workgroup",section,detail);
   }
   function serverProvider(transport) {
     if (!transport || typeof transport.request !== "function")
@@ -133,45 +128,78 @@
     return {id:id,title:title,revision:rev,status:status,
       kind:section==="forecasts"?"theoretical (not measured)":section==="activity"?"audit event":section};
   }
-  function renderList(rows, section, mode, detailLink) {
-    if (!Array.isArray(rows))throw Error("Untrusted list shape");
-    var spec=STABLE[section];
-    return '<div class="shared-list" data-shared-list="'+escape(section)+'"><h3>'+escape(spec.title)+
-      '</h3><p class="muted">The same read-only projection of existing records; editing, publication, attachments and immutable revision history remain in the authorized domain workspace.</p>'+
-      (rows.length?rows.map(function(original) {
-        var r=summary(original,section);
-        var to=detailLink&&detailLink(r.id);
+  function renderList(rows, section, mode, detailLink, options) {
+    if (!Array.isArray(rows)) throw Error("Untrusted list shape");
+    options=options||{};
+    var spec=STABLE[section],query=String(options.q||"").toLocaleLowerCase();
+    var authorized=rows.filter(function(x){
+      return !query || String(x.name||x.title||x.text||x.id||"").toLowerCase().includes(query) ||
+        String(x.id||"").toLowerCase().includes(query);
+    });
+    return '<section class="shared-list" data-shared-list="'+escape(section)+'">'+
+      '<h3>'+escape(spec.title)+'</h3>'+
+      '<label class="ux-context-filter">Find authorized records <input aria-label="Filter authorized records"'+
+      ' data-ux-list-filter value="'+escape(options.q||"")+'" placeholder="Search name or ID"></label>'+
+      '<p class="muted">Current authorized entries, with exact object IDs. Original immutable revisions'+
+      ' and editing remain available in the domain workspace.</p>'+
+      (authorized.length?authorized.map(function(original) {
+        var r=summary(original,section),to=detailLink&&detailLink(r.id);
         return '<article class="shared-list-row"><strong>'+escape(r.title)+'</strong>'+
           '<p class="muted">'+escape(r.id)+(r.revision?' · '+escape(r.revision):"")+
           (r.status?' · '+escape(r.status):"")+' · '+escape(r.kind)+'</p>'+
-          (to?'<a href="'+escape(to)+'">Open original source</a>':'')+'</article>';
-      }).join(""):'<p>No authorized '+escape(spec.title)+' records.</p>')+'</div>';
+          (to?'<a href="'+escape(to)+'">View record details</a>':'')+'</article>';
+      }).join(""):'<p>No matching authorized '+escape(spec.title)+' records.</p>')+
+      '</section>';
   }
   function mountSummary(node,provider,section,mode,options) {
     if (!node || !STABLE[section])throw Error("Stable section and DOM mount required");
     var generation=0;
+    options=options||{};
+    var params=new URLSearchParams(root.location.search);
+    var q=params.get("q")||"";
+    function attachFilter(data) {
+      var input=node.querySelector("[data-ux-list-filter]");
+      if(!input)return;
+      input.addEventListener("input",function(){
+        q=this.value.slice(0,150);
+        var url=new URL(root.location.href);
+        if(q)url.searchParams.set("q",q);
+        else url.searchParams.delete("q");
+        root.history.replaceState(root.history.state,"",url.pathname+url.search+url.hash);
+        // No new API request and no loss of selected record on filtering.
+        showData(data);
+        var focused=node.querySelector("[data-ux-list-filter]");
+        if(focused){focused.focus();focused.setSelectionRange(q.length,q.length);}
+      });
+    }
+    function showData(data) {
+      var selected=options.recordId && data.find(function(x){return x.id===options.recordId;});
+      node.innerHTML=renderList(data,section,mode,options.link,{q:q});
+      if(options.recordId){
+        var detail=root.document.createElement("section");
+        if(selected){
+          var rendered=root.AICompassContext.recordDetails(selected,section,mode,options.revision||"");
+          detail.innerHTML=rendered.html;
+          if(rendered.raw){
+            var pre=detail.querySelector(".ux-advanced-source pre");
+            if(pre)pre.textContent=JSON.stringify(rendered.raw,null,2);
+          }
+        } else {
+          detail.className="ux-history-warning";
+          detail.setAttribute("role","alert");
+          detail.textContent="Object unavailable, withdrawn or not authorized. No Demo or current-version fallback.";
+        }
+        node.insertBefore(detail,node.firstChild);
+      }
+      attachFilter(data);
+    }
     async function show() {
       var token=++generation;
       node.textContent="Loading "+(mode==="demo"?"fictional Demo":"real Server")+" records…";
-      try {
+      try{
         var data=await provider.list(section);
         if(token!==generation)return;
-        node.innerHTML=renderList(data,section,mode,options&&options.link);
-        if(options&&options.recordId){
-          var selected=data.find(function(x){return x.id===options.recordId;});
-          var detail=root.document.createElement("section");
-          detail.className="server-card";
-          detail.setAttribute("aria-label","Selected current source record");
-          if(selected){
-            var r=summary(selected,section);
-            detail.innerHTML='<h4>'+escape(r.title)+'</h4><p>Current authorized record · '+
-              escape(r.id)+' · '+escape(r.revision||"unversioned")+'</p>'+
-              '<p class="muted">This is the currently listed projection. For pinned historical revisions open the complete workspace history; never assume this is an earlier version.</p>'+
-              '<pre></pre>';
-            detail.querySelector("pre").textContent=JSON.stringify(selected,null,2);
-          }else detail.textContent="Record unavailable or not visible to this account. No cross-mode fallback.";
-          node.insertBefore(detail,node.firstChild);
-        }
+        showData(data);
         return data;
       }catch(err){
         if(token!==generation)return;

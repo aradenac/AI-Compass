@@ -73,6 +73,8 @@ services:
       - ./shared-runtime.js:/srv/frontend/shared-runtime.js:ro
       - ./shared-shell.js:/srv/frontend/shared-shell.js:ro
       - ./shared-shell.css:/srv/frontend/shared-shell.css:ro
+      - ./shared-context.js:/srv/frontend/shared-context.js:ro
+      - ./shared-context.css:/srv/frontend/shared-context.css:ro
       - ./shared-catalog.js:/srv/frontend/shared-catalog.js:ro
       - ./shared-environment.js:/srv/frontend/shared-environment.js:ro
       - ./shared-workgroup.js:/srv/frontend/shared-workgroup.js:ro

@@ -215,6 +215,64 @@ def demo_journey(browser, demo_url, artifacts, role, label, viewport):
                 raise AssertionError("Demo modal unexpectedly discarded unsaved form")
             demo_dialog.get_by_role("button", name="Close dialog").click()
             demo_dialog.wait_for(state="hidden")
+        if role == "u1":
+            # Real seeded Workgroup path: Studio → Watch → selected record → origin
+            page.locator('[data-act="nav"][data-id="studio"]').click()
+            page.locator('[data-studio-section="watch"]').click()
+            filt = page.locator('[data-ux-list-filter]')
+            filt.wait_for(state="visible", timeout=20000)
+            filt.fill("agent")
+            page.locator('.shared-list-row a').first.click()
+            page.locator('.ux-context-detail').wait_for(state="visible", timeout=20000)
+            if page.locator(".ux-advanced-source pre").is_visible():
+                raise AssertionError("Raw JSON shown by default instead of domain detail")
+            if "agent" not in page.locator(".ux-context-detail").inner_text().lower():
+                raise AssertionError("Workgroup record context lost on navigation")
+            page.locator("#ux-context-navigation .ux-return-link").click()
+            page.locator('[data-ux-list-filter]').wait_for(state="visible", timeout=20000)
+            if page.locator('[data-ux-list-filter]').input_value() != "agent":
+                raise AssertionError("Return to origin lost Workgroup filter")
+            if page.locator(".ux-context-detail").count():
+                raise AssertionError("Back from detail still displays selected record")
+            assert_no_horizontal_overflow(page)
+            capture(page, artifacts, "demo-workgroup-return-" + str(viewport["width"]))
+        if role == "u2":
+            # Engineer Task/Tool → Solution detail → measured Run → contextual return.
+            page.locator("[data-engineer-view=tool]").click()
+            page.locator("[data-engineer-view=task]").click()
+            page.locator("[data-engineer-detail]").first.click()
+            page.locator("#ux-engineer-setup").wait_for(state="visible", timeout=20000)
+            page.locator("#ux-engineer-feedback").wait_for(state="visible")
+            if not page.locator("[data-engineer-home]").is_visible():
+                raise AssertionError("Engineer detail has no discoverable origin")
+            before = page.url
+            page.get_by_role("link", name="Open measured Run and provenance").first.click()
+            page.locator("#ux-demo-run-context").wait_for(state="visible", timeout=20000)
+            if page.locator("#ux-demo-run-context .ux-advanced-source pre").is_visible():
+                raise AssertionError("Default Demo Run detail is a raw JSON dump")
+            page.go_back(wait_until="domcontentloaded")
+            page.locator("#ux-engineer-setup").wait_for(state="visible", timeout=20000)
+            if page.url != before:
+                raise AssertionError("Browser back lost the exact Engineer Task/Solution URL")
+            assert_no_horizontal_overflow(page)
+            capture(page, artifacts, "demo-engineer-origin-" + str(viewport["width"]))
+        if role == "u3":
+            # Management: source-specific, as-of Inspector, not just a green API.
+            scenario = page.locator("[data-heat-scenario]")
+            scenario.wait_for(state="visible", timeout=20000)
+            scenario.select_option("opp-demo-insights")
+            candidate = page.locator("button[data-heat-cell]:has(.heat-selected)").first
+            candidate.wait_for(state="visible", timeout=20000)
+            candidate.click()
+            page.locator(".heat-inspector").wait_for(state="visible", timeout=20000)
+            page.locator("[data-heat-branch]").first.click()
+            page.locator(".heat-inspector .ux-inspector-kv").wait_for(state="visible", timeout=20000)
+            if page.locator(".heat-inspector > section pre").is_visible():
+                raise AssertionError("Management default drilldown exposes raw JSON")
+            if not page.locator("[data-heat-asof]").is_visible():
+                raise AssertionError("Management original as-of state is missing")
+            assert_no_horizontal_overflow(page)
+            capture(page, artifacts, "demo-management-inspector-" + str(viewport["width"]))
         if errors:
             raise AssertionError("Demo JS runtime error(s): " + "; ".join(errors[:3]))
     finally:
@@ -307,6 +365,23 @@ def server_journey(browser, base_url, creds, artifacts, role, viewport):
                     raise AssertionError("Escape incorrectly dismissed account-creation form")
                 user_dialog.get_by_role("button", name="Close dialog").click()
                 user_dialog.wait_for(state="hidden")
+        if role == "multi_role":
+            # Fail closed: a missing protected record never resolves to a
+            # different current record or a Demo fixture; foreign from rejected.
+            page.goto(base_url +
+                "/?mode=server&workspace=workgroup&section=watch&record=uxqa-not-present"
+                "&revision=r999&from=%2F%2Fevil.example",
+                wait_until="domcontentloaded")
+            page.locator("#server-shared-summary").wait_for(state="visible", timeout=25000)
+            page.locator("#server-shared-summary [role=alert]").wait_for(state="visible", timeout=20000)
+            if page.locator(".ux-return-link").count():
+                raise AssertionError("External navigation origin was accepted")
+            assert_exactly_one_view(page, "#ux-screen-host > [data-ux-screen]")
+            page.goto(base_url + "/?mode=server&workspace=engineer&section=results"
+                "&record=uxqa-missing-run&revision=r999", wait_until="domcontentloaded")
+            page.locator("#ux-results-context [role=alert]").wait_for(state="visible", timeout=20000)
+            if not page.locator("#ux-results-context").is_visible():
+                raise AssertionError("Unavailable original Run was silently hidden")
         return {"visible_active_screens": 1, "shared_shell": True}
     finally:
         if traced:
@@ -343,13 +418,17 @@ def run_tests(base_url, demo_url, credentials, artifacts):
         try:
             run("Mutation probes (deliberate UI defects rejected)",
                 lambda: mutation_probes(browser, directory))
-            viewports = [{"width": 1366, "height": 900}, {"width": 390, "height": 844}]
+            # Product support scope: desktop browsers only (2026-10-11).
+            # Mobile/tablet adaptation is not part of acceptance or CI.
+            viewports = [{"width": 1366, "height": 900}]
             for viewport in viewports:
                 width = viewport["width"]
                 run(f"Standalone Demo workgroup {width}",
                     lambda v=viewport: demo_journey(browser, demo_url, directory, "u1", "workgroup", v))
                 run(f"Standalone Demo engineer {width}",
                     lambda v=viewport: demo_journey(browser, demo_url, directory, "u2", "engineer", v))
+                run(f"Standalone Demo management {width}",
+                    lambda v=viewport: demo_journey(browser, demo_url, directory, "u3", "management", v))
                 for role in ROLES:
                     run(f"Authenticated Server {role} {width}",
                         lambda k=role, v=viewport: server_journey(
@@ -359,10 +438,10 @@ def run_tests(base_url, demo_url, credentials, artifacts):
     failed = [record for record in records if record["result"] == "FAIL"]
     report = {
         "version": 1,
-        "suite": "UX-R02 Chromium cross-mode shell and modal acceptance",
+        "suite": "UX-R03 Chromium role-journey and contextual-origin acceptance",
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "status": "FAIL" if failed else "PASS",
-        "ui_conformance": "SHELL_AND_MODAL_CERTIFIED; CONTEXT_NAVIGATION_PENDING_UX_R03",
+        "ui_conformance": "CONTEXTUAL_JOURNEYS_CHECKED; MANUAL_STAGING_AND_FULL_PERSONA_DATA_REQUIRE_SEPARATE_REVIEW",
         "production_approval": "NO-GO: separate operational gates",
         "checks": records,
         "known_ux_findings": debts,
@@ -371,7 +450,7 @@ def run_tests(base_url, demo_url, credentials, artifacts):
     (directory / "report.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
     lines = ["# UI QA — " + report["status"], "",
              f"Chromium journeys: **{len(records) - len(failed)}/{len(records)} passed**.",
-             "**Common shell and modal invariants tested in real browser; contextual navigation remains #116.** Production remains NO-GO.",
+             "**Common shell, modal and seeded contextual navigation journeys exercised in Chromium.** Manual staging, full production evidence and deployment remain NO-GO.",
              "", "| Check | Result | Detail |", "| --- | --- | --- |"]
     for rec in records:
         lines.append(f"| {rec['name']} | {rec['result']} | " +

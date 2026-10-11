@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 "use strict";
 const fs=require("node:fs"),vm=require("node:vm"),assert=require("node:assert/strict");
-const w={};
-vm.runInNewContext(fs.readFileSync("shared-workgroup.js","utf8"),{window:w,URLSearchParams});
+const w={location:{origin:"http://localhost",protocol:"http:",
+  pathname:"/prototype.html",search:"?mode=demo&workspace=workgroup",hash:""}};
+const scope={window:w,URL,URLSearchParams};
+vm.runInNewContext(fs.readFileSync("shared-context.js","utf8"),scope);
+vm.runInNewContext(fs.readFileSync("shared-workgroup.js","utf8"),scope);
 const ui=w.AICompassWorkgroup;
 assert(ui&&ui.ZONES.length===5);
 const blocks=ui.ZONES.flatMap(z=>z.blocks.map(b=>b[0]));
@@ -22,7 +25,7 @@ assert.equal(ui.attention("recommendations",[{status:"in_review"},{status:"revie
 assert.equal(ui.attention("benchmark",null),null);
 const map=ui.renderMap("server",{},grants,true,{benchmark:1,feedback:99});
 assert(map.includes("1 requiring review")&&!map.includes("99 requiring review"));
-assert(ui.href("demo","tasks").startsWith("?mode=demo"));
+assert(ui.href("demo","tasks").includes("?mode=demo"));
 assert(ui.href("server","tasks").startsWith("/?mode=server"));
 assert(ui.breadcrumbs("server","watch","<unsafe>").includes("&lt;unsafe&gt;"));
 const fixture={watch:[{id:"w1",title:"<untrusted>",publication:"published"},{id:"w2",title:"private",publication:"draft"}],

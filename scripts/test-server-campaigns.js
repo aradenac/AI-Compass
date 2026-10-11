@@ -3,6 +3,7 @@
 /* PLAT-12: syntactic and authorization/isolation smoke for shared Server UI. */
 const assert=require("node:assert/strict"),fs=require("node:fs"),vm=require("node:vm");
 const source=fs.readFileSync("server-campaigns.js","utf8");
+const contextSource=fs.readFileSync("shared-context.js","utf8");
 const sessionsSource=fs.readFileSync("server-sessions.js","utf8");
 const mode=fs.readFileSync("server-mode.js","utf8");
 const page=fs.readFileSync("prototype.html","utf8");
@@ -34,7 +35,10 @@ const rows={campaigns:{results:[{id:"cmp-calm-blue-tree",name:"<unsafe campaign>
   "catalog/framework":{results:[]},
   "pricing/offers":{results:[]}};
 let calls=[];
-const sandbox={window:{},console,URLSearchParams,fetch:async(url,opts)=>{
+const sandbox={window:{location:{origin:"http://localhost",protocol:"http:",
+  pathname:"/",search:"?mode=server&workspace=workgroup&section=benchmark",hash:"",
+  href:"http://localhost/?mode=server&workspace=workgroup&section=benchmark"},
+  history:{replaceState(){}}},console,URL,URLSearchParams,fetch:async(url,opts)=>{
   assert(url.startsWith("/api/v1/"));
   assert.equal(opts.credentials,"same-origin");
   calls.push(url);
@@ -42,6 +46,7 @@ const sandbox={window:{},console,URLSearchParams,fetch:async(url,opts)=>{
   if(!rows[key])throw Error("Unknown "+url);
   return {ok:true,json:async()=>rows[key]};
 }};
+vm.runInNewContext(contextSource,sandbox,{filename:"shared-context.js"});
 vm.runInNewContext(sessionsSource,sandbox,{filename:"server-sessions.js"});
 vm.runInNewContext(source,sandbox,{filename:"server-campaigns.js"});
 const escape=s=>String(s).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;");

@@ -143,6 +143,9 @@
     content: '<div id="ux-screen-host"></div>'
   });
   var serverScreenHost = document.getElementById("ux-screen-host");
+  var contextNav = document.createElement("div");
+  contextNav.id = "ux-context-navigation";
+  serverScreenHost.parentNode.insertBefore(contextNav,serverScreenHost);
   serverScreenHost.appendChild(overview);
   serverScreenHost.appendChild(moved);
   var topActions = root.querySelector(".ux-topbar .top-actions");
@@ -456,8 +459,7 @@
       catalog.hidden = true;
       home.hidden = false;
       function showHome(counts) {
-        home.innerHTML = group.breadcrumbs("server", section) +
-          (section === "studio" ?
+        home.innerHTML = (section === "studio" ?
             group.renderMap("server", data, grants, true, counts) :
             '<div class="server-card"><h2>' + modelsUi.escapeHtml(section.replaceAll("-"," ")) +
             '</h2><p class="muted">Real Server data, exact revision history and authorized actions.</p>' +
@@ -495,8 +497,9 @@
           group.mountSummary(document.getElementById("server-shared-summary"),
             summaryProvider,section,"server",{
               recordId:new URLSearchParams(window.location.search).get("record"),
-              link:function(id){return group.href("server",section)+
-                "&record="+encodeURIComponent(id);}
+              revision:new URLSearchParams(window.location.search).get("revision"),
+              link:function(id){return window.AICompassContext.contextualLink(
+                "server","workgroup",section,id);}
             }).show().catch(function(){ /* visible error is already fail-closed */ });
         } else if(target) {
           target.hidden=false;
@@ -542,6 +545,8 @@
     sidebar.innerHTML = window.AICompassShell.serverNav(
       personaId, grants, currentSection, maintenanceWorkspace);
     window.AICompassShell.selectScreen(serverScreenHost, screen);
+    window.AICompassContext.syncContext(contextNav,"server",
+      maintenanceWorkspace?"maintenance":personaId,currentSection);
     var active = document.getElementById(screen);
     var label = active && active.querySelector("h2") ||
       active && active.querySelector("h1");

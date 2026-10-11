@@ -27,6 +27,7 @@ def validate(root):
     document = Assets()
     document.feed((root / "prototype.html").read_text(encoding="utf-8"))
     compose = (root / "compose.yaml").read_text(encoding="utf-8")
+    staging = (root / "staging" / "compose.yaml").read_text(encoding="utf-8")
     problems = []
     for name in sorted(document.names):
         if "/" in name or name.startswith(".") or "://" in name:
@@ -38,9 +39,11 @@ def validate(root):
             problems.append("Source asset missing: " + name)
         if f"./{name}:/srv/frontend/{name}:ro" not in compose:
             problems.append("Caddy bind mount missing for: " + name)
+        if f"../{name}:/srv/frontend/{name}:ro" not in staging:
+            problems.append("Staging Caddy bind mount missing for: " + name)
     if problems:
         raise AssertionError("\n".join(problems))
-    print(f"PASS: {len(document.names)} frontend assets present and mounted in Server Caddy.")
+    print(f"PASS: {len(document.names)} frontend assets present in both Server and staging Caddy.")
 
 
 if __name__ == "__main__":

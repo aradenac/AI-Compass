@@ -1,7 +1,7 @@
 # UI acceptance contract — AI Compass
 
 > **Status:** Normative interaction acceptance derived from the approved [role-based UX specification](role-based-user-experience-and-guided-navigation.md) and [NFR](non-functional-requirements.md). **Visual proposal**, not an owner-approved golden screenshot. Final visual approval is separate from executable correctness.
-> **Scope:** Standalone fictional Demo, real authenticated Server, Workgroup, Engineer, Management and independent Maintenance.
+> **Scope:** Desktop web browsers only (reference 1366×900; standard desktop viewport 1024px or wider). Standalone fictional Demo, real authenticated Server, Workgroup, Engineer, Management and independent Maintenance. Mobile/tablet web, touch-specific layouts and native applications are **out of scope** by product-owner decision (2026-10-11). Existing CSS fallbacks are not tested or certified.
 > **Delivery:** UX-R01 [#114](https://github.com/aradenac/AI-Compass/issues/114) sets up the gate; [#115](https://github.com/aradenac/AI-Compass/issues/115) and [#116](https://github.com/aradenac/AI-Compass/issues/116) bring the old screens into conformance. No synthetic fixtures may become live Server business records.
 
 ## Shared shell — desktop (reference layout)
@@ -74,7 +74,7 @@
 | Surfaces | Calm neutral background, white content surfaces, subtle borders, restrained shadow |
 | Semantic color | Neutral navigation; one primary interaction accent; separate danger/warning/success states, never color-only statuses |
 | Controls | Consistent buttons, focus rings, input heights and modal dimensions |
-| Responsive | At <=768px, compact navigation, one-column content, scrollable tables without whole-page horizontal overflow |
+| Desktop layout | Usable desktop browser windows (reference 1366×900), readable panels, tables and navigation without unintended page-level overflow |
 | Density | Progressive disclosure: summary first, advanced provenance on demand, no repeated permanent admin/diagnostics blocks |
 | Accessibility | Keyboard-operable actions, visible focus, labels, dialogs, state announcement and adequate contrast |
 
@@ -82,17 +82,19 @@ The above are **design expectations**, not claims that current product screensho
 
 ## Browser test matrix
 
-| Journey / invariant | Desktop 1366×900 | Mobile 390×844 | Demo | Server |
-| --- | --- | --- | --- | --- |
-| First sign-in / persona entry | Required | Required | Fictional identity | Real session + CSRF |
-| Workgroup navigation | Required | Required | Fictional | Contributor |
-| Engineer Task-first | Required | Required | Fictional | Reader |
-| Management insight | Required | Required | Fictional | Planner |
-| Maintenance and audit | Required | Required | Not a privileged Demo API | Maintainer |
-| Multiple roles, single active view | Required | Required | Simulated role switch | Combined grants |
-| Back/breadcrumb and modal interactions | Required | Required | Representative | Representative |
-| No page errors / no unintended overflow | Required | Required | Required | Required |
-| Data isolation / no fallback | Required | Required | Zero API use | Real authenticated API only |
+Only desktop Chromium journeys are an enforced CI requirement. This halves persona-browser test invocations versus the former desktop+390px mobile matrix. Do not add mobile screenshot baselines or mobile E2E gates to unblock desktop feature releases.
+
+| Journey / invariant | Desktop 1366×900 | Demo | Server |
+| --- | --- | --- | --- |
+| First sign-in / persona entry | Required | Fictional identity | Real session + CSRF |
+| Workgroup navigation | Required | Fictional | Contributor |
+| Engineer Task-first | Required | Fictional | Reader |
+| Management insight | Required | Fictional | Planner |
+| Maintenance and audit | Required | Not a privileged Demo API | Maintainer |
+| Multiple roles, single active view | Required | Simulated role switch | Combined grants |
+| Back/breadcrumb and modal interactions | Required | Representative | Representative |
+| No page errors / no unintended overflow | Required | Required | Required |
+| Data isolation / no fallback | Required | Zero API use | Real authenticated API only |
 
 **Gate maturity:** R01 supplies real browser smoke, representative captures, traces and deliberately broken mutation fixtures that prove detectors work. R02 and R03 must promote the current live single-view, modal and contextual-journey invariants from diagnostic findings to mandatory failing checks. A preexisting broken UI must never be approved as its own golden baseline.
 
@@ -102,7 +104,7 @@ The above are **design expectations**, not claims that current product screensho
 2. A targeted interaction failure is **FAIL**, not "best effort". The full report identifies untested and not-yet-certified UX.
 3. Upload a JSON report, readable Markdown summary, replayable traces and screenshots on every CI run. No passwords, actual production data, tokens or privileged real evidence may enter artifacts.
 4. Intentional visual updates require a change proposal against these references; snapshot approval must be explicit, not an auto-updated image. Backend immutability and RBAC remain separate acceptance requirements.
-5. GitHub branch rule for protected \`main\`: require the exact workflow job status \`ui-qa\`; disallow bypass for ordinary merges and verify enforcement in GitHub settings. **A successful workflow by itself is not proof that this rule is enabled.** If the connector lacks rule-edit permission, keep the remaining enforcement action visible in #114 and never falsely claim it was configured.
+5. GitHub branch protection enforcing the \`ui-qa\` status is deferred by product-owner decision as [TD-UI-01](technical-debt.md). Continue running and examining Chromium CI before merge, but do not claim the required-status branch rule is enabled.
 6. Production release remains NO-GO under [release readiness](release-readiness.md), independently of browser CI.
 
 ## Local commands

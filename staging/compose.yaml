@@ -66,6 +66,22 @@ services:
       - ../shared-engineer.js:/srv/frontend/shared-engineer.js:ro
       - ../shared-opportunities.js:/srv/frontend/shared-opportunities.js:ro
       - ../shared-opportunity-heatmap.js:/srv/frontend/shared-opportunity-heatmap.js:ro
+      - ../server-governance-audit.js:/srv/frontend/server-governance-audit.js:ro
+      - ../server-deployments.js:/srv/frontend/server-deployments.js:ro
+      - ../demo-deployments.js:/srv/frontend/demo-deployments.js:ro
+      - ../shared-runtime.js:/srv/frontend/shared-runtime.js:ro
+      - ../shared-shell.js:/srv/frontend/shared-shell.js:ro
+      - ../shared-shell.css:/srv/frontend/shared-shell.css:ro
+      - ../shared-context.js:/srv/frontend/shared-context.js:ro
+      - ../shared-context.css:/srv/frontend/shared-context.css:ro
+      - ../shared-catalog.js:/srv/frontend/shared-catalog.js:ro
+      - ../shared-environment.js:/srv/frontend/shared-environment.js:ro
+      - ../shared-workgroup.js:/srv/frontend/shared-workgroup.js:ro
+      - ../shared-budgets.js:/srv/frontend/shared-budgets.js:ro
+      - ../shared-drafts.js:/srv/frontend/shared-drafts.js:ro
+      - ../shared-pricing.js:/srv/frontend/shared-pricing.js:ro
+      - ../server-pricing-selection.js:/srv/frontend/server-pricing-selection.js:ro
+      - ../shared-workgroup.css:/srv/frontend/shared-workgroup.css:ro
       - ./banner.js:/srv/frontend/banner.js:ro
     depends_on:
       api:

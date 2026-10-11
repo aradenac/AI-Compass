@@ -7,6 +7,7 @@
 <title>AI Compass — Interactive Product Prototype</title>
 <link rel="stylesheet" href="shared-workgroup.css">
 <link rel="stylesheet" href="shared-shell.css">
+<link rel="stylesheet" href="shared-context.css">
 <style>
 :root{--navy:#111e35;--navy2:#1b2b46;--bg:#f4f6fa;--card:#fff;--ink:#15233b;--muted:#64748b;--line:#e3e8f0;--blue:#3159d7;--teal:#087e83;--mint:#e8f7f4;--yellow:#a66507;--red:#b24249;--shadow:0 8px 32px rgba(18,39,71,.055)}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Arial,sans-serif}button,input,select,textarea{font:inherit}button{cursor:pointer}a{color:var(--blue);text-decoration:none}a:hover{text-decoration:underline}h1,h2,h3,h4,p{margin:0}h1{font-size:28px;letter-spacing:-.8px;line-height:1.25}h2{font-size:20px;letter-spacing:-.3px}h3{font-size:15px}small,.small{font-size:12px}.muted{color:var(--muted)}strong{font-weight:650}
@@ -109,6 +110,7 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;b
 <script src="model-catalog.js"></script>
 <script src="shared-runtime.js"></script>
 <script src="shared-shell.js"></script>
+<script src="shared-context.js"></script>
 <script src="shared-catalog.js"></script>
 <script src="shared-environment.js"></script>
 <script src="shared-pricing.js"></script>
@@ -636,7 +638,7 @@ var initialWorkspace=new URLSearchParams(window.location.search).get("workspace"
 var initialSection=new URLSearchParams(window.location.search).get("section");
 var initialPage=initialWorkspace==="workgroup" ?
   (initialSection&&window.AICompassWorkgroup.SECTION_TO_DEMO[initialSection]||"studio") :
-  initialWorkspace==="engineer"?"tasks":initialWorkspace==="management"?"management":"dashboard";
+  initialWorkspace==="engineer"?(initialSection==="results"?"results":"tasks"):initialWorkspace==="management"?"management":"dashboard";
 if(!initialWorkspace && db.users.some(function(u){return u.id===currentUser&&u.role==="workgroup";}))
   initialPage="studio";
 var ui={page:initialPage,task:"t5",solution:"s1",solutionView:"solutions",bench:"runs",matrix:"task",
@@ -891,11 +893,56 @@ function render(){var pages={studio:function(){
 },dashboard:dashboardPage,tasks:tasksPage,solutions:solutionsPage,recommendations:recommendationsPage,benchmark:benchmarkPage,results:resultsPage,testdesign:testDesignPage,knowledge:knowledgePage,watch:watchPage,feedback:feedbackPage,activity:activityPage,management:managementPage,workgroup:benchmarkPage};
 var labels={studio:"AI Workgroup Studio",dashboard:canEdit()?"Dashboard":"Overview",tasks:canEdit()?"Task management":"Task explorer",solutions:canEdit()?"Technology catalog":"AI solutions",recommendations:"Recommendations",benchmark:"Benchmark workspace",results:"Results explorer",testdesign:"Test design",knowledge:"Guides & charter",watch:"Technology watch",feedback:"Feedback & discussions",activity:"Activity feed",management:"Management view",workgroup:"Benchmark workspace"};
 if(!user()){login();return;}if(ui.page==="studio"&&!canEdit())ui.page="dashboard";if(ui.page==="workgroup")ui.page=canEdit()?"studio":"dashboard";if((ui.page==="benchmark"||ui.page==="testdesign")&&!canEdit())ui.page="results";if(canEdit()&&ui.page==="solutions")ui.solutionView="components";shell((pages[ui.page]||dashboardPage)(),labels[ui.page]);
+if(ui.page==="results"){
+ var focus=new URLSearchParams(window.location.search);
+ var selectedId=focus.get("record");
+ if(selectedId){
+   var requested=focus.get("revision"),run=db.runs.find(function(r){return r.id===selectedId;});
+   var box=document.createElement("section");
+   box.id="ux-demo-run-context";
+   box.className="ux-context-detail";
+   box.setAttribute("aria-label","Selected measured Run context");
+   if(!run){
+     box.innerHTML='<p role="alert" class="ux-history-warning">Requested Run is not available from the authorized fictional Demo. No other source is substituted.</p>';
+   }else{
+     var actual=run.revision||"r001";
+     box.innerHTML='<h3>Measured Run '+E(run.id)+' · '+E(actual)+'</h3>'+
+       (requested && requested!==actual?
+          '<p role="alert" class="ux-history-warning">Requested revision '+E(requested)+
+            ' differs from the available Demo original '+E(actual)+'. Current data is not substituted as the original.</p>':
+          '<dl class="ux-context-properties"><dt>Task / Test Case</dt><dd>'+
+            E(run.case)+'</dd><dt>Measured solution</dt><dd>'+E(run.solution||"Composite workflow")+
+            '</dd><dt>Outcome</dt><dd>'+E(run.accepted?"Accepted DoD":"Failed / not accepted")+
+            '</dd><dt>Recorded score</dt><dd>'+E(run.score==null?"Unknown":run.score)+
+            '</dd><dt>Recorded cost (EUR)</dt><dd>'+E(run.cost==null?"Unknown":run.cost)+
+            '</dd><dt>Original artifacts</dt><dd>'+E(run.artifacts||"Not recorded")+'</dd></dl>')+
+       '<p><a href="'+E(window.AICompassContext.route("demo","engineer","home",{
+           task:(db.cases.find(function(c){return c.id===run.case;})||{}).task,
+           solution:run.solution
+         }))+'">Return to measured solution context</a></p>'+
+       '<details class="ux-advanced-source"><summary>Advanced: inspect fictional original Run source</summary>'+
+         '<pre></pre></details>';
+     box.querySelector("pre").textContent=JSON.stringify(run,null,2);
+   }
+   var host=document.querySelector(".ux-content");
+   if(host)host.insertBefore(box,host.firstChild);
+ }
+}
+
 var runtime=window.AICompassRuntime;
 var requested=new URLSearchParams(window.location.search).get("workspace");
 var persona=runtime.choosePersona(user(), "demo", requested);
 var target=document.querySelector(".content");
-if(target)target.insertAdjacentHTML("afterbegin",runtime.renderPersonaLinks(user(),"demo",persona&&persona.id));
+if(target) {
+ target.insertAdjacentHTML("afterbegin",runtime.renderPersonaLinks(user(),"demo",persona&&persona.id));
+ var nav=document.createElement("div");
+ nav.id="ux-context-navigation";
+ target.insertBefore(nav,target.firstChild);
+ window.AICompassContext.syncContext(nav,"demo",persona&&persona.id||"engineer",
+   initialWorkspace==="workgroup"&&initialSection&&
+   ui.page===window.AICompassWorkgroup.SECTION_TO_DEMO[initialSection]?
+     initialSection:ui.page);
+}
 if(target && (ui.page==="dashboard" || ui.page==="tasks") && persona && persona.id==="engineer"){
  target.insertAdjacentHTML("beforeend",
    '<section id="demo-environment-profile" class="card" role="region" aria-label="My OS environment"></section>');
@@ -944,7 +991,7 @@ if(ui.page === "management" && persona && persona.id === "management" && window.
   }
 }
 
-if(persona && persona.id === "engineer" && window.AICompassEngineer) {
+if(persona && persona.id === "engineer" && ui.page==="tasks" && window.AICompassEngineer) {
   var engineerSource=document.querySelector(".content");
   if(engineerSource){
     Array.from(engineerSource.children).forEach(function(child){
@@ -967,16 +1014,17 @@ if(persona && persona.id === "engineer" && window.AICompassEngineer) {
   }
 }
 
-if(initialWorkspace==="workgroup" && initialSection && window.AICompassWorkgroup.STABLE[initialSection]&&canEdit()) {
+if(initialWorkspace==="workgroup" && initialSection &&
+   ui.page===window.AICompassWorkgroup.SECTION_TO_DEMO[initialSection] &&
+   window.AICompassWorkgroup.STABLE[initialSection]&&canEdit()) {
   var source=document.querySelector(".content");
   if(source){
     // One default list/presentation in both runtimes. Keep historical Demo
     // forms and specialist actions accessible rather than silently dropping them.
     Array.from(source.children).forEach(function(child){
-      if(!child.classList.contains("shared-personas"))child.hidden=true;
+      if(!child.classList.contains("shared-personas")&&child.id!=="ux-context-navigation")child.hidden=true;
     });
     source.insertAdjacentHTML("afterbegin",
-      window.AICompassWorkgroup.breadcrumbs("demo",initialSection)+
       '<div id="demo-shared-summary" class="card" role="region" aria-label="Shared knowledge view"></div>'+
       '<button type="button" id="demo-open-full-workspace" class="btn">Open complete Demo workspace / edit / history</button>');
     document.getElementById("demo-open-full-workspace").onclick=function(){
@@ -991,7 +1039,9 @@ if(initialWorkspace==="workgroup" && initialSection && window.AICompassWorkgroup
       document.getElementById("demo-shared-summary"),
       window.AICompassWorkgroup.demoProvider(db,canEdit),initialSection,"demo",{
         recordId:new URLSearchParams(window.location.search).get("record"),
-        link:function(id){return window.AICompassWorkgroup.href("demo",initialSection)+"&record="+encodeURIComponent(id);}
+        revision:new URLSearchParams(window.location.search).get("revision"),
+        link:function(id){return window.AICompassContext.contextualLink(
+          "demo","workgroup",initialSection,id);}
       }).show()
       .catch(function(){/* error is already displayed */});
   }
@@ -3213,7 +3263,7 @@ document.addEventListener("input",function(ev){var el=ev.target;if(["solutionSea
 document.addEventListener("click",function(ev){
 var b=ev.target.closest("[data-act]");if(!b)return;
 var act=b.dataset.act,id=b.dataset.id||"";
-if(act==="login"){currentUser=id;localStorage.setItem(SESSION,id);ui.page=canEdit()?"studio":"dashboard";render();return;}
+if(act==="login"){currentUser=id;localStorage.setItem(SESSION,id);ui.page=initialWorkspace==="engineer"?"tasks":initialWorkspace==="management"?"management":canEdit()?"studio":"dashboard";render();return;}
 if(act==="switch"){currentUser="";localStorage.removeItem(SESSION);ui.modal="";render();return;}
 if(act==="close"){closeModal();return;}
 if(act==="nav"){ui.page=id;ui.modal="";render();window.scrollTo(0,0);return;}
