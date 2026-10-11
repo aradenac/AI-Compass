@@ -2104,8 +2104,8 @@ selectField("costMode","Estimated total AI/tool cost",[["amount","Amount in EUR 
 durationField("reviewMinutes","Final human review duration (minutes)",0,"Time spent checking deliverables after the interactions, separate from reviews already logged as interactions.")+
 durationField("correctionMinutes","Final human correction duration (minutes)",0,"Time spent manually fixing remaining errors after the final review, not counted in earlier iterations.")+
 '<div class="span2"><h3>Produced outputs</h3></div>'+
-guidedField("outputDocuments","Produced outputs — documents, code, reports, artifacts, paths or links","","textarea","full","List the final deliverables and their references/versions. This is the canonical output-evidence field; do not re-enter the same outputs elsewhere.")+
-guidedField("additionalNotes","Additional notes (optional)","","textarea","full","Only supplementary observations not already captured in the two metric evaluations or the produced outputs.");
+guidedField("outputDocuments","Produced outputs — documents, code, reports, artifacts, paths or links",t.pendingResults?.outputDocuments||"","textarea","full","List the final deliverables and their references/versions. This is the canonical output-evidence field; do not re-enter the same outputs elsewhere.")+
+guidedField("additionalNotes","Additional notes (optional)",t.pendingResults?.additionalNotes||"","textarea","full","Only supplementary observations not already captured in the two metric evaluations or the produced outputs.");
 openForm("Step 5 · Results, artifacts & metrics","campaignTrialOutcome",fields,id,"Close Test Case execution");
 }
 function campaignReviewForm(id){
@@ -2591,6 +2591,9 @@ var r={id:next("r"),campaignId:c.id,sessionId:t.id,case:tc.id,solution:sol?.id||
  correction:Number(d.correctionMinutes||0),cost:estimatedCost,costMode:costMode,tokens:tokens,
  tokensKnown:tokensKnown,tokenEntry:tokensKnown?{quantity:Number(d.tokenCount),multiplier:Number(d.tokenScale||1)}:null,
  tokensInput:null,tokensOutput:null,duration:time,runtimeSource:"sum_of_iterations",interruptions:interactions.length,
+ referenceCostSnapshot:t.calculatedCost?JSON.parse(JSON.stringify(t.calculatedCost)):null,
+ originalTariffPlan:t.tariffPlan?JSON.parse(JSON.stringify(t.tariffPlan)):null,
+
  reprompts:interactions.filter(function(v){return String(v.kind+" "+v.description).toLowerCase().includes("prompt");}).length,
  utility:Number(d.utility),qualityAssessment:d.qualityAssessment||"",utilityAssessment:d.utilityAssessment||"",
  sideEffects:d.additionalNotes||"",prompt:initialPrompt,transcript:trace,
@@ -2599,7 +2602,8 @@ var r={id:next("r"),campaignId:c.id,sessionId:t.id,case:tc.id,solution:sol?.id||
  installationGuideId:t.installationGuideId||"",installationGuideSnapshot:t.installationGuideSnapshot||null,
   installationRecipeModules:t.installationRecipeModules||[],
  setupNotes:t.setupNotes,configuration:setup.configuration,
-  evaluationId:t.evaluationId||""})),
+  evaluationId:t.evaluationId||"",selectedTariffRevision:t.tariffPlan?.revision||null,
+  measuredMeters:JSON.parse(JSON.stringify(t.observedMeters||{}))})),
  interactions:JSON.parse(JSON.stringify(interactions)),
  resultDetails:{qualityAssessment:d.qualityAssessment||"",utilityAssessment:d.utilityAssessment||"",
  additionalNotes:d.additionalNotes||"",outputDocuments:d.outputDocuments||"",finishedAt:campaignLocalTime()},
@@ -2845,11 +2849,38 @@ if(!guide||guide.type!=="Installation"){toast("Select an installation guide.");r
  if(!session||!campaign||campaign.stage!=="active"||session.status==="completed"){toast("This session is no longer open.");return;}
  if(["score","utility"].some(function(k){return !String(d[k]??"").trim()||!Number.isFinite(Number(d[k]))||Number(d[k])<0||Number(d[k])>100;})){toast("Enter outcome metrics (quality and utility 0–100).");return;}
  if(["reviewMinutes","correctionMinutes"].some(function(k){return String(d[k]??"").trim()===""||!Number.isFinite(Number(d[k]))||Number(d[k])<0||Number(d[k])>10080;})){toast("Enter final human effort in minutes, 0–10080.");return;}
- if(!["amount","flat","unknown"].includes(d.costMode)){toast("Select how the AI/tool cost is represented.");return;}
- if(d.costMode==="amount"&&(String(d.cost??"").trim()===""||!Number.isFinite(Number(d.cost))||Number(d.cost)<0)){toast("Enter a nonnegative total run cost in EUR.");return;}
+ if(!session.tariffPlan&&!["amount","flat","unknown"].includes(d.costMode)){toast("Select how the AI/tool cost is represented.");return;}
+ if(!session.tariffPlan&&d.costMode==="amount"&&(String(d.cost??"").trim()===""||!Number.isFinite(Number(d.cost))||Number(d.cost)<0)){toast("Enter a nonnegative total run cost in EUR.");return;}
  if(String(d.tokenCount??"").trim()!==""&&(!Number.isFinite(Number(d.tokenCount))||Number(d.tokenCount)<0||!["1","10","100","1000","1000000"].includes(String(d.tokenScale)))){toast("Invalid token total or multiplier.");return;}
  if(!session.interactions.length){toast("Log at least one interaction, including the initial prompt/action.");return;}
  if(!String(d.outputDocuments||"").trim()){toast("Document the final produced outputs or explicitly state none.");return;}
+ if(session.tariffPlan){
+  // Store all work before determining finality, including incomplete metering.
+  // Resuming Step 5 must never recreate an already completed Run.
+  var observations=JSON.parse(JSON.stringify(session.observedMeters||{}));
+  for(var line of session.tariffPlan.lines){
+   if(line.charge_type!=="variable")continue;
+   var source=line.source_key,key="meter_"+source+"_"+line.meter,
+       raw=d[key];
+   if(!observations[source])observations[source]={};
+   if(raw==null||String(raw).trim()==="")delete observations[source][line.meter];
+   else observations[source][line.meter]=String(raw);
+  }
+  session.observedMeters=observations;
+  session.pendingResults=JSON.parse(JSON.stringify(d));
+  var price;
+  try{price=demoTariffQuote(session.tariffPlan,observations);}
+  catch(error){toast("Meter validation failed: "+error.message);persist();return;}
+  session.calculatedCost=price;
+  persist();
+  if(!price.ready){
+   toast("Run remains pending with saved results: "+price.missing.join(", "));
+   return;
+  }
+  if(!price.variable_charges.length){d.costMode="flat";d.cost="";}
+  else if(price.currency==="EUR"){d.costMode="amount";d.cost=price.variable_reference_cost;}
+  else{d.costMode="unknown";d.cost="";}
+ }
  var finished=campaignRecordRun(session,d);
  if(finished.error){toast(finished.error);return;}
  if(session.forecastSnapshot){var source=rec("proposals",session.forecastSnapshot.id);if(source){var previous=JSON.parse(JSON.stringify(source));source.linkedSolution=finished.run.solution;revision("Forecast validation link",source.id,previous,source);}}
