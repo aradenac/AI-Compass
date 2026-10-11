@@ -85,7 +85,7 @@ class TariffRunTests(PricingTests):
         self.assertIn("output_tokens",partial.json()["metering"]["missing"][0])
         upload=self.client.post("/api/v1/catalog/items/"+ses["campaign_id"]+
             "/evidence/upload",{
-                "file":SimpleUploadedFile("compile-output.log",
+                "file":SimpleUploadedFile("compile-output.txt",
                            b"error: driver compilation failed\\n",content_type="text/plain"),
                 "revision":ses["campaign_revision"],"source":"experiment:test-case",
                 "provenance":json.dumps({"stage":"pending results"})
