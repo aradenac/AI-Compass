@@ -292,3 +292,23 @@ class EvaluationMatrixTests(TestCase):
         self.assertIsNone(accepted.json()["individual_setup"])
         self.assertEqual(accepted.json()["selected_participant_ids"],participants)
         self.assertEqual(self.matrix()["summary"]["in_progress"],1)
+    def test_solution_centred_method_remains_one_fixed_trio_across_tasks(self):
+        ids={k:v.public_id for k,v in self.components.items()}
+        created=self.call(BASE,{"name":"One solution many tasks",
+            "objective":"Reuse same pinned setup across different tasks",
+            "mode":"solution_centred","component_ids":ids,
+            "test_case_ids":[self.cases[0].item.public_id,self.case2.item.public_id]})
+        self.assertEqual(created.status_code,201,created.content)
+        self.camp=created.json();self.path=BASE+"/"+self.camp["id"]
+        first=self.add(tests=[self.cases[0].item.public_id],label="Fixed trio")
+        self.assertEqual(first.status_code,200,first.content)
+        second=self.add(task=self.task2,tests=[self.case2.item.public_id],
+                        label="Same fixed trio")
+        self.assertEqual(second.status_code,200,second.content)
+        alt=create_component(type_slug="provider",actor=self.writer,
+                             name="Unrelated provider",properties={})
+        rejected=self.add(task=self.task2,tests=[self.case2.item.public_id],
+                          label="Wrong fixed setup",
+                          components={**ids,"provider":alt.public_id})
+        self.assertEqual(rejected.status_code,400)
+        self.assertEqual(self.matrix()["summary"]["candidates"],2)
