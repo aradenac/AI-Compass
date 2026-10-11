@@ -394,3 +394,41 @@ class BenchmarkSessionTests(TestCase):
                       rendered.json()["missing"])
         self.assertEqual(len(rendered.json()["configuration"]["participants"]),1)
 
+    def test_multi_participant_framework_requires_all_exact_guide_sections(self):
+        data={"name":"Composite campaign","objective":"Test composite setup",
+              "mode":"task_centred","task_id":self.task.item.public_id,
+              "test_case_ids":[self.case.item.public_id],
+              "framework_id":self.framework.public_id,
+              "participants":[{
+                "label":label,"role":role,
+                "component_ids":{k:v.public_id for k,v in self.catalog.items()},
+                "configuration_version":"1","settings":{}
+              } for label,role in (("A","Researcher"),("B","Reviewer"))]}
+        created=self.call("/api/v1/campaigns",data)
+        self.assertEqual(created.status_code,201,created.content)
+        camp=created.json()
+        started=self.call("/api/v1/campaigns/"+camp["id"]+"/actions/start",
+                          {"expected_revision":"r001"})
+        self.assertEqual(started.status_code,200,started.content)
+        campaign=started.json()["campaign"]
+        ids=[x["id"] for x in campaign["participants"]]
+        modules=[create_guide(actor=self.editor,name="Module "+name,
+                              properties={"text":"Pinned "+name}) for name in ("A","B","Wiring")]
+        names=["participant:"+ids[0],"participant:"+ids[1],"framework_wiring"]
+        guide=create_guide(actor=self.editor,name="Orchestrated documented workflow",
+                           properties={"text":"End-to-end verification","recipe":{
+                               "required":["os","framework","participants"],
+                               "modules":[{"id":g.public_id,"revision":"r001","group":group}
+                                          for g,group in zip(modules,names)]}})
+        session=self.create_session(campaign,{
+            "guide_id":guide.public_id,"selected_participant_ids":ids})
+        path="/api/v1/sessions/"+session["id"]
+        saved=self.call(path+"/setup",{
+            "expected_revision":"r001","environment":{"os":"ubuntu"}},"PATCH")
+        self.assertEqual(saved.status_code,200,saved.content)
+        rendered=self.client.get(path+"/guide")
+        self.assertEqual(rendered.status_code,200,rendered.content)
+        self.assertTrue(rendered.json()["ready"],rendered.json())
+        self.assertEqual(len(rendered.json()["configuration"]["participants"]),2)
+        self.assertEqual(len(rendered.json()["sections"]),3)
+
