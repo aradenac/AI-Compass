@@ -92,12 +92,12 @@ def active_manifest(item):
     excluded = []
     for pin in base.get("runs", []):
         if pin["id"] not in ids:
-            excluded.append({"id": pin["id"], "status": "withdrawn"})
+            excluded.append({"status": "withdrawn"})
         else:
             run = lookup(pin["id"])
             if run is None:
                 # Orphaned provenance is never silently public.
-                excluded.append({"id": pin["id"], "status": "unresolved"})
+                excluded.append({"status": "unresolved"})
                 continue
             current = state(run)
             visible.append({**pin, "effective_revision": current["revision"],
@@ -125,6 +125,8 @@ def _all_runs(item):
 
 def _assess(run, kind):
     """Validate original, exact historical setup rather than current guide head."""
+    from .run_lifecycle_services import state as run_state
+    current = run_state(run)
     session = run.session
     errors = []
     if run.outcome not in ("accepted", "failed"):
@@ -168,7 +170,7 @@ def _assess(run, kind):
 
     reference = guide.get("recipe") if guide else None
     pin = {
-        "id": run.public_id, "kind": kind,
+        "id": run.public_id, "kind": kind,\n        "effective_revision": current["revision"],\n        "effective_revision_id": current["revision_id"],
         "run_uuid": str(run.pk),
         "session_id": session.public_id,
         "closing_checkpoint_id": str(run.closing_checkpoint_id),
@@ -176,7 +178,7 @@ def _assess(run, kind):
         "test_case_id": session.case_pin.test_case.item.public_id,
         "test_case_revision_id": str(session.case_pin.revision_id),
         "method_definition_id": str(session.method_definition_id),
-        "outcome": run.outcome,
+        "outcome": current["outcome"],
         "guide": reference,
         "guide_module_pins": run.provenance.get("setup_composition", {}).get(
             "module_pins", []),
