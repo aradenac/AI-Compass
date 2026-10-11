@@ -1,6 +1,6 @@
 # Draft resume, Run stepper and conflict-safe concurrent editing — UX-R05
 
-Issue: [#124](https://github.com/aradenac/AI-Compass/issues/124) · Normative UX reference: [Role-based UX §§8.2, 9, 10 and §13 cases 12–15](role-based-user-experience-and-guided-navigation.md) · Related: [Resumable Server sessions](resumable-sessions-server.md), [Workgroup Studio](workgroup-studio.md), [Shared frontend and release lifecycle](shared-frontend-and-release-lifecycle.md).
+Issue: [#124](https://github.com/aradenac/AI-Compass/issues/124) · Implementation: [PR #132](https://github.com/aradenac/AI-Compass/pull/132) · Normative UX reference: [Role-based UX §§8.2, 9, 10 and §13 cases 12–15](role-based-user-experience-and-guided-navigation.md) · Related: [Resumable Server sessions](resumable-sessions-server.md), [Workgroup Studio](workgroup-studio.md), [Shared frontend and release lifecycle](shared-frontend-and-release-lifecycle.md).
 
 This document describes the **delivered** stateful-editing behaviour on the consolidated desktop UI. It extends the existing `shared-drafts.js` helper and the existing `expected_revision` / HTTP 409 contracts; it introduces no second draft engine, no new database, no CRDT/real-time editing and no mobile scope.
 
