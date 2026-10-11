@@ -5,6 +5,7 @@ uses no Demo records, and rejects cross-type or unpinned references.
 """
 from django.views.decorators.http import require_POST
 from django.views.decorators.cache import never_cache
+from django.views.decorators.csrf import csrf_protect
 from django.db.models import Q
 from .auth_views import capability, json_no_store
 from .catalog_views import read_payload
@@ -14,6 +15,7 @@ from .setup_composition import compose, SetupCompositionError
 
 
 @require_POST
+@csrf_protect
 @capability("business_read")
 @never_cache
 def render_recipe(request):
