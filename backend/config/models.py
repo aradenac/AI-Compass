@@ -841,3 +841,64 @@ class ExternalImportEvent(models.Model):
         constraints = [models.UniqueConstraint(fields=["batch", "source_key"],
                                                name="uniq_external_import_batch_row")]
         ordering = ["created_at", "id"]
+
+
+class DeploymentTarget(models.Model):
+    """Stable, deliberately selected target: never an AI Compass role grant."""
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    public_id = models.CharField(max_length=120, unique=True)
+    population = models.ForeignKey(WorkloadProfile, on_delete=models.PROTECT,
+                                   related_name="deployment_targets")
+    task = models.ForeignKey(TaskNode, on_delete=models.PROTECT, related_name="+")
+    candidate = models.ForeignKey(CatalogItem, on_delete=models.PROTECT, related_name="+")
+    kind = models.CharField(max_length=12, choices=[("benchmark", "Benchmark"), ("forecast", "Forecast")])
+    origin = models.ForeignKey(OpportunitySnapshot, null=True, blank=True,
+                               on_delete=models.PROTECT, related_name="deployment_targets")
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+                                   related_name="created_deployment_targets")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(
+            fields=["population", "task", "candidate", "kind"],
+            name="uniq_deployment_target_scope")]
+
+
+class DeploymentRevision(models.Model):
+    """Immutable target scope and exact external-component/guide pins."""
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    target = models.ForeignKey(DeploymentTarget, on_delete=models.PROTECT,
+                               related_name="revisions")
+    number = models.PositiveIntegerField()
+    selection = models.JSONField(default=dict)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+                                   related_name="deployment_revisions")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(
+            fields=["target", "number"], name="uniq_deployment_target_revision")]
+
+
+class DeploymentEvent(models.Model):
+    """Append-only manual claims; neither passwords nor actual provider grants."""
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    target = models.ForeignKey(DeploymentTarget, on_delete=models.PROTECT,
+                               related_name="events")
+    target_revision = models.ForeignKey(DeploymentRevision, on_delete=models.PROTECT,
+                                        related_name="+")
+    seat_key = models.CharField(max_length=64)
+    beneficiary = models.ForeignKey(WorkloadProfile, null=True, blank=True,
+                                    on_delete=models.PROTECT, related_name="+")
+    component = models.ForeignKey(CatalogItem, null=True, blank=True,
+                                  on_delete=models.PROTECT, related_name="+")
+    component_revision = models.ForeignKey(CatalogRevision, null=True, blank=True,
+                                           on_delete=models.PROTECT, related_name="+")
+    action = models.CharField(max_length=24)
+    evidence_reference = models.CharField(max_length=300, blank=True)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+                              related_name="deployment_events")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at", "id"]
