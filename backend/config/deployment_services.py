@@ -240,8 +240,15 @@ def _events(target, rev, key):
     for row in rows:
         if row.component_id:
             status[row.component.public_id] = row.action
+            # Old setup/use attestations cannot revive after a revoked or
+            # rejected entitlement, even if access is later provisioned anew.
+            if row.action in ("revoked", "rejected"):
+                setup = False
+                first_used = False
         elif row.action in ("setup_verified", "setup_revoked"):
             setup = row.action == "setup_verified"
+            if row.action == "setup_revoked":
+                first_used = False
         elif row.action in ("first_use", "first_use_revoked"):
             first_used = row.action == "first_use"
     return status, setup, first_used
@@ -255,7 +262,10 @@ def seat_readiness(target, rev, seat):
         problems.append("linked_account_disabled")
     if available is None:
         problems.append("user_os_unknown")
-    parts, context = [], {}
+    parts, current_parts, context = [], [], {}
+    population_capacity = effective(target.population)["headcount"]
+    if len(rev.selection["seats"]) > population_capacity:
+        problems.append("population_capacity_changed")
     for part in rev.selection["components"]:
         item = CatalogItem.objects.select_related("current_revision").filter(
             public_id=part["id"], type_slug=part["type"]).first()
@@ -270,11 +280,19 @@ def seat_readiness(target, rev, seat):
             problems.append("entitlement_unverified:" + item.public_id)
         parts.append({"type": item.type_slug, "id": item.public_id,
                       "revision": "r%03d" % pinned.number, "properties": pinned.properties})
+        current_parts.append({"type": item.type_slug, "id": item.public_id,
+                      "revision": "r%03d" % item.current_revision.number,
+                      "properties": item.current_revision.properties})
         context[item.type_slug] = item.public_id
         context[item.type_slug + "_revision_id"] = str(pinned.pk)
     os_fit = compose(parts, available) if available else compose(parts, None)
     if os_fit["status"] != "compatible":
         problems.append("environment_" + os_fit["status"])
+    # Historical pinned setup must still be within currently asserted platform
+    # compatibility. A later catalogue withdrawal cannot leave a target ready.
+    current_fit = compose(current_parts, available) if available else compose(current_parts, None)
+    if current_fit["status"] != "compatible":
+        problems.append("current_environment_" + current_fit["status"])
     guide_id = rev.selection.get("guide_revision_id")
     guide = CatalogRevision.objects.filter(pk=_revision_id(guide_id),
                                            item__type_slug="setup_guide").first() if guide_id else None
