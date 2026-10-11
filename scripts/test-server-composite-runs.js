@@ -20,7 +20,7 @@ for(const required of [
     "api(\"runs?campaign_id=\"",
     "api(\"runs/\"",
     "session-close-run",
-    "expected_revision:s.revision",
+    "payload.expected_revision=session.revision",
     "evidence_link_ids"
 ]){
     assert(sessions.includes(required),"Missing composite Results/Close UI: "+required);
