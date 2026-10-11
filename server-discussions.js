@@ -84,15 +84,14 @@ function mount(root,csrf,escapeHtml){
   }
   function renderThreads(){
     var list=$("#discussion-threads");
-    list.innerHTML=threads.length?threads.map(function(t){
-      return '<div class="list-row" style="padding:12px;border-bottom:1px solid #e2e8f0">'+
-        '<strong>'+esc(t.title)+'</strong> · '+esc(t.properties.kind)+
-        ' · '+(t.properties.scope==="internal"?"INTERNAL workgroup":"Public")+
-        '<p class="muted small">'+esc(t.id)+' · '+esc(t.created_by)+
-        ' · '+esc(t.message_count)+' visible messages'+
-        (t.context_id?" · linked "+esc(t.context_id):"")+'</p>'+
-        '<button type="button" data-thread="'+esc(t.id)+'">Read / reply</button></div>';
-    }).join(""):"No real Server feedback yet; the Demo fixtures are not imported.";
+    list.innerHTML=window.AICompassWorkgroup.renderRecords(threads.map(function(t){
+      var p=t.properties||{};
+      return {id:t.id,title:t.title,status:p.scope==="internal"?"INTERNAL workgroup":"Public",
+        facts:[p.kind,t.created_by,t.message_count+" visible messages"].concat(
+          t.context_id?["Linked "+t.context_id]:[]),
+        actions:[{label:"Read / reply",attributes:{"data-thread":t.id}}]};
+    }),{domain:"feedback",mode:"server",
+      emptyText:"No real Server feedback yet; the Demo fixtures are not imported."});
   }
   async function refresh(){
     if(!enabled)return;
