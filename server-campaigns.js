@@ -132,6 +132,11 @@
         ["model","provider","harness","framework"].forEach(function(k,i){catalog[k]=responses[i+5].results;});
         offers=responses[9].results;
         render();status(campaigns.length+" campaign(s) persisted in Server. Pipeline shows plans, not measured results.");
+        var route=new URLSearchParams(window.location.search);
+        if(route.get("view")==="matrix"&&route.get("record")){
+          var focus=campaigns.find(function(c){return c.id===route.get("record");});
+          if(focus)showMatrix(focus,route.get("task"),route.get("revision"));
+        }
       }catch(error){
         if(!allowed||run!==ticket)return;
         campaigns=[];offers=[];el("#campaign-list").textContent="Campaigns unavailable; no Demo fallback.";
@@ -525,6 +530,14 @@
 
     async function showMatrix(row,filter,revision){
       if(!allowed)return;
+      var route=new URL(window.location.href);
+      route.searchParams.set("record",row.id);
+      route.searchParams.set("view","matrix");
+      if(filter)route.searchParams.set("task",filter);else route.searchParams.delete("task");
+      if(revision)route.searchParams.set("revision",revision);else route.searchParams.delete("revision");
+      window.history.replaceState(window.history.state,"",route.pathname+route.search+route.hash);
+      var ctx=document.getElementById("ux-context-navigation");
+      if(ctx)window.AICompassContext.syncContext(ctx,"server","workgroup","benchmark");
       var target=el("#campaign-detail");
       target.hidden=false;target.textContent="Loading versioned evaluation matrix…";
       try{
@@ -608,7 +621,16 @@
         }
         html+='<p><button type="button" id="matrix-close">Close matrix</button></p>';
         target.innerHTML=html;
-        target.querySelector("#matrix-close").addEventListener("click",function(){target.hidden=true;});
+        target.querySelector("#matrix-close").addEventListener("click",function(){
+          target.hidden=true;
+          var url=new URL(window.location.href);
+          url.searchParams.delete("view");
+          url.searchParams.delete("task");
+          url.searchParams.delete("revision");
+          window.history.replaceState(window.history.state,"",url.pathname+url.search+url.hash);
+          var ctx=document.getElementById("ux-context-navigation");
+          if(ctx)window.AICompassContext.syncContext(ctx,"server","workgroup","benchmark");
+        });
         target.querySelector("#matrix-task-filter").addEventListener("change",function(){
           showMatrix(row,this.value,revision);
         });
