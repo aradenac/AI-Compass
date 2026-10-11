@@ -807,13 +807,26 @@ def server_journey(browser, base_url, creds, artifacts, role, viewport):
                 add_form = page.locator("#matrix-add-form")
                 add_form.wait_for(state="visible", timeout=20000)
                 add_form.locator('input[name="label"]').fill("UX-R04 shared Server configuration")
+                # Bind the configuration to the campaign's own Task: the default
+                # option may be another Task with no eligible Test Case.
+                add_form.locator('select[name="task_id"]').select_option(task_value)
+                add_form.locator('select[name="test_case_ids"] option').first.wait_for(
+                    state="attached", timeout=20000)
+                if add_form.locator('select[name="test_case_ids"] option[selected]').count() == 0:
+                    raise AssertionError(
+                        "The campaign Task offered no eligible Test Case to the matrix")
                 for component in ("model", "provider", "harness"):
                     add_form.locator(f'select[name="{component}"]').select_option(index=0)
                 add_form.locator('button[type="submit"]').click()
                 cell_button = page.locator(
                     '[data-shared-matrix][data-matrix-mode="server"] [data-shared-matrix-cell] button'
                 ).first
-                cell_button.wait_for(state="visible", timeout=30000)
+                try:
+                    cell_button.wait_for(state="visible", timeout=30000)
+                except Exception:
+                    raise AssertionError(
+                        "Matrix configuration was rejected: " +
+                        page.locator("#campaign-status").inner_text()[:200])
                 assert_no_horizontal_overflow(page)
                 capture(page, artifacts, "server-shared-campaign-matrix-" +
                         str(viewport["width"]))
@@ -855,23 +868,22 @@ def server_journey(browser, base_url, creds, artifacts, role, viewport):
                     stale_matrix = stale.locator(
                         '[data-shared-matrix][data-matrix-mode="server"]')
                     stale_matrix.wait_for(state="visible", timeout=30000)
-                    advanced = page.locator(
+                    # Advance the plan revision by reinstating the evaluation.
+                    page.locator(
                         '[data-shared-matrix][data-matrix-mode="server"] '
-                        '[data-shared-matrix-cell][data-matrix-state="pending"] button').first
-                    advanced.click()
+                        '[data-shared-matrix-cell] button').first.click()
                     page.locator("#matrix-decision-form").wait_for(state="visible")
                     page.locator('#matrix-decision-form select[name="decision"]'
-                                 ).select_option("not_selected")
+                                 ).select_option("selected")
                     page.locator('#matrix-decision-form button[type="submit"]').click()
                     page.locator(
                         '[data-shared-matrix][data-matrix-mode="server"] '
-                        '[data-matrix-state="not_selected"]').first.wait_for(
+                        '[data-shared-matrix-cell][data-matrix-state="pending"]').first.wait_for(
                             state="visible", timeout=30000)
                     # The other browser still holds the previous revision.
                     stale.locator(
                         '[data-shared-matrix][data-matrix-mode="server"] '
-                        '[data-shared-matrix-cell][data-matrix-state="pending"] button'
-                    ).first.click()
+                        '[data-shared-matrix-cell] button').first.click()
                     stale.locator("#matrix-decision-form").wait_for(state="visible")
                     stale.locator('#matrix-decision-form select[name="decision"]'
                                   ).select_option("waived")
@@ -887,19 +899,23 @@ def server_journey(browser, base_url, creds, artifacts, role, viewport):
                         raise AssertionError(
                             "Stale matrix revision refusal lacks an explicit reason: " +
                             refusal_text[:120])
-                    if stale.locator('[data-shared-matrix-cell][data-matrix-state="waived"]').count() and \
-                            "stale browser revision must be refused" in stale.locator(
-                                '[data-shared-matrix][data-matrix-mode="server"]').inner_text():
-                        raise AssertionError("Stale revision was silently applied")
+                    stale_text = stale.locator(
+                        '[data-shared-matrix][data-matrix-mode="server"]').inner_text()
+                    if "Stale browser revision must be refused" in stale_text:
+                        raise AssertionError("A stale revision was silently applied")
+                    if stale.locator(
+                            '[data-shared-matrix-cell][data-matrix-state="waived"]').count() == 0:
+                        raise AssertionError(
+                            "The refused stale write altered the stale page state")
                     if stale.locator('[data-browser-domain="demo"]').count():
                         raise AssertionError("Refused Server write fell back to Demo")
                     capture(stale, artifacts, "server-shared-campaign-matrix-stale-" +
                             str(viewport["width"]))
                 finally:
                     stale.close()
-                if "UX-R04 Server waiver recorded" not in page.locator(
+                if "Stale browser revision must be refused" in page.locator(
                         '[data-shared-matrix][data-matrix-mode="server"]').inner_text():
-                    raise AssertionError("Refused stale write altered the committed waiver")
+                    raise AssertionError("Refused stale write altered the committed plan")
             if role == "multi_role":
                 # Same authenticated session: Users & Access must be explicit,
                 # and its account-creation form a protected, closed-by-default modal.
