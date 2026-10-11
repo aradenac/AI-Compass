@@ -126,6 +126,18 @@ class DeploymentTests(OpportunityTests.__bases__[0]):
             self.assertEqual(revoked["current"]["cells"][0]["slices"]["verified_headcount"], 0)
             self.assertEqual(revoked["current"]["totals"]["activated_potential_eur"], "0.00")
             self.assertEqual(revoked["snapshot"], historical)
+            # Re-granting an entitlement must NOT reactivate the previous use
+            # attestation after explicit revocation.
+            for action in ("requested", "approved", "provisioned", "verified"):
+                self.assertEqual(self.event(client, token, target, "seat-a",
+                    components[0], action, "Ticket REGRANT-001").status_code, 201)
+            after_regrant = client.get(BASE + "/" + target["id"]).json()
+            self.assertEqual(after_regrant["activated_count"], 0)
+            self.assertEqual(self.event(client, token, target, "seat-a", None,
+                "setup_verified", "Ticket RECHECK-001").status_code, 201)
+            self.assertEqual(self.event(client, token, target, "seat-a", None,
+                "first_use", "Ticket REUSED-001").status_code, 201)
+            self.assertEqual(client.get(BASE + "/" + target["id"]).json()["activated_count"], 1)
 
     def test_invalid_scope_transitions_revision_and_protected_history(self):
         actor, client, token, population = self.plan(headcount=2)
