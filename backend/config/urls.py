@@ -1,7 +1,7 @@
 from django.urls import path
 
 from . import auth_views, catalog_views, catalog_type_views, evidence_views, task_views, user_admin_views, activity_views, data_health_views, test_case_views, setup_guide_views, campaign_views, session_views, run_views, watch_views, forecast_views, results_views, recommendation_views, discussion_views, archive_views, workload_views, external_import_views
-from . import pricing_views, environment_views, setup_recipe_views
+from . import pricing_views, environment_views, setup_recipe_views, publication_views
 from .api import api
 
 urlpatterns = [
@@ -77,6 +77,10 @@ urlpatterns = [
     path("api/v1/campaigns/pipeline", campaign_views.pipeline),
     path("api/v1/campaigns", campaign_views.collection),
     path("api/v1/campaigns/<slug:public_id>", campaign_views.detail),
+    path("api/v1/campaigns/<slug:public_id>/publication", publication_views.current),
+    path("api/v1/campaigns/<slug:public_id>/publication/review", publication_views.review),
+    path("api/v1/campaigns/<slug:public_id>/publication/publish", publication_views.publish),
+    path("api/v1/campaigns/<slug:public_id>/publication/withdraw", publication_views.withdraw),
     path("api/v1/campaigns/<slug:public_id>/matrix", campaign_views.evaluation_matrix),
     path("api/v1/campaigns/<slug:public_id>/matrix/edit", campaign_views.update_matrix),
     path("api/v1/campaigns/<slug:public_id>/actions/<slug:action>", campaign_views.transition),
