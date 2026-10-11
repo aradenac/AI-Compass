@@ -57,4 +57,25 @@ assert.throws(()=>ui.renderCaseFields({},["danger"]),/Unknown Test Case/);
 assert(page.includes("AICompassWorkgroup.renderCaseFields(from"));
 assert(server.includes("AICompassWorkgroup.renderCaseFields(p)"));
 
+
+// Shared business collection contracts cover both modes and never accept
+// unescaped action attributes or cross-origin navigation.
+const records=[{id:"obj-1",title:"<unsafe>",revision:"r002",status:"draft",
+  description:"Evidence & rationale",facts:["source"],notices:["Review needed"],
+  actions:[{label:"Read",attributes:{"data-act":"detail","data-id":"obj-1"}}]}];
+const rd=ui.renderRecords(records,{domain:"guides",mode:"demo"});
+const rs=ui.renderRecords(records,{domain:"guides",mode:"server"});
+assert(rd.includes('data-business-record="obj-1"'));
+assert(rs.includes('data-business-record="obj-1"'));
+assert(rd.includes("&lt;unsafe&gt;")&&!rd.includes("<unsafe>"));
+assert(rd.includes("Evidence &amp; rationale"));
+assert(rd.includes('data-act="detail"')&&!rd.includes("javascript:"));
+assert(!ui.renderRecords([],{domain:"watch",mode:"demo"}).includes('data-business-record='));
+assert.throws(()=>ui.renderRecords(null,{domain:"watch",mode:"server"}),/Authorized business/);
+assert.throws(()=>ui.renderRecords(records,{domain:"watch",mode:"invalid"}),/Explicit business/);
+assert.throws(()=>ui.renderRecords([{id:"x",actions:[{label:"Go",attributes:{onclick:"alert(1)"}}]}],
+ {domain:"watch",mode:"server"}),/Invalid business action/);
+assert.throws(()=>ui.renderRecords([{id:"x",links:[{href:"https://evil.example"}]}],
+ {domain:"watch",mode:"server"}),/same-origin/);
+
 console.log("UX-R04 shared Test Design tree: Demo, Server, forks, roles, escaping PASS");
