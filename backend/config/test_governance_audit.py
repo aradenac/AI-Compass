@@ -135,6 +135,43 @@ class GovernanceAuditTests(ActivityFeedTests.__bases__[0]):
                           "very-private","should-be-private","private-token"):
             self.assertNotIn(forbidden,dumped)
 
+    def test_offer_rate_diff_and_unmapped_sensitive_fields(self):
+        from .models import ObjectTypeVersion
+        from .activity_services import record_catalog_event
+        from .catalog_ids import new_public_id
+        schema=ObjectTypeVersion.objects.get(type_slug="pricing_offer",version=1)
+        item=CatalogItem.objects.create(type_slug="pricing_offer",public_id=new_public_id("off"))
+        def make_revision(num,rate,hidden):
+            with transaction.atomic():
+                r=CatalogRevision.objects.create(item=item,number=num,
+                    schema_version=schema,display_name="Synthetic vendor tariff",
+                    created_by=self.writer,properties={
+                        "status":"active","currency":"EUR","billing_owner":"Synthetic Vendor",
+                        "lines":[{"charge_id":"token-line","family":"token",
+                                  "charge_type":"variable","meter":"input_tokens",
+                                  "rate":rate,"unit_size":"1000"}],
+                        "api_secret":hidden})
+                item.current_revision=r
+                item.save(update_fields=["current_revision"])
+                return record_catalog_event(item=item,revision=r,actor=self.writer,
+                                            action="created" if num==1 else "revised")
+        make_revision(1,"1.5","PRIVATE-OLD-KEY")
+        event=make_revision(2,"2.0","PRIVATE-NEW-KEY")
+        self._as_auditor()
+        response=self.client.get(BASE+"/catalog:"+str(event.pk))
+        self.assertEqual(response.status_code,200,response.content)
+        body=response.json()
+        self.assertIn({"field":"pricing.lines","operation":"changed",
+            "before":[{"charge_id":"token-line","charge_type":"variable",
+                       "family":"token","meter":"input_tokens","rate":"1.5",
+                       "unit_size":"1000"}],
+            "after":[{"charge_id":"token-line","charge_type":"variable",
+                      "family":"token","meter":"input_tokens","rate":"2.0",
+                      "unit_size":"1000"}]},body["changes"])
+        self.assertNotIn("PRIVATE-",response.content.decode())
+        self.assertNotIn("api_secret",response.content.decode())
+        self.assertNotIn("PRIVATE-",self.client.get(BASE+"/export").content.decode())
+
     def test_bounded_queries_strict_filters_readonly_and_nonfabrication(self):
         self._as_auditor()
         self.assertEqual(self.client.post(BASE,data="{}",
@@ -167,6 +204,19 @@ class GovernanceRunTests(OpportunityTests.__bases__[0]):
     publisher = OpportunityTests.publisher
     publish = OpportunityTests.publish
     priced_published = OpportunityTests.priced_published
+
+    def test_campaign_relationships_are_pinned_as_separate_structured_changes(self):
+        run,_=self.priced_published()
+        event=CatalogAuditEvent.objects.filter(
+            item__type_slug="campaign",action="created").order_by("created_at").first()
+        self.assertIsNotNone(event)
+        self.client.force_login(self.maint)
+        result=self.client.get(BASE+"/catalog:"+str(event.pk))
+        self.assertEqual(result.status_code,200,result.content)
+        changes=result.json()["changes"]
+        self.assertTrue(any(x["field"].startswith("relations.") for x in changes))
+        self.assertTrue(any(x["field"]=="relations.cases" for x in changes))
+        self.assertFalse(any("password" in x["field"] for x in changes))
 
     def test_published_run_correction_uses_original_catalog_audit_identity(self):
         run, reviewer = self.priced_published()
