@@ -37,6 +37,7 @@
         '<h3>Workgroup pipeline · read only</h3><div id="campaign-pipeline"></div>'+
         '<h3>Campaign management</h3>'+
         (canWrite?'<button type="button" id="campaign-add">+ Create campaign</button>':'')+
+        '<div id="campaign-context-view"></div>'+
         '<div id="campaign-list" class="server-card"></div>'+
         '<section id="campaign-editor" class="server-card" hidden></section>'+
         '<section id="campaign-detail" class="server-card" hidden></section>'+
@@ -70,7 +71,22 @@
                 ' · '+x.test_case_ids.length+' Test Case(s)</p>';
             }).join(""):'<p class="muted small">No campaigns</p>')+'</section>';
         }).join("")+'</div>';
-      list.innerHTML=campaigns.length?campaigns.map(function(x){
+      var route=new URLSearchParams(window.location.search),focusId=route.get("record");
+      var focused=focusId&&campaigns.find(function(x){return x.id===focusId;});
+      var context=el("#campaign-context-view");
+      if(focusId){
+        if(!focused){
+          context.innerHTML='<p class="ux-history-warning" role="alert">Campaign unavailable or not authorized. No current record substituted.</p>';
+        }else{
+          var requested=route.get("revision"),current=focused.revision||"";
+          context.innerHTML=window.AICompassContext.recordDetails(focused,"benchmark","server",requested).html+
+            '<p><a href="'+esc(window.AICompassContext.route("server","workgroup","benchmark",{from:""}))+
+            '">Show all authorized Campaigns</a></p>';
+          var source=context.querySelector(".ux-advanced-source pre");
+          if(source)source.textContent=JSON.stringify(focused,null,2);
+        }
+      }else context.replaceChildren();
+      list.innerHTML=campaigns.length?(focused?[focused]:focusId?[]:campaigns).map(function(x){
         var commands=x.archived?[["restore","Restore archive"]]:
           (NEXT[x.status]||[]).concat([["archive","Archive"]]);
         return '<div class="list-row" style="padding:14px 0;border-bottom:1px solid #e3e8f0">'+
@@ -82,6 +98,8 @@
           '<p class="muted">Pricing · '+esc(x.pricing_readiness&&x.pricing_readiness.complete?
              "complete / exact offer pins":(x.pricing_readiness&&x.pricing_readiness.requires_session_pricing?
              "tariffs selected per Test Case session":"INCOMPLETE / new metered session blocked")) +'</p>'+
+          '<a href="'+esc(window.AICompassContext.contextualLink("server","workgroup","benchmark",x.id))+
+            '">Open Campaign detail</a> '+
           '<button type="button" data-id="'+esc(x.id)+'" data-action="matrix">Evaluation matrix</button>'+
           '<button type="button" data-id="'+esc(x.id)+'" data-action="sessions">Sessions / resume</button>'+
           '<button type="button" data-id="'+esc(x.id)+'" data-action="history">Details / history</button>'+
@@ -607,11 +625,16 @@
               '<p>Attempts in progress: '+cell.active_attempts+' · Closed measured Runs: '+cell.runs.length+'</p>'+
               (cell.waiver?'<p>Waived by '+esc(cell.waiver.actor)+' at '+esc(cell.waiver.at)+
               ' — '+esc(cell.waiver.reason)+'</p>':"")+
+              '<p><a href="'+esc(window.AICompassContext.route("server","workgroup","testdesign",{
+                record:cell.test_case_id,revision:cell.test_case_revision||""
+              }))+'">Open Test Case context</a></p>'+
               '<div id="matrix-run-links">'+cell.runs.map(function(r){
-                return '<button type="button" data-matrix-run="'+esc(r.id)+'">'+
-                  esc(r.kind)+' '+esc(r.id)+' · '+esc(r.outcome)+'</button>';
-              }).join(" ")+'</div>'+
-              '<pre style="white-space:pre-wrap;overflow-wrap:anywhere"></pre>'+
+                return '<a href="'+esc(window.AICompassContext.route("server","workgroup","results",{
+                  record:r.id,revision:r.revision||"",task:cell.task_id||row.task_id||""
+                }))+'">Measured '+esc(r.kind)+' Run '+esc(r.id)+' · '+esc(r.outcome)+'</a>';
+              }).join(" · ")+'</div>'+
+              '<details class="ux-advanced-source"><summary>Advanced: immutable matrix cell source</summary>'+
+                '<pre style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></details>'+
               (editable?'<label>Waiver explanation (mandatory when waiving)<textarea id="matrix-waiver-reason" maxlength="4000"></textarea></label>'+
                 [["selected","Select / reinstate"],["not_selected","Not Selected"],["waived","Waive"]].map(function(x){
                   return '<button type="button" data-matrix-decision="'+x[0]+'">'+x[1]+'</button>';
@@ -619,14 +642,6 @@
               '<button type="button" id="matrix-open-sessions">Open Test Run workspace</button>';
             detail.querySelector("pre").textContent=JSON.stringify({runs:cell.runs,history:cell.history,
                configuration:cfg},null,2);
-            detail.querySelectorAll("[data-matrix-run]").forEach(function(runButton){
-              runButton.addEventListener("click",async function(){
-                try{
-                  var original=await api("runs/"+encodeURIComponent(runButton.dataset.matrixRun));
-                  detail.querySelector("pre").textContent=JSON.stringify(original,null,2);
-                }catch(error){status("Run read failed: "+error.message,true);}
-              });
-            });
             detail.querySelector("#matrix-open-sessions").addEventListener("click",function(){
               if(sessionWorkspace)sessionWorkspace.openCampaign(row,cell.id);
             });
