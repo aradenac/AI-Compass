@@ -6,6 +6,7 @@
 <meta name="theme-color" content="#111e35">
 <title>AI Compass — Interactive Product Prototype</title>
 <link rel="stylesheet" href="shared-workgroup.css">
+<link rel="stylesheet" href="shared-shell.css">
 <style>
 :root{--navy:#111e35;--navy2:#1b2b46;--bg:#f4f6fa;--card:#fff;--ink:#15233b;--muted:#64748b;--line:#e3e8f0;--blue:#3159d7;--teal:#087e83;--mint:#e8f7f4;--yellow:#a66507;--red:#b24249;--shadow:0 8px 32px rgba(18,39,71,.055)}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Arial,sans-serif}button,input,select,textarea{font:inherit}button{cursor:pointer}a{color:var(--blue);text-decoration:none}a:hover{text-decoration:underline}h1,h2,h3,h4,p{margin:0}h1{font-size:28px;letter-spacing:-.8px;line-height:1.25}h2{font-size:20px;letter-spacing:-.3px}h3{font-size:15px}small,.small{font-size:12px}.muted{color:var(--muted)}strong{font-weight:650}
@@ -107,6 +108,7 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;b
 <div id="app"></div><div id="toast" aria-live="polite"></div>
 <script src="model-catalog.js"></script>
 <script src="shared-runtime.js"></script>
+<script src="shared-shell.js"></script>
 <script src="shared-catalog.js"></script>
 <script src="shared-environment.js"></script>
 <script src="shared-pricing.js"></script>
@@ -860,7 +862,12 @@ var navigation=canEdit()?
 '<div class="nav-group"><div class="nav-label">Discover</div>'+navButton("dashboard","◈","Overview")+navButton("tasks","▤","Task explorer")+navButton("solutions","◇","AI solutions")+navButton("recommendations","✧","Recommendations")+'</div>'+
 '<div class="nav-group"><div class="nav-label">Evaluate</div>'+navButton("results","◫","Benchmark results")+navButton("knowledge","▣","Guides & charter")+navButton("watch","◉","Technology watch")+'</div>'+
 '<div class="nav-group"><div class="nav-label">Collaborate</div>'+navButton("feedback","♧","Feedback & ideas")+navButton("activity","◷","Activity feed")+navButton("management","▥","Management view")+'</div>';
-document.getElementById("app").innerHTML='<div class="app"><aside class="sidebar"><div class="brand"><div class="brand-mark">✦</div><div><div class="brand-name">AI Compass</div><div class="brand-note">Evidence workspace</div></div></div><div class="nav-area">'+navigation+'</div><div class="side-foot"><div class="demo">INTERACTIVE PROTOTYPE<br>All records are simulated and saved only in this browser.</div><button data-act="export">↓ Export data JSON</button>'+(canEdit()?'<button data-act="import">↑ Import data JSON</button>':'')+'<input id="importFile" type="file" accept=".json,application/json" style="display:none"><button data-act="reset">↺ Reset demo dataset</button></div></aside><section class="main"><header class="topbar"><div class="top-label"><span class="crumb">Workspace</span><span class="muted">/</span><strong>'+E(title)+'</strong></div><div class="top-actions"><span class="tag blue">LOCAL DEMO</span><button class="account" data-act="switch"><span class="avatar">'+E(u.initials)+'</span><span><strong>'+E(u.name)+'</strong><span class="tiny-role">'+E(u.role)+" · "+E(u.bu)+'</span></span><span class="muted">⌄</span></button></div></header><main class="content">'+inner+'</main></section></div>'+modal();
+document.getElementById("app").innerHTML=window.AICompassShell.render({
+  mode:"demo",title:title,sidebar:navigation,
+  footer:'<div class="demo">INTERACTIVE PROTOTYPE<br>All records are simulated and saved only in this browser.</div><button data-act="export">↓ Export data JSON</button>'+(canEdit()?'<button data-act="import">↑ Import data JSON</button>':'')+'<input id="importFile" type="file" accept=".json,application/json" style="display:none"><button data-act="reset">↺ Reset demo dataset</button>',
+  account:'<span class="tag blue">LOCAL DEMO</span><button class="account" data-act="switch"><span class="avatar">'+E(u.initials)+'</span><span><strong>'+E(u.name)+'</strong><span class="tiny-role">'+E(u.role)+" · "+E(u.bu)+'</span></span><span class="muted">⌄</span></button>',
+  content:inner,extras:modal()
+});
 }
 function heading(eyebrow,title,desc,actions){return '<div class="page-head"><div><div class="eyebrow">'+E(eyebrow)+'</div><h1>'+E(title)+'</h1><p class="lead">'+E(desc)+'</p></div><div class="head-actions">'+(actions||"")+'</div></div>';}
 function stat(label,value,foot){return '<div class="card"><div class="stat-label">'+E(label)+'</div><div class="stat-value">'+E(value)+'</div><div class="stat-foot">'+E(foot||"")+'</div></div>';}
@@ -889,14 +896,14 @@ var requested=new URLSearchParams(window.location.search).get("workspace");
 var persona=runtime.choosePersona(user(), "demo", requested);
 var target=document.querySelector(".content");
 if(target)target.insertAdjacentHTML("afterbegin",runtime.renderPersonaLinks(user(),"demo",persona&&persona.id));
-if(target){
- target.insertAdjacentHTML("afterbegin",
+if(target && (ui.page==="dashboard" || ui.page==="tasks") && persona && persona.id==="engineer"){
+ target.insertAdjacentHTML("beforeend",
    '<section id="demo-environment-profile" class="card" role="region" aria-label="My OS environment"></section>');
  window.AICompassEnvironment.mount(
    document.getElementById("demo-environment-profile"),demoEnvironment,"demo").setAccess(true);
 }
 
-if(persona && persona.id === "management" && window.AICompassHeatmap) {
+if(ui.page === "management" && persona && persona.id === "management" && window.AICompassHeatmap) {
   var demoMain=document.querySelector(".content");
   if(demoMain){
     var demoHeatmap=document.createElement("section");
@@ -906,7 +913,7 @@ if(persona && persona.id === "management" && window.AICompassHeatmap) {
       window.AICompassHeatmap.demoProvider(db),"demo").setAccess(true);
   }
 }
-if(persona && persona.id === "management" && window.AICompassBudgets) {
+if(ui.page === "management" && persona && persona.id === "management" && window.AICompassBudgets) {
   var demoBudgetsHost=document.querySelector(".content");
   if(demoBudgetsHost){
     var demoBudgetSection=document.createElement("section");
@@ -916,7 +923,7 @@ if(persona && persona.id === "management" && window.AICompassBudgets) {
       window.AICompassBudgets.demoProvider(db,persist),"demo").setAccess(true,true);
   }
 }
-if(persona && persona.id === "management" && window.AICompassDemoDeployments) {
+if(ui.page === "management" && persona && persona.id === "management" && window.AICompassDemoDeployments) {
   var demoDeploymentHost=document.querySelector(".content");
   if(demoDeploymentHost){
     var demoDeploymentSection=document.createElement("section");
@@ -926,7 +933,7 @@ if(persona && persona.id === "management" && window.AICompassDemoDeployments) {
       E,window.AICompassDemoDeployments.provider(db,persist)).setAccess(true,true);
   }
 }
-if(persona && persona.id === "management" && window.AICompassOpportunities) {
+if(ui.page === "management" && persona && persona.id === "management" && window.AICompassOpportunities) {
   var demoManagement=document.querySelector(".content");
   if(demoManagement){
     var demoOpportunities=document.createElement("section");
@@ -952,11 +959,10 @@ if(persona && persona.id === "engineer" && window.AICompassEngineer) {
     eWorkspace.setAccess(true);
     var legacy=document.createElement("button");
     legacy.type="button";legacy.className="btn sm";
-    legacy.textContent="Open full Demo discovery and Results Explorer";
+    legacy.textContent="Open Results Explorer";
     eRoot.insertAdjacentElement("afterend",legacy);
     legacy.onclick=function(){
-      Array.from(engineerSource.children).forEach(function(child){child.hidden=false;});
-      eRoot.hidden=true;legacy.hidden=true;
+      ui.page="results";ui.modal="";render();
     };
   }
 }
@@ -975,8 +981,8 @@ if(initialWorkspace==="workgroup" && initialSection && window.AICompassWorkgroup
       '<button type="button" id="demo-open-full-workspace" class="btn">Open complete Demo workspace / edit / history</button>');
     document.getElementById("demo-open-full-workspace").onclick=function(){
       Array.from(source.children).forEach(function(child){
-        if(child!==document.getElementById("demo-shared-summary") &&
-            child!==this)child.hidden=false;
+        child.hidden=!child.classList.contains("shared-personas") &&
+          (child===document.getElementById("demo-shared-summary") || child===this);
       },this);
       document.getElementById("demo-shared-summary").hidden=true;
       this.hidden=true;
