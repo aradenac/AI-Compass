@@ -202,8 +202,8 @@ class TariffRunTests(PricingTests):
         meter=self.call(base+"/metering",{"expected_revision":"r002",
                     "consumption":all_usage},method="PATCH")
         self.assertEqual(meter.status_code,200,meter.content)
-        self.assertEqual(meter.json()["metering"]["quote"][
-            "variable_reference_by_currency"]["EUR"],"17.5000")
+        self.assertEqual(Decimal(meter.json()["metering"]["quote"][
+            "variable_reference_by_currency"]["EUR"]),Decimal("17.5"))
         closed=self.call(base+"/close",{"expected_revision":"r003",
             "outcome":"failed","produced_outputs":"Two-agent review report",
             "quality_evaluation":"Rejected due to failing tests"})
