@@ -262,6 +262,8 @@ def demo_journey(browser, demo_url, artifacts, role, label, viewport):
             candidate = page.locator("button[data-heat-cell]:has(.heat-selected)").first
             candidate.wait_for(state="visible", timeout=20000)
             candidate.click()
+            page.locator(".heat-inspector").wait_for(state="visible", timeout=20000)
+            page.locator("[data-heat-branch]").first.click()
             page.locator(".heat-inspector .ux-inspector-kv").wait_for(state="visible", timeout=20000)
             if page.locator(".heat-inspector > section pre").is_visible():
                 raise AssertionError("Management default drilldown exposes raw JSON")
