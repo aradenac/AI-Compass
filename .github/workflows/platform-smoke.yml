@@ -124,6 +124,10 @@ jobs:
           docker compose exec -T api python manage.py reconcile_evidence --json
       - name: Verify tariff-driven Run contracts, pending evidence and composite reference costs
         run: docker compose exec -T api python manage.py test config.test_run_cost -v 2
+      - name: Verify offline Demo tariff families, unknown meters and Server metering UI
+        run: node scripts/test-run-cost.js
+      - name: Verify metered Run composite Results and updated checkpoint revision UI
+        run: node scripts/test-server-composite-runs.js
       - name: Verify Task-scoped Campaign Evaluation Matrix, stable cells and historical Run pins
         run: docker compose exec -T api python manage.py test config.test_campaign_matrix -v 2
       - name: Verify real Server archive with fully offline host verifier
