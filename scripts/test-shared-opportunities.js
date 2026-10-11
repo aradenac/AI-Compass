@@ -34,6 +34,10 @@ Promise.resolve().then(async()=>{
  await api.preview("wlp-x",scenario);
  assert.equal(calls[4].path,"/api/v1/planning/opportunities/preview");
  assert.equal(calls[4].method,"POST");
+ await api.revise("opp-source","r004",scenario);
+ assert.equal(calls[5].path,"/api/v1/planning/opportunities/opp-source");
+ assert.equal(calls[5].method,"PATCH");
+ assert.equal(calls[5].body.expected_revision,"r004");
  const fixture=await demo.bootstrap();
  assert.equal(fixture.profiles[0].id,"wlp-demo");
  assert.equal(fixture.candidates[0].kind,"benchmark");
@@ -42,7 +46,16 @@ Promise.resolve().then(async()=>{
  assert.equal(projected.activation_status,"never_verified_in_demo");
  assert.equal(projected.totals.activated_potential_eur,"0.00");
  assert(Number(projected.totals.benchmarked_opportunity_eur)>0);
- assert.equal(calls.length,5,"Demo must not call a Server endpoint");
+ const frozen=await demo.create("wlp-demo",{name:"Fictional",
+   benchmark_weight:"0.8",choices:[{task_id:"t1",kind:"benchmark",candidate_id:"s1"}]});
+ assert.equal(frozen.revision,"r001");
+ const revised=await demo.revise(frozen.id,"r001",{
+   name:"Changed Fictional",benchmark_weight:"0.9",
+   choices:[{task_id:"t1",kind:"benchmark",candidate_id:"s1"}]});
+ assert.equal(revised.revision,"r002");
+ assert.equal((await demo.revisions(revised.id)).revisions.length,2);
+ assert.equal((await demo.revisions(revised.id)).revisions[0].revision,"r001");
+ assert.equal(calls.length,6,"Demo must not call a Server endpoint");
  assert.equal(db.runs.length,1,"Demo scenario must not rewrite evidence");
  console.log("FUT-13 opportunity Demo/Server isolation and non-activated scenario passed");
 }).catch(error=>{console.error(error);process.exitCode=1;});
