@@ -246,4 +246,45 @@ class EvaluationMatrixTests(TestCase):
         self.assertEqual(repeated.status_code,201,repeated.content)
         self.assertEqual(self.matrix()["summary"]["measured_runs"],1)
         self.assertEqual(self.matrix()["summary"]["evaluated"],1)
-
+    def test_framework_group_is_a_composite_matrix_column_not_fake_individual(self):
+        framework=create_component(type_slug="framework",actor=self.writer,
+                                   name="Collaborative workflow",properties={})
+        fresh=self.call(BASE,{"name":"Framework Matrix","objective":"Test collaborating agents",
+            "mode":"task_centred","task_id":self.task.item.public_id,
+            "test_case_ids":[self.cases[0].item.public_id],
+            "framework_id":framework.public_id,
+            "participants":[{"label":"Builder","role":"Implementation",
+                "configuration_version":"1",
+                "component_ids":{k:v.public_id for k,v in self.components.items()},
+                "settings":{"review":None}},{
+                "label":"Reviewer","role":"Quality",
+                "configuration_version":"1",
+                "component_ids":{k:v.public_id for k,v in self.components.items()},
+                "settings":{"verification":True}}]})
+        self.assertEqual(fresh.status_code,201,fresh.content)
+        self.camp=fresh.json();self.path=BASE+"/"+self.camp["id"]
+        participants=[x["id"] for x in self.camp["participants"]]
+        saved=self.operation({"action":"add_configuration","kind":"framework",
+            "task_id":self.task.item.public_id,"label":"Builder → Reviewer",
+            "participant_ids":participants,
+            "test_case_ids":[self.cases[0].item.public_id]})
+        self.assertEqual(saved.status_code,200,saved.content)
+        cfg=self.matrix()["configurations"][0]
+        self.assertEqual(cfg["kind"],"framework")
+        self.assertEqual(len(cfg["participant_snapshots"]),2)
+        start=self.call(self.path+"/actions/start",
+            {"expected_revision":self.camp["revision"]})
+        self.assertEqual(start.status_code,200,start.content)
+        self.camp=start.json()["campaign"]
+        cell=self.matrix()["cells"][0]
+        refused=self.call(self.path+"/sessions",{
+            "test_case_id":cell["test_case_id"],"evaluation_id":cell["id"],
+            "selected_participant_ids":[participants[0]]})
+        self.assertEqual(refused.status_code,400)
+        accepted=self.call(self.path+"/sessions",{
+            "test_case_id":cell["test_case_id"],"evaluation_id":cell["id"],
+            "selected_participant_ids":participants})
+        self.assertEqual(accepted.status_code,201,accepted.content)
+        self.assertIsNone(accepted.json()["individual_setup"])
+        self.assertEqual(accepted.json()["selected_participant_ids"],participants)
+        self.assertEqual(self.matrix()["summary"]["in_progress"],1)
