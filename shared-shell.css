@@ -86,3 +86,16 @@
   .ux-mode-demo #shared-demo-engineer .server-actions { display:flex; flex-wrap:wrap; gap:6px; }
   .ux-mode-demo #shared-demo-engineer .server-actions button { white-space:normal; }
 }
+
+/* Shared Engineer controls also use the platform UI tokens in offline Demo. */
+.ux-shell [data-engineer-body] button,
+.ux-shell [data-engineer-refresh] {
+  border:1px solid #d5deeb; border-radius:9px; background:#fff;
+  color:#263b61; font:600 13px system-ui,sans-serif;
+  padding:8px 12px; cursor:pointer; max-width:100%;
+}
+.ux-shell [data-engineer-body] button:hover,
+.ux-shell [data-engineer-refresh]:hover { background:#edf1ff; }
+.ux-shell [data-engineer-body] button:disabled { opacity:.54; cursor:default; }
+.ux-shell [data-engineer-body] .list-row { min-width:0; }
+.ux-shell [data-engineer-body] .list-row > div { min-width:0; overflow-wrap:anywhere; }
