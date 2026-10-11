@@ -48,11 +48,13 @@ def _filters(parameters):
 
 
 def _observation(run,kind):
+    from .run_lifecycle_services import state as run_state
+    current=run_state(run)
     session=run.session
     task=session.case_pin.test_case.task.item.public_id
     ident=run.solution.item.public_id if kind=="individual" else run.framework.public_id
     candidate=("solution:"+ident if kind=="individual" else "framework:"+ident)
-    metrics={key:run.metrics.get(key) for key in FIELDS}
+    metrics={key:current["metrics"].get(key) for key in FIELDS}
     return {
         "id":run.public_id,"evidence_class":"measured","kind":kind,
         "task_id":task,"test_case_id":session.case_pin.test_case.item.public_id,
@@ -62,7 +64,8 @@ def _observation(run,kind):
         "candidate":candidate,
         "solution_id":ident if kind=="individual" else None,
         "framework_id":ident if kind=="composite" else None,
-        "outcome":run.outcome,"metrics":metrics,
+        "outcome":current["outcome"],"metrics":metrics,
+        "effective_revision":current["revision"],"effective_status":current["status"],
         "missing_fields":[k for k,v in metrics.items() if v is None],
         "experimental_method_id":str(session.method_definition_id),
         "experimental_method_version":session.method_definition.version,
@@ -139,7 +142,9 @@ def explore(actor,parameters):
         if kind not in ("all",k) or (k=="composite" and solution):continue
         source=list(_run_query(k,task,solution,campaign,scope))
         if len(source)>500:raise InvalidExplorer("Too many results; narrow your filters")
-        rows.extend(_observation(run,k) for run in source)
+        from .run_lifecycle_services import state as run_state
+        rows.extend(_observation(run,k) for run in source
+                    if run_state(run)["status"] == "active")
     if kind in ("all","theoretical") and solution is None and campaign is None:
         predictions=forecasts(actor,task_id=task)
         if len(predictions)>500:raise InvalidExplorer("Too many forecasts; filter by task")
