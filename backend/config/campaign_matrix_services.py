@@ -257,7 +257,7 @@ def projection(item, revision, scope="private"):
             "pending":0,"in_progress":0,"evaluated":0,"measured_runs":0}
     for cell in plan["cells"]:
         runs=grouped[cell["id"]]["runs"]
-        active=grouped[cell["id"]]["in_progress"]
+        active=grouped[cell["id"]]["in_progress"] if scope=="private" else 0
         decision=cell["decision"]
         state=("not_selected" if decision=="not_selected" else
                "waived" if decision=="waived" else
