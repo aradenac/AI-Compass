@@ -27,7 +27,14 @@
     if(root.location.protocol==="file:" && mode==="demo"){
       if(typeof raw!=="string"||raw.length>1800||raw.startsWith("//"))return null;
       var local=root.location.pathname;
-      if(raw===local||raw.startsWith(local+"?"))return "?"+(raw.split("?")[1]||"").split("#")[0];
+      if(raw.startsWith("?") && !raw.startsWith("??")){
+        var localURL=new URL(raw,root.location.href);
+        return modeOf(localURL)===mode?localURL.search:null;
+      }
+      if(raw===local||raw.startsWith(local+"?")){
+        var localURL=new URL(raw,root.location.href);
+        return modeOf(localURL)===mode?localURL.search:null;
+      }
       return null;
     }
     if(typeof raw!=="string" || !raw.startsWith("/") || raw.startsWith("//") ||
