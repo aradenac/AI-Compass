@@ -1,6 +1,6 @@
 # Future evolution — Controlled retirement, retention and privileged physical purge
 
-**Remaining scope:** FUT-18 [#92](https://github.com/aradenac/AI-Compass/issues/92), scheduled after [UX-R03 #116](https://github.com/aradenac/AI-Compass/issues/116). Ordinary logical retirement, safe orphan inventory, privileged dry-run/hold checks, configurable optional retention and auditable garbage collection.
+**Remaining scope:** FUT-18 [#92](https://github.com/aradenac/AI-Compass/issues/92), scheduled after [UX-R07 #126](https://github.com/aradenac/AI-Compass/issues/126) (the earlier UX-R03 #116 is complete). Ordinary logical retirement, safe orphan inventory, privileged dry-run/hold checks, configurable optional retention and auditable garbage collection.
 
 **Context:** [current publication and evidence lifecycle](../publication-and-information-lifecycle.md).
 
@@ -145,4 +145,4 @@ These are **conceptual responsibilities, not instructions to create separate tab
 
 **Out of scope:** mandatory external data sync; auto-purchasing licenses; arbitrary bulk deletion of historic catalog records; multi-user simultaneous editing of a Run; a second audit pipeline; requiring additional unrelated user form fields; irreversible erase-on-click from an ordinary engineer screen; an automatic 30-day deletion default applied to all unlinked records; mutation of historically pinned raw benchmark evidence.
 
-**Approval boundary:** functional intent is accepted. No issue-priority ordering, GitHub issue creation, repository-wide documentation restructuring or source-code implementation follows from this page alone. This proposal will be used later when the user requests issue breakdown/planning.
+**Approval boundary:** functional intent is accepted and owned by FUT-18 [#92](https://github.com/aradenac/AI-Compass/issues/92). The actual execution order is controlled by the [current implementation plan](implementation-plan.md): wait for UX-R07 #126 and preserve operational recovery/approval gates; this specification alone does not authorize deploying an untested purge./planning.

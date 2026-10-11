@@ -1,6 +1,6 @@
 # Future evolutions — Secure remote archives, capacity governance and Internet readiness
 
-> **Status:** Pending FUT-19 [#93](https://github.com/aradenac/AI-Compass/issues/93) and FUT-20 [#94](https://github.com/aradenac/AI-Compass/issues/94), with release integration FUT-21 [#95](https://github.com/aradenac/AI-Compass/issues/95). Resume after [UX-R03 #116](https://github.com/aradenac/AI-Compass/issues/116).
+> **Status:** Pending FUT-19 [#93](https://github.com/aradenac/AI-Compass/issues/93) and FUT-20 [#94](https://github.com/aradenac/AI-Compass/issues/94), with release integration FUT-21 [#95](https://github.com/aradenac/AI-Compass/issues/95). Resume after [UX-R07 #126](https://github.com/aradenac/AI-Compass/issues/126); UX-R03 #116 is already merged/closed.
 > **Delivered foundation:** [Development/LAN operational profile](../secure-operations-baseline.md), [archive permissions](../deployment-profiles-and-archive-permissions.md) and [release contracts](../shared-frontend-and-release-lifecycle.md).
 
 ## Internet / inter-BU deployment profile

@@ -1,17 +1,17 @@
 # Remaining future evolutions — AI Compass
 
 > **Updated:** 2026-10-11. This directory contains **only outstanding functional/operational evolutions and the delivery ledger**, not specifications of already delivered FUT features.
-> **Authoritative implementation priority:** [Live delivery ledger](implementation-plan.md). [Issues #75–#91](https://github.com/aradenac/AI-Compass/issues?q=is%3Aissue+is%3Aclosed) are closed. UX remediation [#114–#116](https://github.com/aradenac/AI-Compass/issues/114) is scheduled **before** remaining P7 features #92–#95.
+> **Authoritative implementation priority:** [Live delivery ledger](implementation-plan.md). [Issues #75–#91](https://github.com/aradenac/AI-Compass/issues?q=is%3Aissue+is%3Aclosed) are closed. Initial UX recovery [#114–#116](https://github.com/aradenac/AI-Compass/issues/114) is merged/closed. Outstanding desktop UX completion [#123–#126](https://github.com/aradenac/AI-Compass/issues/123) is now **first**, before P7 #92–#95.
 
 ## What remains
 
 | Future requirement | Scope / owning issue | Prerequisites |
 | --- | --- | --- |
-| [Controlled retirement and physical purge](controlled-retirement-and-purge.md) | FUT-18 [#92](https://github.com/aradenac/AI-Compass/issues/92): archive/retire, safe orphan preview, protected history/holds, race-safe purge and optional bounded retention | UX-R03 #116, #76, #85, #91 |
-| [Secure remote archives and Internet/capacity](secure-operations-and-capacity.md) | FUT-19 [#93](https://github.com/aradenac/AI-Compass/issues/93): immutable asynchronous native/full archive transfer; FUT-20 [#94](https://github.com/aradenac/AI-Compass/issues/94): resource policy, dashboard and Internet ingress | #93 after #116; #94 after #93 |
-| [Guided compatible/incompatible release operations](guided-release-operations.md) | FUT-21 [#95](https://github.com/aradenac/AI-Compass/issues/95): check/stage/deploy/status/recover CLI and guarded staging, approval and recovery | #116, #75, #76, #93 |
+| [Controlled retirement and physical purge](controlled-retirement-and-purge.md) | FUT-18 [#92](https://github.com/aradenac/AI-Compass/issues/92): archive/retire, safe orphan preview, protected history/holds, race-safe purge and optional bounded retention | UX-R07 #126, #76, #85, #91, #116 |
+| [Secure remote archives and Internet/capacity](secure-operations-and-capacity.md) | FUT-19 [#93](https://github.com/aradenac/AI-Compass/issues/93): immutable asynchronous native/full archive transfer; FUT-20 [#94](https://github.com/aradenac/AI-Compass/issues/94): resource policy, dashboard and Internet ingress | #93 after #126; #94 after #93 |
+| [Guided compatible/incompatible release operations](guided-release-operations.md) | FUT-21 [#95](https://github.com/aradenac/AI-Compass/issues/95): check/stage/deploy/status/recover CLI and guarded staging, approval and recovery | #126, #116, #75, #76, #93 |
 
-**Execution order:** first complete UX QA [#114](https://github.com/aradenac/AI-Compass/issues/114), unified shell/modal recovery [#115](https://github.com/aradenac/AI-Compass/issues/115), and context navigation/composed UX acceptance [#116](https://github.com/aradenac/AI-Compass/issues/116); then resume the original P7 backlog. These corrective issues refer to existing [role-based UX specifications](../role-based-user-experience-and-guided-navigation.md), [NFR](../non-functional-requirements.md) and [shared frontend contract](../shared-frontend-and-release-lifecycle.md), not to a new business feature proposal.
+**Execution order:** completed UX [#114](https://github.com/aradenac/AI-Compass/issues/114), [#115](https://github.com/aradenac/AI-Compass/issues/115), [#116](https://github.com/aradenac/AI-Compass/issues/116); now implement UX-R04 [#123](https://github.com/aradenac/AI-Compass/issues/123) → UX-R05 [#124](https://github.com/aradenac/AI-Compass/issues/124) → UX-R06 [#125](https://github.com/aradenac/AI-Compass/issues/125) → UX-R07 [#126](https://github.com/aradenac/AI-Compass/issues/126); then resume existing FUT [#92–#95](https://github.com/aradenac/AI-Compass/issues/92). These are **corrective UI/quality issues for the already approved domain specs**, not a new business-feature catalogue. Desktop web only; do not add mobile requirements.
 
 ## Delivered scope is documented elsewhere
 

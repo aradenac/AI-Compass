@@ -1,6 +1,6 @@
 # Future evolution — Guided compatible and incompatible release operations
 
-**Remaining scope:** FUT-21 [#95](https://github.com/aradenac/AI-Compass/issues/95), after UX recovery and its P7 dependencies. Build the operator commands and recoverability safeguards described below on the [current coordinated release contract](../shared-frontend-and-release-lifecycle.md).
+**Remaining scope:** FUT-21 [#95](https://github.com/aradenac/AI-Compass/issues/95), after UX-R07 [#126](https://github.com/aradenac/AI-Compass/issues/126) and its existing P7 dependencies. Build the operator commands and recoverability safeguards described below on the [current coordinated release contract](../shared-frontend-and-release-lifecycle.md).
 
 ## 5. Guided operator workflow (target; not available yet)
 
