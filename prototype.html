@@ -734,6 +734,10 @@ function publicRunRecord(run){
   copy.initialSetup.installationGuideId="";
   copy.initialSetup.installationGuideSnapshot=null;
  }
+ if(copy.initialSetup){
+  copy.initialSetup.installationRecipeModules=(copy.initialSetup.installationRecipeModules||[])
+   .filter(function(m){return m.snapshot?.status==="published";});
+ }
  if(copy.campaignSnapshot){
   copy.campaignSnapshot.watchIds=publicWatchLinks(copy.campaignSnapshot.watchIds);
   copy.campaignSnapshot.watchSnapshots=(copy.campaignSnapshot.watchSnapshots||[]).filter(function(w){return publicWatchLinks([w.id]).length;});
