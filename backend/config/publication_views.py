@@ -27,7 +27,7 @@ def current(request, public_id):
     if request.GET:
         return json_no_store({"error": "invalid_filter"}, 400)
     item = _item(public_id)
-    event = publication.effective(item)
+    event = publication.active_manifest(item)
     return json_no_store({
         "campaign_id": public_id, "publication": event,
         "effective_run_ids": [row["id"] for row in event["runs"]] if event else [],
@@ -67,7 +67,7 @@ def publish(request, public_id):
             run_ids=data.get("run_ids"),
             removal_reason=data.get("removal_reason", ""))
         return json_no_store({"campaign": serialize(updated),
-                              "publication": publication.effective(updated)})
+                              "publication": publication.active_manifest(updated)})
     except (InvalidCampaign, ValueError) as exc:
         return json_no_store({"error": "invalid_publication", "detail": str(exc)}, 400)
     except (InvalidTransition, RevisionConflict, SchemaWriteBlocked) as exc:
