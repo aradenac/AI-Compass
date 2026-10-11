@@ -112,6 +112,7 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;b
 <script src="shared-pricing.js"></script>
 <script src="shared-workgroup.js"></script>
 <script src="shared-engineer.js"></script>
+<script src="shared-opportunities.js"></script>
 <script src="shared-drafts.js"></script>
 <script src="server-tasks.js"></script>
 <script>
@@ -891,6 +892,17 @@ if(target){
    '<section id="demo-environment-profile" class="card" role="region" aria-label="My OS environment"></section>');
  window.AICompassEnvironment.mount(
    document.getElementById("demo-environment-profile"),demoEnvironment,"demo").setAccess(true);
+}
+
+if(persona && persona.id === "management" && window.AICompassOpportunities) {
+  var demoManagement=document.querySelector(".content");
+  if(demoManagement){
+    var demoOpportunities=document.createElement("section");
+    demoOpportunities.id="demo-opportunities";
+    demoManagement.insertBefore(demoOpportunities,demoManagement.firstChild);
+    window.AICompassOpportunities.mount(demoOpportunities,
+      window.AICompassOpportunities.demoProvider(db),"demo").setAccess(true,true);
+  }
 }
 
 if(persona && persona.id === "engineer" && window.AICompassEngineer) {
