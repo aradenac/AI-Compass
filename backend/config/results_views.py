@@ -14,6 +14,11 @@ from . import evaluation_services as svc
 from .results_explorer_services import explore,InvalidExplorer
 
 
+def _private(user):
+    return (user.has_perm("auth.business_write") or
+            user.has_perm("auth.publication_review"))
+
+
 def _item(public_id):
     if not isinstance(public_id,str) or not public_id.startswith("evl-"):
         raise Http404("Not an evaluation identity")
@@ -47,6 +52,10 @@ def explorer(request):
 def collection(request):
     if request.method=="GET":
         if request.GET:return json_no_store({"error":"invalid_filter"},400)
+        if not _private(request.user):
+            # Evaluation snapshots are draft interpretations, not reviewed
+            # active publication; only the effective Results Explorer is public.
+            return json_no_store({"results":[]})
         records=list(CatalogItem.objects.filter(type_slug="evaluation").select_related(
             "current_revision__created_by").order_by("created_at","public_id")[:501])
         if len(records)>500:return json_no_store({"error":"too_many_evaluations"},422)
@@ -71,6 +80,7 @@ def detail(request,public_id):
     item=_item(public_id)
     if request.method=="GET":
         if request.GET:return json_no_store({"error":"invalid_filter"},400)
+        if not _private(request.user):raise Http404("Private evaluation")
         return json_no_store(svc.serialize(item))
     if request.method!="PATCH":return HttpResponseNotAllowed(["GET","PATCH"])
     if not request.user.has_perm("auth.business_write"):
@@ -91,6 +101,7 @@ def detail(request,public_id):
 @capability("business_read")
 @never_cache
 def history(request,public_id):
+    if not _private(request.user):raise Http404("Private evaluation history")
     if request.GET:return json_no_store({"error":"invalid_filter"},400)
     item=_item(public_id)
     versions=CatalogRevision.objects.filter(item=item).select_related(
@@ -103,6 +114,7 @@ def history(request,public_id):
 @capability("business_read")
 @never_cache
 def version(request,public_id,number):
+    if not _private(request.user):raise Http404("Private evaluation history")
     if request.GET:return json_no_store({"error":"invalid_filter"},400)
     item=_item(public_id)
     rev=get_object_or_404(CatalogRevision.objects.select_related("created_by"),

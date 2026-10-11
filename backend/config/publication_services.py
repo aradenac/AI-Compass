@@ -49,7 +49,7 @@ def effective(item, upto=None):
     return event if event is not None and event["kind"] == "publish" else None
 
 
-def effective_ids(campaign=None, kind=None):
+def published_membership_ids(campaign=None, kind=None):
     """Single effective membership authority for all read-side consumers.
 
     Only newest decision per campaign counts; a revoke masks older snapshots.
@@ -75,6 +75,38 @@ def effective_ids(campaign=None, kind=None):
     return ids
 
 
+def effective_ids(campaign=None, kind=None):
+    """Shared CURRENT published selector, including Run-level withdrawals."""
+    from .run_lifecycle_services import effective_ids as valid
+    return valid(campaign=campaign, kind=kind)
+
+
+def active_manifest(item):
+    """Public effective subset; immutable as-published history stays unchanged."""
+    from .run_lifecycle_services import state, lookup
+    base = effective(item)
+    if base is None:
+        return None
+    ids = effective_ids(item.public_id)
+    visible = []
+    excluded = []
+    for pin in base.get("runs", []):
+        if pin["id"] not in ids:
+            excluded.append({"status": "withdrawn"})
+        else:
+            run = lookup(pin["id"])
+            if run is None:
+                # Orphaned provenance is never silently public.
+                excluded.append({"status": "unresolved"})
+                continue
+            current = state(run)
+            visible.append({**pin, "effective_revision": current["revision"],
+                            "effective_outcome": current["outcome"]})
+    return {**base, "runs": visible, "withdrawn": excluded,
+            "active_run_count": len(visible), "as_published_run_count": len(base["runs"]),
+            "effective_selection": True}
+
+
 def _all_runs(item):
     individual = BenchmarkRun.objects.filter(
         session__campaign_snapshot__revision__item=item).select_related(
@@ -93,6 +125,8 @@ def _all_runs(item):
 
 def _assess(run, kind):
     """Validate original, exact historical setup rather than current guide head."""
+    from .run_lifecycle_services import state as run_state
+    current = run_state(run)
     session = run.session
     errors = []
     if run.outcome not in ("accepted", "failed"):
@@ -137,6 +171,8 @@ def _assess(run, kind):
     reference = guide.get("recipe") if guide else None
     pin = {
         "id": run.public_id, "kind": kind,
+        "effective_revision": current["revision"],
+        "effective_revision_id": current["revision_id"],
         "run_uuid": str(run.pk),
         "session_id": session.public_id,
         "closing_checkpoint_id": str(run.closing_checkpoint_id),
@@ -144,7 +180,7 @@ def _assess(run, kind):
         "test_case_id": session.case_pin.test_case.item.public_id,
         "test_case_revision_id": str(session.case_pin.revision_id),
         "method_definition_id": str(session.method_definition_id),
-        "outcome": run.outcome,
+        "outcome": current["outcome"],
         "guide": reference,
         "guide_module_pins": run.provenance.get("setup_composition", {}).get(
             "module_pins", []),
@@ -184,9 +220,12 @@ def review(item, run_ids):
     if set(run_ids) - set(found):
         raise InvalidCampaign("Selected Run does not belong to this campaign")
     pins = []
+    from .run_lifecycle_services import state
     for ident in run_ids:
         run, kind = found[ident]
         pin, errors = _assess(run, kind)
+        if state(run)["status"] == "withdrawn":
+            errors.append("run_withdrawn")
         if errors:
             raise InvalidTransition(ident + " cannot be published: " + ", ".join(errors))
         pins.append(pin)
@@ -220,7 +259,10 @@ def publish(*, actor, public_id, expected_revision, run_ids, removal_reason=""):
         raise InvalidTransition("Close the campaign for review before publishing")
     if current.properties.get("archived"):
         raise InvalidTransition("Cannot publish an archived campaign")
+    from .run_lifecycle_services import state, lookup
     pins = review(item, run_ids)
+    if any(state(lookup(ident))["status"] != "active" for ident in run_ids):
+        raise InvalidTransition("A withdrawn Run cannot be republished")
     previous = effective(item)
     old = set(x["id"] for x in previous["runs"]) if previous else set()
     removed = old - set(run_ids)

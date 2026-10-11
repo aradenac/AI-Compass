@@ -112,10 +112,12 @@ class RecommendationTests(TestCase):
         self.assertEqual(published["reviewed_by"],self.reviewer.username)
         self.assertIsNotNone(published["reviewed_at"])
         self.assertEqual(len(reader.get(ROOT).json()["results"]),1)
-        self.assertEqual(reader.get(ROOT+"/"+recommendation["id"]).json(),published)
+        public_published=reader.get(ROOT+"/"+recommendation["id"]).json()
+        self.assertFalse(public_published["eligible_for_current_suitability"])
+        self.assertEqual(public_published["run_refs"],[{"kind":"individual","status":"unavailable"}])
         self.assertEqual(reader.get(ROOT+"/"+recommendation["id"]+"/revisions/1").status_code,404)
         self.assertEqual(reader.get(ROOT+"/"+recommendation["id"]+"/revisions").json()
-                         ["revisions"],[published])
+                         ["revisions"],[public_published])
         updated=self.call(ROOT+"/"+recommendation["id"],{
             "expected_revision":"r003",
             "properties":{"rationale":"Will reassess after a broader set of Test Cases"}},
@@ -128,15 +130,16 @@ class RecommendationTests(TestCase):
         self.assertEqual(draft["evaluation_revision_id"],published["evaluation_revision_id"])
         self.assertEqual(draft["run_refs"],published["run_refs"])
         # A draft under review must not shadow the last public decision.
-        self.assertEqual(reader.get(ROOT+"/"+recommendation["id"]).json(),published)
+        self.assertEqual(reader.get(ROOT+"/"+recommendation["id"]).json(),public_published)
         failed=self.failed_run()
         self.assertEqual(failed["outcome"],"failed")
         self.assertEqual(failed["solution_id"],first["solution_id"])
         public_alert=reader.get(ROOT+"/"+recommendation["id"]).json()
         self.assertEqual(public_alert["revision"],"r003")
         self.assertTrue(public_alert["review_needed"])
-        self.assertEqual(public_alert["contradictory_run_ids"],[failed["id"]])
-        self.assertEqual(public_alert["new_run_ids"],[failed["id"]])
+        self.assertEqual(public_alert["contradictory_run_ids"],[])
+        self.assertEqual(public_alert["new_run_ids"],[])
+        self.assertFalse(public_alert["eligible_for_current_suitability"])
         self.assertEqual(reader.get(ROOT).json()["results"][0]["review_needed"],True)
         self.assertEqual(self.client.get(ROOT+"/"+recommendation["id"]+
                                          "/revisions/3").json()["properties"],
@@ -294,7 +297,8 @@ class RecommendationTests(TestCase):
         final=republished.json()["record"]
         self.assertEqual(final["revision"],"r008")
         self.assertEqual(final["properties"]["decision"],"conditional")
-        self.assertFalse(final["review_needed"])
+        self.assertTrue(final["review_needed"])
+        self.assertFalse(final["eligible_for_current_suitability"])
         self.assertEqual(reader.get(ROOT+"/"+original["id"]).json()["revision"],"r008")
         self.assertEqual(self.client.get(ROOT+"/"+original["id"]+
                                          "/revisions/3").json()["properties"],

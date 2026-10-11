@@ -213,12 +213,15 @@ def evaluation(plan, ident, case_id):
     return cell,cfg
 
 
-def projection(item, revision):
+def projection(item, revision, scope="private"):
     """Current observed attempts, separate from immutable plan decisions.
 
     Run links are explicit, and no older untagged/legacy session is misattributed
     to a matrix cell. Failed-DoD closed runs still count as *evaluated*.
     """
+    from .run_lifecycle_services import state as run_state
+    from .publication_services import effective_ids
+    published=effective_ids(item.public_id) if scope=="published" else None
     plan=deepcopy(revision.properties.get("matrix_plan"))
     if not plan:
         return {"revision":f"r{revision.number:03d}","configured":False,
@@ -237,18 +240,24 @@ def projection(item, revision):
     for run in BenchmarkRun.objects.filter(session_id__in=session_ids).only(
             "public_id","session_id","outcome"):
         eid=session_ids[run.session_id]
-        grouped[eid]["runs"].append({"id":run.public_id,"outcome":run.outcome,"kind":"individual"})
+        current=run_state(run)
+        if current["status"]=="active" and (published is None or run.public_id in published):
+            grouped[eid]["runs"].append({"id":run.public_id,"outcome":current["outcome"],
+                "effective_revision":current["revision"],"kind":"individual"})
         grouped[eid]["in_progress"]-=1
     for run in CompositeBenchmarkRun.objects.filter(session_id__in=session_ids).only(
             "public_id","session_id","outcome"):
         eid=session_ids[run.session_id]
-        grouped[eid]["runs"].append({"id":run.public_id,"outcome":run.outcome,"kind":"framework"})
+        current=run_state(run)
+        if current["status"]=="active" and (published is None or run.public_id in published):
+            grouped[eid]["runs"].append({"id":run.public_id,"outcome":current["outcome"],
+                "effective_revision":current["revision"],"kind":"framework"})
         grouped[eid]["in_progress"]-=1
     totals={"candidates":len(ids),"not_selected":0,"waived":0,
             "pending":0,"in_progress":0,"evaluated":0,"measured_runs":0}
     for cell in plan["cells"]:
         runs=grouped[cell["id"]]["runs"]
-        active=grouped[cell["id"]]["in_progress"]
+        active=grouped[cell["id"]]["in_progress"] if scope=="private" else 0
         decision=cell["decision"]
         state=("not_selected" if decision=="not_selected" else
                "waived" if decision=="waived" else

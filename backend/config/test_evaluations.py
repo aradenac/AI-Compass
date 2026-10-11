@@ -266,7 +266,9 @@ class ResultsAndEvaluationTests(TestCase):
         individual=self.measured()
         record=self.evaluation([individual["id"]])
         browser,token=self.as_user(self.reader)
-        self.assertEqual(browser.get(EVALUATIONS+"/"+record["id"]).json(),record)
+        self.assertEqual(browser.get(EVALUATIONS+"/"+record["id"]).status_code,404)
+        self.assertEqual(browser.get(EVALUATIONS).json()["results"],[])
+        self.assertEqual(self.client.get(EVALUATIONS+"/"+record["id"]).json(),record)
         self.assertEqual(browser.get(EXPLORER).json()["counts"]["individual_runs"],0)
         self.assertEqual(self.client.get(EXPLORER).json()["counts"]["individual_runs"],1)
         self.assertEqual(self.call(EVALUATIONS,{"name":"Denied","run_ids":[individual["id"]]},

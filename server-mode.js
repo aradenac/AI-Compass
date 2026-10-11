@@ -327,7 +327,7 @@
     watch.setAccess(!maintenanceWorkspace && grants.includes("business_read"), !maintenanceWorkspace && grants.includes("business_write"), !maintenanceWorkspace && grants.includes("publication_review"));
     forecasts.setAccess(!maintenanceWorkspace && grants.includes("business_read"), !maintenanceWorkspace && grants.includes("business_write"), !maintenanceWorkspace && grants.includes("publication_review"));
     campaigns.setAccess(!maintenanceWorkspace && grants.includes("business_read"), !maintenanceWorkspace && grants.includes("business_write"), !maintenanceWorkspace && grants.includes("publication_review"));
-    resultsExplorer.setAccess(!maintenanceWorkspace && grants.includes("business_read"), !maintenanceWorkspace && grants.includes("business_write"));
+    resultsExplorer.setAccess(!maintenanceWorkspace && grants.includes("business_read"), !maintenanceWorkspace && grants.includes("business_write"), !maintenanceWorkspace && grants.includes("publication_review"));
     recommendations.setAccess(!maintenanceWorkspace && grants.includes("business_read"), !maintenanceWorkspace && grants.includes("business_write"), !maintenanceWorkspace && grants.includes("publication_review"));
     discussions.setAccess(!maintenanceWorkspace && grants.includes("business_read"), !maintenanceWorkspace && grants.includes("business_write"), !maintenanceWorkspace && grants.includes("publication_review"));
     users.setAccess(!maintenanceWorkspace && grants.includes("users_manage"), !maintenanceWorkspace && grants.includes("platform_manage"));

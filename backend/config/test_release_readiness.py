@@ -109,7 +109,8 @@ class ReleaseJourneyTests(TestCase):
                     "/api/v1/recommendations/" + recommendation["id"])
                 self.assertEqual(public.status_code, 200, public.content)
                 self.assertEqual(public.json()["state"], "published")
-                self.assertEqual(public.json()["run_refs"][0]["id"], run["id"])
+                self.assertEqual(public.json()["run_refs"][0]["status"], "unavailable")
+                self.assertFalse(public.json()["eligible_for_current_suitability"])
                 downloaded = fresh_reader.get(
                     "/api/v1/evidence/" + evidence["id"] + "/download")
                 self.assertEqual(downloaded.status_code, 200, downloaded.content

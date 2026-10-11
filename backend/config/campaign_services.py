@@ -495,5 +495,6 @@ def _serialized_publication(item, revision):
         return None
     return {"revision": row["campaign_revision"],
             "revision_id": row["campaign_revision_id"],
-            "included_runs": len(row["runs"]),
+            "included_runs": len([x for x in row["runs"] if x["id"] in __import__(
+                "config.publication_services",fromlist=["effective_ids"]).effective_ids(item.public_id)]),
             "coverage": row["coverage"]}

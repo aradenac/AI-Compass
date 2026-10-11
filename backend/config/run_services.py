@@ -281,4 +281,5 @@ def serialize(run,include_raw=True):
     }
     if include_raw:
         result["raw_session_state"]=cp.state
-    return result
+    from .run_lifecycle_services import decorate
+    return decorate(run, result)

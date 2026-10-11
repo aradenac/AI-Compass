@@ -2,7 +2,7 @@
 (function(){
 "use strict";
 function mount(root,csrf,escapeHtml){
-  var enabled=false,writer=false,ticket=0,results=[],evaluations=[],tasks=[],solutions=[],campaigns=[],current=null;
+  var enabled=false,writer=false,reviewer=false,ticket=0,results=[],evaluations=[],tasks=[],solutions=[],campaigns=[],current=null;
   var METRICS=["quality_score","information_utility_score","cost_eur",
                "tokens_total","human_total_minutes","interaction_agent_minutes"];
   function $(q){return root.querySelector(q);}
@@ -57,6 +57,11 @@ function mount(root,csrf,escapeHtml){
       event.preventDefault();loadMatrix();
     });
     if(writer)$("#results-new-evaluation").addEventListener("click",function(){edit(null);});
+    $("#results-rows").addEventListener("click",function(event){
+      var button=event.target.closest("button[data-amend-run]");
+      if(!button||!reviewer)return;
+      amendRun(button.dataset.amendRun);
+    });
     $("#results-evaluations").addEventListener("click",function(event){
       var button=event.target.closest("button[data-evaluation]");
       if(!button)return;
@@ -124,7 +129,8 @@ function mount(root,csrf,escapeHtml){
           (forecast?'<p class="muted small">Estimates only · Uncertainty: '+
             esc(r.uncertainty||"Unspecified")+'</p>':
             '<p class="muted small">Unknown fields: '+esc((r.missing_fields||[]).join(", ")||"none")+
-            ' · <a href="'+esc(r.detail)+'">Frozen source detail (JSON)</a></p>')+
+            ' · <a href="'+esc(r.detail)+'">Current Run detail (JSON)</a></p>'+
+            (reviewer?'<button type="button" data-amend-run="'+esc(r.id)+'">Correct / withdraw</button>':''))+
           '</div>';
       }).join(""):'<p>No source observations.</p>';
   }
@@ -239,8 +245,60 @@ function mount(root,csrf,escapeHtml){
       });
     }catch(err){status("Evaluation history unavailable: "+err.message,true);}
   }
-  function setAccess(read,write){
-    ++ticket;enabled=!!read;writer=enabled&&!!write;
+
+  async function amendRun(identifier){
+    if(!reviewer)return;
+    var node=$("#results-detail"),run;
+    node.hidden=false;node.textContent="Loading Run revision…";
+    try{run=await api("runs/"+encodeURIComponent(identifier));}
+    catch(error){status("Run not accessible: "+error.message,true);return;}
+    node.innerHTML='<h3>Correct or withdraw · '+esc(identifier)+'</h3>'+
+      '<p class="muted small">Only declared measurements are superseded; frozen raw evidence, original Run and previous publication revisions remain.</p>'+
+      '<p>Current revision: '+esc(run.revision)+' · '+esc(run.effective_status)+'</p>'+
+      '<label>Action<select id="run-amend-action"><option value="corrected">Correct measurement</option>'+
+      '<option value="withdrawn">Withdraw invalid Run</option></select></label>'+
+      '<label>Mandatory justification (8–2000 characters)<textarea id="run-amend-reason" maxlength="2000"></textarea></label>'+
+      '<label>Quality score (optional corrected 0–100)<input id="run-amend-quality" type="number" min="0" max="100" step="any" placeholder="'+esc(run.metrics.quality_score)+'"></label>'+
+      '<label>Information utility score (optional corrected 0–100)<input id="run-amend-utility" type="number" min="0" max="100" step="any" placeholder="'+esc(run.metrics.information_utility_score)+'"></label>'+
+      '<label>DoD outcome<select id="run-amend-outcome"><option value="">No change</option>'+
+      '<option value="accepted">Accepted</option><option value="failed">Failed</option></select></label>'+
+      '<button type="button" id="run-amend-save">Commit immutable Run revision</button>'+
+      '<button type="button" id="run-amend-close">Close</button>';
+    node.querySelector("#run-amend-close").addEventListener("click",function(){node.hidden=true;});
+    node.querySelector("#run-amend-save").addEventListener("click",async function(){
+      var action=node.querySelector("#run-amend-action").value;
+      var reason=node.querySelector("#run-amend-reason").value.trim();
+      var data={expected_revision:run.revision,reason:reason};
+      if(action==="corrected"){
+        var patch={};
+        var quality=node.querySelector("#run-amend-quality").value;
+        var utility=node.querySelector("#run-amend-utility").value;
+        if(quality!=="")patch.quality_score=Number(quality);
+        if(utility!=="")patch.information_utility_score=Number(utility);
+        if(Object.keys(patch).length)data.metrics_patch=patch;
+        var outcome=node.querySelector("#run-amend-outcome").value;
+        if(outcome)data.outcome=outcome;
+        if(!data.metrics_patch&&!data.outcome){
+          status("Specify at least one measurement or outcome correction.",true);return;
+        }
+      }else if(!window.confirm("Withdraw this Run from all current published results? Historical evidence remains.")){
+        return;
+      }
+      var button=node.querySelector("#run-amend-save");
+      button.disabled=true;
+      try{
+        var response=await api("runs/"+encodeURIComponent(identifier)+"/actions/"+action,
+                               "POST",data);
+        status("Run "+identifier+" · "+response.current.revision+" · "+
+               response.current.status+" committed.");
+        node.hidden=true;
+        await refresh();
+      }catch(error){status("Run amendment rejected: "+error.message,true);}
+      finally{button.disabled=false;}
+    });
+  }
+  function setAccess(read,write,canReview){
+    ++ticket;enabled=!!read;writer=enabled&&!!write;reviewer=enabled&&!!canReview;
     results=[];evaluations=[];tasks=[];solutions=[];campaigns=[];current=null;
     root.replaceChildren();root.hidden=!enabled;
     if(enabled){shell();refresh();}

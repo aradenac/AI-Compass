@@ -183,4 +183,5 @@ def serialize(run,include_raw=True):
              "actor_label":roles.get(row.get("participant_id"),"Coordinator / unspecified")}
             for row in cp.state["interactions"]
         ]
-    return result
+    from .run_lifecycle_services import decorate
+    return decorate(run, result)

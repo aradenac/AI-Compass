@@ -263,7 +263,7 @@ def evaluation_matrix(request, public_id):
             raise Http404("Private matrix revision")
         rev=visible
     from .campaign_matrix_services import projection
-    return json_no_store(projection(item,rev))
+    return json_no_store(projection(item,rev,scope="private" if _can_review_private(request.user) else "published"))
 
 
 @require_http_methods(["PATCH"])
