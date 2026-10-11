@@ -7,7 +7,7 @@ Old campaigns without a matrix retain their original method semantics.
 from copy import deepcopy
 from datetime import datetime, timezone
 from django.db import transaction
-from .catalog_ids import new_public_id
+from .catalog_ids import new_public_id, uuid7
 from .models import (BenchmarkSession, BenchmarkRun, CompositeBenchmarkRun,
                      CampaignSnapshot, CatalogRevision, TestCase)
 from .campaign_services import InvalidCampaign, InvalidTransition, _case, _component, _task, modify
@@ -18,7 +18,7 @@ MAX_CONFIGS, MAX_CELLS = 128, 1024
 
 def _unique(prefix, occupied):
     for _ in range(30):
-        key = new_public_id(prefix)
+        key = new_public_id(prefix)+"-"+uuid7().hex[-12:]
         if key not in occupied:
             occupied.add(key)
             return key
@@ -117,7 +117,7 @@ def apply(*,actor,item,expected_revision,operation):
                 raise InvalidCampaign("Too many matrix configurations")
             config,added=_configuration(actor,operation,snap,{c["id"] for c in configs})
             configs.append(config)
-            existing={c["id"] for c in cells}
+            existing={c["id"] for c in cells}|{c["id"] for c in configs}
             for cid in added:
                 if len(cells)>=MAX_CELLS:raise InvalidCampaign("Matrix size limit exceeded")
                 case_ids.add(cid)
@@ -129,7 +129,7 @@ def apply(*,actor,item,expected_revision,operation):
             added=_checked_list(operation.get("test_case_ids"),"test_case_ids")
             if not added:raise InvalidCampaign("Select eligible Test Cases")
             known={(c["configuration_id"],c["test_case_id"]) for c in cells}
-            occupied={c["id"] for c in cells}
+            occupied={c["id"] for c in cells}|{c["id"] for c in configs}
             for cid in added:
                 if _case(cid).task.item.public_id!=config["task_id"]:
                     raise InvalidCampaign("Test Case belongs to a different Task")
