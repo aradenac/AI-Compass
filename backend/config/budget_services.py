@@ -204,7 +204,7 @@ def _source(item):
     target = DeploymentTarget.objects.select_related(
         "population", "task__item", "candidate").get(public_id=item["target_id"])
     if (target.kind != "benchmark" or target.population_id is None or
-            target.candidate.type_slug != "solution"):
+            target.candidate.type_slug != "ai_solution"):
         raise InvalidBudget("No valid measured deployment target")
     dep = deployment_status(target, private=False)
     if dep["status"] != "selected":
