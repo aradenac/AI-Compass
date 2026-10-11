@@ -318,7 +318,9 @@ def project(profile, assumptions):
                 # are not labelled an opportunity or activated positive value.
                 partition=None
             else:
-                partition=allocate_slices(signed,freq,headcount,0,kind)
+                from .deployment_services import verified_count
+                verified = verified_count(profile, task_id, c["kind"], c["candidate_id"])
+                partition=allocate_slices(signed,freq,headcount,verified,kind)
                 for field in amounts:
                     amounts[field]+=Decimal(partition[field])
         else:
@@ -352,7 +354,7 @@ def project(profile, assumptions):
             "benchmark_weight":selection["benchmark_weight"],
             "currency":"EUR", "period":"annual",
             "interpretation":"prospective_labor_value_not_realized_cash_savings",
-            "activation_status":"unverified_no_FUT15_access_or_first_use_records",
+            "activation_status":"current_manual_verified_entitlements_setup_first_use",
             "aggregation":"positive_only_slices_negative_gains_reported_separately",
             "totals":{**{k:money(v) for k,v in amounts.items()},
                       "positive_modeled_total_eur":money(total)},

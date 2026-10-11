@@ -57,18 +57,25 @@ function demoProvider(db){
           (assumptions.baseline_human_hours-assumptions.assisted_human_hours)*
             assumptions.hourly_rate_eur-assumptions.marginal_ai_cost_eur:null;
         var total=gain==null?null:(gain*assumptions.annual_occurrences*2).toFixed(2);
+        var verified=gain!=null&&gain>0&&root.AICompassDemoDeployments?
+          root.AICompassDemoDeployments.activatedCount(db,profile,choice.task_id,
+            choice.kind,choice.candidate_id):0;
+        verified=Math.max(0,Math.min(2,verified));
+        var activated=gain==null?null:(gain*assumptions.annual_occurrences*verified).toFixed(2);
+        var remaining=gain==null?null:(gain*assumptions.annual_occurrences*(2-verified)).toFixed(2);
         var theoretical=choice.kind==="forecast";
         return {task_id:choice.task_id,task_name:task&&task.name,
           candidate_id:choice.candidate_id,kind:choice.kind,
           evidence_class:theoretical?"theoretical":"measured",status:status,
+          verified_headcount:verified,
           reasons:status==="unquantifiable"?["failed_or_ambiguous_demo_Run"]:[],
           economic:gain==null?null:{annual_eur:total,
             marginal_reference_ai_cost_eur:"2.00",
             formula:"Fictional 60 occurrences × 2 people × ((4 h - 1.5 h) × €65 - €2)"},
           slices:total==null?null:{
-            activated_potential_eur:"0.00",
-            benchmarked_opportunity_eur:theoretical?"0.00":total,
-            forecast_opportunity_eur:theoretical?total:"0.00"},
+            activated_potential_eur:activated,verified_headcount:verified,
+            benchmarked_opportunity_eur:theoretical?"0.00":remaining,
+            forecast_opportunity_eur:theoretical?remaining:"0.00"},
           source_workload:{fictional_assumptions:assumptions}};
       });
       var total=function(key){return cells.reduce(function(n,c){
@@ -78,7 +85,8 @@ function demoProvider(db){
       return {algorithm:"dap-opportunity-demo-fixture-v1",scenario_name:scenario.name,
         profile_id:profile,headcount:2,period:"annual",currency:"EUR",
         interpretation:"fictional_assumptions_not_realized_cash_savings",
-        activation_status:"never_verified_in_demo",
+        activation_status:cells.some(function(c){return c.verified_headcount>0;})?
+          "fictional_demo_first_use_verified":"never_verified_in_demo",
         benchmark_weight:scenario.benchmark_weight,
         totals:{activated_potential_eur:act,benchmarked_opportunity_eur:bench,
           forecast_opportunity_eur:future,
@@ -100,7 +108,11 @@ function demoProvider(db){
       row.frozen.push({revision:row.revision,totals:projection.totals,projection:projection});
       row.scenario=scenario;row.snapshot=projection;row.current=projection;
       return row;},
-    detail:async function(id){return scenarios.find(function(s){return s.id===id;});},
+    detail:async function(id){var row=scenarios.find(function(s){return s.id===id;});
+      if(!row)return null;
+      row.current=await this.preview(row.profile_id,row.scenario);
+      row.source_changed=JSON.stringify(row.current.totals)!==JSON.stringify(row.snapshot.totals);
+      return row;},
     revisions:async function(id){var row=scenarios.find(function(s){return s.id===id;});
       return {revisions:row?row.frozen.map(function(x){return {
         revision:x.revision,totals:x.totals};}):[]};}

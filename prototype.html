@@ -905,6 +905,16 @@ if(persona && persona.id === "management" && window.AICompassHeatmap) {
       window.AICompassHeatmap.demoProvider(db),"demo").setAccess(true);
   }
 }
+if(persona && persona.id === "management" && window.AICompassDemoDeployments) {
+  var demoDeploymentHost=document.querySelector(".content");
+  if(demoDeploymentHost){
+    var demoDeploymentSection=document.createElement("section");
+    demoDeploymentSection.id="demo-deployments";
+    demoDeploymentHost.insertBefore(demoDeploymentSection,demoDeploymentHost.firstChild);
+    window.AICompassServerDeployments.mount(demoDeploymentSection,function(){return "";},
+      E,window.AICompassDemoDeployments.provider(db,persist)).setAccess(true,true);
+  }
+}
 if(persona && persona.id === "management" && window.AICompassOpportunities) {
   var demoManagement=document.querySelector(".content");
   if(demoManagement){
@@ -3389,6 +3399,8 @@ render();
 <script src="server-sessions.js"></script>
   <script src="server-pricing-selection.js"></script>
 <script src="server-campaigns.js"></script>
+<script src="server-deployments.js"></script>
+<script src="demo-deployments.js"></script>
 <script src="server-planning.js"></script>
 <script src="server-mode.js"></script>
 </body>
