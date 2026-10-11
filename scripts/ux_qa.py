@@ -252,6 +252,30 @@ def demo_journey(browser, demo_url, artifacts, role, label, viewport):
             page.get_by_role("dialog").get_by_role("button", name="Close dialog").click()
             capture(page, artifacts, "demo-shared-guide-detail-" + str(viewport["width"]))
         if role == "u1":
+            # Both knowledge-domain records use the shared semantic detail.
+            page.locator('[data-act="nav"][data-id="watch"]').click()
+            watch_button = page.locator(
+                '[data-business-domain="watch"] button[data-act="watchDetail"]').first
+            watch_button.wait_for(state="visible", timeout=20000)
+            watch_button.click()
+            watch_detail = page.locator(
+                '[data-knowledge-domain="watch"][data-knowledge-mode="demo"]')
+            watch_detail.wait_for(state="visible")
+            if not watch_detail.locator("h3").count():
+                raise AssertionError("No shared Watch detail")
+            capture(page, artifacts, "demo-shared-watch-detail-" + str(viewport["width"]))
+            page.get_by_role("dialog").get_by_role("button", name="Close dialog").click()
+            forecast_button = page.locator(
+                '[data-business-domain="forecasts"] button[data-act="forecastDetail"]').first
+            forecast_button.wait_for(state="visible", timeout=20000)
+            forecast_button.click()
+            forecast_detail = page.locator(
+                '[data-knowledge-domain="forecasts"][data-knowledge-mode="demo"]')
+            forecast_detail.wait_for(state="visible")
+            if "never measured" not in forecast_detail.inner_text().lower():
+                raise AssertionError("Forecast missing explicit theoretical provenance")
+            page.get_by_role("dialog").get_by_role("button", name="Close dialog").click()
+        if role == "u1":
             # The actual Demo form must honor the same NFR modal contract.
             page.locator('[data-act="nav"][data-id="testdesign"]').click()
             page.locator('[data-act="newCase"]').first.click()
@@ -458,6 +482,37 @@ def server_journey(browser, base_url, creds, artifacts, role, viewport):
                     raise AssertionError("Server Guide content missing: " + expected)
             page.locator("#guide-history details").first.wait_for(state="visible")
             capture(page, artifacts, "server-shared-guide-detail-" + str(viewport["width"]))
+        if role == "workgroup":
+            # Create a real Watch hypothesis without inventing external evidence.
+            page.goto(base_url + "/?mode=server&workspace=workgroup&section=watch&view=editor",
+                      wait_until="domcontentloaded")
+            page.locator("#watch-add-entry").wait_for(state="visible", timeout=30000)
+            page.locator("#watch-add-entry").click()
+            watch_form = page.locator("#watch-form")
+            watch_form.wait_for(state="visible")
+            watch_form.locator('input[name="name"]').fill("UX-R04 Watch detail")
+            watch_form.locator('textarea[name="hypothesis"]').fill(
+                "An unmeasured, source-independent hypothesis")
+            watch_form.locator('textarea[name="assumptions"]').fill(
+                "Uncertainty must remain explicit")
+            watch_form.locator('button[type="submit"]').click()
+            watch_card = page.locator('[data-business-domain="watch"] [data-business-record]').filter(
+                has_text="UX-R04 Watch detail").first
+            watch_card.wait_for(state="visible", timeout=30000)
+            page.reload(wait_until="domcontentloaded")
+            watch_card = page.locator('[data-business-domain="watch"] [data-business-record]').filter(
+                has_text="UX-R04 Watch detail").first
+            watch_card.wait_for(state="visible", timeout=30000)
+            watch_card.locator('button[data-action="inspect"]').click()
+            detail = page.locator(
+                '[data-knowledge-domain="watch"][data-knowledge-mode="server"]')
+            detail.wait_for(state="visible", timeout=30000)
+            for expected in ("An unmeasured, source-independent hypothesis",
+                             "Uncertainty must remain explicit"):
+                if expected not in detail.inner_text():
+                    raise AssertionError("Watch detail lost controlled content: " + expected)
+            page.locator("#watch-detail details").first.wait_for(state="visible")
+            capture(page, artifacts, "server-shared-watch-detail-" + str(viewport["width"]))
         if role in ("workgroup", "multi_role"):
             page.goto(base_url + "/?mode=server&workspace=workgroup&section=testdesign&view=editor",
                       wait_until="domcontentloaded")

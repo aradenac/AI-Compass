@@ -17,7 +17,7 @@ assert(fs.readFileSync("compose.yaml","utf8").includes(
 assert(fs.readFileSync("staging/compose.yaml","utf8").includes(
     "../server-forecasts.js:/srv/frontend/server-forecasts.js:ro"));
 assert(!src.includes("localStorage")&&!src.includes("sessionStorage"));
-for(const marker of ["THEORETICAL","never measured","predicted_metrics",
+for(const marker of ["THEORETICAL","predicted_metrics",
     "forecast_revision:f.revision","watch_links","review_notes",
     "/campaigns","api(\"runs\")","expected_revision","csrf()",
     'credentials:"same-origin"']){
@@ -43,6 +43,13 @@ const sandbox={window:{},fetch:async(url,opts)=>{
     return {ok:true,json:async()=>({results:[]})};
 }};
 vm.runInNewContext(fs.readFileSync("shared-workgroup.js","utf8"),sandbox,{filename:"shared-workgroup.js"});
+assert(src.includes('renderKnowledgeDetail(f,{domain:"forecasts",mode:"server"})'));
+const sharedDetail=sandbox.window.AICompassWorkgroup.renderKnowledgeDetail({
+ id:"fc-test",name:"Theoretical prediction",status:"draft",properties:{predicted_metrics:{}}
+},{domain:"forecasts",mode:"server"});
+assert(sharedDetail.includes("THEORETICAL")&&sharedDetail.includes("never measured"));
+assert(sharedDetail.includes("NOT measured Run evidence"));
+
 vm.runInNewContext(src,sandbox,{filename:"server-forecasts.js"});
 const ui=sandbox.window.AICompassServerForecasts.mount(root,()=>"csrf",String);
 ui.setAccess(false,false,false);

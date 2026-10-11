@@ -400,10 +400,70 @@
         url?'<p class="muted">Unsupported URL — link withheld.</p>':"")+'</article>';
   }
 
+
+  // UX-R04 knowledge-domain details: explicit, text-only projection of
+  // authorized Watch/source/Forecast records; never promotes hypotheses to Runs.
+  function renderKnowledgeDetail(record, options) {
+    options=options||{};
+    var mode=options.mode,domain=options.domain;
+    if(!record||!["demo","server"].includes(mode)||
+       !["watch","sources","forecasts"].includes(domain))
+      throw Error("Explicit authorized knowledge domain and mode required");
+    var p=mode==="demo"?record:(record.properties||{});
+    var title=mode==="demo"?(record.title||record.name):record.name;
+    var fields=[],notes=[],facts=[];
+    function add(label,value) {
+      if(value!==undefined&&value!==null&&String(value)!=="")
+        fields.push([label,value]);
+    }
+    if(domain==="forecasts") {
+      facts.push("THEORETICAL — never measured");
+      add("Confidence",p.confidence);
+      add("Task",mode==="demo"?record.task:record.task_id);
+      var metrics=mode==="demo"?{
+        quality_score:record.quality, ai_cost_eur:record.aiCost,
+        human_minutes:record.humanMinutes,acceptance:record.acceptance
+      }:(p.predicted_metrics||{});
+      add("Predicted quality / 100",metrics.quality_score);
+      add("Estimated AI cost (EUR)",metrics.ai_cost_eur);
+      add("Predicted human minutes",metrics.human_minutes);
+      add("Rationale",p.rationale);
+      add("Uncertainty",p.uncertainty);
+      notes.push("Forecast values are projections, NOT measured Run evidence.");
+    }else if(domain==="watch") {
+      add("Hypothesis and expected benefit",p.hypothesis||p.summary);
+      add("Potential activities",p.potential);
+      add("Assumptions",p.assumptions);
+      add("Notes",p.notes);
+      add("Review state",p.review_state||record.status);
+      add("Visibility",p.visibility||record.publication);
+    }else {
+      add("Source / reference",p.url||p.source);
+      add("Original claim / observation",p.claim);
+      add("Citation / publication",p.citation);
+      add("Assessment",p.assessment);
+      add("Uncertainty and limitations",p.limitations);
+      add("Confidence",p.confidence);
+      notes.push("External source material is not controlled experimental Run evidence.");
+    }
+    function section(label,value){
+      return '<section class="shared-knowledge-property"><h4>'+escape(label)+'</h4>'+
+        '<p style="white-space:pre-wrap;overflow-wrap:anywhere">'+escape(value)+'</p></section>';
+    }
+    return '<article class="shared-knowledge-detail" data-knowledge-domain="'+domain+
+      '" data-knowledge-mode="'+mode+'"><h3>'+escape(title||"Unnamed record")+'</h3>'+
+      '<p class="muted small">'+[record.id,record.revision,record.status||record.publication]
+        .concat(facts).filter(function(v){return v!==undefined&&v!==null&&v!=="";})
+        .map(escape).join(" · ")+'</p>'+
+      fields.map(function(k){return section(k[0],k[1]);}).join("")+
+      notes.map(function(n){return '<p class="muted small">'+escape(n)+'</p>';}).join("")+
+      '</article>';
+  }
+
   root.AICompassWorkgroup={ZONES:ZONES,STABLE:STABLE,SECTION_TO_DEMO:SECTION_TO_DEMO,
     SECTION_TO_SERVER:SECTION_TO_SERVER,canVisit:canVisit,renderMap:renderMap,
     breadcrumbs:breadcrumbs,attention:attention,href:href,renderList:renderList,
     serverProvider:serverProvider,demoProvider:demoProvider,mountSummary:mountSummary,renderCases:renderCases,renderCaseFields:renderCaseFields,renderCaseDetail:renderCaseDetail,
     renderRecords:renderRecords,renderGuideFields:renderGuideFields,
-    renderGuideDetail:renderGuideDetail};
+    renderGuideDetail:renderGuideDetail,renderKnowledgeDetail:renderKnowledgeDetail};
 })(window);
