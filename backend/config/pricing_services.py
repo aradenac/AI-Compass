@@ -150,13 +150,13 @@ def validate_offer(data):
     return data
 
 
-def readiness(offer_revision):
+def readiness(offer_revision, as_of=None):
     data = offer_revision.properties
     reasons = []
     if data.get("status") != "active":
         reasons.append("offer not active")
     start, end = data.get("effective_from"), data.get("effective_to")
-    today = date.today().isoformat()
+    today = as_of or date.today().isoformat()
     if start and start > today or end and end < today:
         reasons.append("offer outside effective dates")
     required = []
