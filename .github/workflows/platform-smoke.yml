@@ -91,7 +91,7 @@ jobs:
       - name: Initialize Django's baseline schema
         run: docker compose run --rm api python manage.py migrate --noinput
       - name: Run complete isolated Django regression suite
-        run: docker compose exec -T api python manage.py test config --verbosity 1
+        run: docker compose exec -T api python manage.py test config --verbosity 1 --parallel 2
       - name: Verify FUT-12 shared Demo and Server engineer frontend adapter
         run: node scripts/test-shared-engineer.js
       - name: Verify FUT-13 prospective Demo and Server adapters without data crossover
