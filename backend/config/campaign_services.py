@@ -369,6 +369,18 @@ def modify(*, actor, public_id, data, action=None):
                 if props["archived"]: raise InvalidTransition("Archived campaigns cannot transition")
                 if action not in ACTIONS or state not in ACTIONS[action][0]:
                     raise InvalidTransition("Forbidden campaign lifecycle transition")
+                if action=="close" and props.get("matrix_plan"):
+                    from .campaign_matrix_services import projection
+                    counts=projection(item,old)["summary"]
+                    partial=data.get("partial_review",False)
+                    if type(partial) is not bool:
+                        raise InvalidCampaign("partial_review must be a boolean")
+                    if counts["outstanding"] and not partial:
+                        raise InvalidTransition("Full plan has "+str(counts["outstanding"])+
+                            " pending/in-progress obligations; complete/waive them or explicitly close for partial review")
+                    props["review_scope"]="partial" if counts["outstanding"] else "full"
+                elif "partial_review" in data:
+                    raise InvalidCampaign("partial_review applies only when closing a matrix campaign")
                 if action=="publish" and previous.case_pins.count()==0:
                     raise InvalidTransition("Cannot publish a campaign without Test Cases")
                 props["status"]=ACTIONS[action][1]
