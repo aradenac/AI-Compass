@@ -356,6 +356,37 @@ def project(profile, assumptions):
             "personal_rates_restricted":True}
 
 
+
+def candidates():
+    """Published Task candidates only; never a recommendation or a selected scenario."""
+    qs=BenchmarkRun.objects.filter(public_id__in=effective_ids(kind="individual"))
+    if qs.count()>MAX_RUNS:
+        raise InvalidOpportunity("Too many current published Run candidates")
+    measured={}
+    for row in qs.select_related("solution__item__current_revision",
+            "session__case_pin__test_case__task__item").order_by("public_id"):
+        task=row.session.case_pin.test_case.task.item.public_id
+        key=(task,row.solution.item.public_id)
+        measured[key]={"task_id":task,"kind":"benchmark",
+                       "candidate_id":row.solution.item.public_id,
+                       "name":row.solution.item.current_revision.display_name,
+                       "label":"Published measured evidence; subject to DoD and cost gates"}
+    theoretical=[]
+    fore=CatalogItem.objects.filter(type_slug="forecast",
+        current_revision__properties__status="published").select_related(
+        "current_revision").order_by("public_id")[:501]
+    if len(fore)>500:raise InvalidOpportunity("Too many published Forecast candidates")
+    for item in fore:
+        snap=ForecastSnapshot.objects.filter(revision=item.current_revision).select_related(
+            "task__item").first()
+        if snap:
+            theoretical.append({"task_id":snap.task.item.public_id,"kind":"forecast",
+                "candidate_id":item.public_id,"name":item.current_revision.display_name,
+                "label":"Theoretical only; not measured or activated"})
+    return sorted(list(measured.values())+theoretical,
+                  key=lambda x:(x["task_id"],x["kind"],x["candidate_id"]))
+
+
 def _profile(identifier):
     if not isinstance(identifier,str) or not identifier.startswith("wlp-"):
         raise InvalidOpportunity("Select one existing planning population")
