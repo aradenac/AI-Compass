@@ -893,6 +893,42 @@ function render(){var pages={studio:function(){
 },dashboard:dashboardPage,tasks:tasksPage,solutions:solutionsPage,recommendations:recommendationsPage,benchmark:benchmarkPage,results:resultsPage,testdesign:testDesignPage,knowledge:knowledgePage,watch:watchPage,feedback:feedbackPage,activity:activityPage,management:managementPage,workgroup:benchmarkPage};
 var labels={studio:"AI Workgroup Studio",dashboard:canEdit()?"Dashboard":"Overview",tasks:canEdit()?"Task management":"Task explorer",solutions:canEdit()?"Technology catalog":"AI solutions",recommendations:"Recommendations",benchmark:"Benchmark workspace",results:"Results explorer",testdesign:"Test design",knowledge:"Guides & charter",watch:"Technology watch",feedback:"Feedback & discussions",activity:"Activity feed",management:"Management view",workgroup:"Benchmark workspace"};
 if(!user()){login();return;}if(ui.page==="studio"&&!canEdit())ui.page="dashboard";if(ui.page==="workgroup")ui.page=canEdit()?"studio":"dashboard";if((ui.page==="benchmark"||ui.page==="testdesign")&&!canEdit())ui.page="results";if(canEdit()&&ui.page==="solutions")ui.solutionView="components";shell((pages[ui.page]||dashboardPage)(),labels[ui.page]);
+if(ui.page==="results"){
+ var focus=new URLSearchParams(window.location.search);
+ var selectedId=focus.get("record");
+ if(selectedId){
+   var requested=focus.get("revision"),run=db.runs.find(function(r){return r.id===selectedId;});
+   var box=document.createElement("section");
+   box.id="ux-demo-run-context";
+   box.className="ux-context-detail";
+   box.setAttribute("aria-label","Selected measured Run context");
+   if(!run){
+     box.innerHTML='<p role="alert" class="ux-history-warning">Requested Run is not available from the authorized fictional Demo. No other source is substituted.</p>';
+   }else{
+     var actual=run.revision||"r001";
+     box.innerHTML='<h3>Measured Run '+E(run.id)+' · '+E(actual)+'</h3>'+
+       (requested && requested!==actual?
+          '<p role="alert" class="ux-history-warning">Requested revision '+E(requested)+
+            ' differs from the available Demo original '+E(actual)+'. Current data is not substituted as the original.</p>':
+          '<dl class="ux-context-properties"><dt>Task / Test Case</dt><dd>'+
+            E(run.case)+'</dd><dt>Measured solution</dt><dd>'+E(run.solution||"Composite workflow")+
+            '</dd><dt>Outcome</dt><dd>'+E(run.accepted?"Accepted DoD":"Failed / not accepted")+
+            '</dd><dt>Recorded score</dt><dd>'+E(run.score==null?"Unknown":run.score)+
+            '</dd><dt>Recorded cost (EUR)</dt><dd>'+E(run.cost==null?"Unknown":run.cost)+
+            '</dd><dt>Original artifacts</dt><dd>'+E(run.artifacts||"Not recorded")+'</dd></dl>')+
+       '<p><a href="'+E(window.AICompassContext.route("demo","engineer","home",{
+           task:(db.cases.find(function(c){return c.id===run.case;})||{}).task,
+           solution:run.solution
+         }))+'">Return to measured solution context</a></p>'+
+       '<details class="ux-advanced-source"><summary>Advanced: inspect fictional original Run source</summary>'+
+         '<pre></pre></details>';
+     box.querySelector("pre").textContent=JSON.stringify(run,null,2);
+   }
+   var host=document.querySelector(".ux-content");
+   if(host)host.insertBefore(box,host.firstChild);
+ }
+}
+
 var runtime=window.AICompassRuntime;
 var requested=new URLSearchParams(window.location.search).get("workspace");
 var persona=runtime.choosePersona(user(), "demo", requested);
