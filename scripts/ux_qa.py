@@ -199,6 +199,22 @@ def demo_journey(browser, demo_url, artifacts, role, label, viewport):
         if api_calls:
             raise AssertionError("Standalone Demo unexpectedly contacted API: " + str(api_calls))
         capture(page, artifacts, "demo-" + label + "-" + str(viewport["width"]))
+        if role == "u1":
+            # The actual Demo form must honor the same NFR modal contract.
+            page.locator('[data-act="nav"][data-id="testdesign"]').click()
+            page.locator('[data-act="newCase"]').first.click()
+            demo_dialog = page.get_by_role("dialog")
+            demo_dialog.wait_for(state="visible", timeout=12000)
+            if demo_dialog.locator("form").count() != 1:
+                raise AssertionError("Demo Test Case form missing from dialog")
+            original = demo_dialog.locator("input:not([type=hidden])").first
+            original.fill("Preserve this unfinished Demo draft")
+            page.locator("#backdrop").click(position={"x":2,"y":2}, force=True)
+            page.keyboard.press("Escape")
+            if not demo_dialog.is_visible() or original.input_value() != "Preserve this unfinished Demo draft":
+                raise AssertionError("Demo modal unexpectedly discarded unsaved form")
+            demo_dialog.get_by_role("button", name="Close dialog").click()
+            demo_dialog.wait_for(state="hidden")
         if errors:
             raise AssertionError("Demo JS runtime error(s): " + "; ".join(errors[:3]))
     finally:
@@ -274,6 +290,23 @@ def server_journey(browser, base_url, creds, artifacts, role, viewport):
                 raise AssertionError("Backdrop/Escape unexpectedly dismissed the form or lost draft")
             dialog.get_by_role("button", name="Close dialog").click()
             dialog.wait_for(state="hidden")
+            if role == "multi_role":
+                # Same authenticated session: Users & Access must be explicit,
+                # and its account-creation form a protected, closed-by-default modal.
+                page.goto(base_url + "/?mode=server&workspace=workgroup&section=users",
+                          wait_until="domcontentloaded")
+                page.locator("#server-user-open-create").wait_for(state="visible", timeout=25000)
+                assert_exactly_one_view(page, "#ux-screen-host > [data-ux-screen]")
+                if page.locator("#server-test-cases").is_visible():
+                    raise AssertionError("Test Case editor leaked into Users & Access")
+                page.locator("#server-user-open-create").click()
+                user_dialog = page.locator("#server-user-create-panel[role=dialog]")
+                user_dialog.wait_for(state="visible")
+                page.keyboard.press("Escape")
+                if not user_dialog.is_visible():
+                    raise AssertionError("Escape incorrectly dismissed account-creation form")
+                user_dialog.get_by_role("button", name="Close dialog").click()
+                user_dialog.wait_for(state="hidden")
         return {"visible_active_screens": 1, "shared_shell": True}
     finally:
         if traced:
