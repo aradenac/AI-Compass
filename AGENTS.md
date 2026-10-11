@@ -4,7 +4,7 @@ Use this file together with the GitHub issue assigned to you. **The repository, 
 
 ## Delivery scope and planning lanes
 
-**Current development queue:** The product owner approved the **21 scoped FUT implementation issues #75–#95** on 2026-10-10. Use [Future Evolutions Implementation Plan](docs/future-evolutions/implementation-plan.md#approved-github-implementation-backlog--maximal-coherent-issue-slices) to select the next dependency-ready priority, **not issue number alone**. Every FUT issue links its own phase and original detailed specification(s); read all of them. Do not create speculative issues or begin unassigned future features. The earlier [PLAT roadmap](docs/platform-implementation-roadmap.md) is historical/delivered, with operational release-readiness still **NO-GO**.
+**Current development queue (2026-10-11):** FUT #75–#91 **code merged and closed**; **UX #114 → #115 → #116 are the highest-priority open implementation issues**, and P7 FUT #92–#95 are deferred until UX #116 acceptance. Select next work using the [live implementation ledger](docs/future-evolutions/implementation-plan.md) and GitHub open/closed/PR state, never by issue number alone. All detailed completed domain requirements now live under [current docs](docs/features/README.md); [future evolutions](docs/future-evolutions/README.md) covers only still-open P7 scope. The earlier PLAT roadmap is delivered code with separate **NO-GO** operational release gates.
 
 One issue is intended as **one maximal coherent agent-conversation implementation** with a focused PR and complete acceptance; do not overdecompose into tiny tickets. If technical evidence proves an issue too large to finish safely, document the blocker and ask for explicit replan rather than dropping requirements.
 
@@ -12,7 +12,7 @@ One issue is intended as **one maximal coherent agent-conversation implementatio
 - [Product semantics](docs/product-definition.md) and [benchmark workflow](docs/benchmark-workflow.md)
 - [Persistence, immutable evidence, migration and recovery rules](docs/platform-architecture-and-data-governance.md)
 - [Active FUT roadmap and GitHub issue dependencies](docs/future-evolutions/implementation-plan.md)
-- [Original future-evolution specifications and coverage map](docs/future-evolutions/README.md)
+- [Maintained product/domain specifications and delivered feature ledger](docs/features/README.md), and [remaining future scopes](docs/future-evolutions/README.md)
 - [Completed PLAT roadmap and preserved release gates](docs/platform-implementation-roadmap.md)
 - [Local installation, commands and safe operation](docs/local-installation.md)
 - [Current Model REST API](docs/model-catalog-architecture.md)
@@ -32,9 +32,15 @@ One issue is intended as **one maximal coherent agent-conversation implementatio
 - Structural/semantic data migrations require a **verified recovery point** (#34/#29), isolated staging with automated + real-frontend acceptance and reject/recreate (#35), then separate approved production application (#26). Never replace production with a staging DB.
 - Keep user roles simple but enforce privileges at the API, prevent accidental destructive operations, and keep secrets out of Git.
 
+## UI acceptance gate (priority before further feature work)
+
+- Follow [UX-R01 #114](https://github.com/aradenac/AI-Compass/issues/114), [UX-R02 #115](https://github.com/aradenac/AI-Compass/issues/115), and [UX-R03 #116](https://github.com/aradenac/AI-Compass/issues/116) in that order. Do not start the deferred #92–#95 without the completed UI gate, regardless of numeric ticket order.
+- For every PR that alters user-visible UI, perform actual Chromium Playwright journeys in BOTH Demo and authenticated Server, including a multi-role user. Inspect screenshots/traces and console exceptions. Verify exactly one active domain view, intended modals and form close behavior (NFR-UX-001/002), responsive presentation, breadcrumbs and meaningful round-trip navigation.
+- Compare visual output to APPROVED intended references, never snapshots of a known-broken UI. A green JS-only test is not visual acceptance; report actual tests and artifacts, and block merge if required UI validation is missing/failed. Keep prior backend/data-integrity/security tests.
+
 ## Minimum verification for each PR
 - Run the relevant existing Django tests, migration check and focused new nominal/negative/regression tests; use the project's CI workflow as the common baseline.
 - Verify standalone Demo still works if touching frontend and Server persists across sessions if touching business UI/API. Verify unchanged historical revisions and backup/recovery behavior when affecting persistence.
 - Document reproducible setup/smoke commands, affected API/schema and any migration/rollback requirements. Do not add long testing suites unrelated to the issue.
 
-Use the [existing multi-agent PR workflow](docs/platform-implementation-roadmap.md#multi-agent-pr-workflow) to compare implementations of the **same** FUT issue, while taking active phase dependencies from the [FUT issue plan](docs/future-evolutions/implementation-plan.md#approved-github-implementation-backlog--maximal-coherent-issue-slices).
+Use the [existing multi-agent PR workflow](docs/platform-implementation-roadmap.md#multi-agent-pr-workflow) to compare implementations of the **same** FUT issue, while taking active phase dependencies from the [live FUT/UX issue plan](docs/future-evolutions/implementation-plan.md).
