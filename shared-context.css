@@ -29,3 +29,31 @@
  .ux-context-properties dt,.ux-inspector-kv dt {margin-top:8px}
  .ux-context-breadcrumbs .ux-return-link {margin-left:0}
 }
+
+/* UX-R03 screenshot review: opening a filtered Workgroup record or the
+   Management factor inspector must not widen a 390px viewport. Tables keep
+   their own horizontal scroll; controls wrap rather than widening the page. */
+.ux-mode-demo .ux-content,
+.ux-mode-demo .ux-content > *,
+.ux-mode-demo .ux-context-detail,
+.ux-mode-demo .shared-list,
+.ux-mode-demo .shared-list-row,
+.ux-mode-demo .heat-inspector,
+.ux-mode-demo .heat-scroll { min-width:0; max-width:100%; box-sizing:border-box; }
+.ux-mode-demo #demo-open-full-workspace {
+ display:block; width:100%; max-width:100%; box-sizing:border-box;
+ white-space:normal; overflow-wrap:anywhere; text-align:center;
+}
+.ux-mode-demo .ux-context-filter { flex-wrap:wrap; min-width:0; }
+.ux-mode-demo .ux-context-filter input { flex:1 1 150px; min-width:0; max-width:100%; box-sizing:border-box; }
+.ux-mode-demo .heat-scroll { overflow-x:auto; overscroll-behavior-x:contain; }
+.ux-mode-demo .heat-inspector,
+.ux-mode-demo .heat-inspector > *,
+.ux-mode-demo .ux-inspector-kv { min-width:0; max-width:100%; overflow-wrap:anywhere; }
+.ux-mode-demo .heat-inspector pre { max-width:100%; overflow-x:auto; }
+.ux-mode-demo .heat-inspector button,
+.ux-mode-demo .ux-context-detail button { max-width:100%; white-space:normal; overflow-wrap:anywhere; }
+@media(max-width:680px) {
+ .ux-mode-demo .ux-content .heat-scroll { width:100%; }
+ .ux-mode-demo .heat-inspector { overflow-x:auto; }
+}
