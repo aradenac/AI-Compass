@@ -54,3 +54,35 @@
   .ux-mode-server .topbar .shared-personas { justify-content:flex-start; }
   .ux-dialog-panel { top:15px; transform:translateX(-50%); }
 }
+
+/* Browser-reviewed 390px fixes: compact workspace navigation instead of a
+ * full-height stacked menu, and protect nested Task discovery from squeeze. */
+.ux-mode-server .ux-persona-menu { min-width:0; max-width:100%; }
+.ux-mode-server .ux-persona-menu .shared-personas { max-width:100%; }
+.ux-mode-server .ux-sidebar-nav #server-side-navigation { display:flex; flex-direction:column; gap:2px; }
+.ux-shell .ux-mode-link { color:#3159ad; font-size:12px; text-decoration:none; }
+.ux-shell .ux-mode-link:hover { text-decoration:underline; }
+@media(max-width:780px) {
+  .ux-mode-server .ux-sidebar { width:100%; padding:12px!important; }
+  .ux-mode-server .ux-sidebar-nav { display:block; min-width:0; }
+  .ux-mode-server .ux-sidebar-nav #server-side-navigation {
+    display:flex; flex-direction:row; align-items:center; gap:5px;
+    max-width:100%; overflow-x:auto; white-space:nowrap; padding:5px 0;
+    -webkit-overflow-scrolling:touch;
+  }
+  .ux-mode-server #server-side-navigation .nav-link { display:inline-flex; flex:0 0 auto;
+    width:auto; padding:9px 12px; }
+  .ux-mode-server #server-side-navigation .nav-label { display:none; }
+  .ux-shell .ux-topbar { display:flex; flex-direction:column;
+    align-items:stretch; gap:10px; padding:12px 16px; }
+  .ux-shell .topbar .top-actions { display:flex; justify-content:flex-start; }
+  .ux-mode-server .ux-persona-menu .shared-personas {
+    flex-wrap:nowrap; overflow-x:auto; justify-content:flex-start; white-space:nowrap;
+    padding:3px 0; -webkit-overflow-scrolling:touch;
+  }
+  .ux-mode-server .shared-personas a { flex:0 0 auto; white-space:nowrap; }
+  .ux-mode-demo #shared-demo-engineer .list-row { display:block; }
+  .ux-mode-demo #shared-demo-engineer .list-row > button { margin-top:6px; }
+  .ux-mode-demo #shared-demo-engineer .server-actions { display:flex; flex-wrap:wrap; gap:6px; }
+  .ux-mode-demo #shared-demo-engineer .server-actions button { white-space:normal; }
+}
