@@ -160,6 +160,10 @@
         '<div id="campaign-guide-form" hidden><label>Guide title<input name="guide_name" maxlength="160"></label>'+
         '<label>Setup procedure text<textarea name="guide_text"></textarea></label>'+
         '<label>HTTP(S) guide URL<input name="guide_url" maxlength="2048"></label>'+
+        '<label>Reusable pinned modules (Ctrl/Command to select)<select name="guide_modules" multiple size="5">'+
+        guides.map(function(g){return '<option value="'+esc(g.id)+'">'+esc(g.name)+' · '+esc(g.revision)+'</option>';}).join("")+
+        '</select></label>'+
+        '<label>Recipe JSON (optional: OS/runtime applicability, dependencies, variants)<textarea name="guide_recipe" rows="7"></textarea></label>'+
         '<button type="button" id="campaign-save-guide">Save Guide to knowledge base</button></div>'+
         '<section id="campaign-pricing" class="server-card"></section>'+ 
         '<label>Linked Test Cases (Ctrl/Command to select multiple)'+
@@ -313,6 +317,20 @@
         try{
           var props={},txt=form.elements.guide_text.value.trim(),url=form.elements.guide_url.value.trim();
           if(txt)props.text=txt;if(url)props.url=url;
+          var chosen=Array.from(form.elements.guide_modules.selectedOptions).map(function(x){
+            return guides.find(function(g){return g.id===x.value;});
+          }).filter(Boolean);
+          var raw=form.elements.guide_recipe.value.trim();
+          if(raw||chosen.length){
+            var recipe=raw?JSON.parse(raw):{modules:[],required:[]};
+            if(!recipe||Array.isArray(recipe)||typeof recipe!=="object"||
+               !Array.isArray(recipe.modules))throw Error("Recipe must have a modules array");
+            chosen.forEach(function(g){
+              if(!recipe.modules.some(function(m){return m.id===g.id&&m.revision===g.revision;}))
+                recipe.modules.push({id:g.id,revision:g.revision});
+            });
+            props.recipe=recipe;
+          }
           var saved=await api("guides","POST",{name:form.elements.guide_name.value,properties:props});
           guides.push(saved);
           form.elements.guide_id.innerHTML=options(guides,saved.id,true);
