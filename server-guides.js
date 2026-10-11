@@ -157,7 +157,9 @@
       node.querySelector("form").addEventListener("submit",async function(event){
         event.preventDefault();
         if(!active||!write)return;
-        var button=event.target.querySelector('button[type="submit"]'),payload=collect(event.target);
+        var button=event.target.querySelector('button[type="submit"]'),payload;
+        try{payload=collect(event.target);}
+        catch(error){status("Invalid recipe: "+error.message,true);return;}
         button.disabled=true;
         try {
           if(item) {
@@ -258,7 +260,9 @@
         node.querySelector(".guide-cancel").addEventListener("click",function(){node.hidden=true;});
         node.querySelector("form").addEventListener("submit",async function(event){
           event.preventDefault();
-          var payload=collect(event.target),button=event.target.querySelector('button[type="submit"]');
+          var button=event.target.querySelector('button[type="submit"]'),payload;
+          try{payload=collect(event.target);}
+          catch(error){el(".guide-inline-status").textContent="Invalid recipe: "+error.message;return;}
           button.disabled=true;
           try {
             var created=await request(csrf,"","POST",payload);
