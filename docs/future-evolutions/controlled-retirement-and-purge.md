@@ -86,7 +86,7 @@ Never claim that deleting an active EvidenceBlob deletes it from all Restic arch
 | Published Run eligibility, correction, recall, soft delete, GC | **This lifecycle feature** | Defines current-effective vs historic and admin purge contract reused across domains |
 | Immutable action/event history, diffs, access-scoped audit browsing | [Data Governance Audit Explorer](../data-governance-audit-explorer.md) | Show actions; **does not own** eligibility or GC decision rules |
 | Derived quality and automatic solution ranking | Results/analytics and [Role-Based UX](../role-based-user-experience-and-guided-navigation.md) | Consume only eligible currently active measured evidence; editorial notes don't override methodology |
-| Economic scenarios and budget read models | [Deployment & Adoption Planning](deployment-and-adoption-planning.md) | Invalidate/recompute current value when an underpinning Run changes; preserve old as-of snapshots |
+| Economic scenarios and budget read models | [Deployment & Adoption Planning](../deployment-and-adoption-planning.md) | Invalidate/recompute current value when an underpinning Run changes; preserve old as-of snapshots |
 | Maintenance controls | Existing [Governance baseline](../platform-architecture-and-data-governance.md) + this extension | Add scoped manual purge, GC policy and safe preview/status only as specified here |
 
 ## 8. Minimal conceptual model (implementation is not prescribed)
