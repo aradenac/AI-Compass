@@ -2132,7 +2132,14 @@ forecastPanel+(r.initialSetup?'<h3 style="margin:17px 0 8px">Step-by-step experi
  (r.initialSetup.installationGuideSnapshot?.url&&validSetupUrl(r.initialSetup.installationGuideSnapshot.url)?
  ' · <a href="'+E(r.initialSetup.installationGuideSnapshot.url)+'" target="_blank" rel="noopener noreferrer">Open setup reference ↗</a>':""):
  "Unpublished reference")+'</p>'+
-'<p class="small" style="margin-top:8px"><strong>Setup notes:</strong> '+E(r.initialSetup.setupNotes)+'</p></div>'+
+'<p class="small" style="margin-top:8px"><strong>Setup notes:</strong> '+E(r.initialSetup.setupNotes)+'</p>'+
+ ((r.initialSetup.installationRecipeModules||[]).length?
+  '<p class="small"><strong>Frozen reusable module versions:</strong></p>'+
+  (r.initialSetup.installationRecipeModules||[]).filter(function(p){return canEdit()||p.snapshot?.status==="published";})
+   .map(function(p){return '<details><summary>'+E(p.snapshot.title)+' · '+E(p.revision)+'</summary>'+
+    '<pre class="text-block" style="white-space:pre-wrap">'+E(p.snapshot.body||"")+'</pre>'+
+    '<p class="small">'+E(p.snapshot.url||"")+'</p></details>';}).join(""):"")+
+ '</div>'+
 ((r.initialSetup.inputDocuments||r.initialSetup.providedSkills)?'<div class="note" style="margin-top:7px"><strong>Legacy interaction input summary (not installation):</strong><p class="small">Documents: '+E(r.initialSetup.inputDocuments||"—")+'</p><p class="small">Skills/options: '+E(r.initialSetup.providedSkills||"—")+'</p></div>':"")+
 simpleTable(["Iteration / date-time","Human effort","Agent runtime","Action & observations"],(r.interactions||[]).map(function(v,i){
  return '<tr>'+td('Iteration '+(i+1)+'<div class="muted small">'+E(v.at)+'</div>')+td(v.humanMinutes+' min')+
@@ -2164,6 +2171,19 @@ function demoGuideRevision(id,number){
  if(index===history.length)return guide;
  if(index<0||index>history.length)return null;
  return history[index]?.before||null;
+}
+function demoPinnedModuleSnapshots(guide){
+ if(!guide?.recipe||!Array.isArray(guide.recipe.modules))return [];
+ var seen=new Set();
+ return guide.recipe.modules.map(function(pin){
+  if(!pin||typeof pin.id!=="string"||typeof pin.revision!=="string")return null;
+  var key=pin.id+"@"+pin.revision;
+  if(seen.has(key))return null;
+  seen.add(key);
+  var pinned=demoGuideRevision(pin.id,pin.revision);
+  return pinned?{id:pin.id,revision:pin.revision,
+   snapshot:JSON.parse(JSON.stringify(pinned))}:null;
+ }).filter(Boolean);
 }
 function demoComposedGuide(g){
  var recipe=g.recipe;if(!recipe||!Array.isArray(recipe.modules))return "";
@@ -2395,6 +2415,7 @@ var r={id:next("r"),campaignId:c.id,sessionId:t.id,case:tc.id,solution:sol?.id||
  artifacts:d.outputDocuments||"",notes:d.qualityAssessment||d.additionalNotes||"",owner:currentUser,
  initialSetup:JSON.parse(JSON.stringify({startedAt:t.startedAt,setupMinutes:t.setupMinutes,
  installationGuideId:t.installationGuideId||"",installationGuideSnapshot:t.installationGuideSnapshot||null,
+  installationRecipeModules:t.installationRecipeModules||[],
  setupNotes:t.setupNotes,configuration:setup.configuration})),
  interactions:JSON.parse(JSON.stringify(interactions)),
  resultDetails:{qualityAssessment:d.qualityAssessment||"",utilityAssessment:d.utilityAssessment||"",
@@ -2522,6 +2543,7 @@ if(!guide||guide.type!=="Installation"){toast("Select an installation guide.");r
   participantSnapshot:participant?JSON.parse(JSON.stringify(participant)):null,
   startedAt:d.startedAt,setupMinutes:Number(d.setupMinutes),
   installationGuideId:guide.id,installationGuideSnapshot:JSON.parse(JSON.stringify(guide)),
+   installationRecipeModules:demoPinnedModuleSnapshots(guide),
   setupNotes:d.setupNotes||"",solutionSetup:cfg,forecastSnapshot:home.forecastId&&!collaborative?JSON.parse(JSON.stringify(rec("proposals",home.forecastId)||null)):null,interactions:[],runId:"",createdBy:currentUser};
  db.campaignTrials.push(session);event("Trial","Started "+chosenCase.title+" in "+home.title,true);
  persist();campaignTrialInteraction(session.id);return;
