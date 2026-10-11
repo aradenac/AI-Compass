@@ -236,6 +236,8 @@ def demo_journey(browser, demo_url, artifacts, role, label, viewport):
             form.locator('textarea[name="body"]').fill("Shared instructions survive")
             form.locator('textarea[name="description"]').fill("Keep immutable context")
             form.locator('input[name="url"]').fill("https://example.org/demo-guide")
+            assert_no_horizontal_overflow(page)
+            capture(page, artifacts, "demo-shared-guide-form-" + str(viewport["width"]))
             dialog.get_by_role("button", name="Create document").click()
             card = page.locator('[data-business-domain="guides"] [data-business-record]').filter(
                 has_text="UX-R04 complete Demo guide").first
@@ -436,6 +438,8 @@ def server_journey(browser, base_url, creds, artifacts, role, viewport):
             fields.locator('textarea[name="text"]').fill("Original controlled instructions")
             fields.locator('textarea[name="description"]').fill("Keep revisions and provenance")
             fields.locator('input[name="url"]').fill("https://example.org/server-guide")
+            assert_no_horizontal_overflow(page)
+            capture(page, artifacts, "server-shared-guide-form-" + str(viewport["width"]))
             form.locator('button[type="submit"]').click()
             card = page.locator('[data-business-domain="guides"] [data-business-record]').filter(
                 has_text="UX-R04 persisted setup guide").first
