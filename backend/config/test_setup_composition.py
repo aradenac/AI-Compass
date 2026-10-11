@@ -56,5 +56,44 @@ class CompositionTests(unittest.TestCase):
         self.assertEqual(before, after)
 
 
+    def test_environment_variants_are_explicit_and_exclusive(self):
+        recipe={"required":["os"],"required_groups":["installation"],"modules":[
+            {"id":self.a[0],"revision":self.a[1],"group":"installation",
+             "applies_to":{"os":"linux"}},
+            {"id":self.b[0],"revision":self.b[1],"group":"installation",
+             "applies_to":{"os":"windows"}}]}
+        result=compose(recipe,self.snapshots,{"os":"linux"})
+        self.assertEqual([s["id"] for s in result["sections"]],[self.a[0]])
+        self.assertTrue(result["ready"])
+        none=compose(recipe,self.snapshots,{"os":"darwin"})
+        self.assertFalse(none["ready"])
+        self.assertIn({"kind":"missing_variant","group":"installation"},none["missing"])
+
+    def test_overlapping_variants_never_silently_choose(self):
+        recipe={"required_groups":["installation"],"modules":[
+            {"id":self.a[0],"revision":self.a[1],"group":"installation"},
+            {"id":self.b[0],"revision":self.b[1],"group":"installation"}]}
+        result=compose(recipe,self.snapshots,{})
+        self.assertFalse(result["ready"])
+        self.assertIn({"kind":"ambiguous_variant","group":"installation"},result["missing"])
+
+    def test_recipe_identity_mismatch_stops_resolution(self):
+        recipe={"applies_to":{"model":"model-a"},"modules":[
+            {"id":self.a[0],"revision":self.a[1]}]}
+        result=compose(recipe,self.snapshots,{"model":"model-b"})
+        self.assertEqual(result["missing"],[{"kind":"recipe_inapplicable"}])
+        self.assertEqual(result["sections"],[])
+
+    def test_invalid_graph_and_malformed_unpinned_dependencies(self):
+        for spec in ({"modules":[{"id":self.a[0],"revision":"latest"}]},
+                     {"modules":[{"id":self.a[0],"revision":"r001",
+                                   "requires":[{"id":self.b[0]}]}]},
+                     {"modules":[{"id":self.a[0],"revision":"r001",
+                                   "group":[]}]}):
+            with self.subTest(spec=spec):
+                with self.assertRaises(SetupCompositionError):
+                    compose(spec,self.snapshots,{})
+
+
 if __name__ == "__main__":
     unittest.main()
