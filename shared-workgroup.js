@@ -355,9 +355,55 @@
       }).join("")+'</div>';
   }
 
+
+  function normalizedGuide(row,mode) {
+    if (!row || (mode!=="demo" && mode!=="server"))
+      throw Error("Explicit authorized Guide and mode required");
+    var props=mode==="demo"?row:(row.properties||{});
+    return {id:row.id||"",name:mode==="demo"?row.title:row.name,
+      text:mode==="demo"?row.body:props.text,url:props.url||"",
+      description:props.description||"",type:row.type,revision:row.revision||"",
+      status:row.status||""};
+  }
+  function renderGuideFields(row,mode) {
+    var g=normalizedGuide(row||{},mode),demo=mode==="demo";
+    var keys=demo?["title","body"]:["name","text"];
+    function field(name,label,value,kind,max,required) {
+      var id="ux-guide-"+mode+"-"+name;
+      var control=kind==="textarea"?
+        '<textarea id="'+id+'" name="'+name+'" maxlength="'+max+'" rows="4">'+
+          escape(value||"")+'</textarea>':
+        '<input id="'+id+'" name="'+name+'" type="'+kind+'" maxlength="'+max+
+          '" value="'+escape(value||"")+'"'+(required?" required":"")+'>';
+      return '<div class="field span2 shared-guide-field"><label for="'+id+'">'+
+        escape(label)+'</label>'+control+'</div>';
+    }
+    return '<div data-shared-guide-fields="'+mode+'">'+
+      field(keys[0],"Guide title",g.name,"text",160,true)+
+      field(keys[1],"Procedure text (optional if URL present)",g.text,"textarea",32768,false)+
+      field("url","Setup URL (HTTP or HTTPS; optional if text present)",g.url,"url",2048,false)+
+      field("description","Notes / description",g.description,"textarea",4000,false)+'</div>';
+  }
+  function renderGuideDetail(row,mode) {
+    var g=normalizedGuide(row,mode),url=String(g.url||"").trim();
+    var safe=/^https?:\/\/[^\s<>]+$/i.test(url);
+    function field(label,value) {
+      return value?'<section class="shared-guide-detail-field"><h4>'+escape(label)+'</h4>'+
+        '<p style="white-space:pre-wrap;overflow-wrap:anywhere">'+escape(value)+'</p></section>':"";
+    }
+    return '<article class="shared-guide-detail" data-shared-guide-detail="'+mode+'">'+
+      '<h3>'+escape(g.name||"Untitled guide")+'</h3><p class="muted small">'+
+      [g.id,g.revision,g.type,g.status].filter(Boolean).map(escape).join(" · ")+'</p>'+
+      field("Procedure",g.text)+field("Notes",g.description)+
+      (safe?'<p>Setup reference: <a target="_blank" rel="noopener noreferrer" href="'+
+        escape(url)+'">'+escape(url)+'</a></p>':
+        url?'<p class="muted">Unsupported URL — link withheld.</p>':"")+'</article>';
+  }
+
   root.AICompassWorkgroup={ZONES:ZONES,STABLE:STABLE,SECTION_TO_DEMO:SECTION_TO_DEMO,
     SECTION_TO_SERVER:SECTION_TO_SERVER,canVisit:canVisit,renderMap:renderMap,
     breadcrumbs:breadcrumbs,attention:attention,href:href,renderList:renderList,
     serverProvider:serverProvider,demoProvider:demoProvider,mountSummary:mountSummary,renderCases:renderCases,renderCaseFields:renderCaseFields,renderCaseDetail:renderCaseDetail,
-    renderRecords:renderRecords};
+    renderRecords:renderRecords,renderGuideFields:renderGuideFields,
+    renderGuideDetail:renderGuideDetail};
 })(window);
