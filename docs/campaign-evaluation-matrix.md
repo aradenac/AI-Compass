@@ -2,10 +2,10 @@
 
 > **Reference:** Product/domain specification maintained with the implemented application. The delivery tracker and outstanding UX acceptance work are maintained in the [implementation plan](future-evolutions/implementation-plan.md).
 
-> **Status:** Proposed feature; product decisions captured, not an implementation claim.  
+> **Contract:** Versioned Campaign Evaluation Matrix and selected Test Case × configuration coverage.
 > **Discussed:** 2026-10-10  
 > **Area:** Benchmark Workspace / Campaigns  
-> **Intent:** Preserve the agreed behavior for later refinement, issue breakdown, and implementation.  
+> **Intent:** Describe the Campaign plan, selection/waiver/evaluation states and associated immutable history.
 > **Related baseline:** [Product Definition](product-definition.md) · [Benchmark Workflow](benchmark-workflow.md) · [Campaigns Server](campaigns-server.md) · [Test Cases Server](test-cases-server.md)
 
 ## 1. Summary
@@ -154,7 +154,7 @@ Rules:
 
 ## 10. Boundaries
 
-This page is a **future feature specification**, not an implemented behavior, a migration instruction, or authorization to alter the current campaign workflow. It records the decisions reached in the conversation and marks remaining design questions as open. Implement it through separate issues/PRs, while preserving existing architecture, identity, audit, permission and evidence guarantees.
+This page defines Campaign Evaluation Matrix behavior, data-model distinctions and acceptance criteria for controlled revisions and evaluation coverage.
 
 ## 11. Integration and source-of-truth boundary (consolidated)
 
