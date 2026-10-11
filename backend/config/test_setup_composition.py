@@ -95,5 +95,16 @@ class CompositionTests(unittest.TestCase):
                     compose(spec,self.snapshots,{})
 
 
+    def test_dependency_cannot_silently_select_an_incompatible_variant(self):
+        spec={"required_groups":["installation"],"modules":[
+            {"id":self.a[0],"revision":self.a[1],"group":"installation",
+             "applies_to":{"os":"windows"}},
+            {"id":self.b[0],"revision":self.b[1],"requires":[
+                {"id":self.a[0],"revision":self.a[1]}]}]}
+        result=compose(spec,self.snapshots,{"os":"linux"})
+        self.assertFalse(result["ready"])
+        self.assertIn("inapplicable",[m["kind"] for m in result["missing"]])
+
+
 if __name__ == "__main__":
     unittest.main()
