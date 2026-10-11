@@ -1490,15 +1490,21 @@ return controls+'<div class="note" style="margin-bottom:16px"><strong>'+E(mode==
 }
 
 function campaignRegistry(){
-var groups=["planned","active","review","published"];
-return '<div class="card"><div class="filters">'+badge(db.campaigns.filter(function(x){return !x.archived;}).length+" campaigns")+' '+groups.map(function(k){return badge(db.campaigns.filter(function(x){return x.stage===k;}).length+" "+k);}).join(" ")+'</div>'+
-'<div class="list">'+db.campaigns.filter(function(c){return !c.archived&&(canEdit()||c.stage==="published");}).sort(function(a,b){return String(b.updated||"").localeCompare(String(a.updated||""));}).map(function(c){
-var runs=campaignRuns(c),sessions=db.campaignTrials.filter(function(x){return x.campaign===c.id;});
-return '<div class="list-row"><div class="short"><div class="row">'+badge(campaignStatusLabel(c))+' '+badge(c.mode==="task_compare"?"Task comparison":"Solution coverage")+'</div>'+
-'<div style="margin:7px 0 4px">'+linkAction(c.title,"campaignDetail",c.id)+'</div><div class="muted small">'+E(c.purpose||"")+'</div><div class="muted small">'+c.caseIds.length+' Test Cases · '+runs.length+' completed runs · '+sessions.filter(function(t){return t.status!=="completed";}).length+' ongoing sessions · '+E(actor(c.owner))+'</div></div>'+
-btn("Open campaign","campaignDetail",c.id,"sm primary")+'</div>';
-}).join("")+'</div></div>';
+ var items=db.campaigns.filter(function(c){return !c.archived&&(canEdit()||c.stage==="published");})
+   .sort(function(a,b){return String(b.updated||"").localeCompare(String(a.updated||""));});
+ return '<div class="card"><div class="filters">'+badge(db.campaigns.filter(function(x){return !x.archived;}).length+" campaigns")+
+ ["planned","active","review","published"].map(function(k){return badge(db.campaigns.filter(function(x){return x.stage===k;}).length+" "+k);}).join(" ")+'</div>'+
+ window.AICompassWorkgroup.renderRecords(items.map(function(c){
+   var runs=campaignRuns(c),sessions=db.campaignTrials.filter(function(x){return x.campaign===c.id;});
+   return {id:c.id,title:c.title,status:c.stage,description:c.purpose||"",
+     facts:[c.mode==="task_compare"?"Task comparison":"Solution coverage",
+       c.caseIds.length+" Test Cases",runs.length+" completed runs",
+       sessions.filter(function(t){return t.status!=="completed";}).length+" ongoing sessions",
+       "Owner: "+actor(c.owner)],
+     actions:[{label:"Open campaign",attributes:{"data-act":"campaignDetail","data-id":c.id}}]};
+ }),{domain:"campaigns",mode:"demo",emptyText:"No campaigns available."})+'</div>';
 }
+
 function knowledgePage(){
 var type=ui.filters.guideType||"all",status=ui.filters.guideStatus||"all",sort=ui.filters.guideSort||"newest",query=(ui.filters.guideSearch||"").toLowerCase();
 var docs=db.guides.filter(function(g){return (canEdit()||g.status==="published")&&(type==="all"||g.type===type)&&(status==="all"||g.status===status)&&(g.title+" "+(g.body||"")+" "+(g.url||"")).toLowerCase().includes(query);})
