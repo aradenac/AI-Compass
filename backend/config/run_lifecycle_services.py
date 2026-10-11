@@ -174,6 +174,9 @@ def change(*, actor, identifier, expected_revision, action, reason,
     # that Run is executed, and its immutability trigger remains in force.
     klass = type(run)
     run = klass.objects.select_for_update(of=("self",)).get(pk=run.pk)
+    from .publication_services import published_membership_ids
+    if identifier not in published_membership_ids():
+        raise InvalidAmendment("Only a published Run can be corrected or withdrawn")
     previous = last(run)
     number = previous.number if previous else 1
     if expected_revision != "r%03d" % number:
@@ -202,6 +205,7 @@ def change(*, actor, identifier, expected_revision, action, reason,
             metrics = _checked_metrics(amended["metrics"], {"tokens_count":
                 amended["metrics"].get("tokens_count")}, run, observations)
         final_outcome = outcome or amended["outcome"]
+        metrics["outcome"] = final_outcome
         if metrics == amended["metrics"] and final_outcome == amended["outcome"]:
             raise InvalidAmendment("No effective change")
     camp = run.session.campaign_snapshot.revision.item
