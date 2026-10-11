@@ -1022,7 +1022,7 @@ if(initialWorkspace==="workgroup" && initialSection &&
     // One default list/presentation in both runtimes. Keep historical Demo
     // forms and specialist actions accessible rather than silently dropping them.
     Array.from(source.children).forEach(function(child){
-      if(!child.classList.contains("shared-personas"))child.hidden=true;
+      if(!child.classList.contains("shared-personas")&&child.id!=="ux-context-navigation")child.hidden=true;
     });
     source.insertAdjacentHTML("afterbegin",
       '<div id="demo-shared-summary" class="card" role="region" aria-label="Shared knowledge view"></div>'+
