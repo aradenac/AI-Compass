@@ -92,8 +92,7 @@
           ' · '+escapeHtml(source.revision)+'. Child version is allocated on save.</p>':"")+
         '<form id="case-form"><label>Title<input name="name" required maxlength="160" value="'+escapeHtml(name)+'"></label>'+
         taskSelector+
-        FIELDS.map(function(f){return '<label>'+escapeHtml(f[1])+
-          '<textarea name="'+escapeHtml(f[0])+'" rows="2">'+escapeHtml(p[f[0]]||"")+'</textarea></label>';}).join("")+
+        window.AICompassWorkgroup.renderCaseFields(p)+
         '<button type="submit">Save '+(mode==="fork"?"fork":mode==="edit"?"revision":"Test Case")+'</button>'+
         '<button type="button" id="case-cancel">Cancel</button></form>';
       if(mode==="create"&&taskId)container.querySelector('select[name="task_id"]').value=taskId;
@@ -143,12 +142,9 @@
         ]);
         if(!allowed||generation!==ticket)return;
         var revisions=responses[0].revisions,evidence=responses[1].results||[];
-        target.innerHTML=
-          '<h3>'+escapeHtml(row.name)+' · '+escapeHtml(row.case_version)+'</h3>'+
-          '<p>Task '+escapeHtml(row.task_id)+' · created against task revision '+
-          escapeHtml(row.task_revision_at_creation)+'</p>'+
-          '<p>Fork parent: '+escapeHtml(row.fork_parent_id||"none (root)")+
-          ' · immutable source revision: '+escapeHtml(row.fork_source_revision_id||"none")+'</p>'+
+        target.innerHTML=window.AICompassWorkgroup.renderCaseDetail(row,"server")+
+          '<p>Task revision at creation: '+escapeHtml(row.task_revision_at_creation)+
+          ' · Immutable fork source revision: '+escapeHtml(row.fork_source_revision_id||"none")+'</p>'+
           '<h4>Immutable revision history</h4>'+
           revisions.map(function(x){return '<details><summary>'+escapeHtml(x.revision)+
             ' · '+escapeHtml(x.created_by)+' · '+escapeHtml(x.created_at)+'</summary><pre '+
