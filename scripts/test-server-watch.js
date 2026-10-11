@@ -46,6 +46,7 @@ const sandbox={window:{},FormData,fetch:async(url,opts)=>{
     assert.equal(opts.cache,"no-store");
     return {ok:true,json:async()=>({results:url.endsWith("/sources")?testRows:[]})};
 }};
+vm.runInNewContext(fs.readFileSync("shared-workgroup.js","utf8"),sandbox,{filename:"shared-workgroup.js"});
 vm.runInNewContext(source,sandbox,{filename:"server-watch.js"});
 const escape=s=>String(s).replaceAll("&","&amp;").replaceAll("<","&lt;")
     .replaceAll(">","&gt;").replaceAll('"',"&quot;");

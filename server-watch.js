@@ -62,22 +62,22 @@ function mount(root,csrf,escapeHtml){
     var query=($("#watch-search")&&$("#watch-search").value||"").toLowerCase().trim();
     [["sources",sources],["entries",entries]].forEach(function(pair){
       var node=$("#watch-"+pair[0]);if(!node)return;
-      var rows=pair[1].filter(function(row){
-        return !query||row.name.toLowerCase().includes(query)||row.id.toLowerCase().includes(query);
+      var rows=pair[1].filter(function(r){
+        return !query||r.name.toLowerCase().includes(query)||r.id.toLowerCase().includes(query);
       });
-      node.innerHTML=rows.length?rows.map(function(row){
-        var p=row.properties||{};
-        return '<div class="list-row" style="border-bottom:1px solid #dde5ee;padding:12px 0">'+
-          '<strong>'+esc(row.name)+'</strong><p class="muted small">'+esc(row.id)+' · '+
-          esc(row.revision)+' · '+esc(p.visibility||"internal")+
-          (pair[0]==="entries"?' · '+esc((row.sources||[]).length)+' exact source revision(s) · '+esc(p.review_state):"")+
-          '</p><button type="button" data-kind="'+pair[0]+'" data-row="'+esc(row.id)+
-          '" data-action="inspect">Details / history</button>'+
-          (writer?'<button type="button" data-kind="'+pair[0]+'" data-row="'+esc(row.id)+
-            '" data-action="edit">Revise</button>':'')+
-          (reviewer?'<button type="button" data-kind="'+pair[0]+'" data-row="'+esc(row.id)+
-            '" data-action="review">Review / publish</button>':'')+'</div>';
-      }).join(""):"No matching real Server records.";
+      node.innerHTML=window.AICompassWorkgroup.renderRecords(rows.map(function(r){
+        var p=r.properties||{},kind=pair[0];
+        var actions=[{label:"Details / history",
+          attributes:{"data-kind":kind,"data-row":r.id,"data-action":"inspect"}}];
+        if(writer)actions.push({label:"Revise",
+          attributes:{"data-kind":kind,"data-row":r.id,"data-action":"edit"}});
+        if(reviewer)actions.push({label:"Review / publish",
+          attributes:{"data-kind":kind,"data-row":r.id,"data-action":"review"}});
+        return {id:r.id,title:r.name,revision:r.revision,status:p.review_state||"",
+          facts:[p.visibility||"internal"].concat(kind==="entries"?
+            [(r.sources||[]).length+" exact source revisions"]:[]),actions:actions};
+      }),{domain:pair[0]==="sources"?"research-sources":"watch",mode:"server",
+        emptyText:"No matching real Server records."});
     });
   }
   async function handle(event){

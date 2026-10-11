@@ -210,8 +210,154 @@
     }
     return {show:show,dispose:function(){generation++;node.replaceChildren();}};
   }
+
+  // UX-R04 shared read projection; no data provider or privilege is inferred.
+  function renderCases(cases,tasks,options) {
+    if(!Array.isArray(cases)||!Array.isArray(tasks))throw Error("Authorized Test Cases and tasks required");
+    options=options||{};
+    var mode=options.mode;
+    if(mode!=="demo"&&mode!=="server")throw Error("Explicit Demo or Server mode required");
+    if(!cases.length)return '<p class="muted" data-shared-case-empty>'+
+      escape(options.emptyText||"No Test Cases defined.")+'</p>';
+    var names=new Map(tasks.map(function(t){return [String(t.id),t.name||t.title||t.id];}));
+    var groups=new Map(),visited=new Set(),result="";
+    function task(r){return String(mode==="demo"?r.task||"":r.task_id||"");}
+    function parent(r){return mode==="demo"?r.parentCaseId:r.fork_parent_id;}
+    function version(r){return String(mode==="demo"?r.version||"":r.case_version||"");}
+    function sort(a,b){return version(a).localeCompare(version(b),undefined,{numeric:true});}
+    cases.forEach(function(c){var t=task(c);if(!groups.has(t))groups.set(t,[]);groups.get(t).push(c);});
+    function item(c,group) {
+      if(visited.has(c.id))return "";
+      visited.add(c.id);
+      var id=escape(c.id),title=escape(mode==="demo"?c.title:c.name),
+          revision=c.revision?' · '+escape(c.revision):"",
+          summary=mode==="demo"?c.objective:(c.properties||{}).objective,
+          label=summary?escape(summary)+" · ":"";
+      var counts=options.publishedRunCounts||{};
+      if(mode==="demo"&&Object.prototype.hasOwnProperty.call(counts,c.id))
+        label+=escape(counts[c.id])+" published run(s) · ";
+      var actions=mode==="demo"?
+        '<button type="button" data-act="caseDetail" data-id="'+id+'">Inspect</button>':
+        '<button type="button" data-case="'+id+'" data-action="history">Details / history</button>'+
+        (options.canWrite?'<button type="button" data-case="'+id+'" data-action="edit">Edit</button>'+
+        '<button type="button" data-case="'+id+'" data-action="fork">Fork</button>':"");
+      var children=group.filter(function(x){return x.id!==c.id&&parent(x)===c.id;}).sort(sort);
+      return '<div class="case-tree-item shared-case-item" data-shared-case="'+id+'">'+
+        '<div class="case-main"><div class="case-meta"><strong>'+title+'</strong>'+
+        '<span class="case-version">v'+escape(version(c))+'</span>'+
+        (parent(c)?'<span class="muted small">Fork</span>':"")+'</div>'+
+        '<div class="case-subtitle">'+label+id+revision+'</div></div>'+
+        '<div class="server-model-actions">'+actions+'</div></div>'+
+        (children.length?'<div class="case-branch">'+children.map(function(x){return item(x,group);}).join("")+'</div>':"");
+    }
+    groups.forEach(function(group,t){
+      var ids=new Set(group.map(function(c){return c.id;}));
+      var roots=group.filter(function(c){return !parent(c)||!ids.has(parent(c))||parent(c)===c.id;}).sort(sort);
+      var html=roots.map(function(c){return item(c,group);}).join("");
+      // Broken historical cycles remain visible, never automatically reparented.
+      html+=group.filter(function(c){return !visited.has(c.id);}).sort(sort)
+        .map(function(c){return item(c,group);}).join("");
+      result+='<section class="shared-case-group" data-shared-case-task="'+escape(t)+'">'+
+        '<div class="case-tree-task"><strong>'+escape(names.get(t)||t||"Unknown task")+
+        '</strong><span class="muted small"> · '+group.length+' Test Case(s)</span></div>'+html+'</section>';
+    });
+    return '<div class="shared-case-tree" data-shared-cases="'+mode+'">'+result+'</div>';
+  }
+
+
+  var CASE_FIELDS=Object.freeze([
+    ["objective","Objective / challenge"],["inputs","Starting inputs / source context"],
+    ["constraints","Constraints / conditions"],["expected_outputs","Expected outputs"],
+    ["dod","Definition of Done"],["environment","Environment / setup"]
+  ]);
+  function normalizeCase(row,mode) {
+    if(!row||(mode!=="demo"&&mode!=="server"))throw Error("Explicit Test Case and mode required");
+    return {id:row.id,title:mode==="demo"?row.title:row.name,
+      version:mode==="demo"?row.version:row.case_version,
+      revision:row.revision||"",
+      parent:mode==="demo"?row.parentCaseId:row.fork_parent_id,
+      task:mode==="demo"?row.task:row.task_id,
+      fields:mode==="demo"?row:(row.properties||{})};
+  }
+  function renderCaseFields(values,selection) {
+    selection=selection||CASE_FIELDS.map(function(f){return f[0];});
+    if(!Array.isArray(selection)||selection.some(function(k){return !CASE_FIELDS.some(function(f){return f[0]===k;});}))
+      throw Error("Unknown Test Case field");
+    values=values||{};
+    return CASE_FIELDS.filter(function(f){return selection.includes(f[0]);}).map(function(f){
+      return '<div class="field span2 shared-case-field"><label for="shared-tc-'+f[0]+'">'+
+        escape(f[1])+'</label><textarea id="shared-tc-'+f[0]+'" name="'+f[0]+'" rows="3">'+
+        escape(values[f[0]]||"")+'</textarea></div>';
+    }).join("");
+  }
+  function renderCaseDetail(row,mode,options) {
+    var r=normalizeCase(row,mode),p=r.fields;
+    options=options||{};
+    var fields=options.fields||CASE_FIELDS.map(function(f){return f[0];});
+    var contents=CASE_FIELDS.filter(function(f){return fields.includes(f[0])&&p[f[0]];}).map(function(f){
+      return '<section class="shared-case-detail-field"><h4>'+escape(f[1])+'</h4>'+
+        '<p style="white-space:pre-wrap">'+escape(p[f[0]])+'</p></section>';
+    }).join("");
+    return '<div class="shared-case-detail" data-shared-case-detail="'+mode+'">'+
+      '<h3>'+escape(r.title)+'</h3><p class="muted small">ID '+escape(r.id)+
+      ' · Version '+escape(r.version)+(r.revision?' · Revision '+escape(r.revision):"")+
+      ' · Task '+escape(options.taskName||r.task||"Unknown")+
+      (r.parent?' · Fork of '+escape(r.parent):"")+'</p>'+
+      (contents||'<p class="muted">No documented challenge fields.</p>')+'</div>';
+  }
+
+
+  // UX-R04: shared, text-only presentation boundary for business record lists.
+  // Adapters supply authorized rows and permissible actions. Nothing here
+  // fetches, persists, invents revisions, or interprets a business decision.
+  function renderRecords(rows, options) {
+    if(!Array.isArray(rows))throw Error("Authorized business records required");
+    options=options||{};
+    var domain=options.domain,mode=options.mode;
+    if(!/^[a-z][a-z0-9-]*$/.test(domain||"")||!["demo","server"].includes(mode))
+      throw Error("Explicit business domain and Demo/Server mode required");
+    function attr(name,value){
+      if(!/^data-[a-z][a-z0-9-]*$/.test(name))throw Error("Invalid business action attribute");
+      return ' '+name+'="'+escape(value)+'"';
+    }
+    function command(action) {
+      if(!action || !action.label)throw Error("Missing business action label");
+      var attrs=action.attributes||{};
+      var keys=Object.keys(attrs);
+      if(!keys.length)throw Error("Business action without routing");
+      return '<button type="button"'+keys.map(function(k){return attr(k,attrs[k]);}).join("")+
+        '>'+escape(action.label)+'</button>';
+    }
+    function link(item){
+      var url=String(item.href||"");
+      if(!(url.startsWith("/")&&!url.startsWith("//"))&&!url.startsWith("?"))
+        throw Error("Business link must be same-origin");
+      return '<a href="'+escape(url)+'">'+escape(item.label||"Open detail")+'</a>';
+    }
+    if(!rows.length)return '<p class="muted" data-business-empty="'+escape(domain)+'">'+
+      escape(options.emptyText||"No matching authorized records.")+'</p>';
+    return '<div class="shared-business-list" data-business-domain="'+escape(domain)+'" data-business-mode="'+mode+'">'+
+      rows.map(function(r){
+        if(!r||!r.id)throw Error("Missing authorized record identity");
+        var facts=(r.facts||[]).filter(function(v){return v!=null&&v!=="";});
+        var notices=(r.notices||[]).filter(function(v){return v!=null&&v!=="";});
+        var actions=r.actions||[],links=r.links||[];
+        if(!Array.isArray(facts)||!Array.isArray(notices)||!Array.isArray(actions)||!Array.isArray(links))
+          throw Error("Invalid record presentation");
+        return '<article class="shared-business-record list-row" data-business-record="'+escape(r.id)+'">'+
+          '<div class="shared-business-content"><h3>'+escape(r.title||r.id)+'</h3>'+
+          '<p class="muted small shared-business-meta">'+
+          [r.id,r.revision,r.status].concat(facts).filter(function(v){return v!=null&&v!=="";})
+            .map(escape).join(' · ')+'</p>'+
+          (r.description?'<p class="shared-business-description">'+escape(r.description)+'</p>':"")+
+          notices.map(function(v){return '<p class="shared-business-note">'+escape(v)+'</p>';}).join("")+
+          '</div><div class="shared-business-actions">'+links.map(link).join("")+actions.map(command).join("")+'</div></article>';
+      }).join("")+'</div>';
+  }
+
   root.AICompassWorkgroup={ZONES:ZONES,STABLE:STABLE,SECTION_TO_DEMO:SECTION_TO_DEMO,
     SECTION_TO_SERVER:SECTION_TO_SERVER,canVisit:canVisit,renderMap:renderMap,
     breadcrumbs:breadcrumbs,attention:attention,href:href,renderList:renderList,
-    serverProvider:serverProvider,demoProvider:demoProvider,mountSummary:mountSummary};
+    serverProvider:serverProvider,demoProvider:demoProvider,mountSummary:mountSummary,renderCases:renderCases,renderCaseFields:renderCaseFields,renderCaseDetail:renderCaseDetail,
+    renderRecords:renderRecords};
 })(window);

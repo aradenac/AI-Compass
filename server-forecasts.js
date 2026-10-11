@@ -67,7 +67,7 @@ function mount(root,csrf,escapeHtml){
     var run=++ticket;status("Loading real Server theoretical forecasts and references…");
     try{
       var rows=await Promise.all([api("forecasts"),api("watch-entries"),api("tasks")].concat(
-        listTypes.map(function(k){return api("catalog/"+k);})
+        listTypes.map(function(k){return api(k==="model"?"models":"catalog/"+k);})
       ));
       if(!enabled||run!==ticket)return;
       forecasts=rows[0].results||[];watch=rows[1].results||[];tasks=rows[2].results||[];
@@ -87,23 +87,23 @@ function mount(root,csrf,escapeHtml){
     var list=$("#forecast-list");if(!list)return;
     var task=$("#forecast-task-filter").value;
     var rows=forecasts.filter(function(f){return !task||f.task_id===task;});
-    list.innerHTML=rows.length?rows.map(function(f){
-      var p=f.properties||{};
-      return '<div class="list-row" style="padding:10px;border-bottom:1px solid #e2e8f0">'+
-        '<strong>'+esc(f.name)+'</strong><p class="muted small">'+esc(f.id)+' · '+esc(f.revision)+
-        ' · '+esc(f.status)+' · '+esc(f.task_id)+' · THEORETICAL · '+esc(p.confidence)+' confidence</p>'+
-        '<p>Expected quality: '+esc(p.predicted_metrics&&p.predicted_metrics.quality_score!=null?
-                                  p.predicted_metrics.quality_score:"unknown")+
-        ' / 100 · Projected cost: '+esc(p.predicted_metrics&&p.predicted_metrics.ai_cost_eur!=null?
-                                          p.predicted_metrics.ai_cost_eur:"unknown")+
-        ' EUR · '+esc(f.watch_links.length)+' exact Watch signals</p>'+
-        '<button type="button" data-forecast="'+esc(f.id)+'" data-action="inspect">Inspect immutable versions</button>'+
-        (writer?'<button type="button" data-forecast="'+esc(f.id)+'" data-action="edit">Edit (resets review)</button>':'')+
-        ((reviewer||writer)?'<button type="button" data-forecast="'+esc(f.id)+'" data-action="review">Stage / review / publish</button>':'')+
-        (writer&&["staged","reviewed","published"].includes(f.status)?
-          '<button type="button" data-forecast="'+esc(f.id)+'" data-action="campaign">Validate as new campaign</button>':'')+
-        '</div>';
-    }).join(""):"No forecasts in the selected Server task scope.";
+    list.innerHTML=window.AICompassWorkgroup.renderRecords(rows.map(function(f){
+      var p=f.properties||{},metrics=p.predicted_metrics||{},actions=[
+        {label:"Inspect immutable versions",attributes:{"data-forecast":f.id,"data-action":"inspect"}}
+      ];
+      if(writer)actions.push({label:"Edit (resets review)",attributes:{"data-forecast":f.id,"data-action":"edit"}});
+      if(reviewer||writer)actions.push({label:"Stage / review / publish",attributes:{"data-forecast":f.id,"data-action":"review"}});
+      if(writer&&["staged","reviewed","published"].includes(f.status))
+        actions.push({label:"Validate as new campaign",attributes:{"data-forecast":f.id,"data-action":"campaign"}});
+      return {id:f.id,title:f.name,revision:f.revision,status:f.status,
+        description:"THEORETICAL · not measured",
+        facts:[f.task_id,(p.confidence||"unknown")+" confidence",
+          "Expected quality: "+(metrics.quality_score==null?"unknown":metrics.quality_score)+"/100",
+          "Projected cost: "+(metrics.ai_cost_eur==null?"unknown":metrics.ai_cost_eur)+" EUR",
+          (f.watch_links||[]).length+" exact Watch signals"],
+        actions:actions};
+    }),{domain:"forecasts",mode:"server",
+      emptyText:"No forecasts in the selected Server task scope."});
   }
   function form(f){
     if(!writer)return;

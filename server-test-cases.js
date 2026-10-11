@@ -34,7 +34,7 @@
         '<p class="muted small">Reusable engineering challenges · immutable revisions · explicit parent/fork lineage</p></div>' +
         '<button type="button" id="case-refresh">Refresh</button></div>' +
         '<p id="case-status" role="status" class="server-status"></p>' +
-        (canWrite ? '<button type="button" id="case-new">+ New Test Case</button>' : '') +
+        (canWrite ? '<button type="button" id="case-new" disabled>+ New Test Case</button>' : '') +
         '<div id="case-list" class="server-card" style="margin:14px 0"></div>' +
         '<section id="case-editor" class="server-card" hidden></section>' +
         '<section id="case-detail" class="server-card" hidden style="margin-top:14px"></section>';
@@ -53,50 +53,30 @@
     function render() {
       var list=el("#case-list");
       if(!list)return;
-      if(!cases.length){list.textContent="No real Server Test Cases yet. Create an engineering task first.";return;}
-      var taskLabels=new Map(tasks.map(function(t){return [t.id,t.name];}));
-      var byTask=new Map();
-      cases.forEach(function(x){if(!byTask.has(x.task_id))byTask.set(x.task_id,[]);byTask.get(x.task_id).push(x);});
-      var html="";
-      byTask.forEach(function(group,taskId){
-        var lookup=new Map(group.map(function(c){return [c.id,c];}));
-        group.sort(function(a,b){return a.case_version.localeCompare(b.case_version,undefined,{numeric:true});});
-        var ordered=[],seen=new Set();
-        function walk(c,depth){
-          if(seen.has(c.id))return;
-          seen.add(c.id);ordered.push([c,depth]);
-          group.filter(function(f){return f.fork_parent_id===c.id;}).forEach(function(child){walk(child,depth+1);});
-        }
-        group.filter(function(c){return !c.fork_parent_id || !lookup.has(c.fork_parent_id);}).forEach(function(c){walk(c,0);});
-        group.forEach(function(c){walk(c,0);});
-        html+='<h3>'+escapeHtml(taskLabels.get(taskId)||taskId)+'</h3>';
-        html+=ordered.map(function(pair){
-          var c=pair[0],depth=pair[1];
-          return '<div class="list-row" style="padding:12px 0 12px '+Math.min(depth*24,144)+'px;border-bottom:1px solid #edf1f6">' +
-            '<strong>'+escapeHtml(c.case_version)+' · '+escapeHtml(c.name)+'</strong>' +
-            '<div class="muted small">'+escapeHtml(c.id)+' · '+escapeHtml(c.revision) +
-            (c.fork_parent_id?' · fork of '+escapeHtml(c.fork_parent_id):' · original root')+'</div>' +
-            '<button type="button" data-case="'+escapeHtml(c.id)+'" data-action="history">Details / history</button>' +
-            (canWrite?'<button type="button" data-case="'+escapeHtml(c.id)+'" data-action="edit">Edit</button>'+
-            '<button type="button" data-case="'+escapeHtml(c.id)+'" data-action="fork">Fork</button>':'')+
-            '</div>';
-        }).join("");
+      list.innerHTML=window.AICompassWorkgroup.renderCases(cases,tasks,{
+        mode:"server",canWrite:canWrite,
+        emptyText:"No real Server Test Cases yet. Create an engineering task first."
       });
-      list.innerHTML=html;
     }
+
     async function refresh(){
       if(!allowed)return;
+      // The editor's Task selector is built from this response. Prevent an
+      // early click from opening an incomplete, misleading empty selector.
+      if(canWrite&&el("#case-new"))el("#case-new").disabled=true;
       var run=++ticket;
       status("Loading persisted Test Cases and task IDs…");
       try{
         var response=await Promise.all([api("test-cases"),api("tasks")]);
         if(!allowed||run!==ticket)return;
         cases=response[0].results;tasks=response[1].results;
+        if(canWrite&&el("#case-new"))el("#case-new").disabled=false;
         render();
         status(cases.length+" Test Case(s), "+tasks.length+" real engineering task(s).");
       }catch(error){
         if(!allowed||run!==ticket)return;
         cases=[];tasks=[];el("#case-list").textContent="Server records are unavailable.";
+        if(canWrite&&el("#case-new"))el("#case-new").disabled=true;
         status("Test Design unavailable: "+error.message,true);
       }
     }
@@ -117,8 +97,7 @@
           ' · '+escapeHtml(source.revision)+'. Child version is allocated on save.</p>':"")+
         '<form id="case-form"><label>Title<input name="name" required maxlength="160" value="'+escapeHtml(name)+'"></label>'+
         taskSelector+
-        FIELDS.map(function(f){return '<label>'+escapeHtml(f[1])+
-          '<textarea name="'+escapeHtml(f[0])+'" rows="2">'+escapeHtml(p[f[0]]||"")+'</textarea></label>';}).join("")+
+        window.AICompassWorkgroup.renderCaseFields(p)+
         '<button type="submit">Save '+(mode==="fork"?"fork":mode==="edit"?"revision":"Test Case")+'</button>'+
         '<button type="button" id="case-cancel">Cancel</button></form>';
       if(mode==="create"&&taskId)container.querySelector('select[name="task_id"]').value=taskId;
@@ -168,12 +147,9 @@
         ]);
         if(!allowed||generation!==ticket)return;
         var revisions=responses[0].revisions,evidence=responses[1].results||[];
-        target.innerHTML=
-          '<h3>'+escapeHtml(row.name)+' · '+escapeHtml(row.case_version)+'</h3>'+
-          '<p>Task '+escapeHtml(row.task_id)+' · created against task revision '+
-          escapeHtml(row.task_revision_at_creation)+'</p>'+
-          '<p>Fork parent: '+escapeHtml(row.fork_parent_id||"none (root)")+
-          ' · immutable source revision: '+escapeHtml(row.fork_source_revision_id||"none")+'</p>'+
+        target.innerHTML=window.AICompassWorkgroup.renderCaseDetail(row,"server")+
+          '<p>Task revision at creation: '+escapeHtml(row.task_revision_at_creation)+
+          ' · Immutable fork source revision: '+escapeHtml(row.fork_source_revision_id||"none")+'</p>'+
           '<h4>Immutable revision history</h4>'+
           revisions.map(function(x){return '<details><summary>'+escapeHtml(x.revision)+
             ' · '+escapeHtml(x.created_by)+' · '+escapeHtml(x.created_at)+'</summary><pre '+

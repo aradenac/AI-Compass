@@ -42,6 +42,7 @@ const sandbox={window:{},fetch:async(url,opts)=>{
     assert.equal(opts.cache,"no-store");
     return {ok:true,json:async()=>({results:[]})};
 }};
+vm.runInNewContext(fs.readFileSync("shared-workgroup.js","utf8"),sandbox,{filename:"shared-workgroup.js"});
 vm.runInNewContext(src,sandbox,{filename:"server-forecasts.js"});
 const ui=sandbox.window.AICompassServerForecasts.mount(root,()=>"csrf",String);
 ui.setAccess(false,false,false);

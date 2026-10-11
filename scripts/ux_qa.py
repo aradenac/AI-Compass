@@ -200,6 +200,31 @@ def demo_journey(browser, demo_url, artifacts, role, label, viewport):
             raise AssertionError("Standalone Demo unexpectedly contacted API: " + str(api_calls))
         capture(page, artifacts, "demo-" + label + "-" + str(viewport["width"]))
         if role == "u1":
+            # UX-R04: inspect actual shared business surfaces, not source text.
+            for section, domain in [
+                ("knowledge", "guides"), ("watch", "watch"),
+                ("feedback", "feedback"), ("recommendations", "recommendations"),
+                ("benchmark", "campaigns"), ("testdesign", "cases")
+            ]:
+                page.locator(f'[data-act="nav"][data-id="{section}"]').click()
+                if domain == "cases":
+                    surface = page.locator('.shared-case-tree[data-shared-cases="demo"]')
+                else:
+                    surface = page.locator(
+                        f'.shared-business-list[data-business-domain="{domain}"]')
+                surface.wait_for(state="visible", timeout=20000)
+                if surface.locator('[data-business-record]').count() == 0 and domain != "cases":
+                    raise AssertionError("Seeded Demo lacks real shared " + domain + " record cards")
+                assert_no_horizontal_overflow(page)
+                if domain in ("guides", "campaigns", "cases"):
+                    capture(page, artifacts, "demo-shared-" + domain + "-" + str(viewport["width"]))
+            page.locator(".shared-case-tree button[data-act=caseDetail]").first.click()
+            detail = page.locator('.shared-case-detail[data-shared-case-detail="demo"]')
+            detail.wait_for(state="visible")
+            if detail.locator("h3").count() != 1:
+                raise AssertionError("Shared Test Case detail lacks semantic heading")
+            page.get_by_role("dialog").get_by_role("button", name="Close dialog").click()
+        if role == "u1":
             # The actual Demo form must honor the same NFR modal contract.
             page.locator('[data-act="nav"][data-id="testdesign"]').click()
             page.locator('[data-act="newCase"]').first.click()
@@ -215,6 +240,33 @@ def demo_journey(browser, demo_url, artifacts, role, label, viewport):
                 raise AssertionError("Demo modal unexpectedly discarded unsaved form")
             demo_dialog.get_by_role("button", name="Close dialog").click()
             demo_dialog.wait_for(state="hidden")
+            # Same form fields as Server: persist a fictional complete
+            # challenge and inspect its semantic values after re-render.
+            page.locator('[data-act="newCase"]').first.click()
+            sample = page.get_by_role("dialog")
+            sample.wait_for(state="visible")
+            sample.locator('input[name="title"]').fill("UX-R04 Demo challenge completeness")
+            sample.locator('textarea[name="objective"]').fill("Verify complete shared form")
+            sample.locator('textarea[name="constraints"]').fill("Offline only")
+            sample.locator('textarea[name="expected_outputs"]').fill("Six fields retained")
+            sample.locator('textarea[name="environment"]').fill("Disposable Chromium")
+            sample.locator('textarea[name="inputs"]').fill("Fictional fixture")
+            sample.locator('textarea[name="dod"]').fill("All values remain visible")
+            sample.get_by_role("button", name="Create Test Case").click()
+            page.locator('[data-shared-case]').filter(
+                has_text="UX-R04 Demo challenge completeness").first.wait_for(state="visible")
+            page.locator('[data-shared-case]').filter(
+                has_text="UX-R04 Demo challenge completeness").first.locator(
+                    'button[data-act="caseDetail"]').click()
+            details = page.locator('[data-shared-case-detail="demo"]')
+            details.wait_for(state="visible")
+            detail_text = details.inner_text()
+            for expected in ("Offline only", "Six fields retained",
+                             "Disposable Chromium", "All values remain visible"):
+                if expected not in detail_text:
+                    raise AssertionError("Demo did not preserve Test Case field: " + expected)
+            page.get_by_role("dialog").get_by_role("button", name="Close dialog").click()
+
         if role == "u1":
             # Real seeded Workgroup path: Studio → Watch → selected record → origin
             page.locator('[data-act="nav"][data-id="studio"]').click()
@@ -328,6 +380,23 @@ def server_journey(browser, base_url, creds, artifacts, role, viewport):
             raise AssertionError("Server JS runtime error(s): " + "; ".join(errors[:3]))
         # UX-R02 routes one domain at a time. Check real form dialogs as well
         # (a green static HTML test must never substitute for this interaction).
+        if role == "workgroup":
+            # Empty real Server is legitimate; Demo fixtures must NEVER leak.
+            # Each domain is rendered by the same list component as offline Demo.
+            for section, domain in [
+                ("guides", "guides"), ("watch", "watch"),
+                ("feedback", "feedback"), ("recommendations", "recommendations"),
+                ("benchmark", "campaigns"), ("forecasts", "forecasts")
+            ]:
+                page.goto(base_url + "/?mode=server&workspace=workgroup&section=" + section + "&view=editor",
+                          wait_until="domcontentloaded")
+                page.locator(
+                    f'[data-business-domain="{domain}"], [data-business-empty="{domain}"]'
+                ).first.wait_for(state="visible", timeout=30000)
+                assert_exactly_one_view(page, "#ux-screen-host > [data-ux-screen]")
+                assert_no_horizontal_overflow(page)
+                if domain in ("guides", "campaigns"):
+                    capture(page, artifacts, "server-shared-" + domain + "-" + str(viewport["width"]))
         if role in ("workgroup", "multi_role"):
             page.goto(base_url + "/?mode=server&workspace=workgroup&section=testdesign&view=editor",
                       wait_until="domcontentloaded")
@@ -348,6 +417,52 @@ def server_journey(browser, base_url, creds, artifacts, role, viewport):
                 raise AssertionError("Backdrop/Escape unexpectedly dismissed the form or lost draft")
             dialog.get_by_role("button", name="Close dialog").click()
             dialog.wait_for(state="hidden")
+            if role == "workgroup":
+                # Real persisted Test Design round-trip: UI Task creation -> TC
+                # save -> same shared presenter after a full browser reload.
+                page.goto(base_url + "/?mode=server&workspace=workgroup&section=tasks&view=editor",
+                          wait_until="domcontentloaded")
+                page.locator("#server-task-add-root").wait_for(state="visible", timeout=30000)
+                page.locator("#server-task-add-root").click()
+                task_dialog = page.locator("#server-task-editor[role=dialog]")
+                task_dialog.wait_for(state="visible", timeout=15000)
+                task_name = "UX-R04 reusable browser Task"
+                task_dialog.locator('input[name="name"]').fill(task_name)
+                task_dialog.get_by_role("button", name="Save task revision").click()
+                task_dialog.wait_for(state="hidden", timeout=25000)
+                page.locator(".server-task-node").filter(has_text=task_name).first.wait_for(
+                    state="visible", timeout=25000)
+                page.goto(base_url + "/?mode=server&workspace=workgroup&section=testdesign&view=editor",
+                          wait_until="domcontentloaded")
+                page.locator("#case-new").wait_for(state="visible", timeout=30000)
+                page.locator("#case-new").click()
+                case_dialog = page.locator("#case-editor[role=dialog]")
+                case_dialog.wait_for(state="visible", timeout=15000)
+                case_title = "UX-R04 preserved browser challenge"
+                case_dialog.locator('input[name="name"]').fill(case_title)
+                task_choice = case_dialog.locator('select[name="task_id"] option').filter(
+                    has_text=task_name).first
+                task_id = task_choice.get_attribute("value")
+                if not task_id:
+                    raise AssertionError("Created real Task was not selectable")
+                case_dialog.locator('select[name="task_id"]').select_option(task_id)
+                case_dialog.locator('textarea[name="objective"]').fill(
+                    "Validate shared Demo and Server presentation")
+                case_dialog.locator('textarea[name="inputs"]').fill(
+                    "Synthetic, disposable browser fixture")
+                case_dialog.locator('textarea[name="dod"]').fill(
+                    "Created object remains readable after reload")
+                case_dialog.locator('button[type="submit"]').click()
+                case_dialog.wait_for(state="hidden", timeout=30000)
+                page.locator('[data-shared-case]').filter(has_text=case_title).first.wait_for(
+                    state="visible", timeout=30000)
+                capture(page, artifacts, "server-shared-test-cases-persisted-" +
+                        str(viewport["width"]))
+                page.reload(wait_until="domcontentloaded")
+                page.locator('[data-shared-case]').filter(has_text=case_title).first.wait_for(
+                    state="visible", timeout=30000)
+                if page.locator('[data-shared-case-detail="demo"]').count():
+                    raise AssertionError("Server Test Case incorrectly displayed Demo detail")
             if role == "multi_role":
                 # Same authenticated session: Users & Access must be explicit,
                 # and its account-creation form a protected, closed-by-default modal.

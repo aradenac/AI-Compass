@@ -31,7 +31,7 @@ const rows={campaigns:{results:[{id:"cmp-calm-blue-tree",name:"<unsafe campaign>
   properties:{objective:"<unsafe objective>"}}]},
   "campaign-methods":{results:[]},tasks:{results:[]},
   "test-cases":{results:[]},guides:{results:[]},
-  "catalog/model":{results:[]},"catalog/provider":{results:[]},"catalog/harness":{results:[]},
+  "models":{results:[]},"catalog/provider":{results:[]},"catalog/harness":{results:[]},
   "catalog/framework":{results:[]},
   "pricing/offers":{results:[]}};
 let calls=[];
@@ -46,6 +46,7 @@ const sandbox={window:{location:{origin:"http://localhost",protocol:"http:",
   if(!rows[key])throw Error("Unknown "+url);
   return {ok:true,json:async()=>rows[key]};
 }};
+vm.runInNewContext(fs.readFileSync("shared-workgroup.js","utf8"),sandbox,{filename:"shared-workgroup.js"});
 vm.runInNewContext(contextSource,sandbox,{filename:"shared-context.js"});
 vm.runInNewContext(sessionsSource,sandbox,{filename:"server-sessions.js"});
 vm.runInNewContext(source,sandbox,{filename:"server-campaigns.js"});

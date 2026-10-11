@@ -37,6 +37,7 @@ const sandbox={window:{},console,URLSearchParams,fetch:async(url,options)=>{
     }]})};
   throw Error("unexpected "+url);
 }};
+vm.runInNewContext(fs.readFileSync("shared-workgroup.js","utf8"),sandbox,{filename:"shared-workgroup.js"});
 vm.runInNewContext(source,sandbox,{filename:"server-test-cases.js"});
 const escape=s=>String(s).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;");
 const ui=sandbox.window.AICompassServerTestCases.mount(root,()=> "csrf",escape);

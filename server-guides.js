@@ -109,23 +109,24 @@
       },{canWrite:write,heading:"Setup Guide selector · reusable for campaigns"});
     }
     function render() {
-      var node=find("#guide-list");
-      if(!node)return;
+      var node=find("#guide-list");if(!node)return;
       var q=(find("#guide-filter").value||"").toLowerCase().trim();
-      var visible=records.filter(function(g){return !q||g.name.toLowerCase().includes(q)||g.id.toLowerCase().includes(q);});
-      if(!visible.length){node.textContent="No matching Server Setup Guides. No Demo data is imported.";return;}
-      node.innerHTML=visible.map(function(g){
-        var p=g.properties||{};
-        return '<div class="list-row" style="padding:12px 0;border-bottom:1px solid #edf1f6">'+
-          '<strong>'+escapeHtml(g.name)+'</strong>'+
-          '<div class="muted small">'+escapeHtml(g.id)+' · '+escapeHtml(g.revision)+
-          ' · '+escapeHtml(p.url?"URL"+(p.text?" + text":""):"text procedure")+'</div>'+
-          '<button type="button" data-guide="'+escapeHtml(g.id)+'" data-action="inspect">Details / history</button> '+
-          (p.recipe?'<button type="button" data-guide="'+escapeHtml(g.id)+'" data-action="preview">Render recipe</button> ':'')+
-          (write?'<button type="button" data-guide="'+escapeHtml(g.id)+'" data-action="edit">Revise</button>':"")+
-          '</div>';
-      }).join("");
+      var visible=records.filter(function(g){
+        return !q||g.name.toLowerCase().includes(q)||g.id.toLowerCase().includes(q);
+      });
+      node.innerHTML=window.AICompassWorkgroup.renderRecords(visible.map(function(g){
+        var p=g.properties||{}, actions=[
+          {label:"Details / history",attributes:{"data-guide":g.id,"data-action":"inspect"}}
+        ];
+        if(p.recipe)actions.push({label:"Render recipe",attributes:{"data-guide":g.id,"data-action":"preview"}});
+        if(write)actions.push({label:"Revise",attributes:{"data-guide":g.id,"data-action":"edit"}});
+        return {id:g.id,title:g.name,revision:g.revision,
+          facts:[p.url?(p.text?"URL + text":"URL"):"text procedure"],
+          actions:actions};
+      }),{domain:"guides",mode:"server",
+        emptyText:"No matching Server Setup Guides. No Demo data is imported."});
     }
+
     async function refresh() {
       if(!active)return;
       var run=++ticket;
