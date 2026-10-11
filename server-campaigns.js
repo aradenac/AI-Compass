@@ -6,7 +6,7 @@
   var NEXT={
     planned:[["start","Start campaign"]],
     in_progress:[["close","Close full plan"],["close_partial","Close partial review"]],
-    under_review:[["rework","Request rework"],["publish","Publish plan"],["reopen","Reopen"]],
+    under_review:[["rework","Request rework"],["publish","Review / publish selected Runs"],["reopen","Reopen"]],
     published:[["unpublish","Unpublish"],["reopen","Reopen"]]
   };
   function mount(root, csrf, escapeHtml) {
@@ -51,10 +51,11 @@
         var row=campaigns.find(function(c){return c.id===btn.dataset.id;});
         if(!row)return;
         if(btn.dataset.action==="matrix")showMatrix(row);
+        else if(btn.dataset.action==="publication")showPublication(row);
         else if(btn.dataset.action==="sessions"&&sessionWorkspace)sessionWorkspace.openCampaign(row);
         else if(btn.dataset.action==="history")history(row);
         else if(canWrite&&btn.dataset.action==="edit")editor(row);
-        else if(canWrite&&btn.dataset.action)transition(row,btn.dataset.action);
+        else if(btn.dataset.action&&(["publish","unpublish"].includes(btn.dataset.action)?canReview:canWrite))transition(row,btn.dataset.action);
       });
     }
     function render(){
@@ -84,6 +85,11 @@
           '<button type="button" data-id="'+esc(x.id)+'" data-action="matrix">Evaluation matrix</button>'+
           '<button type="button" data-id="'+esc(x.id)+'" data-action="sessions">Sessions / resume</button>'+
           '<button type="button" data-id="'+esc(x.id)+'" data-action="history">Details / history</button>'+
+          '<button type="button" data-id="'+esc(x.id)+'" data-action="publication">Published evidence</button>'+
+          (x.effective_publication?'<p class="muted small">Effective publication · '+
+            esc(x.effective_publication.revision)+' · '+x.effective_publication.included_runs+
+            ' Run(s) · '+esc(x.effective_publication.coverage.plan==="matrix"&&
+              !x.effective_publication.coverage.full_plan_complete?"partial coverage":"reviewed subset")+'</p>':'')+
           (canWrite&&!x.archived&&["planned","in_progress"].includes(x.status)?
             '<button type="button" data-id="'+esc(x.id)+'" data-action="edit">Edit</button>':'')+
           (commands.filter(function(k){
@@ -404,6 +410,7 @@
     }
     async function transition(row,action){
       if(!allowed||(["publish","unpublish"].includes(action)?!canReview:!canWrite))return;
+      if(action==="publish"){showPublication(row);return;}
       var run=++ticket;
       status("Applying "+action+" to "+row.id+"…");
       try{
@@ -416,6 +423,70 @@
         status("Campaign "+result.campaign.id+" · "+result.campaign.revision+
           " · "+result.campaign.status+(result.campaign.archived?" (archived)":""));
       }catch(error){if(allowed&&run===ticket)status("Transition refused: "+error.message,true);}
+    }
+
+
+    async function showPublication(row){
+      if(!allowed)return;
+      var target=el("#campaign-detail");
+      target.hidden=false;
+      target.textContent="Loading effective publication and private review…";
+      try{
+        var allowedPreview=canReview||canWrite;
+        var responses=await Promise.all([
+          api("campaigns/"+encodeURIComponent(row.id)+"/publication"),
+          allowedPreview?api("campaigns/"+encodeURIComponent(row.id)+"/publication/review"):Promise.resolve(null)
+        ]);
+        var effective=responses[0].publication,review=responses[1];
+        var selected=new Set(effective?(effective.runs||[]).map(function(x){return x.id;}):[]);
+        var candidates=review?review.candidates:[];
+        var html='<h3>'+esc(row.name)+' · Publication</h3>'+
+          '<p class="muted small">Published selection is immutable. Reopening keeps the latest published subset visible; new Runs stay private until explicitly selected and republished.</p>'+
+          (effective?'<p>Effective '+esc(effective.campaign_revision)+' · '+effective.runs.length+
+            ' published Run(s) · reviewed by '+esc(effective.reviewed_by)+'</p>'+
+            '<pre style="white-space:pre-wrap">'+esc(JSON.stringify(effective.coverage,null,2))+'</pre>':
+            '<p>No effective publication.</p>');
+        if(review){
+          html+='<h4>Private Run-by-Run guide and eligibility review</h4>'+
+            '<p class="muted small">Only fully closed, documented Runs can be published. Failed DoD remains negative evidence; pending and waived evaluations are not evidence. Selection explicitly replaces the old published set.</p>'+
+            '<div id="publication-selections">'+(candidates.length?candidates.map(function(c){
+              return '<label style="display:block;padding:6px;border-bottom:1px solid #eee">'+
+                '<input type="checkbox" data-run-id="'+esc(c.id)+'"'+
+                (selected.has(c.id)&&c.eligible?' checked':'')+(c.eligible?'':' disabled')+'>'+
+                ' '+esc(c.id)+' · '+esc(c.kind)+' · '+esc(c.outcome)+
+                (c.eligible?' · eligible':' · blocked: '+esc(c.blockers.join(", ")))+
+                '</label>';
+            }).join(""):'<p>No completed Runs yet.</p>')+'</div>';
+          if(canReview&&row.status==="under_review"&&!row.archived){
+            html+='<label>Reason for removing previously published Runs (if applicable)'+
+              '<textarea id="publication-removal-reason" rows="2" maxlength="2000"></textarea></label>'+
+              '<button type="button" id="publication-commit">Publish selected eligible Runs</button>';
+          }else{
+            html+='<p class="muted small">Publication requires review status and publication_review permission.</p>';
+          }
+        }
+        html+='<button type="button" id="publication-close">Close</button>';
+        target.innerHTML=html;
+        target.querySelector("#publication-close").addEventListener("click",function(){target.hidden=true;});
+        var button=target.querySelector("#publication-commit");
+        if(button)button.addEventListener("click",async function(){
+          var ids=Array.from(target.querySelectorAll("input[data-run-id]:checked")).map(function(e){return e.dataset.runId;});
+          if(!ids.length){status("Select at least one eligible Run.",true);return;}
+          button.disabled=true;
+          try{
+            var result=await api("campaigns/"+encodeURIComponent(row.id)+"/publication/publish",
+              "POST",{expected_revision:row.revision,run_ids:ids,
+              removal_reason:target.querySelector("#publication-removal-reason").value});
+            target.hidden=true;
+            await refresh();
+            status("Published "+result.publication.runs.length+
+              " eligible Run(s) at "+result.campaign.revision+".");
+          }catch(error){status("Publication rejected: "+error.message,true);}
+          finally{button.disabled=false;}
+        });
+      }catch(error){
+        target.textContent="Publication review unavailable: "+error.message;
+      }
     }
 
     async function showMatrix(row,filter,revision){
