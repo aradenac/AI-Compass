@@ -2,6 +2,7 @@
 import json
 
 from django.http import Http404
+from django.db.models import F
 from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
@@ -69,7 +70,7 @@ def options(request):
                     "model", "provider", "harness").filter(
                         revision__item__public_id=c["candidate_id"],
                         revision__item__type_slug="forecast",
-                        revision__item__current_revision__isnull=False).first()
+                        revision__item__current_revision_id=F("revision_id")).first()
                     if c["kind"] == "forecast" else None]],
             "targets": [deployment_status(t, private=False) for t in targets
                         if t.kind == "benchmark"],
