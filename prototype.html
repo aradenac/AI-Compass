@@ -2315,10 +2315,16 @@ function dialogDemoMatrixAdd(id){
  openForm("Add Task-associated configuration","matrixConfig",
  selectField("task","Task",db.tasks.map(function(t){return[t.id,t.name];}),c.task||"")+
  field("label","Configuration label","","text","full")+
- ["model","provider","harness"].map(function(k){
+ (c.frameworkId?selectField("kind","Configuration type",[["framework","Framework participant workflow"]],"framework"):
+  selectField("kind","Configuration type",[["individual","Individual AI trio"]],"individual"))+
+ (c.frameworkId?'<div class="span2"><strong>Selected Framework participants</strong>'+
+ (c.frameworkInstances||[]).map(function(p){
+  return '<label class="watch-link-row"><input type="checkbox" name="matrixParticipant_'+E(p.id)+'" value="yes" checked>'+
+   '<span>'+E(p.label)+' · '+E(p.role)+'</span></label>';
+ }).join("")+'</div>':["model","provider","harness"].map(function(k){
   return selectField(k,k,comboComponentOptions(k),"",true);
- }).join("")+
- field("version","Configuration version","1","text","full")+
+ }).join(""))+
+ (c.frameworkId?"":field("version","Configuration version","1.0","text","full"))+
  '<div class="span2 note">All available Test Cases for the selected Task will initially be selected. You can deselect or waive cells individually; completed Runs remain immutable.</div>',
  id,"Add evaluation column");
 }
@@ -2525,7 +2531,7 @@ if(kind==="campaignReview"){
  var campaign=rec("campaigns",id),task=rec("tasks",d.task);
  if(!campaign||!task||!["planned","active"].includes(campaign.stage))return;
  if(!String(d.label||"").trim()){toast("Configuration label is required.");return;}
- if(["model","provider","harness"].some(function(k){
+ if(!campaign.frameworkId&&["model","provider","harness"].some(function(k){
   return rec("components",d[k])?.type!==k;
  })){toast("Choose a valid Model, Provider and Harness.");return;}
  var eligible=db.cases.filter(function(tc){return tc.task===task.id;});
@@ -2533,7 +2539,19 @@ if(kind==="campaignReview"){
  var before=JSON.parse(JSON.stringify(campaign));
  if(!campaign.matrixPlan)campaign.matrixPlan={configurations:[],cells:[]};
  var config={id:next("cfg"),taskId:task.id,label:d.label.trim(),
-  model:d.model,provider:d.provider,harness:d.harness,version:d.version||"1"};
+   kind:campaign.frameworkId?"framework":"individual"};
+ if(campaign.frameworkId){
+  var selected=(campaign.frameworkInstances||[]).filter(function(p){
+   return d["matrixParticipant_"+p.id]==="yes";
+  });
+  if(!selected.length){toast("Choose Framework participants.");return;}
+  config.frameworkId=campaign.frameworkId;
+  config.participantIds=selected.map(function(p){return p.id;});
+  config.participantSnapshots=JSON.parse(JSON.stringify(selected));
+ }else{
+  Object.assign(config,{model:d.model,provider:d.provider,harness:d.harness,
+   version:d.version||"1.0"});
+ }
  campaign.matrixPlan.configurations.push(config);
  eligible.forEach(function(tc){if(!campaign.caseIds.includes(tc.id))campaign.caseIds.push(tc.id);
  campaign.matrixPlan.cells.push({
@@ -2644,9 +2662,13 @@ if(kind==="campaignReview"){
    toast("The selected evaluation does not match this Task.");return;
   }
   if(framework){
-   toast("Demo Framework plans require exact participant verification before attribution.");return;
-  }
-  if(["model","provider","harness"].some(function(k){return plannedConfig[k]!==cfg[k];})||
+   if(plannedConfig.kind!=="framework"||plannedConfig.frameworkId!==home.frameworkId||
+      selectedParticipants.map(function(p){return p.id;}).join("|")!==
+         plannedConfig.participantIds.join("|")){
+    toast("Executed Framework participant selection differs from the matrix plan.");return;
+   }
+  }else if(plannedConfig.kind!=="individual"||
+    ["model","provider","harness"].some(function(k){return plannedConfig[k]!==cfg[k];})||
      String(plannedConfig.version)!==String(cfg.version)){
    toast("Executed solution differs from the selected pinned matrix configuration.");return;
   }
