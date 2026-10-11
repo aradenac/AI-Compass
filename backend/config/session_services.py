@@ -132,9 +132,8 @@ def _save(session, actor, action, state, number):
 
 def _initial_state(session, evaluation_id=None):
     steps=_descriptors(session)
-    return {
+    state={
         "status":"in_progress",
-        "evaluation_id":evaluation_id,
         "setup":{"started_at":None,"installation_duration_minutes":None,
                  "environment":{},"notes":"","extensions":{},"evidence_link_ids":[]},
         "steps":{s["key"]:{"status":"pending","values":{},"notes":"",
@@ -145,6 +144,9 @@ def _initial_state(session, evaluation_id=None):
         "interactions":[],
         "measurements":{"human_total_minutes":None,"agent_total_minutes":None}
     }
+    if evaluation_id is not None:
+        state["evaluation_id"]=evaluation_id
+    return state
 
 
 def can_edit(actor,session):
