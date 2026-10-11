@@ -418,7 +418,7 @@ def run_tests(base_url, demo_url, credentials, artifacts):
         try:
             run("Mutation probes (deliberate UI defects rejected)",
                 lambda: mutation_probes(browser, directory))
-            viewports = [{"width": 1366, "height": 900}, {"width": 390, "height": 844}]
+            # Product support scope: desktop browsers only (2026-10-11).\n            # Mobile/tablet adaptation is not part of acceptance or CI.\n            viewports = [{"width": 1366, "height": 900}]
             for viewport in viewports:
                 width = viewport["width"]
                 run(f"Standalone Demo workgroup {width}",
