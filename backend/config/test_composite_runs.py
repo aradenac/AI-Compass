@@ -188,14 +188,13 @@ class CompositeBenchmarkTests(TestCase):
         self.assertEqual(CompositeRunEvidence.objects.filter(run__public_id=run["id"]).count(),1)
 
         reader=Client();reader.force_login(self.reader)
-        self.assertEqual(reader.get("/api/v1/runs/"+run["id"]).json(),run)
+        self.assertEqual(reader.get("/api/v1/runs/"+run["id"]).status_code,404)
         all_runs=reader.get("/api/v1/runs?campaign_id="+camp["id"]).json()["results"]
-        self.assertEqual([r["kind"] for r in all_runs],["composite"])
-        self.assertEqual(len(reader.get("/api/v1/runs?kind=composite").json()["results"]),1)
+        self.assertEqual(all_runs,[])
+        self.assertEqual(reader.get("/api/v1/runs?kind=composite").json()["results"],[])
         self.assertEqual(reader.get("/api/v1/runs?kind=individual").json()["results"],[])
         self.assertEqual(reader.get("/api/v1/solutions").json()["results"],[])
-        self.assertEqual(b"".join(reader.get(run["evidence"][0]["download"]).streaming_content),
-                         original_bytes)
+        self.assertEqual(reader.get(run["evidence"][0]["download"]).status_code,404)
         self.assertEqual(self.send("/api/v1/sessions/"+ses["id"]+"/close",
                                   self.results(rev="r003")).status_code,409)
         self.assertEqual(self.send("/api/v1/sessions/"+ses["id"]+"/interactions",
@@ -210,7 +209,7 @@ class CompositeBenchmarkTests(TestCase):
                      expected_revision="r001",properties={"text":"Updated setup"})
         revise_component(item=self.catalog["model"][0],type_slug="model",actor=self.editor,
                          expected_revision="r001",name="New model release")
-        self.assertEqual(reader.get("/api/v1/runs/"+run["id"]).json(),run)
+        self.assertEqual(reader.get("/api/v1/runs/"+run["id"]).status_code,404)
 
     def test_failed_composite_is_not_measured_solution_and_individual_unchanged(self):
         camp=self.campaign()
