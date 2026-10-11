@@ -111,6 +111,7 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;b
 <script src="shared-environment.js"></script>
 <script src="shared-pricing.js"></script>
 <script src="shared-workgroup.js"></script>
+<script src="shared-engineer.js"></script>
 <script src="shared-drafts.js"></script>
 <script src="server-tasks.js"></script>
 <script>
@@ -890,6 +891,30 @@ if(target){
    '<section id="demo-environment-profile" class="card" role="region" aria-label="My OS environment"></section>');
  window.AICompassEnvironment.mount(
    document.getElementById("demo-environment-profile"),demoEnvironment,"demo").setAccess(true);
+}
+
+if(persona && persona.id === "engineer" && window.AICompassEngineer) {
+  var engineerSource=document.querySelector(".content");
+  if(engineerSource){
+    Array.from(engineerSource.children).forEach(function(child){
+      if(!child.classList.contains("shared-personas")&&child.id!=="demo-environment-profile")
+        child.hidden=true;
+    });
+    var eRoot=document.createElement("section");
+    eRoot.id="shared-demo-engineer";eRoot.className="server-catalog";
+    engineerSource.insertBefore(eRoot,engineerSource.firstChild);
+    var eWorkspace=window.AICompassEngineer.mount(eRoot,
+      window.AICompassEngineer.demoProvider(db,user(),persist),"demo");
+    eWorkspace.setAccess(true);
+    var legacy=document.createElement("button");
+    legacy.type="button";legacy.className="btn sm";
+    legacy.textContent="Open full Demo discovery and Results Explorer";
+    eRoot.insertAdjacentElement("afterend",legacy);
+    legacy.onclick=function(){
+      Array.from(engineerSource.children).forEach(function(child){child.hidden=false;});
+      eRoot.hidden=true;legacy.hidden=true;
+    };
+  }
 }
 
 if(initialWorkspace==="workgroup" && initialSection && window.AICompassWorkgroup.STABLE[initialSection]&&canEdit()) {
