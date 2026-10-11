@@ -7,7 +7,8 @@ const source=fs.readFileSync("shared-context.js","utf8");
 function context(path,search,protocol){
   const local=protocol==="file:";
   const location={origin:local?"null":"http://localhost",protocol:protocol||"http:",
-    pathname:path||"/",search:search||"",hash:""};
+    pathname:path||"/",search:search||"",hash:"",
+    href:(local?"file://":"http://localhost")+(path||"/")+(search||"")};
   const window={location};
   vm.runInNewContext(source,{window,URL,URLSearchParams});
   return {ctx:window.AICompassContext,location};
