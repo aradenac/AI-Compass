@@ -6,7 +6,15 @@ function mount(root,csrf,escapeHtml){
   var active=false,writer=false,reviewer=false,seq=0,sources=[],entries=[];
   function $(selector){return root.querySelector(selector);}
   function esc(value){return escapeHtml(value==null?"":String(value));}
-  function note(message,error){var node=$("#watch-status");if(node){node.textContent=message;node.className=error?"server-status server-error":"server-status";}}
+  // One shared loading/read/error presentation in Demo and Server.
+  function note(message,error){
+    var node=$("#watch-status");
+    if(node){
+      node.className=error?"server-status server-error":"server-status";
+      node.innerHTML=window.AICompassWorkgroup.renderDomainStatus({
+        mode:"server",state:error?"error":"ok",message:message==null?"":String(message)});
+    }
+  }
   async function api(path,method,data){
     var options={method:method||"GET",credentials:"same-origin",cache:"no-store"};
     if(method&&method!=="GET"){
@@ -91,12 +99,6 @@ function mount(root,csrf,escapeHtml){
     if(btn.dataset.action==="edit"&&writer)return edit(btn.dataset.kind,row);
     if(btn.dataset.action==="review"&&reviewer)return review(btn.dataset.kind,row);
   }
-  function formRow(key,label,value,tag,required){
-    var text=esc(value),field=tag==="textarea"?
-      '<textarea name="'+key+'" '+(required?"required":"")+'>'+text+'</textarea>':
-      '<input name="'+key+'" value="'+text+'" '+(required?"required":"")+'>';
-    return '<label>'+label+field+'</label>';
-  }
   function routeForKind(kind){
     if(kind==="sources")return "sources";
     if(kind==="entries"||kind==="watch-entries")return "watch-entries";
@@ -105,33 +107,29 @@ function mount(root,csrf,escapeHtml){
   function edit(kind,row){
     if(!active||!writer)return;
     var isSource=kind==="sources",p=row&&row.properties||{},area=$("#watch-editor");
+    var known=isSource?["claim","citation","url","source_type","confidence","published_on",
+      "retrieved_on","limitations","visibility"]:
+      ["hypothesis","assumptions","notes","visibility","review_state"];
+    var extensions=JSON.stringify(Object.fromEntries(Object.entries(p).filter(function(pair){
+      return !known.includes(pair[0]);})),null,2);
+    var values=isSource?{
+      name:row?row.name:"",claim:p.claim||"",citation:p.citation||"",url:p.url||"",
+      source_type:p.source_type||"research",confidence:p.confidence||"unknown",
+      published_on:p.published_on||"",retrieved_on:p.retrieved_on||"",
+      limitations:p.limitations||"",extensions:extensions
+    }:{
+      name:row?row.name:"",hypothesis:p.hypothesis||"",assumptions:p.assumptions||"",
+      notes:p.notes||"",extensions:extensions,
+      sources:(row&&row.sources||[]).map(function(link){return link.id;})
+    };
     area.hidden=false;
     area.innerHTML='<h3>'+(row?"Revise ":"Create ")+(isSource?"Research Source":"Watch Entry")+'</h3>'+
-      '<form id="watch-form">'+formRow("name","Title",row?row.name:"","input",true)+
-      (isSource?formRow("claim","Original claim / observation",p.claim||"","textarea",true)+
-        formRow("citation","Citation / publication",p.citation||"","textarea")+
-        formRow("url","Source URL (optional)",p.url||"","input")+
-        '<label>Source type<select name="source_type">'+
-        ["research","provider_notice","benchmark","documentation","other"].map(function(k){
-          return option(k,k,p.source_type===k);}).join("")+'</select></label>'+
-        '<label>Confidence<select name="confidence">'+
-        ["unknown","low","medium","high"].map(function(k){return option(k,k,p.confidence===k);}).join("")+'</select></label>'+
-        formRow("published_on","Publication date ISO YYYY-MM-DD (optional)",p.published_on||"","input")+
-        formRow("retrieved_on","Retrieval date ISO YYYY-MM-DD (optional)",p.retrieved_on||"","input")+
-        formRow("limitations","Limitations / caveats",p.limitations||"","textarea"):
-        formRow("hypothesis","Hypothesis / signal",p.hypothesis||"","textarea",true)+
-        formRow("assumptions","Assumptions",p.assumptions||"","textarea")+
-        formRow("notes","Notes",p.notes||"","textarea")+
-        '<label>Attach existing exact Research Source revision(s)<select name="sources" multiple size="6">'+
-        sources.map(function(s){
-          return option(s.id,s.name+" · "+s.revision,
-            !!row&&(row.sources||[]).some(function(r){return r.id===s.id;}));}).join("")+
-        '</select></label><p class="muted small">Reusing a source never duplicates or deletes its original bytes. Existing source revision pins remain unchanged when editing unrelated fields.</p>')+
-      formRow("extensions","Unknown / future metadata (JSON object)",
-         JSON.stringify(Object.fromEntries(Object.entries(p).filter(function(pair){
-           return !(isSource?["claim","citation","url","source_type","confidence","published_on","retrieved_on","limitations","visibility"]:
-             ["hypothesis","assumptions","notes","visibility","review_state"]).includes(pair[0]);
-         })),null,2),"textarea")+
+      '<form id="watch-form">'+
+      window.AICompassWorkgroup.renderDomainFields(
+        isSource?window.AICompassWorkgroup.WATCH_SOURCE_FIELDS:
+          window.AICompassWorkgroup.WATCH_ENTRY_FIELDS,
+        values,"server",{idPrefix:"watch",choices:{sources:sources.map(function(source){
+          return [source.id,source.name+" · "+source.revision];})}})+
       '<button type="submit">Save immutable revision</button> <button type="button" id="watch-cancel">Cancel</button></form>';
     $("#watch-cancel").addEventListener("click",function(){area.hidden=true;});
     var draft=window.AICompassDrafts && window.AICompassDraftAccount ?

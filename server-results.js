@@ -9,7 +9,11 @@ function mount(root,csrf,escapeHtml){
   function esc(s){return escapeHtml(s==null?"":String(s));}
   function status(message,error){
     var node=$("#results-status");
-    if(node){node.textContent=message;node.className=error?"server-status server-error":"server-status";}
+    if(node){
+      node.className=error?"server-status server-error":"server-status";
+      node.innerHTML=window.AICompassWorkgroup.renderDomainStatus({
+        mode:"server",state:error?"error":"ok",message:message==null?"":String(message)});
+    }
   }
   function option(value,label,selected){
     return '<option value="'+esc(value)+'"'+(selected?" selected":"")+'>'+esc(label)+'</option>';
@@ -242,18 +246,15 @@ function mount(root,csrf,escapeHtml){
     area.innerHTML='<h3>'+(row?"Reinterpret · append revision":"New")+" saved evaluation</h3>"+
       '<p class="muted small">The scoring method is descriptive comparison v1 (no invented averages). Each measured Run and experimental protocol is pinned permanently.</p>'+
       '<form id="evaluation-form">'+
-      '<label>Evaluation title<input name="name" maxlength="160" required value="'+esc(row&&row.name||"")+'"></label>'+
-      '<label>Original measured Run IDs<textarea name="run_ids" required>'+esc(existing.join("\n"))+'</textarea></label>'+
+      window.AICompassWorkgroup.renderDomainFields(
+        window.AICompassWorkgroup.EVALUATION_FIELDS,{
+          name:row&&row.name||"",run_ids:existing.join("\n"),
+          assessment:p.assessment||"inconclusive",notes:p.notes||"",
+          limitations:p.limitations||"",
+          selected_metrics:(row&&row.scoring_config||{}).selected_metrics||METRICS
+        },"server",{idPrefix:"evaluation",choices:{selected_metrics:METRICS.map(function(metric){
+          return [metric,metric];})}})+
       '<p class="muted small">Paste run-* IDs, one per line. Do not paste forecast-*; theoretical predictions are not measured runs.</p>'+
-      '<label>Interpretation<select name="assessment">'+
-      ["inconclusive","supported","unsupported"].map(function(x){
-        return option(x,x,p.assessment===x);}).join("")+'</select></label>'+
-      '<label>Notes<textarea name="notes">'+esc(p.notes||"")+'</textarea></label>'+
-      '<label>Limitations<textarea name="limitations">'+esc(p.limitations||"")+'</textarea></label>'+
-      '<label>Measured metric fields to inspect<select name="selected_metrics" multiple size="6">'+
-      METRICS.map(function(k){
-        return option(k,k,!row||(row.scoring_config.selected_metrics||[]).includes(k));
-      }).join("")+'</select></label>'+
       '<p class="muted small">Unknown/unavailable fields and mixed experimental methods are reported automatically. Selecting a newer method creates a new revision.</p>'+
       '<button type="submit">Save immutable evaluation revision</button>'+
       '<button type="button" id="evaluation-cancel">Cancel</button></form>';

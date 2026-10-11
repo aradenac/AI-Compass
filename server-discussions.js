@@ -7,7 +7,11 @@ function mount(root,csrf,escapeHtml){
   function esc(v){return escapeHtml(v==null?"":String(v));}
   function status(message,bad){
     var node=$("#discussion-status");
-    if(node){node.textContent=message;node.className=bad?"server-status server-error":"server-status";}
+    if(node){
+      node.className=bad?"server-status server-error":"server-status";
+      node.innerHTML=window.AICompassWorkgroup.renderDomainStatus({
+        mode:"server",state:bad?"error":"ok",message:message==null?"":String(message)});
+    }
   }
   async function api(path,method,data){
     var options={method:method||"GET",credentials:"same-origin",cache:"no-store"};
@@ -26,6 +30,12 @@ function mount(root,csrf,escapeHtml){
   function scopeChoice(current){
     return choice("public","Public to logged-in engineers",current!=="internal")+
            (privileged?choice("internal","Internal workgroup only",current==="internal"):"");
+  }
+  // Permission-aware choices: "internal" is only offered to privileged roles,
+  // in Demo and Server alike. The shared field component renders them.
+  function scopeChoices(){
+    return [["public","Public to logged-in engineers"]].concat(privileged?
+      [["internal","Internal workgroup only"]]:[]);
   }
   function shell(){
     root.innerHTML='<div class="server-model-toolbar"><div>'+
@@ -57,13 +67,14 @@ function mount(root,csrf,escapeHtml){
     var panel=$("#discussion-compose");panel.hidden=false;
     panel.innerHTML='<h3>Submit new feedback</h3>'+
       '<form id="discussion-new-form">'+
-      '<label>Subject<input name="title" maxlength="160" required></label>'+
-      '<label>Kind<select name="kind">'+["feedback","question","idea","request","discussion"]
-        .map(function(k){return choice(k,k,k==="feedback");}).join("")+'</select></label>'+
-      '<label>Visibility<select name="scope">'+scopeChoice("public")+'</select></label>'+
-      '<label>Optional catalog object reference (permanent ID)<input name="context_id" placeholder="tsk-… or sol-…"></label>'+
+      window.AICompassWorkgroup.renderDomainFields(
+        window.AICompassWorkgroup.FEEDBACK_THREAD_FIELDS,
+        {title:"",kind:"feedback",scope:"public",context_id:"",body:""},"server",
+        {idPrefix:"discussion-new",choices:{
+          kind:[["feedback","feedback"],["question","question"],["idea","idea"],
+            ["request","request"],["discussion","discussion"]],
+          scope:scopeChoices()}})+
       '<p class="muted small">Only public task, solution and technology catalog references can be attached to discussion threads. The exact catalog revision is pinned at creation.</p>'+
-      '<label>Feedback / first message<textarea name="body" rows="5" required maxlength="16000"></textarea></label>'+
       '<button type="submit">Publish feedback</button><button type="button" id="discussion-new-cancel">Cancel</button>'+
       '</form>';
     $("#discussion-new-cancel").addEventListener("click",function(){panel.hidden=true;});
@@ -163,9 +174,11 @@ function mount(root,csrf,escapeHtml){
     var t=threads.find(function(x){return x.id===selected;});
     var area=$("#discussion-reply-editor");
     area.innerHTML='<h4>Reply '+(parent?"to "+esc(parent):"to conversation")+'</h4>'+
-      '<form id="discussion-reply-form"><label>Visibility<select name="visibility">'+
-      scopeChoice(t&&t.properties.scope==="internal"?"internal":"public")+'</select></label>'+
-      '<label>Response<textarea name="body" required rows="4" maxlength="16000"></textarea></label>'+
+      '<form id="discussion-reply-form">'+
+      window.AICompassWorkgroup.renderDomainFields(
+        window.AICompassWorkgroup.FEEDBACK_REPLY_FIELDS,
+        {visibility:(t&&t.properties.scope==="internal"?"internal":"public"),body:""},"server",
+        {idPrefix:"discussion-reply",choices:{visibility:scopeChoices()}})+
       '<button type="submit">Persist reply</button></form>';
     $("#discussion-reply-form").addEventListener("submit",async function(event){
       event.preventDefault();var f=event.target,button=f.querySelector('[type="submit"]');button.disabled=true;

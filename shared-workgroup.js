@@ -547,6 +547,330 @@
       'failed Test Run. Only a waiver accepts a reason, and completed Runs remain immutable.</p></div>';
   }
 
+  /* UX-R04 shared interaction primitives: form fields, blocking status,
+   * generic record detail and lifecycle steppers. Adapters supply authorized
+   * values, options and routing; nothing here persists, authorizes or invents
+   * data, and unknown input fails closed. */
+  var DOMAIN_FIELD_KINDS=Object.freeze(["text","textarea","url","number","select","multi","checkbox"]);
+  var DOMAIN_STATUS_STATES=Object.freeze(["loading","empty","error","denied","ok"]);
+  var STEPPER_STATES=Object.freeze(["done","current","todo","blocked"]);
+
+  function domainMode(mode) {
+    if(mode!=="demo"&&mode!=="server")throw Error("Explicit Demo or Server mode required");
+    return mode;
+  }
+  function domainFieldVisible(entry,mode) {
+    return !entry.modes||entry.modes.includes(mode);
+  }
+  function domainFieldName(entry,mode) {
+    return String(mode==="demo"?(entry.demoKey||entry.key):(entry.serverKey||entry.key));
+  }
+  function domainFieldChoices(entry,mode) {
+    var choices=(mode==="demo"&&entry.demoOptions)||entry.options||[];
+    return choices.map(function(choice){
+      var pair=Array.isArray(choice)?choice:[choice,choice];
+      return {value:String(pair[0]),label:String(pair[1])};});
+  }
+  function domainFieldKind(entry,mode) {
+    return (mode==="demo"&&entry.demoKind)||(mode==="server"&&entry.serverKind)||entry.kind||"text";
+  }
+  function domainFieldPlaceholder(entry,mode) {
+    return (mode==="demo"&&entry.demoPlaceholder)||(mode==="server"&&entry.serverPlaceholder)||
+      entry.placeholder||"";
+  }
+  function domainFieldRequired(entry,mode) {
+    if(mode==="demo"&&entry.demoRequired!==undefined)return !!entry.demoRequired;
+    if(mode==="server"&&entry.serverRequired!==undefined)return !!entry.serverRequired;
+    return !!entry.required;
+  }
+  function domainFieldValues(values,name) {
+    if(values&&Object.prototype.hasOwnProperty.call(values,name))return values[name];
+    return "";
+  }
+  // One field presentation for Demo and Server; only names/options differ.
+  function renderDomainFields(spec, values, mode, options) {
+    domainMode(mode);
+    options=options||{};
+    if(!Array.isArray(spec))throw Error("Authorized field specification required");
+    Object.keys(options.choices||{}).forEach(function(key){
+      if(!Array.isArray(options.choices[key]))throw Error("Field choices must be an array");
+    });
+    return spec.filter(function(entry){return domainFieldVisible(entry,mode);}).map(function(entry){
+      if(!entry||!entry.key||!entry.label)throw Error("Field specification requires key and label");
+      var kind=domainFieldKind(entry,mode);
+      if(!DOMAIN_FIELD_KINDS.includes(kind))throw Error("Unsupported domain field kind");
+      var name=domainFieldName(entry,mode),value=domainFieldValues(values,name),
+          id=escape(options.idPrefix||"shared")+"-"+escape(mode)+"-"+escape(name),
+          attrs=(entry.maxlength?' maxlength="'+escape(entry.maxlength)+'"':"")+
+            (domainFieldRequired(entry,mode)?" required":"")+
+            (entry.min!==undefined?' min="'+escape(entry.min)+'"':"")+
+            (domainFieldPlaceholder(entry,mode)?
+              ' placeholder="'+escape(domainFieldPlaceholder(entry,mode))+'"':"");
+      var control;
+      var locked=options.locked&&Object.prototype.hasOwnProperty.call(options.locked,name);
+      if(locked)
+        control='<input type="hidden" name="'+escape(name)+'" value="'+
+          escape(options.locked[name])+'">';
+      else if(kind==="textarea")
+        control='<textarea id="'+id+'" name="'+escape(name)+'" rows="'+escape(entry.rows||3)+'"'+
+          attrs+'>'+escape(value)+'</textarea>';
+      else if(kind==="select"||kind==="multi") {
+        var override=options.choices&&options.choices[name];
+        if(override!==undefined&&!Array.isArray(override))
+          throw Error("Field choices must be an array");
+        var choices=override?override.map(function(choice){
+          var pair=Array.isArray(choice)?choice:[choice,choice];
+          return {value:String(pair[0]),label:String(pair[1])};}):domainFieldChoices(entry,mode);
+        var blank=entry.blankLabel!==undefined?entry.blankLabel:
+          (options.blankLabels&&options.blankLabels[name]!==undefined?
+            options.blankLabels[name]:undefined);
+        if(kind==="select"&&blank!==undefined)
+          choices=[{value:"",label:blank}].concat(choices);
+        var selected=kind==="multi"?(Array.isArray(value)?value.map(String):[]):[String(value==null?"":value)];
+        control='<select id="'+id+'" name="'+escape(name)+'"'+
+          (kind==="multi"?' multiple size="'+escape(entry.size||6)+'"':"")+attrs+'>'+
+          choices.map(function(choice){
+            return '<option value="'+escape(choice.value)+'"'+
+              (selected.includes(choice.value)?' selected':'')+'>'+escape(choice.label)+'</option>';}).join("")+
+          '</select>';
+      }
+      else if(kind==="checkbox")
+        control='<input id="'+id+'" name="'+escape(name)+'" type="checkbox" value="yes"'+
+          (value===true||value==="yes"||value==="on"?' checked':'')+'>';
+      else
+        control='<input id="'+id+'" name="'+escape(name)+'" type="'+
+          escape(kind==="number"?"number":"text")+'" value="'+escape(value)+'"'+attrs+'>';
+      if(locked)return control;
+      return '<div class="field shared-domain-field'+(entry.span?' span2':"")+
+        '" data-shared-field="'+escape(name)+'"><label for="'+id+'">'+escape(entry.label)+'</label>'+
+        control+(entry.help?'<p class="helper">'+escape(entry.help)+'</p>':"")+'</div>';
+    }).join("");
+  }
+  // Same-origin record link, refused otherwise.
+  function recordLink(item) {
+    var url=String(item&&item.href||"");
+    if(!((url.startsWith("/")&&!url.startsWith("//"))||url.startsWith("?")))
+      throw Error("Record link must be same-origin");
+    return '<a href="'+escape(url)+'">'+escape(item.label||"Open record")+'</a>';
+  }
+  function renderDomainDetail(projection, options) {
+    options=options||{};
+    var mode=domainMode(options.mode),domain=String(options.domain||"");
+    if(!/^[a-z][a-z0-9-]*$/.test(domain))
+      throw Error("Explicit business domain required");
+    if(!projection||typeof projection!=="object"||Array.isArray(projection))
+      throw Error("Authorized record projection required");
+    if(!String(projection.title||"").trim())throw Error("Record detail requires a title");
+    var identity=(projection.identity||[]).filter(function(v){return v!=null&&v!=="";}),
+        sections=projection.sections||[],notices=projection.notices||[],links=projection.links||[];
+    if(!Array.isArray(sections)||!Array.isArray(notices)||!Array.isArray(links))
+      throw Error("Invalid record projection");
+    return '<article class="shared-domain-detail" data-shared-domain-detail="'+escape(domain)+
+      '" data-domain-mode="'+escape(mode)+'"><h3>'+escape(projection.title)+'</h3>'+
+      (identity.length?'<p class="muted small">'+identity.map(escape).join(' · ')+'</p>':"")+
+      sections.filter(function(section){
+        return section&&section.label&&section.value!=null&&String(section.value)!=="";})
+        .map(function(section){
+          return '<section class="shared-domain-property"><h4>'+escape(section.label)+'</h4>'+
+            '<p class="shared-domain-value">'+escape(section.value)+'</p></section>';}).join("")+
+      notices.filter(function(notice){return notice!=null&&notice!=="";})
+        .map(function(notice){return '<p class="muted small">'+escape(notice)+'</p>';}).join("")+
+      links.map(function(link){return '<p>'+recordLink(link)+'</p>';}).join("")+
+      '</article>';
+  }
+  // Campaign lifecycle and session steps share one presentation too.
+  function renderStepper(steps, options) {
+    options=options||{};
+    var mode=domainMode(options.mode),domain=String(options.domain||"workflow");
+    if(!/^[a-z][a-z0-9-]*$/.test(domain))throw Error("Explicit stepper domain required");
+    if(!Array.isArray(steps)||!steps.length)throw Error("Authorized stepper steps required");
+    return '<ol class="shared-stepper" data-shared-stepper="'+escape(domain)+
+      '" data-stepper-mode="'+escape(mode)+'">'+steps.map(function(step,index){
+        if(!step||!step.label)throw Error("Stepper step requires a label");
+        var state=step.state||"todo";
+        if(!STEPPER_STATES.includes(state))throw Error("Unsupported stepper state");
+        return '<li data-step-state="'+escape(state)+'" data-step-index="'+escape(index)+'">'+
+          '<strong>'+escape((index+1)+". "+step.label)+'</strong>'+
+          (step.detail?' <span class="muted small">'+escape(step.detail)+'</span>':"")+
+          (step.action? ' '+matrixCommand(step.action):"")+'</li>';
+      }).join("")+'</ol>';
+  }
+  // Loading, empty, refused and denied states read the same in both modes.
+  function renderDomainStatus(options) {
+    options=options||{};
+    var mode=domainMode(options.mode),state=options.state;
+    if(!DOMAIN_STATUS_STATES.includes(state))throw Error("Unsupported status state");
+    var alert=state==="error"||state==="denied";
+    return '<p class="shared-domain-status" data-shared-status="'+escape(state)+
+      '" data-status-mode="'+escape(mode)+'" role="'+(alert?"alert":"status")+'">'+
+      escape(options.message||"")+'</p>';
+  }
+  /* One campaign lifecycle presentation; each mode maps its own status names. */
+  var CAMPAIGN_LIFECYCLE=Object.freeze([
+    {key:"planned",label:"Planned"},
+    {key:"in_progress",label:"In progress / running"},
+    {key:"under_review",label:"Under review"},
+    {key:"published",label:"Published"}
+  ]);
+  function campaignLifecycleSteps(status) {
+    var key=String(status||"");
+    var index=CAMPAIGN_LIFECYCLE.findIndex(function(step){return step.key===key;});
+    if(index<0)throw Error("Unsupported campaign lifecycle status");
+    return CAMPAIGN_LIFECYCLE.map(function(step,i){
+      return {label:step.label,state:i<index?"done":(i===index?"current":"todo")};});
+  }
+
+  /* Authorized field specifications per domain. A specification is shared
+   * presentation only: mode-specific keys, vocabularies and mode-only inputs
+   * stay explicit here instead of being re-declared in each controller. */
+  var WATCH_SOURCE_FIELDS=Object.freeze([
+    {key:"name",demoKey:"title",label:"Title",kind:"text",maxlength:160,span:true,
+     serverRequired:true,demoRequired:false},
+    {key:"claim",demoKey:"assessment",label:"Original claim / observation",kind:"textarea",
+     rows:4,maxlength:10000,span:true,serverRequired:true,demoRequired:false,
+     help:"External claims and estimates are never reproduced experiments."},
+    {key:"citation",demoKey:"source",label:"Citation / publication reference",kind:"text",
+     maxlength:2000,span:true},
+    {key:"url",label:"Source URL (optional)",kind:"url",maxlength:2048,span:true},
+    {key:"source_type",demoKey:"type",label:"Source type",kind:"select",
+     options:[["research","research"],["provider_notice","provider_notice"],
+       ["benchmark","benchmark"],["documentation","documentation"],["other","other"]],
+     demoOptions:[["Independent benchmark","Independent benchmark"],["Vendor claim","Provider/vendor claim"],
+       ["Research paper","Research paper"],["Expert estimate","Workgroup estimate"],["Other","Other literature"]]},
+    {key:"confidence",label:"Confidence",kind:"select",
+     options:[["unknown","unknown"],["low","low"],["medium","medium"],["high","high"]],
+     demoOptions:[["low","Low / unverified"],["medium","Medium"],["high","High"]]},
+    {key:"publication",modes:["demo"],label:"Source visibility",kind:"select",
+     options:[["draft","Workgroup only"],["published","Published / shareable"]]},
+    {key:"signal",modes:["demo"],label:"Related technology watch signal",kind:"select",
+     options:[],blankLabel:"None"},
+    {key:"component",modes:["demo"],label:"Related catalog component",kind:"select",
+     options:[],blankLabel:"Not linked"},
+    {key:"published_on",modes:["server"],label:"Publication date ISO YYYY-MM-DD (optional)",
+     kind:"text",maxlength:40},
+    {key:"retrieved_on",modes:["server"],label:"Retrieval date ISO YYYY-MM-DD (optional)",
+     kind:"text",maxlength:40},
+    {key:"limitations",label:"Limitations / caveats",kind:"textarea",rows:3,maxlength:10000,span:true},
+    {key:"extensions",modes:["server"],label:"Unknown / future metadata (JSON object)",
+     kind:"textarea",rows:4,span:true,help:"Preserve unknown properties; never invent values."}
+  ]);
+  var WATCH_ENTRY_FIELDS=Object.freeze([
+    {key:"name",demoKey:"title",label:"Signal or hypothesis title",kind:"text",maxlength:160,
+     span:true,serverRequired:true,demoRequired:false},
+    {key:"kind",modes:["demo"],label:"Technology theme",kind:"select",
+     options:[["Model","Model"],["Provider","Provider"],["Harness","Harness"],
+       ["Configuration","Configuration / combination"],["Tool","Tools and integrations"],
+       ["Research","Research finding"]]},
+    {key:"status",modes:["demo"],label:"Evidence collection status",kind:"select",
+     options:[["watching","Under review"],["pending","Collecting evidence"],["reviewed","Documented"]]},
+    {key:"publication",modes:["demo"],label:"Watch evidence visibility",kind:"select",
+     options:[["draft","Workgroup only — Draft"],["published","Published to readers"]]},
+    {key:"hypothesis",label:"Reasoned hypothesis / intuition",kind:"textarea",rows:3,
+     maxlength:10000,span:true,serverRequired:true,demoRequired:false,
+     help:"A hypothesis is a reasoned hypothesis, never measured evidence."},
+    {key:"assumptions",label:"Assumptions and conditions for engineering use",kind:"textarea",
+     rows:3,maxlength:10000,span:true},
+    {key:"notes",modes:["server"],label:"Notes",kind:"textarea",rows:3,maxlength:10000,span:true},
+    {key:"potential",modes:["demo"],label:"Expected benefit / engineering activities to investigate",
+     kind:"textarea",rows:3,maxlength:10000,span:true},
+    {key:"sources",modes:["server"],label:"Attach existing exact Research Source revision(s)",
+     kind:"multi",size:6,span:true,options:[],
+     help:"Reusing a source never duplicates or deletes its original bytes; existing revision pins stay unchanged."},
+    {key:"extensions",modes:["server"],label:"Unknown / future metadata (JSON object)",
+     kind:"textarea",rows:4,span:true}
+  ]);
+  var FORECAST_FIELDS=Object.freeze([
+    {key:"name",label:"Theoretical forecast title",kind:"text",maxlength:160,span:true,
+     serverRequired:true,demoRequired:false,
+     help:"A theoretical configuration, never a measured result."},
+    {key:"task_id",demoKey:"task",label:"Engineering task receiving this expected performance",
+     kind:"select",options:[],span:true},
+    {key:"watch_links",modes:["server"],label:"Supporting exact Watch signals (multi-select)",
+     kind:"multi",size:6,span:true,options:[]},
+    {key:"model",demoKey:"modelComponent",label:"Model (theoretical)",kind:"select",options:[]},
+    {key:"provider",demoKey:"providerComponent",label:"Provider (theoretical)",kind:"select",options:[]},
+    {key:"harness",demoKey:"harnessComponent",label:"Harness (theoretical)",kind:"select",options:[]},
+    {key:"configuration",demoKey:"config",label:"Assumed configuration, tools, versions and constraints",
+     kind:"textarea",rows:4,span:true,serverRequired:true,demoRequired:false},
+    {key:"assumptions",modes:["server"],label:"Assumptions (JSON object)",kind:"textarea",
+     rows:4,span:true},
+    {key:"predicted_metrics",modes:["server"],label:"Theoretical predicted metrics (JSON, unknown=null)",
+     kind:"textarea",rows:6,span:true,help:"Never present a predicted value as a measured one."},
+    {key:"quality",modes:["demo"],label:"Estimated quality /100",kind:"number"},
+    {key:"acceptance",modes:["demo"],label:"Estimated DoD acceptance (%)",kind:"number"},
+    {key:"autonomy",modes:["demo"],label:"Estimated agent autonomy /100",kind:"number"},
+    {key:"humanMinutes",modes:["demo"],label:"Estimated human involvement (minutes)",kind:"number"},
+    {key:"aiCost",modes:["demo"],label:"Expected model and tooling cost (€)",kind:"number"},
+    {key:"confidence",label:"Confidence level",kind:"select",
+     options:[["unknown","unknown"],["low","low"],["medium","medium"],["high","high"]],
+     demoOptions:[["low","Low"],["medium","Medium"],["high","High"]]},
+    {key:"rationale",label:"Inference and justification: why these metrics?",kind:"textarea",
+     rows:4,span:true,serverRequired:true,demoRequired:false},
+    {key:"uncertainty",label:"Uncertainty, caveats, what still needs validation",kind:"textarea",
+     rows:3,span:true},
+    {key:"hourlyRate",modes:["demo"],label:"Assumed engineer hourly cost (€)",kind:"number",min:0},
+    {key:"revision",modes:["demo"],label:"Projection revision",kind:"text",maxlength:40},
+    {key:"reviewNotes",modes:["demo"],label:"Reviewer notes (recorded for future review)",
+     kind:"textarea",rows:3,span:true}
+  ]);
+  var FEEDBACK_THREAD_FIELDS=Object.freeze([
+    {key:"title",label:"Short title",kind:"text",maxlength:160,span:true,serverRequired:true,demoRequired:false},
+    {key:"kind",demoKey:"type",label:"Kind",kind:"select",
+     options:[["feedback","feedback"],["question","question"],["idea","idea"],
+       ["request","request"],["discussion","discussion"]],
+     demoOptions:[["Experience","Real-use feedback"],["Idea","New idea"],
+       ["Need","Missing capability / unmet need"]]},
+    {key:"scope",modes:["server"],label:"Visibility",kind:"select",
+     options:[["public","Public"],["internal","Workgroup only"]]},
+    {key:"context_id",demoKey:"target",label:"Related catalog object reference",
+     kind:"select",serverKind:"text",options:[],span:true,blankLabel:"General / unspecified",
+     serverPlaceholder:"tsk-… or sol-…",
+     help:"Only public task, solution and technology catalog references can be linked; the exact revision is pinned."},
+    {key:"body",label:"Feedback / first message",kind:"textarea",rows:5,maxlength:16000,
+     span:true,serverRequired:true,demoRequired:false}
+  ]);
+  var FEEDBACK_REPLY_FIELDS=Object.freeze([
+    {key:"visibility",label:"Visibility",kind:"select",
+     options:[["public","Public"],["internal","Workgroup only"]],
+     demoOptions:[["public","Public reply"],["internal","Workgroup-only note"]]},
+    {key:"reply",serverKey:"body",label:"Response",kind:"textarea",rows:4,maxlength:16000,
+     span:true,serverRequired:true,demoRequired:false,demoPlaceholder:"Write a reply…"}
+  ]);
+  var RECOMMENDATION_FIELDS=Object.freeze([
+    {key:"name",demoKey:"recommendation",label:"Recommendation / suitable usage",
+     kind:"textarea",demoKind:"textarea",serverKind:"text",rows:4,span:true,
+     serverRequired:true,demoRequired:false},
+    {key:"task_id",modes:["server"],label:"Engineering Task",kind:"select",options:[]},
+    {key:"solution_id",modes:["server"],label:"Measured individual AI Solution",kind:"select",options:[]},
+    {key:"decision",modes:["server"],label:"Decision",kind:"select",
+     options:[["recommended","recommended"],["conditional","conditional"],
+       ["not_recommended","not_recommended"]]},
+    {key:"rationale",modes:["server"],label:"Engineering rationale",kind:"textarea",rows:3,
+     span:true,serverRequired:true},
+    {key:"limitations",label:"Limitations and conditions",kind:"textarea",rows:3,span:true},
+    {key:"run_ids",modes:["server"],label:"Exact original individual Runs (multi-select)",
+     kind:"multi",size:6,span:true,options:[],
+     help:"Only genuine individual Runs can support an individual recommendation."},
+    {key:"evaluation_id",modes:["server"],label:"Optional saved Evaluation",kind:"select",
+     options:[],blankLabel:"No evaluation"},
+    {key:"supersededBy",modes:["demo"],label:"Replacement / successor solution",kind:"select",
+     options:[],span:true,blankLabel:"No successor selected"},
+    {key:"publication",modes:["demo"],label:"Record publication status",kind:"select",
+     options:[["draft","Draft"],["published","Published"],["superseded","Superseded"],
+       ["retired","Retired"]]}
+  ]);
+  var EVALUATION_FIELDS=Object.freeze([
+    {key:"name",modes:["server"],label:"Evaluation title",kind:"text",maxlength:160,span:true,required:true},
+    {key:"run_ids",modes:["server"],label:"Original measured Run IDs",kind:"textarea",rows:5,span:true,required:true,
+     help:"One run-* ID per line. Theoretical forecast-* predictions are not measured Runs."},
+    {key:"assessment",modes:["server"],label:"Interpretation",kind:"select",
+     options:[["inconclusive","inconclusive"],["supported","supported"],["unsupported","unsupported"]]},
+    {key:"selected_metrics",modes:["server"],label:"Measured metric fields to inspect",kind:"multi",size:6,
+     span:true,options:[]},
+    {key:"notes",modes:["server"],label:"Notes",kind:"textarea",rows:3,span:true},
+    {key:"limitations",modes:["server"],label:"Limitations",kind:"textarea",rows:3,span:true}
+  ]);
+
   // UX-R04: shared, text-only presentation boundary for business record lists.
   // Adapters supply authorized rows and permissible actions. Nothing here
   // fetches, persists, invents revisions, or interprets a business decision.
@@ -709,5 +1033,12 @@
     MATRIX_STATES:MATRIX_STATES,normalizeMatrixPlan:normalizeMatrixPlan,
     matrixTotals:matrixTotals,renderCampaignMatrix:renderCampaignMatrix,
     renderMatrixCellDetail:renderMatrixCellDetail,
-    renderMatrixDecisionFields:renderMatrixDecisionFields};
+    renderMatrixDecisionFields:renderMatrixDecisionFields,
+    renderDomainFields:renderDomainFields,renderDomainDetail:renderDomainDetail,
+    renderDomainStatus:renderDomainStatus,renderStepper:renderStepper,
+    CAMPAIGN_LIFECYCLE:CAMPAIGN_LIFECYCLE,campaignLifecycleSteps:campaignLifecycleSteps,
+    WATCH_SOURCE_FIELDS:WATCH_SOURCE_FIELDS,WATCH_ENTRY_FIELDS:WATCH_ENTRY_FIELDS,
+    FORECAST_FIELDS:FORECAST_FIELDS,FEEDBACK_THREAD_FIELDS:FEEDBACK_THREAD_FIELDS,
+    FEEDBACK_REPLY_FIELDS:FEEDBACK_REPLY_FIELDS,
+    RECOMMENDATION_FIELDS:RECOMMENDATION_FIELDS,EVALUATION_FIELDS:EVALUATION_FIELDS};
 })(window);

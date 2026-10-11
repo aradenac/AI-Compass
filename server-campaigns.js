@@ -16,7 +16,11 @@
     function esc(value){return escapeHtml(value==null?"":String(value));}
     function status(message,error){
       var node=el("#campaign-status");
-      if(node){node.textContent=message;node.className=error?"server-status server-error":"server-status";}
+      if(node){
+        node.className=error?"server-status server-error":"server-status";
+        node.innerHTML=window.AICompassWorkgroup.renderDomainStatus({
+          mode:"server",state:error?"error":"ok",message:message==null?"":String(message)});
+      }
     }
     async function api(path,method,payload){
       var opts={method:method||"GET",credentials:"same-origin",cache:"no-store"};
@@ -589,6 +593,11 @@
         var chosenTask=taskIds.includes(filter)?filter:"";
         function taskName(id){var t=tasks.find(function(x){return x.id===id;});return t?t.name:id;}
         var html='<h3>'+esc(row.name)+' · Evaluation Matrix · '+esc(matrix.revision)+'</h3>'+
+          window.AICompassWorkgroup.renderStepper(
+            window.AICompassWorkgroup.campaignLifecycleSteps(row.status),
+            {mode:"server",domain:"campaign"})+
+          (row.archived?'<p class="muted small" role="status">This campaign revision is archived; '+
+            'the lifecycle above is historical.</p>':"")+
           '<p class="muted small">Task-associated configurations only · each pair has a stable evaluation ID. Candidate planning is distinct from immutable measured Runs. Historical decisions are frozen; attempt counts are the live observed projection.</p>'+
           '<label>Plan revision<select id="matrix-revision">'+
           revisions.map(function(r){return '<option value="'+esc(r.revision)+'"'+

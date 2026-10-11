@@ -24,8 +24,9 @@ function mount(root,csrf,escapeHtml){
   function status(message,error){
     var node=$("#rec-status");
     if(node){
-      node.textContent=message;
       node.className=error?"server-status server-error":"server-status";
+      node.innerHTML=window.AICompassWorkgroup.renderDomainStatus({
+        mode:"server",state:error?"error":"ok",message:message==null?"":String(message)});
     }
   }
   function init(){
@@ -119,32 +120,26 @@ function mount(root,csrf,escapeHtml){
         emptyText:"No permitted recommendations in Server. Drafts are workgroup-only."});
   }
 
-  function field(name,label,value,required,multi){
-    return '<label>'+label+(multi?'<textarea name="'+name+'" '+(required?"required":"")+'>'+esc(value||"")+'</textarea>':
-      '<input name="'+name+'" value="'+esc(value||"")+'" '+(required?"required":"")+'>')+'</label>';
-  }
   function form(row){
     if(!writer)return;
     var p=row&&row.properties||{},area=$("#rec-editor");area.hidden=false;
     area.innerHTML='<h3>'+(row?"Revise original recommendation":"Draft a new recommendation")+'</h3>'+
-      '<form id="rec-form">'+field("name","Decision title",row&&row.name,true)+
-      '<label>Engineering Task<select name="task_id">'+tasks.map(function(t){
-        return option(t.id,t.name||t.id,row&&row.task_id===t.id);}).join("")+'</select></label>'+
-      '<label>Measured individual AI Solution<select name="solution_id">'+solutions.map(function(s){
-        return option(s.id,s.name||s.id,row&&row.solution_id===s.id);}).join("")+'</select></label>'+
-      '<label>Decision<select name="decision">'+["recommended","conditional","not_recommended"].map(function(x){
-        return option(x,x,p.decision===x);}).join("")+'</select></label>'+
-      field("rationale","Engineering rationale",p.rationale,true,true)+
-      field("limitations","Limitations / uncertain scope",p.limitations,false,true)+
-      '<label>Exact original individual Runs (multi-select)<select name="run_ids" multiple size="6">'+
-      runs.map(function(r){return option(r.id,r.id+" · "+r.outcome+
-        " · "+(r.metrics.quality_score==null?"unknown":r.metrics.quality_score),
-        !!row&&row.run_refs.some(function(x){return x.id===r.id;}));}).join("")+
-      '</select></label>'+
+      '<form id="rec-form">'+
+      window.AICompassWorkgroup.renderDomainFields(
+        window.AICompassWorkgroup.RECOMMENDATION_FIELDS,{
+          name:row&&row.name||"",task_id:row&&row.task_id||"",
+          solution_id:row&&row.solution_id||"",decision:p.decision||"recommended",
+          rationale:p.rationale||"",limitations:p.limitations||"",
+          run_ids:(row&&row.run_refs||[]).map(function(reference){return reference.id;}),
+          evaluation_id:row&&row.evaluation_id||""
+        },"server",{idPrefix:"recommendation",choices:{
+          task_id:tasks.map(function(task){return [task.id,task.name||task.id];}),
+          solution_id:solutions.map(function(solution){return [solution.id,solution.name||solution.id];}),
+          run_ids:runs.map(function(run){return [run.id,run.id+" · "+run.outcome+" · "+
+            (run.metrics.quality_score==null?"unknown":run.metrics.quality_score)];}),
+          evaluation_id:evaluations.map(function(evaluation){
+            return [evaluation.id,evaluation.name+" · "+evaluation.revision];})}})+
       '<p class="muted small">Only genuine individual Runs for the selected Task and Solution are valid. Composite Framework totals cannot support an individual recommendation.</p>'+
-      '<label>Optional saved Evaluation<select name="evaluation_id">'+option("","No evaluation",!row||!row.evaluation_id)+
-      evaluations.map(function(e){return option(e.id,e.name+" · "+e.revision,
-                         row&&row.evaluation_id===e.id);}).join("")+'</select></label>'+
       '<p class="muted small">Uses the exact saved Evaluation revision. Existing revisions are never silently re-pinned.</p>'+
       '<button type="submit">Save immutable draft</button> <button type="button" id="rec-cancel">Cancel</button>'+
       '</form>';

@@ -154,6 +154,8 @@ jobs:
         run: node scripts/test-campaign-matrix.js
       - name: Verify one shared campaign evaluation matrix across Demo and Server
         run: node scripts/test-shared-campaign-matrix.js
+      - name: Verify shared Demo/Server form, detail, stepper and status primitives
+        run: node scripts/test-shared-domain-primitives.js
       - name: Verify Server-only campaign UI regression
         run: node scripts/test-server-campaigns.js
       - name: Verify composable guide historical Demo render and integrated Server workflow

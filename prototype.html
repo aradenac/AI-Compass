@@ -1591,15 +1591,15 @@ function dialogResearch(id,watchId){
 if(!canEdit())return;
 var e=rec("researchEvidence",id),w=rec("watch",watchId);
 openForm(e?"Edit external evidence":"Register literature or performance estimate",e?"researchEdit":"research",
-field("title","Source / assessment title",e?.title||"","text","full")+
-selectField("type","Evidence category",[["Independent benchmark","Independent benchmark"],["Vendor claim","Provider/vendor claim"],["Research paper","Research paper"],["Expert estimate","Workgroup estimate"],["Other","Other literature"]],e?.type||"Independent benchmark")+
-selectField("confidence","Confidence",[["low","Low / unverified"],["medium","Medium"],["high","High"]],e?.confidence||"low")+
-selectField("publication","Source visibility",[["draft","Workgroup only"],["published","Published / shareable"]],e?.publication||"published")+
-selectField("signal","Related technology watch signal",[["","None"]].concat(db.watch.map(function(x){return[x.id,x.title];})),e?.signal||watchId||"")+
-selectField("component","Related catalog component",[["","Not linked"]].concat(db.components.map(function(x){return[x.id,x.type+": "+x.name];})),e?.component||w?.component||"")+
-field("source","Source URL, publication or citation",e?.source||"","text","full")+
-field("assessment","Findings, claimed performance and/or predictions",e?.assessment||"","textarea","full")+
-field("limitations","Methodology, uncertainty and assumptions",e?.limitations||"","textarea","full"),id,e?"Save evidence":"Register source");
+window.AICompassWorkgroup.renderDomainFields(window.AICompassWorkgroup.WATCH_SOURCE_FIELDS,{
+ title:e?.title||"",assessment:e?.assessment||"",source:e?.source||"",
+ type:e?.type||"Independent benchmark",confidence:e?.confidence||"low",
+ publication:e?.publication||"published",signal:e?.signal||watchId||"",
+ component:e?.component||w?.component||"",limitations:e?.limitations||""
+},"demo",{idPrefix:"research",choices:{
+ signal:db.watch.map(function(x){return [x.id,x.title];}),
+ component:db.components.map(function(x){return [x.id,x.type+": "+x.name];})}}),
+id,e?"Save evidence":"Register source");
 }
 function feedbackPage(){
 var search=(ui.filters.feedbackSearch||"").toLowerCase();
@@ -1767,18 +1767,21 @@ field("tags","Tags (comma separated)",s?.tags.join(", ")||"","text","full"),id,e
 function dialogRecommendation(id){
 var s=rec("solutions",id);if(!s)return;
 openForm("Publish / revise solution recommendation","recommendation",'<div class="span2 note"><strong>'+E(s.name)+'</strong><br>Publication does not erase historic experimental evidence. Decision changes are recorded in the activity feed.</div>'+
-field("recommendation","Recommendation / suitable usage",s.recommendation,"textarea","full")+
-field("limitations","Limitations and conditions",s.limitations,"textarea","full")+
-selectField("supersededBy","Replacement / successor solution",[["","No successor selected"]].concat(db.solutions.filter(function(x){return x.id!==id;}).map(function(x){return [x.id,x.name];})),s.supersededBy||"",true)+
-selectField("publication","Record publication status",[["draft","Draft"],["published","Published"],["superseded","Superseded"],["retired","Retired"]],s.publication),id,"Save recommendation");
+window.AICompassWorkgroup.renderDomainFields(window.AICompassWorkgroup.RECOMMENDATION_FIELDS,{
+ recommendation:s.recommendation||"",limitations:s.limitations||"",
+ supersededBy:s.supersededBy||"",publication:s.publication||"draft"
+},"demo",{idPrefix:"recommendation",choices:{supersededBy:db.solutions.filter(function(x){
+ return x.id!==id;}).map(function(x){return [x.id,x.name];})}}),
+id,"Save recommendation");
 }
 function dialogFeedback(){
 if(canEdit())return;
 openForm("Submit feedback, an idea or a need","feedback",
-selectField("type","Contribution type",[["Experience","Real-use feedback"],["Idea","New idea"],["Need","Missing capability / unmet need"]],"Experience")+
-selectField("target","Related task or solution",[["","General / unspecified"]].concat(db.tasks.filter(function(t){return t.baseline>0;}).map(function(t){return[t.id,"Task: "+t.name];})).concat(db.solutions.filter(visibleSolution).map(function(s){return[s.id,"Solution: "+s.name];})),"")+
-field("title","Short title","","text","full")+
-field("body","Context, observations and proposal","","textarea","full"),"","Submit feedback");
+window.AICompassWorkgroup.renderDomainFields(window.AICompassWorkgroup.FEEDBACK_THREAD_FIELDS,
+ {title:"",type:"Experience",target:"",body:""},"demo",{idPrefix:"feedback",
+ choices:{target:db.tasks.filter(function(t){return t.baseline>0;}).map(function(t){return[t.id,"Task: "+t.name];})
+  .concat(db.solutions.filter(visibleSolution).map(function(s){return[s.id,"Solution: "+s.name];}))}}),
+"","Submit feedback");
 }
 function dialogGuide(id){
 var g=rec("guides",id);
@@ -1819,12 +1822,19 @@ function dialogForecast(id,watchId,taskId){
 if(!canEdit())return;
 var p=rec("proposals",id),chosen=p?.watchIds|| (watchId?[watchId]:[]),task=p?rec("tasks",p.task):null,refs=p?.componentRefs||{};
 var inputs='<div class="span2 note">This is a <strong>theoretical configuration</strong>: expected outcomes from watch evidence, not observed performance. Its sources, assumptions and task scope must be explicit. Saving creates a draft, not a publication.</div>'+
-field("name","Forecast configuration name",p?.name||"","text","full")+
-selectField("task","Engineering task receiving this expected performance",[["","Select task"]].concat(db.tasks.filter(function(t){return t.baseline>0;}).map(function(t){return[t.id,t.name];})),p?.task||taskId||"",true)+
+window.AICompassWorkgroup.renderDomainFields(window.AICompassWorkgroup.FORECAST_FIELDS,{
+ name:p?.name||"",task:p?.task||taskId||"",
+ modelComponent:refs.model||"",providerComponent:refs.provider||"",harnessComponent:refs.harness||"",
+ config:p?.config||"",quality:p?.quality??"",acceptance:p?.acceptance??"",autonomy:p?.autonomy??"",
+ humanMinutes:p?.humanMinutes??"",aiCost:p?.aiCost??"",confidence:p?.confidence||"low",
+ rationale:p?.rationale||"",uncertainty:p?.uncertainty||"",
+ hourlyRate:p?.hourlyRate??60,revision:p?.revision||"1.0",reviewNotes:p?.reviewNotes||""
+},"demo",{idPrefix:"forecast",blankLabels:{task:"Select task"},choices:{
+ task:db.tasks.filter(function(t){return t.baseline>0;}).map(function(t){return[t.id,t.name];}),
+ modelComponent:comboComponentOptions("model"),providerComponent:comboComponentOptions("provider"),
+ harnessComponent:comboComponentOptions("harness")}})+
 '<div class="span2"><strong>Supporting watch signals (select one or more)</strong><p class="muted small">Multiple hypotheses and their external sources may support the same forecast.</p><div class="watch-link-list">'+forecastReferenceRows(db.watch,chosen)+'</div></div>'+
-selectField("modelComponent","Model (theoretical)",comboComponentOptions("model"),refs.model||"",true)+
-selectField("providerComponent","Provider (theoretical)",comboComponentOptions("provider"),refs.provider||"",true)+
-selectField("harnessComponent","Harness (theoretical)",comboComponentOptions("harness"),refs.harness||"",true)+'<details class="span2" style="margin:4px 0 11px"><summary class="pointer small"><strong>Component missing?</strong> Register model/provider/harness here (optional)</summary>'+
+ '<details class="span2" style="margin:4px 0 11px"><summary class="pointer small"><strong>Component missing?</strong> Register model/provider/harness here (optional)</summary>'+
 '<div class="note" style="margin:9px 0">These will be added as unverified items to Technology Catalog when this forecast is saved; the Watch Entry remains independent.</div><div class="form-grid">'+
 field("newModel","New model name (overrides selection)","")+
 field("newModelVersion","Model version","Unverified")+
@@ -1832,19 +1842,7 @@ field("newProvider","New provider name (overrides selection)","")+
 field("newProviderVersion","Provider version","Unverified")+
 field("newHarness","New harness name (overrides selection)","")+
 field("newHarnessVersion","Harness version","Unverified")+'</div></details>'+
-field("config","Assumed configuration, tools, versions and constraints",p?.config||"","textarea","full")+
-'<div class="span2"><h3>Predicted outcomes — NOT benchmark results</h3><p class="muted small">Scores are workgroup estimates (0–100); AI cost and engineer time refer to a hypothetical accepted-result attempt, not an observed run.</p></div>'+
-field("quality","Estimated quality /100",p?.quality??"","number")+
-field("acceptance","Estimated DoD acceptance (%)",p?.acceptance??"","number")+
-field("autonomy","Estimated agent autonomy /100",p?.autonomy??"","number")+
-field("humanMinutes","Estimated human involvement (minutes)",p?.humanMinutes??"","number")+
-field("aiCost","Expected model & tooling cost (€)",p?.aiCost??"","number")+
-field("hourlyRate","Assumed engineer hourly cost (€)",p?.hourlyRate??60,"number")+
-selectField("confidence","Confidence level",[["low","Low"],["medium","Medium"],["high","High"]],p?.confidence||"low")+
-field("revision","Projection revision",p?.revision||"1.0")+
-field("rationale","Inference and justification: why these metrics?",p?.rationale||"","textarea","full")+
-field("uncertainty","Uncertainty, caveats, what still needs validation",p?.uncertainty||"","textarea","full")+
-field("reviewNotes","Reviewer notes (recorded for future review)",p?.reviewNotes||"","textarea","full");
+ '<div class="span2 note warn">The predicted outcomes above are workgroup estimates (0–100) and NOT benchmark results. AI cost and engineer time refer to a hypothetical accepted-result attempt, not an observed run.</div>';
 openForm(p?"Edit theoretical forecast":"Draft theoretical configuration","forecast",inputs,id||"",p?"Save forecast":"Create draft forecast");
 }
 function watchVisibleForPublication(id){var w=rec("watch",id);return !!w&&w.publication==="published"&&watchEvidence(id).some(function(e){return e.publication==="published";});}
@@ -1902,13 +1900,11 @@ function dialogWatch(id){
 if(!canEdit())return;
 var w=rec("watch",id),linked=w?sourceIdsForWatch(w.id):[];
 var body='<div class="span2 note">A Watch Entry records a reasoned hypothesis. Reuse sources from the shared evidence library or create new citations here; one source can support several hypotheses.</div>'+
-field("title","Signal or hypothesis title",w?.title||"","text","full")+
-selectField("kind","Technology theme",[["Model","Model"],["Provider","Provider"],["Harness","Harness"],["Configuration","Configuration / combination"],["Tool","Tools and integrations"],["Research","Research finding"]],w?.kind||"Configuration")+
-selectField("status","Evidence collection status",[["watching","Under review"],["pending","Collecting evidence"],["reviewed","Documented"]],w?.status||"watching")+
-selectField("publication","Watch evidence visibility",[["draft","Workgroup only — Draft"],["published","Published to readers"]],w?.publication||"draft")+
-field("hypothesis","Reasoned hypothesis / intuition",w?.hypothesis||w?.summary||"","textarea","full")+
-field("assumptions","Assumptions and conditions for engineering use",w?.assumptions||"","textarea","full")+
-field("potential","Expected benefit / engineering activities to investigate",w?.potential||"","textarea","full")+
+window.AICompassWorkgroup.renderDomainFields(window.AICompassWorkgroup.WATCH_ENTRY_FIELDS,{
+ title:w?.title||"",kind:w?.kind||"Configuration",status:w?.status||"watching",
+ publication:w?.publication||"draft",hypothesis:w?.hypothesis||w?.summary||"",
+ assumptions:w?.assumptions||"",potential:w?.potential||""
+},"demo",{idPrefix:"watch"})+
 '<div class="span2"><div class="row-between"><strong>Supporting evidence library</strong>'+badge(db.researchEvidence.length+" reusable sources")+'</div>'+
 '<p class="muted small" style="margin:8px 0">Search and select existing citations. Every reference is stored once and can be linked to multiple Watch Entries.</p>'+librarySourcePicker(linked)+
 '<details class="watch-new-source" style="margin-top:12px"><summary class="pointer small"><strong>+ Register a new source</strong></summary>'+
@@ -2478,10 +2474,14 @@ var list=msgs.map(function(m){
 return '<div class="feedback-message"><div class="row-between"><div class="row"><strong>'+E(actor(m.author))+'</strong> '+
 badge(m.visibility==="internal"?"INTERNAL · workgroup only":"PUBLIC")+'</div><span class="muted small">'+E(m.date.replace("T"," ").slice(0,19))+'</span></div>'+
 '<div class="text-block small" style="margin-top:8px">'+E(m.body)+'</div></div>';}).join("")||'<p class="muted small">No replies yet.</p>';
-var compose='<form class="feedback-reply-form" data-feedback="'+E(id)+'"><div class="row-between"><strong>Reply to the conversation</strong>'+
-(canEdit()?'<select name="visibility" aria-label="Visibility"><option value="public">Public response</option><option value="internal">Internal workgroup note</option></select>':
-'<input type="hidden" name="visibility" value="public">')+'</div>'+
-'<textarea name="reply" required placeholder="Write a reply…" rows="3"></textarea><div class="right" style="margin-top:8px"><button class="btn sm primary" type="submit">Post reply</button></div></form>';
+var compose='<form class="feedback-reply-form" data-feedback="'+E(id)+'">'+
+'<div class="row-between"><strong>Reply to the conversation</strong></div>'+
+window.AICompassWorkgroup.renderDomainFields(window.AICompassWorkgroup.FEEDBACK_REPLY_FIELDS,
+ {visibility:"public",reply:""},"demo",{idPrefix:"feedback-reply",
+ locked:canEdit()?{}:{visibility:"public"},
+ choices:{visibility:[["public","Public response"],
+  ...(canEdit()?[["internal","Internal workgroup note"]]:[])]}})+
+'<div class="right" style="margin-top:8px"><button class="btn sm primary" type="submit">Post reply</button></div></form>';
 return '<section class="feedback-thread"><h3 style="margin-bottom:11px">Conversation · chronological history</h3>'+
 '<p class="muted small" style="margin-bottom:11px">Public and internal replies appear in their actual order. Private notes are visible only to workgroup members.</p>'+
 '<div class="feedback-messages">'+list+'</div>'+compose+'</section>';
@@ -2593,12 +2593,16 @@ function detailsCampaign(id){
 var c=rec("campaigns",id);if(!c||c.archived||(!canEdit()&&c.stage!=="published"))return;
 var trials=db.campaignTrials.filter(function(t){return t.campaign===id;}),runs=campaignRuns(c),
  setup=c.solutionSetup||{};
+var lifecycle={planned:"planned",active:"in_progress",review:"under_review",published:"published"}[c.stage||"planned"];
 var head='<div class="row-between"><div class="tags">'+badge(campaignStatusLabel(c))+' '+badge(c.frameworkId?"Framework / multiple participants":c.mode==="solution_scope"?"One fixed AI setup":"Fixed task / multiple solutions")+'</div><span class="muted small">Owner: '+E(actor(c.owner))+'</span></div>'+
 '<h3 style="margin:13px 0 7px">'+E(c.title)+'</h3><p class="text-block">'+E(c.purpose)+'</p>'+
 '<p class="muted small" style="margin-top:8px">'+E(c.notes||"")+'</p>'+
 (c.setupGuideId&&rec("guides",c.setupGuideId)&&(canEdit()||rec("guides",c.setupGuideId).status==="published")?
  '<p class="small" style="margin-top:9px"><strong>Setup guide:</strong> '+linkAction(rec("guides",c.setupGuideId).title,"guideDetail",c.setupGuideId)+'</p>':
  '<p class="muted small" style="margin-top:9px">Setup guide: '+(c.setupGuideId?"Not publicly available":"Not linked yet")+'</p>')+
+(lifecycle?window.AICompassWorkgroup.renderStepper(
+  window.AICompassWorkgroup.campaignLifecycleSteps(lifecycle),
+  {mode:"demo",domain:"campaign"}):"")+
 '<div class="note" style="margin-top:12px">Step 1: Campaign scope and goal → Step 2: Test Cases → Step 3: Setup → Step 4: Timed interactions → Step 5: Outcome & metrics → Close for review.</div>'+
 '<div class="tags" style="margin-top:12px">'+badge((c.watchIds||[]).length+" technology signals")+' '+badge(c.caseIds.length+" Test Cases")+' '+badge(runs.length+" runs")+' '+badge(trials.filter(function(t){return t.status!=="completed";}).length+" active sessions")+'</div>';
 head+='<h3 style="margin:13px 0 6px">Linked technology signals</h3>'+
