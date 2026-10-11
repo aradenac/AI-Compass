@@ -53,6 +53,12 @@ function mount(root,csrf,escapeHtml){
       '<div id="results-evaluations" class="server-card"></div>'+
       '<section id="results-editor" class="server-card" hidden></section>'+
       '<section id="results-detail" class="server-card" hidden></section>';
+    var filtersFromUrl=new URLSearchParams(window.location.search);
+    ["kind","view"].forEach(function(k){
+      var v=filtersFromUrl.get(k),select=$("#results-filter").elements[k];
+      if(v && Array.from(select.options).some(function(opt){return opt.value===v;}))
+        select.value=v;
+    });
     $("#results-refresh").addEventListener("click",refresh);
     $("#results-filter").addEventListener("submit",function(event){
       event.preventDefault();
@@ -126,9 +132,10 @@ function mount(root,csrf,escapeHtml){
             '</dd><dt>Human time (minutes)</dt><dd>'+
               format(metrics.human_total_minutes||metrics.human_minutes)+
             '</dd></dl>')+
-          '<p><a href="'+esc(window.AICompassContext.route("server","engineer","home",{
+          '<p>'+(selected.kind!=="forecast"?
+          '<a href="'+esc(window.AICompassContext.route("server","engineer","home",{
             task:selected.task_id,solution:selected.solution_id||selected.candidate
-          }))+'">Related measured AI Solution</a> · '+
+          }))+'">Related measured AI Solution</a> · ':"")+
           (writer&&selected.campaign_id?'<a href="'+esc(window.AICompassContext.route("server","workgroup","benchmark",{
             record:selected.campaign_id
           }))+'">Related Campaign</a>':'')+'</p>'+
