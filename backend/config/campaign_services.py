@@ -221,7 +221,7 @@ def _snapshot_context(data, actor, previous=None):
     else:
         pins = [(pin.test_case, pin.revision)
                 for pin in previous.case_pins.select_related("test_case__task","revision")]
-    if task and any(case.task_id != task.pk for case, _ in pins):
+    if task and not (data.get("_trusted_matrix") or (previous and previous.revision.properties.get("matrix_plan"))) and any(case.task_id != task.pk for case, _ in pins):
         raise InvalidCampaign("All Test Cases must belong to the campaign's fixed task")
     if framework is None and "participants" in data and data["participants"] not in (None,[]):
         raise InvalidCampaign("Participant trios require a Framework")
@@ -250,7 +250,9 @@ def _framework(public_id):
 def _properties(data, previous=None):
     props = dict(previous or {})
     supplied = data.get("properties", {})
-    _dictionary(supplied, "properties")
+    _dictionary(supplied, "properties", 512*1024 if data.get("_trusted_matrix") is True else 32768)
+    if "matrix_plan" in supplied and data.get("_trusted_matrix") is not True:
+        raise InvalidCampaign("Matrix plans must be changed through the evaluation API")
     if set(supplied) & {"mode", "status", "archived", "pricing_policy"}:
         raise InvalidCampaign("mode and lifecycle state cannot be overridden through properties")
     props.update(supplied)
@@ -367,6 +369,18 @@ def modify(*, actor, public_id, data, action=None):
                 if props["archived"]: raise InvalidTransition("Archived campaigns cannot transition")
                 if action not in ACTIONS or state not in ACTIONS[action][0]:
                     raise InvalidTransition("Forbidden campaign lifecycle transition")
+                if action=="close" and props.get("matrix_plan"):
+                    from .campaign_matrix_services import projection
+                    counts=projection(item,old)["summary"]
+                    partial=data.get("partial_review",False)
+                    if type(partial) is not bool:
+                        raise InvalidCampaign("partial_review must be a boolean")
+                    if counts["outstanding"] and not partial:
+                        raise InvalidTransition("Full plan has "+str(counts["outstanding"])+
+                            " pending/in-progress obligations; complete/waive them or explicitly close for partial review")
+                    props["review_scope"]="partial" if counts["outstanding"] else "full"
+                elif "partial_review" in data:
+                    raise InvalidCampaign("partial_review applies only when closing a matrix campaign")
                 if action=="publish" and previous.case_pins.count()==0:
                     raise InvalidTransition("Cannot publish a campaign without Test Cases")
                 props["status"]=ACTIONS[action][1]

@@ -1963,6 +1963,12 @@ guidedField("newGuideTitle","New guide title","","text","full","Name the reusabl
 guidedField("newGuideBody","Installation steps (optional when URL provided)","","textarea","full","Use guide text, URL or both.")+
  guidedField("newGuideUrl","Setup guide URL (optional when text provided)","","url","full","HTTP or HTTPS link to reusable instructions.")+
 '</div></details>'+
+(c.matrixPlan?selectField("evaluationId","Selected Task × configuration evaluation",
+ [["","Choose a selected planned evaluation"]].concat(c.matrixPlan.cells.filter(function(cell){
+   return cell.caseId===tc.id&&cell.decision==="selected";
+ }).map(function(cell){var cfg=c.matrixPlan.configurations.find(function(x){
+   return x.id===cell.configurationId;
+ });return [cell.id,(cfg?.label||"Configuration")+" · "+cell.id];})),"",true):"")+
 guidedField("setupNotes","Installation deviations / deployment environment (optional)","","textarea","full","Record OS, machine, deviations from the selected guide and environment constraints. If validating a Technology Watch forecast, document deviations from its proposed configuration here.");
 openForm("Step 3 · Installation & setup","campaignTrialSetup",fields,campaignId,"Save setup → interactions");
 }
@@ -2259,6 +2265,80 @@ event("Feedback",visibility==="internal"?"Internal comment added":"Public respon
 persist();detailsFeedback(id);
 toast(visibility==="internal"?"Internal note saved.":"Public reply saved.");
 }
+
+/* FUT-08: fictional offline evaluation planning; no Server fallback or measured
+ * evidence is invented by changes to an evaluation decision. */
+function demoMatrixStatus(c,cell){
+ var trials=db.campaignTrials.filter(function(t){
+  return t.campaign===c.id&&t.evaluationId===cell.id;
+ });
+ var closed=db.runs.filter(function(r){
+  return r.campaignId===c.id&&r.initialSetup?.evaluationId===cell.id;
+ });
+ return {state:cell.decision==="waived"?"waived":cell.decision==="not_selected"?
+  "not_selected":closed.length?"evaluated":trials.some(function(t){return t.status!=="completed";})?
+  "in_progress":"pending",runs:closed,attempts:trials};
+}
+function demoMatrixMarkup(c){
+ var plan=c.matrixPlan;if(!plan)return '<div class="note"><strong>Evaluation Matrix:</strong> not configured for this legacy Demo campaign.'+
+ (canEdit()?btn("+ Plan Task × configuration evaluations","campaignMatrixAdd",c.id,"sm"):"")+'</div>';
+ var byId=Object.fromEntries(plan.configurations.map(function(x){return[x.id,x];}));
+ var stats={candidates:plan.cells.length,pending:0,in_progress:0,evaluated:0,waived:0,not_selected:0};
+ plan.cells.forEach(function(cell){stats[demoMatrixStatus(c,cell).state]++;});
+ var tasks=Array.from(new Set(plan.configurations.map(function(x){return x.taskId;})));
+ return '<div class="card tight" style="margin-top:14px"><h3>Campaign Evaluation Matrix</h3>'+
+ '<p class="small">Candidate cells: '+stats.candidates+' · Evaluated: '+stats.evaluated+
+ ' · Pending: '+stats.pending+' · In Progress: '+stats.in_progress+' · Waived: '+stats.waived+
+ ' · Not Selected: '+stats.not_selected+'</p>'+
+ '<p class="small"><strong>Full plan: '+(stats.pending+stats.in_progress?"outstanding":"complete")+
+ '</strong>. Failed DoD Runs count as completed attempts, not successful outcomes. Waivers and non-selection are not evidence.</p>'+
+ tasks.map(function(taskId){
+  var configs=plan.configurations.filter(function(x){return x.taskId===taskId;}),
+   cells=plan.cells.filter(function(x){return byId[x.configurationId]?.taskId===taskId;}),
+   caseIds=Array.from(new Set(cells.map(function(x){return x.caseId;})));
+  return '<h4>'+E(rec("tasks",taskId)?.name||taskId)+'</h4><div style="overflow-x:auto"><table style="width:100%"><thead><tr><th>Test Case</th>'+
+   configs.map(function(cfg){return '<th>'+E(cfg.label)+'</th>';}).join("")+'</tr></thead><tbody>'+
+   caseIds.map(function(id){return '<tr><th>'+E(rec("cases",id)?.title||id)+'</th>'+
+    configs.map(function(cfg){var cell=cells.find(function(x){return x.caseId===id&&x.configurationId===cfg.id;});
+     if(!cell)return '<td>—</td>';
+     var state=demoMatrixStatus(c,cell);
+     return '<td'+(state.state==="not_selected"?' style="opacity:.55"':"")+'>'+
+      badge(state.state)+' <span class="small">'+state.runs.length+' run(s)</span>'+
+      (cell.waiver?'<p class="small">Waiver: '+E(cell.waiver.reason)+'</p>':"")+
+      (canEdit()?btn("Decision","campaignMatrixDecision",c.id+"|"+cell.id,"sm"):"")+'</td>';
+    }).join("")+'</tr>';}).join("")+'</tbody></table></div>';
+ }).join("")+
+ (canEdit()?btn("+ Add Task configuration","campaignMatrixAdd",c.id,"sm primary"):"")+'</div>';
+}
+function dialogDemoMatrixAdd(id){
+ var c=rec("campaigns",id);if(!c||!canEdit()||!["planned","active"].includes(c.stage))return;
+ openForm("Add Task-associated configuration","matrixConfig",
+ selectField("task","Task",db.tasks.map(function(t){return[t.id,t.name];}),c.task||"")+
+ field("label","Configuration label","","text","full")+
+ (c.frameworkId?selectField("kind","Configuration type",[["framework","Framework participant workflow"]],"framework"):
+  selectField("kind","Configuration type",[["individual","Individual AI trio"]],"individual"))+
+ (c.frameworkId?'<div class="span2"><strong>Selected Framework participants</strong>'+
+ (c.frameworkInstances||[]).map(function(p){
+  return '<label class="watch-link-row"><input type="checkbox" name="matrixParticipant_'+E(p.id)+'" value="yes" checked>'+
+   '<span>'+E(p.label)+' · '+E(p.role)+'</span></label>';
+ }).join("")+'</div>':["model","provider","harness"].map(function(k){
+  return selectField(k,k,comboComponentOptions(k),"",true);
+ }).join(""))+
+ (c.frameworkId?"":field("version","Configuration version","1.0","text","full"))+
+ '<div class="span2 note">All available Test Cases for the selected Task will initially be selected. You can deselect or waive cells individually; completed Runs remain immutable.</div>',
+ id,"Add evaluation column");
+}
+function dialogDemoMatrixDecision(id){
+ var pair=id.split("|"),c=rec("campaigns",pair[0]),
+ cell=c?.matrixPlan?.cells.find(function(x){return x.id===pair[1];});
+ if(!c||!cell||!canEdit()||!["planned","active"].includes(c.stage))return;
+ openForm("Evaluation decision","matrixDecision",
+ selectField("decision","Decision",[["selected","Selected / Pending"],["not_selected","Not Selected"],["waived","Waived"]],
+ cell.decision)+
+ field("reason","Waiver explanation (required only when waived)","","textarea","full")+
+ '<p class="span2 muted small">Waiver is a deliberate release from an existing obligation, not a failed Test Run.</p>',
+ id,"Save decision");
+}
 function detailsCampaign(id){
 var c=rec("campaigns",id);if(!c||c.archived||(!canEdit()&&c.stage!=="published"))return;
 var trials=db.campaignTrials.filter(function(t){return t.campaign===id;}),runs=campaignRuns(c),
@@ -2298,12 +2378,13 @@ var trialList=trials.map(function(t){return '<div class="list-row"><div class="s
 (t.status==="completed"?btn("View run","runDetail",t.runId,"sm"):btn("Resume","campaignResumeTrial",t.id,"sm primary"))+'</div>';}).join("");
 var review='<div class="card tight" style="margin-top:14px"><h3>Closure and review</h3><p class="muted small">'+E(c.reviewNotes||"No review notes yet")+'</p>'+
 (c.reviewer?'<p class="muted small">Reviewed by '+E(actor(c.reviewer))+'</p>':"")+'</div>';
-var body=head+'<h3 style="margin:18px 0 10px">Test Cases in campaign</h3>'+
+var body=head+demoMatrixMarkup(c)+'<h3 style="margin:18px 0 10px">Test Cases in campaign</h3>'+
 '<div class="list">'+(cases||'<p class="muted small">No Test Cases yet. Add a new one or attach an existing challenge.</p>')+'</div>'+
 (c.stage==="active"?'<div class="inline-actions" style="margin:11px 0">'+btn("+ New Test Case","campaignNewCase",id,"sm primary")+btn("Attach existing Test Case","campaignAttachCase",id,"sm")+'</div>':"")+
 '<h3 style="margin:19px 0 8px">Experiment sessions</h3><div class="list">'+(trialList||'<div class="empty">No sessions recorded</div>')+'</div>'+review;
 var actions=btn("Close","close","","")+(canEdit()&&ui.page==="benchmark"?btn("Edit campaign","editCampaign",id,"")+
-(c.stage==="planned"?btn("Open campaign","campaignActivate",id,"primary"):c.stage==="active"?btn("Close → staging","campaignClose",id,"primary"):c.stage==="review"?btn("Record review","campaignReview",id,"primary"):"")+
+(c.stage==="planned"?btn("Open campaign","campaignActivate",id,"primary"):c.stage==="active"?btn("Close full plan","campaignClose",id,"primary")+
+  (c.matrixPlan?btn("Partial review","campaignClosePartial",id,""):""):c.stage==="review"?btn("Record review","campaignReview",id,"primary"):"")+
 (c.stage==="published"?btn("Unpublish → review","campaignUnpublish",id,""):"")+(c.stage!=="active"?btn("Reopen","campaignReopen",id,""):"")+btn("Delete / archive","campaignDelete",id,""):"");
 openModal("Benchmark campaign",body,actions);
 }
@@ -2331,12 +2412,26 @@ if(!canEdit())return;var rev=db.revisions.find(function(x){return x.id===id;});i
 openModal("Audit revision · "+rev.type,'<div class="row-between">'+badge(rev.type)+'<span class="muted small">'+E(rev.date)+' · '+E(actor(rev.by))+'</span></div><h3 style="margin:15px 0 7px">Previous record</h3><pre class="code">'+E(JSON.stringify(rev.before,null,2))+'</pre><h3 style="margin:15px 0 7px">Updated record</h3><pre class="code">'+E(JSON.stringify(rev.after,null,2))+'</pre>');
 }
 function campaignTrialsExistingOrCases(c){return c.caseIds.length>0||db.campaignTrials.some(function(x){return x.campaign===c.id;});}
-function setCampaignStage(id,stage){
+function setCampaignStage(id,stage,partial){
 if(!canEdit())return;var c=rec("campaigns",id);if(!c||c.archived)return;
 var allowed=stage==="active"?["planned","review","published"].includes(c.stage):
  stage==="review"?c.stage==="active":false;
 if(!allowed){toast("Use the supported campaign lifecycle actions.");return;}
-var before=JSON.parse(JSON.stringify(c));c.stage=stage;c.status=stage==="active"?"active":stage==="review"?"closed":stage;
+if(stage==="review"&&c.matrixPlan){
+ var outstanding=c.matrixPlan.cells.filter(function(cell){
+  var state=demoMatrixStatus(c,cell).state;
+  return state==="pending"||state==="in_progress";
+ }).length;
+ if(outstanding&&!partial){
+  toast("Full plan incomplete: "+outstanding+" outstanding evaluations. Choose partial review explicitly.");return;
+ }
+}
+var before=JSON.parse(JSON.stringify(c));
+if(stage==="review"&&c.matrixPlan){
+ c.reviewScope=c.matrixPlan.cells.some(function(cell){
+  return ["pending","in_progress"].includes(demoMatrixStatus(c,cell).state);
+ })?"partial":"full";
+}c.stage=stage;c.status=stage==="active"?"active":stage==="review"?"closed":stage;
 c.updated=TODAY;
 if(stage==="active"&&before.stage==="published"){c.reviewNotes="";c.reviewer="";}
 revision("Campaign lifecycle",id,before,c);
@@ -2420,7 +2515,8 @@ var r={id:next("r"),campaignId:c.id,sessionId:t.id,case:tc.id,solution:sol?.id||
  initialSetup:JSON.parse(JSON.stringify({startedAt:t.startedAt,setupMinutes:t.setupMinutes,
  installationGuideId:t.installationGuideId||"",installationGuideSnapshot:t.installationGuideSnapshot||null,
   installationRecipeModules:t.installationRecipeModules||[],
- setupNotes:t.setupNotes,configuration:setup.configuration})),
+ setupNotes:t.setupNotes,configuration:setup.configuration,
+  evaluationId:t.evaluationId||""})),
  interactions:JSON.parse(JSON.stringify(interactions)),
  resultDetails:{qualityAssessment:d.qualityAssessment||"",utilityAssessment:d.utilityAssessment||"",
  additionalNotes:d.additionalNotes||"",outputDocuments:d.outputDocuments||"",finishedAt:campaignLocalTime()},
@@ -2446,6 +2542,59 @@ var req=function(v,label){if(!String(v||"").trim()){toast(label+" is required.")
 try{
 if(kind==="campaignReview"){
  campaignDecision(id,d);return;
+}else if(kind==="matrixConfig"){
+ var campaign=rec("campaigns",id),task=rec("tasks",d.task);
+ if(!campaign||!task||!["planned","active"].includes(campaign.stage))return;
+ if(!String(d.label||"").trim()){toast("Configuration label is required.");return;}
+ if(!campaign.frameworkId&&["model","provider","harness"].some(function(k){
+  return rec("components",d[k])?.type!==k;
+ })){toast("Choose a valid Model, Provider and Harness.");return;}
+ var eligible=db.cases.filter(function(tc){return tc.task===task.id;});
+ if(!eligible.length){toast("Create a Test Case for this Task first.");return;}
+ var before=JSON.parse(JSON.stringify(campaign));
+ if(!campaign.matrixPlan)campaign.matrixPlan={configurations:[],cells:[]};
+ var config={id:next("cfg"),taskId:task.id,label:d.label.trim(),
+   kind:campaign.frameworkId?"framework":"individual"};
+ if(campaign.frameworkId){
+  var selected=(campaign.frameworkInstances||[]).filter(function(p){
+   return d["matrixParticipant_"+p.id]==="yes";
+  });
+  if(!selected.length){toast("Choose Framework participants.");return;}
+  config.frameworkId=campaign.frameworkId;
+  config.participantIds=selected.map(function(p){return p.id;});
+  config.participantSnapshots=JSON.parse(JSON.stringify(selected));
+ }else{
+  Object.assign(config,{model:d.model,provider:d.provider,harness:d.harness,
+   version:d.version||"1.0"});
+ }
+ campaign.matrixPlan.configurations.push(config);
+ eligible.forEach(function(tc){if(!campaign.caseIds.includes(tc.id))campaign.caseIds.push(tc.id);
+ campaign.matrixPlan.cells.push({
+  id:next("evaluation"),configurationId:config.id,caseId:tc.id,
+  decision:"selected",history:[]});});
+ revision("Campaign plan",campaign.id,before,campaign);event("Campaign","Updated evaluation matrix",true);
+ persist();detailsCampaign(campaign.id);return;
+}else if(kind==="matrixDecision"){
+ var parts=id.split("|"),campaign=rec("campaigns",parts[0]),
+  cell=campaign?.matrixPlan?.cells.find(function(x){return x.id===parts[1];});
+ if(!campaign||!cell||!["planned","active"].includes(campaign.stage))return;
+ if(!["selected","not_selected","waived"].includes(d.decision)||cell.decision===d.decision){
+  toast("Choose a different valid decision.");return;
+ }
+ if(d.decision==="waived"&&(cell.decision!=="selected"||!String(d.reason||"").trim())){
+  toast("A previously selected evaluation requires an explicit waiver reason.");return;
+ }
+ if(d.decision!=="waived"&&String(d.reason||"").trim()){
+  toast("Only waived evaluations accept a justification.");return;
+ }
+ var before=JSON.parse(JSON.stringify(campaign));
+ var evt={from:cell.decision,to:d.decision,reason:d.decision==="waived"?d.reason.trim():"",
+  actor:currentUser,at:new Date().toISOString()};
+ cell.history.push(evt);cell.decision=d.decision;
+ if(d.decision==="waived")cell.waiver=evt;else delete cell.waiver;
+ revision("Campaign plan",campaign.id,before,campaign);
+ event("Campaign","Recorded evaluation decision "+d.decision,true);
+ persist();detailsCampaign(campaign.id);return;
 }else if(kind==="campaign"){
  var existing=id?rec("campaigns",id):null,mode=d.mode==="solution_scope"?"solution_scope":"task_compare";
   var watchIds=db.watch.filter(function(w){return d["watch_"+w.id]==="yes";}).map(function(w){return w.id;});
@@ -2495,7 +2644,20 @@ if(kind==="campaignReview"){
 }else if(kind==="campaignAttachCase"){
  var targetCampaign=rec("campaigns",id),selected=rec("cases",d.case);
  if(!targetCampaign||targetCampaign.stage!=="active"||!selected||targetCampaign.caseIds.includes(selected.id)||(targetCampaign.mode==="task_compare"&&selected.task!==targetCampaign.task)){toast("Choose a compatible Test Case.");return;}
+ var before=JSON.parse(JSON.stringify(targetCampaign));
  targetCampaign.caseIds.push(selected.id);targetCampaign.updated=TODAY;
+ if(targetCampaign.matrixPlan){
+  targetCampaign.matrixPlan.configurations.filter(function(config){
+   return config.taskId===selected.task;
+  }).forEach(function(config){
+   if(!targetCampaign.matrixPlan.cells.some(function(cell){
+     return cell.configurationId===config.id&&cell.caseId===selected.id;
+   }))targetCampaign.matrixPlan.cells.push({
+     id:next("evaluation"),configurationId:config.id,caseId:selected.id,
+     decision:"selected",history:[]});
+  });
+  revision("Campaign plan",targetCampaign.id,before,targetCampaign);
+ }
  event("Campaign","Attached "+selected.title+" to "+targetCampaign.title,true);persist();detailsCampaign(id);return;
 }else if(kind==="campaignTrialSetup"){
  var home=rec("campaigns",id),chosenCase=rec("cases",d.case);
@@ -2513,6 +2675,31 @@ if(kind==="campaignReview"){
    configuration:incumbent.config,version:incumbent.version,capabilities:incumbent.skills,accessible:incumbent.accessible}:
    {model:d.modelComponent,provider:d.providerComponent,harness:d.harnessComponent,
     configuration:d.configuration,version:d.version||"1.0",capabilities:d.capabilities||"",accessible:false};
+ }
+
+ var plannedEvaluation=null;
+ if(home.matrixPlan){
+  plannedEvaluation=home.matrixPlan.cells.find(function(cell){
+   return cell.id===d.evaluationId&&cell.caseId===chosenCase.id&&cell.decision==="selected";
+  });
+  if(!plannedEvaluation){toast("Select an eligible planned matrix evaluation.");return;}
+  var plannedConfig=home.matrixPlan.configurations.find(function(x){
+   return x.id===plannedEvaluation.configurationId;
+  });
+  if(!plannedConfig||plannedConfig.taskId!==chosenCase.task){
+   toast("The selected evaluation does not match this Task.");return;
+  }
+  if(framework){
+   if(plannedConfig.kind!=="framework"||plannedConfig.frameworkId!==home.frameworkId||
+      selectedParticipants.map(function(p){return p.id;}).join("|")!==
+         plannedConfig.participantIds.join("|")){
+    toast("Executed Framework participant selection differs from the matrix plan.");return;
+   }
+  }else if(plannedConfig.kind!=="individual"||
+    ["model","provider","harness"].some(function(k){return plannedConfig[k]!==cfg[k];})||
+     String(plannedConfig.version)!==String(cfg.version)){
+   toast("Executed solution differs from the selected pinned matrix configuration.");return;
+  }
  }
  if((!collaborative&&["model","provider","harness"].some(function(k){return !rec("components",cfg[k])||rec("components",cfg[k]).type!==k;}))||
  !String(cfg.configuration||"").trim()){toast("Choose a complete AI setup and configuration.");return;}
@@ -2547,6 +2734,7 @@ if(!guide||guide.type!=="Installation"){toast("Select an installation guide.");r
   participantSnapshot:participant?JSON.parse(JSON.stringify(participant)):null,
   startedAt:d.startedAt,setupMinutes:Number(d.setupMinutes),
   installationGuideId:guide.id,installationGuideSnapshot:JSON.parse(JSON.stringify(guide)),
+  evaluationId:plannedEvaluation?.id||"",
    installationRecipeModules:demoPinnedModuleSnapshots(guide),
   setupNotes:d.setupNotes||"",solutionSetup:cfg,forecastSnapshot:home.forecastId&&!collaborative?JSON.parse(JSON.stringify(rec("proposals",home.forecastId)||null)):null,interactions:[],runId:"",createdBy:currentUser};
  db.campaignTrials.push(session);event("Trial","Started "+chosenCase.title+" in "+home.title,true);
@@ -2864,12 +3052,15 @@ if(act==="addFrameworkParticipant"){
  return;
 }
 if(act==="removeFrameworkParticipant"){b.closest("[data-framework-participant]")?.remove();return;}
+if(act==="campaignMatrixAdd"){dialogDemoMatrixAdd(id);return;}
+if(act==="campaignMatrixDecision"){dialogDemoMatrixDecision(id);return;}
 if(act==="campaignDetail"){detailsCampaign(id);return;}
 if(act==="campaignPeek"){campaignSummary(id);return;}
 if(act==="openCampaign"){ui.page="benchmark";ui.modal="";render();detailsCampaign(id);return;}
 if(act==="editCampaign"){dialogCampaign(id);return;}
 if(act==="campaignActivate"){setCampaignStage(id,"active");return;}
-if(act==="campaignClose"){setCampaignStage(id,"review");return;}
+if(act==="campaignClose"){setCampaignStage(id,"review",false);return;}
+if(act==="campaignClosePartial"){setCampaignStage(id,"review",true);return;}
 if(act==="campaignReopen"){setCampaignStage(id,"active");return;}
 if(act==="campaignDelete"){campaignRemove(id);return;}
 if(act==="campaignRestore"){restoreCampaign(id);return;}

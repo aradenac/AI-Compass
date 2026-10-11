@@ -122,6 +122,8 @@ jobs:
           AI_COMPASS_TEST_PASSWORD="$contributor_pw" python3 scripts/smoke_catalog.py ci-contributor
           AI_COMPASS_TEST_PASSWORD="$contributor_pw" python3 scripts/smoke_evidence.py ci-contributor
           docker compose exec -T api python manage.py reconcile_evidence --json
+      - name: Verify Task-scoped Campaign Evaluation Matrix, stable cells and historical Run pins
+        run: docker compose exec -T api python manage.py test config.test_campaign_matrix -v 2
       - name: Verify real Server archive with fully offline host verifier
         run: |
           docker compose exec -T api python manage.py shell -c \
@@ -195,6 +197,8 @@ jobs:
         run: node scripts/test-server-runs.js
       - name: Verify guided Server-only session UI and frozen method adapter
         run: node scripts/test-server-sessions.js
+      - name: Verify offline Demo matrix states and Server planning UI attribution
+        run: node scripts/test-campaign-matrix.js
       - name: Verify Server-only campaign UI regression
         run: node scripts/test-server-campaigns.js
       - name: Verify composable guide historical Demo render and integrated Server workflow

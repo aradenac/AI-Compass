@@ -75,6 +75,8 @@ urlpatterns = [
     path("api/v1/campaigns/pipeline", campaign_views.pipeline),
     path("api/v1/campaigns", campaign_views.collection),
     path("api/v1/campaigns/<slug:public_id>", campaign_views.detail),
+    path("api/v1/campaigns/<slug:public_id>/matrix", campaign_views.evaluation_matrix),
+    path("api/v1/campaigns/<slug:public_id>/matrix/edit", campaign_views.update_matrix),
     path("api/v1/campaigns/<slug:public_id>/actions/<slug:action>", campaign_views.transition),
     path("api/v1/campaigns/<slug:public_id>/revisions", campaign_views.history),
     path("api/v1/campaigns/<slug:public_id>/revisions/<int:number>", campaign_views.revision),

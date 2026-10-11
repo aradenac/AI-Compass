@@ -19,7 +19,7 @@ FIELDS=frozenset({"name","objective","notes","properties","owner","mode",
                   "method_version","task_id","component_ids","test_case_ids",
                   "guide_id","configuration","repin","framework_id","participants", "pricing_selections"})
 EDIT_FIELDS=FIELDS|{"expected_revision"}
-ACTION_FIELDS=frozenset({"expected_revision"})
+ACTION_FIELDS=frozenset({"expected_revision","partial_review"})
 TRANSITIONS=frozenset({"start","close","rework","publish","unpublish","reopen","archive","restore"})
 
 
@@ -192,6 +192,44 @@ def revision(request,public_id,number):
     rev=get_object_or_404(CatalogRevision.objects.select_related(
         "schema_version","created_by"),item=item,number=number)
     return json_no_store(serialize(item,rev))
+
+
+
+@require_GET
+@capability("business_read")
+@never_cache
+def evaluation_matrix(request, public_id):
+    """Current or historical plan revision with explicitly attributed attempt status."""
+    item=_item(public_id)
+    revision=request.GET.get("revision")
+    if set(request.GET)-{"revision"}:
+        return json_no_store({"error":"invalid_filter"},400)
+    rev=item.current_revision
+    if revision is not None:
+        if not isinstance(revision,str) or not revision.startswith("r") or not revision[1:].isdigit():
+            return json_no_store({"error":"invalid_revision"},400)
+        rev=get_object_or_404(CatalogRevision,item=item,number=int(revision[1:]))
+    from .campaign_matrix_services import projection
+    return json_no_store(projection(item,rev))
+
+
+@require_http_methods(["PATCH"])
+@csrf_protect
+@capability("business_write")
+@never_cache
+def update_matrix(request, public_id):
+    item=_item(public_id)
+    def run():
+        payload=_payload(request,{"expected_revision","operation"})
+        if not isinstance(payload.get("expected_revision"),str):
+            raise InvalidCampaign("expected_revision is mandatory")
+        from .campaign_matrix_services import apply, projection
+        changed=apply(actor=request.user,item=item,
+                      expected_revision=payload["expected_revision"],
+                      operation=payload.get("operation"))
+        return json_no_store({"campaign":serialize(changed),
+                              "matrix":projection(changed,changed.current_revision)})
+    return _write(run)
 
 
 def collection(request):

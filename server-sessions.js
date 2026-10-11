@@ -63,7 +63,7 @@ function mount(root,api,escapeHtml){
       ticket++;active=null;session=null;root.hidden=true;root.replaceChildren();
     });
   }
-  async function openCampaign(row){
+  async function openCampaign(row,preferredEvaluationId){
     if(!canRead)return;
     active=row;session=null;var current=++ticket;
     panel();
@@ -76,11 +76,15 @@ function mount(root,api,escapeHtml){
           ["model","provider","harness"].map(function(k){return api("catalog/"+k);}):[]),
         ...(row.mode==="task_centred"&&!row.framework_id&&
             row.pricing_policy==="offer_revisions_v1"?[api("pricing/offers")]:[]),
-        api("guides")
+        api("guides"),
+        api("campaigns/"+encodeURIComponent(row.id)+"/matrix")
       ]);
       if(current!==ticket||!canRead)return;
       var result=results[0],runs=results[1].results||[],catalogResults=results.slice(2),
-          knownGuides=results[results.length-1].results||[];
+          knownGuides=results[results.length-2].results||[],
+          matrix=results[results.length-1],
+          planned=(matrix.cells||[]).filter(function(x){return x.decision==="selected";}),
+          matrixConfigs=Object.fromEntries((matrix.configurations||[]).map(function(x){return [x.id,x];}));
       var offered=(row.mode==="task_centred"&&!row.framework_id&&
         row.pricing_policy==="offer_revisions_v1")?(catalogResults[3].results||[]):[];
       var offersByComponent=function(component){
@@ -104,6 +108,11 @@ function mount(root,api,escapeHtml){
           '<fieldset><legend>Start a new Test Case execution</legend>'+
           '<label>Test Case<select id="session-new-case">'+(row.test_case_ids||[]).map(function(id){
             return option(id,id,false);}).join("")+'</select></label>'+
+          (matrix.configured?'<label>Planned evaluation<select id="session-new-evaluation">'+
+            option("","Select a selected evaluation",true)+
+            planned.map(function(x){var cfg=matrixConfigs[x.configuration_id];return option(x.id,
+              x.test_case_id+" × "+(cfg&&cfg.label||x.configuration_id)+" · "+x.status,false);}).join("")+
+            '</select></label>':'')+
           '<label>Setup Guide<select id="session-new-guide">'+
           option("","No guide",!row.guide_id)+
           knownGuides.map(function(g){return option(g.id,g.name+" · "+g.revision,g.id===row.guide_id);}).join("")+
@@ -163,12 +172,44 @@ function mount(root,api,escapeHtml){
         });
         renderSessionPrices();
       }
+      var evaluationPicker=$("#session-new-evaluation");
+      if(evaluationPicker)evaluationPicker.addEventListener("change",function(){
+        var cell=planned.find(function(x){return x.id===evaluationPicker.value;});
+        if(!cell)return;
+        var cfg=matrixConfigs[cell.configuration_id];
+        $("#session-new-case").value=cell.test_case_id;
+        if(cfg.kind==="framework"){
+          var participants=$("#session-new-participants");
+          if(participants)Array.from(participants.options).forEach(function(option){
+            option.selected=(cfg.participant_ids||[]).includes(option.value);
+          });
+        }else{
+          ["model","provider","harness"].forEach(function(kind){
+            var control=target.querySelector('[data-new-component="'+kind+'"]');
+            if(control)control.value=cfg.component_ids[kind];
+          });
+          var version=$("#session-new-configuration-version");
+          if(version)version.value=cfg.configuration_version;
+          var settings=$("#session-new-settings");
+          if(settings)settings.value=JSON.stringify(cfg.settings||{},null,2);
+          renderSessionPrices();
+        }
+      });
+      if(evaluationPicker&&preferredEvaluationId&&planned.some(function(c){return c.id===preferredEvaluationId;})){
+        evaluationPicker.value=preferredEvaluationId;
+        evaluationPicker.dispatchEvent(new Event("change"));
+      }
       var add=$("#session-create");
       if(add)add.addEventListener("click",async function(){
         add.disabled=true;
         try{
           var payload={test_case_id:$("#session-new-case").value,
                       guide_id:$("#session-new-guide").value||null};
+          if(matrix.configured){
+            if(!evaluationPicker||!evaluationPicker.value)
+              throw Error("Select a planned evaluation");
+            payload.evaluation_id=evaluationPicker.value;
+          }
           if(row.framework_id)payload.selected_participant_ids=selected($("#session-new-participants"));
           if(row.mode==="task_centred"&&!row.framework_id){
             payload.component_ids={};

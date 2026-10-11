@@ -5,7 +5,7 @@
   var STATES=["planned","in_progress","under_review","published"];
   var NEXT={
     planned:[["start","Start campaign"]],
-    in_progress:[["close","Close for review"]],
+    in_progress:[["close","Close full plan"],["close_partial","Close partial review"]],
     under_review:[["rework","Request rework"],["publish","Publish plan"],["reopen","Reopen"]],
     published:[["unpublish","Unpublish"],["reopen","Reopen"]]
   };
@@ -50,7 +50,8 @@
         if(!btn)return;
         var row=campaigns.find(function(c){return c.id===btn.dataset.id;});
         if(!row)return;
-        if(btn.dataset.action==="sessions"&&sessionWorkspace)sessionWorkspace.openCampaign(row);
+        if(btn.dataset.action==="matrix")showMatrix(row);
+        else if(btn.dataset.action==="sessions"&&sessionWorkspace)sessionWorkspace.openCampaign(row);
         else if(btn.dataset.action==="history")history(row);
         else if(canWrite&&btn.dataset.action==="edit")editor(row);
         else if(canWrite&&btn.dataset.action)transition(row,btn.dataset.action);
@@ -80,6 +81,7 @@
           '<p class="muted">Pricing · '+esc(x.pricing_readiness&&x.pricing_readiness.complete?
              "complete / exact offer pins":(x.pricing_readiness&&x.pricing_readiness.requires_session_pricing?
              "tariffs selected per Test Case session":"INCOMPLETE / new metered session blocked")) +'</p>'+
+          '<button type="button" data-id="'+esc(x.id)+'" data-action="matrix">Evaluation matrix</button>'+
           '<button type="button" data-id="'+esc(x.id)+'" data-action="sessions">Sessions / resume</button>'+
           '<button type="button" data-id="'+esc(x.id)+'" data-action="history">Details / history</button>'+
           (canWrite&&!x.archived&&["planned","in_progress"].includes(x.status)?
@@ -405,13 +407,211 @@
       var run=++ticket;
       status("Applying "+action+" to "+row.id+"…");
       try{
-        var result=await api("campaigns/"+encodeURIComponent(row.id)+"/actions/"+encodeURIComponent(action),
-          "POST",{expected_revision:row.revision});
+        var isPartial=action==="close_partial";
+        var result=await api("campaigns/"+encodeURIComponent(row.id)+"/actions/"+
+          encodeURIComponent(isPartial?"close":action),
+          "POST",{expected_revision:row.revision,...(isPartial?{partial_review:true}:{})});
         if(!allowed||run!==ticket)return;
         await refresh();
         status("Campaign "+result.campaign.id+" · "+result.campaign.revision+
           " · "+result.campaign.status+(result.campaign.archived?" (archived)":""));
       }catch(error){if(allowed&&run===ticket)status("Transition refused: "+error.message,true);}
+    }
+
+    async function showMatrix(row,filter,revision){
+      if(!allowed)return;
+      var target=el("#campaign-detail");
+      target.hidden=false;target.textContent="Loading versioned evaluation matrix…";
+      try{
+        var responses=await Promise.all([
+          api("campaigns/"+encodeURIComponent(row.id)+"/matrix"+
+            (revision?"?revision="+encodeURIComponent(revision):"")),
+          api("campaigns/"+encodeURIComponent(row.id)+"/revisions")
+        ]);
+        var matrix=responses[0],revisions=responses[1].revisions||[];
+        var byId=Object.fromEntries((matrix.configurations||[]).map(function(c){return [c.id,c];}));
+        var configRows=matrix.configurations||[],cells=matrix.cells||[];
+        var taskIds=Array.from(new Set(configRows.map(function(c){return c.task_id;})));
+        var editable=canWrite&&!row.archived&&["planned","in_progress"].includes(row.status)&&
+          (!revision||revision===row.revision);
+        var chosenTask=taskIds.includes(filter)?filter:"";
+        function taskName(id){var t=tasks.find(function(x){return x.id===id;});return t?t.name:id;}
+        function tcName(id){var t=cases.find(function(x){return x.id===id;});return t?t.name:id;}
+        var counts=matrix.summary||{};
+        var html='<h3>'+esc(row.name)+' · Evaluation Matrix · '+esc(matrix.revision)+'</h3>'+
+          '<p class="muted small">Task-associated configurations only · each pair has a stable evaluation ID. Candidate planning is distinct from immutable measured Runs. Historical decisions are frozen; attempt counts are the live observed projection.</p>'+
+          '<label>Plan revision<select id="matrix-revision">'+
+          revisions.map(function(r){return '<option value="'+esc(r.revision)+'"'+
+            (r.revision===matrix.revision?' selected':'')+'>'+esc(r.revision)+
+            ' · '+esc(r.status)+' · '+esc(r.created_by)+'</option>';}).join("")+
+          '</select></label>'+
+          '<p><strong>Full plan: '+(counts.full_plan_complete?"fulfilled":"outstanding")+'</strong>'+
+          ' · '+(counts.candidates||0)+' candidates · '+(counts.evaluated||0)+' evaluated · '+
+          (counts.pending||0)+' pending · '+(counts.in_progress||0)+' in progress · '+
+          (counts.waived||0)+' waived · '+(counts.not_selected||0)+' not selected · '+
+          (counts.measured_runs||0)+' measured Run(s)</p>'+
+          '<p class="muted small">Experimental coverage: '+(counts.evaluated||0)+' / '+
+          (counts.selected_obligations||0)+' selected combinations. Waived/Not Selected are not measured evidence. Pending cells do not invalidate independent eligible Runs.</p>'+
+          '<label>Task filter<select id="matrix-task-filter"><option value="">All tasks</option>'+
+          taskIds.map(function(id){return '<option value="'+esc(id)+'"'+(id===chosenTask?" selected":"")+'>'+esc(taskName(id))+'</option>';}).join("")+
+          '</select></label>'+
+          '<div id="matrix-tables" style="overflow-x:auto">';
+        taskIds.filter(function(id){return !chosenTask||id===chosenTask;}).forEach(function(taskId){
+          var cols=configRows.filter(function(x){return x.task_id===taskId;});
+          var rows=Array.from(new Set(cells.filter(function(x){return byId[x.configuration_id]?.task_id===taskId;}).map(function(x){return x.test_case_id;})));
+          html+='<h4>'+esc(taskName(taskId))+' · '+cols.length+' configurations</h4>'+
+            '<table style="width:100%;border-collapse:collapse"><thead><tr><th>Test Case</th>'+
+            cols.map(function(x){return '<th>'+esc(x.label)+'<div class="muted small">'+esc(x.kind)+' · '+esc(x.id)+'</div></th>';}).join("")+
+            '</tr></thead><tbody>';
+          rows.forEach(function(testCaseId){
+            html+='<tr><th style="text-align:left">'+esc(tcName(testCaseId))+'</th>'+
+              cols.map(function(cfg){
+                var cell=cells.find(function(x){return x.test_case_id===testCaseId&&x.configuration_id===cfg.id;});
+                if(!cell)return '<td>—</td>';
+                var muted=cell.status==="not_selected"?'opacity:.55;':"";
+                return '<td style="border:1px solid #e3e8f0;padding:8px;'+muted+'">'+
+                  '<button type="button" data-matrix-cell="'+esc(cell.id)+'">'+esc(cell.status.replaceAll("_"," "))+
+                  '</button>'+(cell.introduced_revision===matrix.revision?'<span class="muted small"> New</span>':"")+
+                  '<div class="muted small">'+cell.runs.length+' Run(s)'+
+                  (cell.waiver?'<p>Waiver: '+esc(cell.waiver.reason)+'</p>':"")+'</div></td>';
+              }).join("")+'</tr>';
+          });
+          html+='</tbody></table>';
+        });
+        html+='</div><section id="matrix-cell-details" class="server-card" hidden></section>';
+        if(editable){
+          html+='<details><summary>+ Add Task-associated AI configuration</summary><form id="matrix-add-form">'+
+            '<label>Task<select name="task_id">'+tasks.map(function(t){return '<option value="'+esc(t.id)+'">'+esc(t.name)+'</option>';}).join("")+'</select></label>'+
+            '<label>Configuration label<input name="label" maxlength="160" required placeholder="Model + Provider + Harness"></label>'+
+            '<label>Column type<select name="kind"><option value="individual">Individual AI configuration</option>'+
+            (row.framework_id?'<option value="framework">Framework workflow</option>':"")+'</select></label>'+
+            '<div id="matrix-trio-fields">'+["model","provider","harness"].map(function(k){
+              return '<label>'+esc(k)+'<select name="'+k+'">'+options(catalog[k],null,false)+'</select></label>';
+            }).join("")+
+            '<label>Configuration version<input name="configuration_version" value="1"></label>'+
+            '<label>Settings (JSON)<textarea name="settings">{}</textarea></label></div>'+
+            (row.framework_id?'<label id="matrix-participants" hidden>Framework participants<select name="participant_ids" multiple size="5">'+
+            (row.participants||[]).map(function(p){return '<option value="'+esc(p.id)+'">'+esc(p.label||p.id)+'</option>';}).join("")+
+            '</select></label>':"")+
+            '<label>Relevant Test Cases for Task (Ctrl/Command to select)<select name="test_case_ids" multiple size="6"></select></label>'+
+            '<button type="submit">Add configuration and planned evaluation cells</button></form></details>'+
+            '<details><summary>+ Offer new Test Cases to all configurations of a Task</summary>'+
+            '<form id="matrix-add-cases"><label>Configuration<select name="configuration_id">'+
+            configRows.map(function(x){return '<option value="'+esc(x.id)+'">'+esc(x.label)+' · '+esc(taskName(x.task_id))+'</option>';}).join("")+
+            '</select></label><label>Test Cases<select name="test_case_ids" multiple size="5"></select></label>'+
+            '<button type="submit">Add Test Cases, preserving existing decisions</button></form></details>';
+        }
+        html+='<p><button type="button" id="matrix-close">Close matrix</button></p>';
+        target.innerHTML=html;
+        target.querySelector("#matrix-close").addEventListener("click",function(){target.hidden=true;});
+        target.querySelector("#matrix-task-filter").addEventListener("change",function(){
+          showMatrix(row,this.value,revision);
+        });
+        target.querySelector("#matrix-revision").addEventListener("change",function(){
+          showMatrix(row,chosenTask,this.value);
+        });
+        function choose(id){return cells.find(function(x){return x.id===id;});}
+        target.querySelectorAll("[data-matrix-cell]").forEach(function(button){
+          button.addEventListener("click",function(){
+            var cell=choose(button.dataset.matrixCell),cfg=byId[cell.configuration_id];
+            var detail=target.querySelector("#matrix-cell-details");detail.hidden=false;
+            detail.innerHTML='<h4>'+esc(tcName(cell.test_case_id))+' × '+esc(cfg.label)+'</h4>'+
+              '<p>'+esc(cell.id)+' · '+esc(cell.status)+' · '+esc(cell.decision)+'</p>'+
+              '<p>Attempts in progress: '+cell.active_attempts+' · Closed measured Runs: '+cell.runs.length+'</p>'+
+              (cell.waiver?'<p>Waived by '+esc(cell.waiver.actor)+' at '+esc(cell.waiver.at)+
+              ' — '+esc(cell.waiver.reason)+'</p>':"")+
+              '<div id="matrix-run-links">'+cell.runs.map(function(r){
+                return '<button type="button" data-matrix-run="'+esc(r.id)+'">'+
+                  esc(r.kind)+' '+esc(r.id)+' · '+esc(r.outcome)+'</button>';
+              }).join(" ")+'</div>'+
+              '<pre style="white-space:pre-wrap;overflow-wrap:anywhere"></pre>'+
+              (editable?'<label>Waiver explanation (mandatory when waiving)<textarea id="matrix-waiver-reason" maxlength="4000"></textarea></label>'+
+                [["selected","Select / reinstate"],["not_selected","Not Selected"],["waived","Waive"]].map(function(x){
+                  return '<button type="button" data-matrix-decision="'+x[0]+'">'+x[1]+'</button>';
+                }).join(" "):"")+
+              '<button type="button" id="matrix-open-sessions">Open Test Run workspace</button>';
+            detail.querySelector("pre").textContent=JSON.stringify({runs:cell.runs,history:cell.history,
+               configuration:cfg},null,2);
+            detail.querySelectorAll("[data-matrix-run]").forEach(function(runButton){
+              runButton.addEventListener("click",async function(){
+                try{
+                  var original=await api("runs/"+encodeURIComponent(runButton.dataset.matrixRun));
+                  detail.querySelector("pre").textContent=JSON.stringify(original,null,2);
+                }catch(error){status("Run read failed: "+error.message,true);}
+              });
+            });
+            detail.querySelector("#matrix-open-sessions").addEventListener("click",function(){
+              if(sessionWorkspace)sessionWorkspace.openCampaign(row,cell.id);
+            });
+            detail.querySelectorAll("[data-matrix-decision]").forEach(function(action){
+              action.disabled=action.dataset.matrixDecision===cell.decision;
+              action.addEventListener("click",function(){
+                change({action:"decide",evaluation_id:cell.id,
+                  decision:action.dataset.matrixDecision,
+                  reason:action.dataset.matrixDecision==="waived"?
+                    detail.querySelector("#matrix-waiver-reason").value:""});
+              });
+            });
+          });
+        });
+        async function change(operation){
+          if(!editable)return;
+          status("Saving immutable evaluation plan revision…");
+          try{
+            var saved=await api("campaigns/"+encodeURIComponent(row.id)+"/matrix/edit",
+              "PATCH",{expected_revision:row.revision,operation:operation});
+            Object.assign(row,saved.campaign);
+            await refresh();
+            await showMatrix(row,chosenTask);
+            status("Matrix updated: "+row.id+" · "+row.revision+" (previous revisions preserved).");
+          }catch(error){status("Matrix change refused: "+error.message,true);}
+        }
+        if(!editable)return;
+        var form=target.querySelector("#matrix-add-form");
+        function matchingCases(task){return cases.filter(function(x){return x.task_id===task;});}
+        function refreshCandidates(){
+          form.elements.test_case_ids.innerHTML=matchingCases(form.elements.task_id.value).map(function(x){
+            return '<option value="'+esc(x.id)+'" selected>'+esc(x.name)+'</option>';
+          }).join("");
+          var framework=form.elements.kind.value==="framework";
+          form.querySelector("#matrix-trio-fields").hidden=framework;
+          if(form.querySelector("#matrix-participants"))form.querySelector("#matrix-participants").hidden=!framework;
+        }
+        form.elements.task_id.addEventListener("change",refreshCandidates);
+        form.elements.kind.addEventListener("change",refreshCandidates);
+        refreshCandidates();
+        form.addEventListener("submit",function(e){
+          e.preventDefault();
+          try{
+            var kind=form.elements.kind.value,
+                data={action:"add_configuration",task_id:form.elements.task_id.value,
+                  kind:kind,label:form.elements.label.value,
+                  test_case_ids:Array.from(form.elements.test_case_ids.selectedOptions).map(function(x){return x.value;})};
+            if(kind==="framework"){
+              data.participant_ids=Array.from(form.elements.participant_ids.selectedOptions).map(function(x){return x.value;});
+            }else{
+              data.component_ids=Object.fromEntries(["model","provider","harness"].map(function(k){return [k,form.elements[k].value];}));
+              data.configuration_version=form.elements.configuration_version.value;
+              data.settings=JSON.parse(form.elements.settings.value||"{}");
+            }
+            change(data);
+          }catch(error){status("Invalid matrix configuration: "+error.message,true);}
+        });
+        var add=target.querySelector("#matrix-add-cases");
+        function refreshCasePicker(){
+          var config=byId[add.elements.configuration_id.value];
+          add.elements.test_case_ids.innerHTML=matchingCases(config?config.task_id:"").map(function(x){
+            return '<option value="'+esc(x.id)+'">'+esc(x.name)+'</option>';
+          }).join("");
+        }
+        add.elements.configuration_id.addEventListener("change",refreshCasePicker);
+        refreshCasePicker();
+        add.addEventListener("submit",function(e){
+          e.preventDefault();
+          change({action:"add_cases",configuration_id:add.elements.configuration_id.value,
+            test_case_ids:Array.from(add.elements.test_case_ids.selectedOptions).map(function(x){return x.value;})});
+        });
+      }catch(error){target.textContent="Evaluation matrix unavailable: "+error.message;}
     }
     async function history(row){
       var run=ticket,target=el("#campaign-detail");
