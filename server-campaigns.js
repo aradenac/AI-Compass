@@ -467,7 +467,8 @@
           '<p class="muted small">Published selection is immutable. Reopening keeps the latest published subset visible; new Runs stay private until explicitly selected and republished.</p>'+
           (effective?'<p>Effective '+esc(effective.campaign_revision)+' · '+effective.runs.length+
             ' published Run(s) · reviewed by '+esc(effective.reviewed_by)+'</p>'+
-            '<pre style="white-space:pre-wrap">'+esc(JSON.stringify(effective.coverage,null,2))+'</pre>':
+            '<details class="ux-advanced-source"><summary>Advanced: immutable publication coverage data</summary>'+
+            '<pre style="white-space:pre-wrap">'+esc(JSON.stringify(effective.coverage,null,2))+'</pre></details>':
             '<p>No effective publication.</p>');
         if(review){
           html+='<h4>Private Run-by-Run guide and eligibility review</h4>'+
