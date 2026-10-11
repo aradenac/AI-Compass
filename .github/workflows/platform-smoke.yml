@@ -130,6 +130,10 @@ jobs:
         run: docker compose exec -T api python manage.py test config.test_opportunities -v 2
       - name: Verify FUT-13 prospective Demo and Server adapters without data crossover
         run: node scripts/test-shared-opportunities.js
+      - name: Verify FUT-14 Management matrix, as-of history, privacy and effective economics
+        run: docker compose exec -T api python manage.py test config.test_opportunity_insights -v 2
+      - name: Verify FUT-14 shared Management Demo and Server adapters
+        run: node scripts/test-shared-opportunity-heatmap.js
       - name: Assert fresh Server has no seeded business data
         run: |
           docker compose exec -T api python manage.py shell -c \
@@ -343,6 +347,7 @@ jobs:
         run: |
           node --check shared-engineer.js
           node --check shared-opportunities.js
+          node --check shared-opportunity-heatmap.js
           node --check server-mode.js
           node --check server-tasks.js
           node --check server-test-cases.js

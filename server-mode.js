@@ -97,6 +97,7 @@
     '<section id="server-users" class="server-catalog" hidden></section>',
     '<section id="server-activity" class="server-catalog" hidden></section>',
     '<section id="server-data-health" class="server-catalog" hidden></section>',
+    '<section id="server-management-insights" class="server-catalog" hidden></section>',
     '<section id="server-planning" class="server-catalog" hidden></section>',
     '</main></div>'
   ].join("");
@@ -165,6 +166,9 @@
   var activity = window.AICompassServerActivity.mount(document.getElementById("server-activity"), escapeHtml);
   var health = window.AICompassServerDataHealth.mount(document.getElementById("server-data-health"), csrfFromCookie, escapeHtml);
   var planning = window.AICompassServerPlanning.mount(document.getElementById("server-planning"), csrfFromCookie, escapeHtml);
+  var managementInsights = window.AICompassHeatmap.mount(
+    document.getElementById("server-management-insights"),
+    window.AICompassHeatmap.serverProvider(fetch, csrfFromCookie), "server");
 
   function status(message, isError) {
     state.textContent = message;
@@ -341,6 +345,8 @@
     activity.setAccess(!maintenanceWorkspace && grants.includes("business_read"), !maintenanceWorkspace && grants.includes("users_manage"));
     health.setAccess(maintenanceWorkspace && grants.includes("maintenance_view"), maintenanceWorkspace && grants.includes("maintenance_triage"));
     planning.setAccess(!maintenanceWorkspace && grants.includes("planning_view"), !maintenanceWorkspace && grants.includes("planning_manage"));
+    managementInsights.setAccess(!maintenanceWorkspace &&
+      grants.includes("planning_view") && personaId === "management");
     document.getElementById("server-maintenance-nav").hidden = !grants.includes("maintenance_view");
     form.hidden = true;
     account.hidden = false;

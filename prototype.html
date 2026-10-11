@@ -113,6 +113,7 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;b
 <script src="shared-workgroup.js"></script>
 <script src="shared-engineer.js"></script>
 <script src="shared-opportunities.js"></script>
+<script src="shared-opportunity-heatmap.js"></script>
 <script src="shared-drafts.js"></script>
 <script src="server-tasks.js"></script>
 <script>
@@ -894,6 +895,16 @@ if(target){
    document.getElementById("demo-environment-profile"),demoEnvironment,"demo").setAccess(true);
 }
 
+if(persona && persona.id === "management" && window.AICompassHeatmap) {
+  var demoMain=document.querySelector(".content");
+  if(demoMain){
+    var demoHeatmap=document.createElement("section");
+    demoHeatmap.id="demo-management-insights";
+    demoMain.insertBefore(demoHeatmap,demoMain.firstChild);
+    window.AICompassHeatmap.mount(demoHeatmap,
+      window.AICompassHeatmap.demoProvider(db),"demo").setAccess(true);
+  }
+}
 if(persona && persona.id === "management" && window.AICompassOpportunities) {
   var demoManagement=document.querySelector(".content");
   if(demoManagement){
