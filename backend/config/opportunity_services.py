@@ -71,7 +71,7 @@ def _inputs(data):
     for c in choices:
         if not isinstance(c,dict) or set(c)-{"task_id","kind","candidate_id","forecast_id"}:
             raise InvalidOpportunity("Unknown choice field")
-        if set(c)<{"task_id","kind","candidate_id"}:
+        if not {"task_id","kind","candidate_id"} <= set(c):
             raise InvalidOpportunity("Task, candidate type and ID are required")
         task=c["task_id"]
         kind=c["kind"]
@@ -332,6 +332,8 @@ def project(profile, assumptions):
                             forecast and measured and _same_configuration(forecast,measured)),
             "confidence":(measured["confidence"] if measured else
                 forecast["properties"].get("confidence") if forecast else "unknown"),
+            "uncertainty":(forecast["properties"].get("uncertainty","") if forecast else None),
+            "measured_sample_size":measured["sample_size"] if measured else 0,
             "status":("unquantifiable" if reasons else
                       "negative_reference_gain" if partition is None else
                       "quantified_annual_potential"),
