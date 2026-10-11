@@ -178,7 +178,29 @@ def close(*,actor,public_id,expected_revision,data):
         state=copy.deepcopy(current.state)
         if not state["interactions"]:
             raise InvalidSession("At least one recorded interaction is required before closing")
-        metrics=_metrics(data,state)
+        from .run_cost_services import quote, contract, InvalidMeter, MissingMeter
+        original=contract(session)
+        results={**state.get("results_draft",{}),**data}
+        cost_snapshot=None
+        if original is not None:
+            # Published tariff data, not a user-entered final amount, controls cost.
+            if set(data)&{"cost_mode","cost_eur"}:
+                raise InvalidSession("Tariff-priced Runs cannot override computed cost")
+            try: cost_snapshot=quote(session,state.get("metering",{}))
+            except MissingMeter as exc:
+                raise SessionConflict("Run remains pending with saved work: "+str(exc)) from exc
+            except InvalidMeter as exc:
+                raise SessionConflict("Run cannot be priced with the original tariff: "+str(exc)) from exc
+            values=cost_snapshot["variable_reference_by_currency"]
+            if not cost_snapshot["variable_charges"]:
+                results.update(cost_mode="flat_rate",cost_eur=None)
+            elif set(values)=={"EUR"}:
+                results.update(cost_mode="amount",cost_eur=float(values["EUR"]))
+            else:
+                results.update(cost_mode="unknown",cost_eur=None)
+        metrics=_metrics(results,state)
+        if cost_snapshot is not None:
+            metrics["reference_cost"]=cost_snapshot
         evidence_ids=metrics.pop("evidence_link_ids")
         state["closing_evidence_link_ids"]=evidence_ids
         evidence=_allowed_evidence(session,state)
@@ -205,6 +227,10 @@ def close(*,actor,public_id,expected_revision,data):
             "method_descriptor":session.method_descriptor,
             "guide_id":session.guide.public_id if session.guide_id else None,
             "guide_revision_id":str(session.guide_revision_id) if session.guide_revision_id else None,
+            "evaluation_id":state.get("evaluation_id"),
+            "execution_environment":state["setup"].get("environment",{}),
+            "setup_deviations":state["setup"].get("notes",""),
+            "setup_guide_original_revision_id":str(session.guide_revision_id) if session.guide_revision_id else None,
             "setup_fingerprint":solution.fingerprint,
             "configuration":_fingerprint(pin)[1],
         }
