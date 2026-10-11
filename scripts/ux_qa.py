@@ -628,7 +628,8 @@ def server_journey(browser, base_url, creds, artifacts, role, viewport):
                 page.locator("#server-task-add-root").click()
                 task_dialog = page.locator("#server-task-editor[role=dialog]")
                 task_dialog.wait_for(state="visible", timeout=15000)
-                task_name = "UX-R04 reusable browser Task"
+                fixture_suffix = secrets.token_hex(3)
+                task_name = "UX-R04 reusable browser Task " + fixture_suffix
                 task_dialog.locator('input[name="name"]').fill(task_name)
                 task_dialog.get_by_role("button", name="Save task revision").click()
                 task_dialog.wait_for(state="hidden", timeout=25000)
@@ -640,7 +641,7 @@ def server_journey(browser, base_url, creds, artifacts, role, viewport):
                 page.locator("#case-new").click()
                 case_dialog = page.locator("#case-editor[role=dialog]")
                 case_dialog.wait_for(state="visible", timeout=15000)
-                case_title = "UX-R04 preserved browser challenge"
+                case_title = "UX-R04 preserved browser challenge " + fixture_suffix
                 case_dialog.locator('input[name="name"]').fill(case_title)
                 task_choice = case_dialog.locator('select[name="task_id"] option').filter(
                     has_text=task_name).first
@@ -665,6 +666,40 @@ def server_journey(browser, base_url, creds, artifacts, role, viewport):
                     state="visible", timeout=30000)
                 if page.locator('[data-shared-case-detail="demo"]').count():
                     raise AssertionError("Server Test Case incorrectly displayed Demo detail")
+                # Unavailable domain API: the screen must fail closed with the
+                # shared error presentation and never substitute Demo fixtures.
+                unavailable = context.new_page()
+                unavailable.set_default_timeout(20000)
+                try:
+                    unavailable.route(
+                        "**/api/v1/campaigns**",
+                        lambda route: route.fulfill(
+                            status=503, content_type="application/json",
+                            body=json.dumps({"detail": "Service unavailable (injected probe)"})))
+                    unavailable.goto(
+                        base_url + "/?mode=server&workspace=workgroup&section=benchmark&view=editor",
+                        wait_until="domcontentloaded")
+                    unavailable.locator(
+                        '#campaign-status [data-shared-status="error"]').first.wait_for(
+                            state="visible", timeout=30000)
+                    unavailable_text = unavailable.locator("#campaign-status").inner_text().lower()
+                    if "unavailable" not in unavailable_text and "failed" not in unavailable_text:
+                        raise AssertionError(
+                            "Unavailable API did not report a domain error: " + unavailable_text[:120])
+                    if unavailable.locator('[data-business-domain="campaigns"]').count():
+                        raise AssertionError("Unavailable API still rendered Server campaign cards")
+                    if unavailable.locator('[data-shared-matrix][data-matrix-mode="demo"]').count():
+                        raise AssertionError("Unavailable Server screen fell back to Demo content")
+                    demo_titles = unavailable.locator(
+                        'text=Plan: agent autonomy for intermittent driver bugs').count()
+                    if demo_titles:
+                        raise AssertionError("Demo fixtures leaked into a failed Server request")
+                    assert_exactly_one_view(unavailable, "#ux-screen-host > [data-ux-screen]")
+                    capture(unavailable, artifacts,
+                            "server-unavailable-api-" + str(viewport["width"]))
+                finally:
+                    unavailable.close()
+
                 # Tasks: one shared tree in both modes; a stale move revision
                 # must be refused explicitly, never applied.
                 page.goto(base_url + "/?mode=server&workspace=workgroup&section=tasks&view=editor",
