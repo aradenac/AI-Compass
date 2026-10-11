@@ -63,3 +63,21 @@ class RenderRecipeTests(TestCase):
     def test_maintenance_only_denied(self):
         self.client.force_login(self.maint)
         self.assertEqual(self.render().status_code, 403)
+
+    def test_recipe_retirement_creates_new_revision_and_preserves_original(self):
+        original=self.client.get("/api/v1/guides/"+self.recipe).json()
+        self.assertIn("recipe", original["properties"])
+        response=self.client.patch("/api/v1/guides/"+self.recipe,
+            data=json.dumps({"expected_revision":"r001",
+                             "properties":{"recipe":None}}),
+            content_type="application/json")
+        self.assertEqual(response.status_code,200,response.content)
+        self.assertNotIn("recipe",response.json()["guide"]["properties"])
+        self.assertEqual(response.json()["guide"]["revision"],"r002")
+        old=self.client.get("/api/v1/guides/"+self.recipe+"/revisions/1")
+        self.assertEqual(old.status_code,200,old.content)
+        self.assertIn("recipe",old.json()["properties"])
+        historical=self.render(revision="r001")
+        self.assertEqual(historical.status_code,200,historical.content)
+        self.assertTrue(historical.json()["ready"])
+
