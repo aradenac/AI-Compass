@@ -416,22 +416,33 @@
       }catch(error){if(allowed&&run===ticket)status("Transition refused: "+error.message,true);}
     }
 
-    async function showMatrix(row,filter){
+    async function showMatrix(row,filter,revision){
       if(!allowed)return;
       var target=el("#campaign-detail");
       target.hidden=false;target.textContent="Loading versioned evaluation matrix…";
       try{
-        var matrix=await api("campaigns/"+encodeURIComponent(row.id)+"/matrix");
+        var responses=await Promise.all([
+          api("campaigns/"+encodeURIComponent(row.id)+"/matrix"+
+            (revision?"?revision="+encodeURIComponent(revision):"")),
+          api("campaigns/"+encodeURIComponent(row.id)+"/revisions")
+        ]);
+        var matrix=responses[0],revisions=responses[1].revisions||[];
         var byId=Object.fromEntries((matrix.configurations||[]).map(function(c){return [c.id,c];}));
         var configRows=matrix.configurations||[],cells=matrix.cells||[];
         var taskIds=Array.from(new Set(configRows.map(function(c){return c.task_id;})));
-        var editable=canWrite&&!row.archived&&["planned","in_progress"].includes(row.status);
+        var editable=canWrite&&!row.archived&&["planned","in_progress"].includes(row.status)&&
+          (!revision||revision===row.revision);
         var chosenTask=taskIds.includes(filter)?filter:"";
         function taskName(id){var t=tasks.find(function(x){return x.id===id;});return t?t.name:id;}
         function tcName(id){var t=cases.find(function(x){return x.id===id;});return t?t.name:id;}
         var counts=matrix.summary||{};
         var html='<h3>'+esc(row.name)+' · Evaluation Matrix · '+esc(matrix.revision)+'</h3>'+
-          '<p class="muted small">Task-associated configurations only · each pair has a stable evaluation ID. Candidate planning is distinct from immutable measured Runs.</p>'+
+          '<p class="muted small">Task-associated configurations only · each pair has a stable evaluation ID. Candidate planning is distinct from immutable measured Runs. Historical decisions are frozen; attempt counts are the live observed projection.</p>'+
+          '<label>Plan revision<select id="matrix-revision">'+
+          revisions.map(function(r){return '<option value="'+esc(r.revision)+'"'+
+            (r.revision===matrix.revision?' selected':'')+'>'+esc(r.revision)+
+            ' · '+esc(r.status)+' · '+esc(r.created_by)+'</option>';}).join("")+
+          '</select></label>'+
           '<p><strong>Full plan: '+(counts.full_plan_complete?"fulfilled":"outstanding")+'</strong>'+
           ' · '+(counts.candidates||0)+' candidates · '+(counts.evaluated||0)+' evaluated · '+
           (counts.pending||0)+' pending · '+(counts.in_progress||0)+' in progress · '+
@@ -491,7 +502,12 @@
         html+='<p><button type="button" id="matrix-close">Close matrix</button></p>';
         target.innerHTML=html;
         target.querySelector("#matrix-close").addEventListener("click",function(){target.hidden=true;});
-        target.querySelector("#matrix-task-filter").addEventListener("change",function(){showMatrix(row,this.value);});
+        target.querySelector("#matrix-task-filter").addEventListener("change",function(){
+          showMatrix(row,this.value,revision);
+        });
+        target.querySelector("#matrix-revision").addEventListener("change",function(){
+          showMatrix(row,chosenTask,this.value);
+        });
         function choose(id){return cells.find(function(x){return x.id===id;});}
         target.querySelectorAll("[data-matrix-cell]").forEach(function(button){
           button.addEventListener("click",function(){
@@ -502,6 +518,10 @@
               '<p>Attempts in progress: '+cell.active_attempts+' · Closed measured Runs: '+cell.runs.length+'</p>'+
               (cell.waiver?'<p>Waived by '+esc(cell.waiver.actor)+' at '+esc(cell.waiver.at)+
               ' — '+esc(cell.waiver.reason)+'</p>':"")+
+              '<div id="matrix-run-links">'+cell.runs.map(function(r){
+                return '<button type="button" data-matrix-run="'+esc(r.id)+'">'+
+                  esc(r.kind)+' '+esc(r.id)+' · '+esc(r.outcome)+'</button>';
+              }).join(" ")+'</div>'+
               '<pre style="white-space:pre-wrap;overflow-wrap:anywhere"></pre>'+
               (editable?'<label>Waiver explanation (mandatory when waiving)<textarea id="matrix-waiver-reason" maxlength="4000"></textarea></label>'+
                 [["selected","Select / reinstate"],["not_selected","Not Selected"],["waived","Waive"]].map(function(x){
@@ -510,6 +530,14 @@
               '<button type="button" id="matrix-open-sessions">Open Test Run workspace</button>';
             detail.querySelector("pre").textContent=JSON.stringify({runs:cell.runs,history:cell.history,
                configuration:cfg},null,2);
+            detail.querySelectorAll("[data-matrix-run]").forEach(function(runButton){
+              runButton.addEventListener("click",async function(){
+                try{
+                  var original=await api("runs/"+encodeURIComponent(runButton.dataset.matrixRun));
+                  detail.querySelector("pre").textContent=JSON.stringify(original,null,2);
+                }catch(error){status("Run read failed: "+error.message,true);}
+              });
+            });
             detail.querySelector("#matrix-open-sessions").addEventListener("click",function(){
               if(sessionWorkspace)sessionWorkspace.openCampaign(row);
             });
