@@ -16,6 +16,7 @@ from .models import (
     RunAmendment, BenchmarkRun, CompositeBenchmarkRun, UserAccessAuditEvent,
     DataHealthEvent, WorkloadRevision, OpportunitySnapshot, BudgetRevision,
     DeploymentRevision, DeploymentEvent, SessionCheckpoint, UserEnvironmentRevision,
+    ExternalImportEvent, ProductionMigrationReceipt,
 )
 
 PAGE_SIZE = 25
@@ -39,6 +40,8 @@ RUN_METRICS = frozenset({
 ACCESS_FIELDS = frozenset({"roles", "active", "sessions_revoked"})
 SOURCES = {
     "catalog": (CatalogAuditEvent, "created_at", "actor__username"),
+    "import": (ExternalImportEvent, "created_at", "batch__actor__username"),
+    "migration": (ProductionMigrationReceipt, "created_at", "actor__username"),
     "access": (UserAccessAuditEvent, "created_at", "actor__username"),
     "health": (DataHealthEvent, "created_at", "actor__username"),
     "run": (BenchmarkRun, "created_at", "recorded_by__username"),
@@ -98,6 +101,14 @@ def _meta(source, row):
                           revision="r%03d" % amendment.number,
                           revision_id=str(amendment.pk))
         return result
+    if source in ("import", "migration"):
+        rev = row.revision if source == "import" else row.target_revision
+        return {"id": str(row.id), "occurred_at": row.created_at.isoformat(),
+            "actor": _actor(row.batch.actor if source == "import" else row.actor),
+            "operation": row.action if source == "import" else "schema_migrated",
+            "object_type": row.item.type_slug, "object_id": row.item.public_id,
+            "object_name": None, "revision": "r%03d" % rev.number,
+            "revision_id": str(rev.pk)}
     if source == "access":
         return {"id": str(row.id), "occurred_at": row.created_at.isoformat(),
             "actor": _actor(row.actor), "operation": row.action,
@@ -155,7 +166,7 @@ def summary(source, row):
     doc["origin"] = "unknown"  # Never pretend historical browser/API provenance.
     doc["actor_username_is_current"] = doc["actor"] is not None
     doc["actor_roles_at_event"] = None
-    doc["correlation_id"] = None
+    doc["correlation_id"] = str(row.batch_id) if source == "import" else None
     # An amendment is already identified by its own authoritative CatalogAuditEvent.
     if source == "catalog" and getattr(row, "run_amendment", None):
         doc["correlation_id"] = str(row.id)
@@ -254,6 +265,13 @@ def _state(source, row):
         previous = CatalogRevision.objects.filter(
             item=row.item, number=row.revision.number - 1).first()
         return _catalog_snapshot(previous), _catalog_snapshot(row.revision)
+    if source == "import":
+        before = CatalogRevision.objects.filter(
+            item=row.item, number=row.revision.number-1).first()
+        return _catalog_snapshot(before), _catalog_snapshot(row.revision)
+    if source == "migration":
+        return (_catalog_snapshot(row.source_revision),
+                _catalog_snapshot(row.target_revision))
     if source == "access":
         changes = {k: v for k, v in row.details.items()
                    if k in ACCESS_FIELDS and isinstance(v, dict) and
@@ -451,6 +469,8 @@ def _query(source, filters):
                      "deployment_revision": "target__public_id",
                      "deployment_event": "target__public_id"}[source]
             qs = qs.filter(**{field: object_id})
+        elif source in ("import", "migration"):
+            qs = qs.filter(item__public_id=object_id)
         elif source in ("access", "environment"):
             try:
                 uid = int(object_id.removeprefix("user:"))
@@ -458,9 +478,15 @@ def _query(source, filters):
                 return []
             qs = qs.filter(**{"subject_id" if source == "access"
                               else "user_id": uid})
+    if source in ("catalog", "import", "migration"):
+        qs = qs.filter(item__type_slug__in=SAFE_TYPES)
     if source == "catalog":
-        qs = qs.filter(item__type_slug__in=SAFE_TYPES).select_related(
+        qs = qs.select_related(
             "item", "revision", "actor")
+    if source == "import":
+        qs = qs.select_related("item", "revision", "batch__actor")
+    if source == "migration":
+        qs = qs.select_related("item", "actor", "source_revision", "target_revision")
     if source == "access":
         qs = qs.select_related("actor", "subject")
     if source == "health":
@@ -521,7 +547,7 @@ def find(source, pk, user):
         raise InvalidAudit("invalid_event_id") from None
     # Explicit ID lookup, not the most recent 500-events global query.
     q = SOURCES[source][0].objects.filter(pk=identifier)
-    if source == "catalog":
+    if source in ("catalog", "import", "migration"):
         q = q.filter(item__type_slug__in=SAFE_TYPES)
     row = q.first()
     if row is None:

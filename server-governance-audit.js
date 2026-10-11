@@ -39,7 +39,7 @@
         '<option value="budget">Resource budgets</option>'+
         '<option value="deployment_revision">Deployment targets</option>'+
         '<option value="deployment_event">Deployment access actions</option>'+
-        '<option value="health">Data Health changes</option>'+
+        '<option value="health">Data Health changes</option><option value="import">External import batches</option><option value="migration">Schema promotions</option>'+
         '</select></label>'+
         '<label>Object type <input name="object_type" placeholder="model / campaign / run"></label>'+
         '<label>Permanent object ID <input name="object_id" maxlength="120" placeholder="mdl-..."></label>'+
