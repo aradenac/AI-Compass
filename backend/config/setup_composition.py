@@ -17,7 +17,7 @@ def validate_recipe(recipe):
     """Validate bounded pinned recipe declarations before persisting them."""
     if not isinstance(recipe, Mapping):
         raise SetupCompositionError("recipe must be an object")
-    if set(recipe) - {"modules", "required"}:
+    if set(recipe) - {"modules", "required", "applies_to", "required_groups"}:
         raise SetupCompositionError("Unknown recipe fields")
     modules = recipe.get("modules", [])
     required = recipe.get("required", [])
@@ -27,17 +27,31 @@ def validate_recipe(recipe):
         isinstance(x, str) and 0 < len(x) <= 160 for x in required
     ):
         raise SetupCompositionError("required must contain configuration keys")
+    overall = recipe.get("applies_to", {})
+    if not isinstance(overall, Mapping) or len(overall)>64:
+        raise SetupCompositionError("Invalid recipe applicability")
+    for field in overall:
+        if not isinstance(field, str) or not field:
+            raise SetupCompositionError("Invalid recipe selector key")
+    groups = recipe.get("required_groups", [])
+    if not isinstance(groups, list) or len(groups)>64 or not all(
+        isinstance(x, str) and 0 < len(x)<=120 for x in groups
+    ) or len(groups)!=len(set(groups)):
+        raise SetupCompositionError("Invalid required groups")
     keys = set()
     for module in modules:
         if not isinstance(module, Mapping) or set(module) - {
-            "id", "revision", "requires", "applies_to"
+            "id", "revision", "requires", "applies_to", "group"
         }:
             raise SetupCompositionError("Invalid module declaration")
+        group = module.get("group")
+        if group is not None and (not isinstance(group, str) or not group or len(group)>120):
+            raise SetupCompositionError("Invalid variant group")
         mid, rev = module.get("id"), module.get("revision")
         if not isinstance(mid, str) or not mid.startswith("gui-"):
             raise SetupCompositionError("Module must have a guide ID")
         if not isinstance(rev, str) or not (
-            len(rev) == 4 and rev.startswith("r") and rev[1:].isdigit()
+            4 <= len(rev) <= 10 and rev.startswith("r") and rev[1:].isdigit()
         ):
             raise SetupCompositionError("Module must pin an exact revision")
         key = (mid, rev)
@@ -56,7 +70,7 @@ def validate_recipe(recipe):
             if not isinstance(dep["id"], str) or not dep["id"].startswith("gui-"):
                 raise SetupCompositionError("Invalid dependency ID")
             if not isinstance(dep["revision"], str) or not (
-                len(dep["revision"]) == 4 and dep["revision"].startswith("r")
+                4 <= len(dep["revision"]) <= 10 and dep["revision"].startswith("r")
                 and dep["revision"][1:].isdigit()
             ):
                 raise SetupCompositionError("Invalid dependency revision")
@@ -84,10 +98,14 @@ def compose(recipe, revisions, configuration):
     if not isinstance(configuration, Mapping):
         raise SetupCompositionError("Exact configuration must be an object")
     validate_recipe(recipe)
+    if not _matches(recipe.get("applies_to", {}), configuration):
+        return {"ready": False, "sections": [],
+                "missing": [{"kind": "recipe_inapplicable"}]}
     entries = recipe.get("modules", [])
     if not isinstance(entries, list):
         raise SetupCompositionError("modules must be a list")
     missing, sections, seen, active = [], [], set(), set()
+    matched_groups = {}
     lookup = {}
     for entry in entries:
         if not isinstance(entry, Mapping):
@@ -111,6 +129,13 @@ def compose(recipe, revisions, configuration):
         if not _matches(entry.get("applies_to", {}), configuration):
             missing.append({"kind": "inapplicable", "module": list(key)})
             return
+        group = entry.get("group")
+        if group:
+            prior = matched_groups.get(group)
+            if prior is not None and prior != key:
+                missing.append({"kind": "ambiguous_variant", "group": group})
+                return
+            matched_groups[group] = key
         active.add(key)
         requirements = entry.get("requires", [])
         if not isinstance(requirements, list):
@@ -140,6 +165,9 @@ def compose(recipe, revisions, configuration):
 
     for entry in entries:
         visit((entry["id"], entry["revision"]))
+    for group in recipe.get("required_groups", []):
+        if group not in matched_groups:
+            missing.append({"kind": "missing_variant", "group": group})
     required = recipe.get("required", [])
     if not isinstance(required, list) or not all(isinstance(x, str) for x in required):
         raise SetupCompositionError("required must be a list of configuration keys")
