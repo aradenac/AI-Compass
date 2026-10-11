@@ -116,35 +116,22 @@ These are **conceptual responsibilities, not instructions to create separate tab
 | Security/backup/recovery | **High** | Protected historic references, hard-erasure exceptions, privilege separation, restore-with-tombstones |
 | Demo/Server parity | Medium | Demo should model same visible lifecycle semantics with fake data; Server never falls back to Demo |
 
-## 10. Acceptance criteria (future, not yet tested)
+## 10. Remaining purge and retention acceptance criteria
 
-1. A Campaign's last published, valid Runs remain visible to authorized readers when it is reopened for new Tasks, Test Cases or Runs; incomplete new work stays private.
-2. A Campaign can explicitly republish a new **subset** of complete Runs, and its published membership/coverage is auditable as a dated immutable version.
-3. Incomplete/pending Runs preserve all declared steps and attachments, with exact missing meter/field reasons, without fabricating an observed complete Run.
-4. A fully measured Run with failed DoD can be published as legitimate **negative experimental evidence**, not a positive recommendation.
-5. Run form fields are derived from the pinned selected Pricing Offer: credits, input/output/reasoning/cached tokens or other applicable units, without unsupported extra mandatory fields.
-6. Flat-rate-only offers do not force irrelevant consumption fields; hybrid offers account for applicable variable components only.
-7. Missing required post-execution consumption prevents **that Run's** inclusion, not publication of independent eligible Runs in the same Campaign.
-8. Only Runs included in a currently effective published selection contribute to ordinary published comparisons, rankings and future value projections.
-9. Correcting an existing published declared measurement via authorized action creates an auditable superseding revision and **promptly changes its effective current derived values**; original raw source and past snapshots remain attributable.
-10. Run withdrawal becomes effective in all authorized published APIs and read models **without withdrawing unrelated Runs**. No stale cached figure is presented as current.
-11. Revoking a Run invalidates its contribution to Task-specific automatic selection and economic projections; an AI Solution with other valid published Runs remains usable from those sources.
-12. Corrections/withdrawals flag dependent published editorial context requiring review as appropriate, but **do not turn editorial commentary into the authority** for measured scores.
-13. An ordinary authorized deletion/retirement hides the object from current views while preserving stable IDs/tombstones and necessary historical relations.
-14. Physical deletion never removes a shared content-addressed blob that remains referenced by **any** protected current, archived or historic object.
-15. An independent legitimate unreferenced Catalog object is **not** auto-purged merely for lacking incoming links.
-16. The maintenance interface shows eligible orphan blob and managed-record candidates, grace period, blockers, storage impact and a **dry-run preview**.
-17. A separately privileged maintenance administrator can manually purge approved eligible content; the action and verification are audit-recorded.
-18. An authorized admin may configure and explicitly enable/disable a scheduled retention/GC policy, with selectable grace period and eligible classes; 30 days is an example, not a forced universal setting.
-19. Scheduled purge only removes records meeting **all** eligibility checks after expiry; rechecks current references/holds under concurrent conditions and fails closed.
-20. A partial DB/filesystem cleanup failure is recoverable/idempotent; no dangling live EvidenceLink or silent lost valid file appears.
-21. Historical publication/Forecast/Run/economic snapshots are not retroactively rewritten by normal correction or Catalog/Guide edits; historic authorized viewers see superseding/revocation context.
-22. Revoked and purged content cannot leak via guessed object/revision/file URL, export, cache or stale comparison API.
-23. Backup/restore tests explicitly verify tombstones/revocations are not lost such that previously withdrawn records reappear as active published data.
-24. Existing Demo records and Server data remain completely separate; neither environment imports fake evidence as a side effect of lifecycle changes.
-25. All operations enforce RBAC, CSRF, attribution, transactional integrity, version checks and relevant object scopes, not only hidden frontend controls.
+1. An ordinary authorized deletion/retirement hides the object from current views while preserving stable IDs/tombstones and necessary historical relations.
+2. Physical deletion never removes a shared content-addressed blob that remains referenced by **any** protected current, archived or historic object.
+3. An independent legitimate unreferenced Catalog object is **not** auto-purged merely for lacking incoming links.
+4. The maintenance interface shows eligible orphan blob and managed-record candidates, grace period, blockers, storage impact and a **dry-run preview**.
+5. A separately privileged maintenance administrator can manually purge approved eligible content; the action and verification are audit-recorded.
+6. An authorized admin may configure and explicitly enable/disable a scheduled retention/GC policy, with selectable grace period and eligible classes; 30 days is an example, not a forced universal setting.
+7. Scheduled purge only removes records meeting **all** eligibility checks after expiry; rechecks current references/holds under concurrent conditions and fails closed.
+8. A partial DB/filesystem cleanup failure is recoverable/idempotent; no dangling live EvidenceLink or silent lost valid file appears.
+9. Revoked and purged content cannot leak via guessed object/revision/file URL, export, cache or stale comparison API.
+10. Backup/restore tests explicitly verify tombstones/revocations are not lost such that previously withdrawn records reappear as active published data.
+11. Existing Demo records and Server data remain completely separate; neither environment imports fake evidence as a side effect of lifecycle changes.
+12. All operations enforce RBAC, CSRF, attribution, transactional integrity, version checks and relevant object scopes, not only hidden frontend controls.
 
-## 11. Deferred refinements and explicit boundaries
+## 11. Implementation decisions and explicit boundaries
 
 **Deferred choices that do not block writing this specification:**
 - Precise technical representation of current effective publication membership vs frozen historical manifests, and efficient invalidation of derived projections;
