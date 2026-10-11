@@ -56,6 +56,8 @@ assert(fields.includes('name="objective"')&&fields.includes('name="dod"'));
 assert(!fields.includes('name="environment"'));
 assert.throws(()=>ui.renderCaseFields({},["danger"]),/Unknown Test Case/);
 assert(page.includes("AICompassWorkgroup.renderCaseFields(from"));
+assert(page.includes("constraints:d.constraints") && page.includes("expected_outputs:d.expected_outputs") && page.includes("environment:d.environment"));
+assert(page.includes("renderCaseDetail(c,\"demo\""));
 assert(server.includes("AICompassWorkgroup.renderCaseFields(p)"));
 
 
