@@ -250,7 +250,7 @@ def _framework(public_id):
 def _properties(data, previous=None):
     props = dict(previous or {})
     supplied = data.get("properties", {})
-    _dictionary(supplied, "properties")
+    _dictionary(supplied, "properties", 512*1024 if data.get("_trusted_matrix") is True else 32768)
     if "matrix_plan" in supplied and data.get("_trusted_matrix") is not True:
         raise InvalidCampaign("Matrix plans must be changed through the evaluation API")
     if set(supplied) & {"mode", "status", "archived", "pricing_policy"}:
