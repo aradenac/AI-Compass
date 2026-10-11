@@ -516,6 +516,8 @@ class RunAmendment(models.Model):
         on_delete=models.PROTECT, related_name="amendments")
     composite_run = models.ForeignKey(CompositeBenchmarkRun, null=True, blank=True,
         on_delete=models.PROTECT, related_name="amendments")
+    audit_event = models.OneToOneField(CatalogAuditEvent, on_delete=models.PROTECT,
+                                        related_name="run_amendment")
     number = models.PositiveIntegerField()
     action = models.CharField(max_length=16)  # corrected | withdrawn
     outcome = models.CharField(max_length=12)
