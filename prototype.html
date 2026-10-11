@@ -2100,7 +2100,7 @@ guidedField("utilityAssessment","Information Utility evaluation","","textarea",n
     "number","full","Native meter units for this original charge. Not a price field.");
  }).join(""):
 selectField("costMode","Estimated total AI/tool cost",[["amount","Amount in EUR for this run"],["flat","Flat-rate / subscription (not allocated per run)"],["unknown","Unknown"]],"amount",true).replace('</label>',metricHelp("Choose Amount only for a run-specific total. Flat-rate means the cost is covered by a subscription and is not allocated to this test; Unknown means no reliable price estimate.")+'</label>')+
-'<div class="span2" data-metered-cost>'+guidedField("cost","Estimated total amount (EUR)","","number","full","Enter the run-specific estimated amount in EUR, inclusive of model/provider and tooling charges where possible; zero only when genuinely free.")+'</div>) +
+'<div class="span2" data-metered-cost>'+guidedField("cost","Estimated total amount (EUR)","","number","full","Enter the run-specific estimated amount in EUR, inclusive of model/provider and tooling charges where possible; zero only when genuinely free.")+'</div>')+
 durationField("reviewMinutes","Final human review duration (minutes)",0,"Time spent checking deliverables after the interactions, separate from reviews already logged as interactions.")+
 durationField("correctionMinutes","Final human correction duration (minutes)",0,"Time spent manually fixing remaining errors after the final review, not counted in earlier iterations.")+
 '<div class="span2"><h3>Produced outputs</h3></div>'+
