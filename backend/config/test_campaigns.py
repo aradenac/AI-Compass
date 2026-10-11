@@ -90,7 +90,7 @@ class CampaignApiTests(TestCase):
         original_guide=new["guide_revision_id"]
         self.assertEqual(new["properties"]["ext"],{"custom":True})
         browser2=Client()
-        browser2.force_login(self.reader)
+        browser2.force_login(self.writer)
         self.assertEqual(browser2.get(BASE+"/"+new["id"]).json()["revision_id"],new["revision_id"])
         self.assertEqual(browser2.get(BASE).json()["results"][0]["id"],new["id"])
         # Changes elsewhere do not silently re-pin the selected original revision.
