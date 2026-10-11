@@ -224,7 +224,8 @@ def review(item, run_ids):
     for ident in run_ids:
         run, kind = found[ident]
         pin, errors = _assess(run, kind)
-        if state(run)["status"] == "withdrawn":\n            errors.append("run_withdrawn")
+        if state(run)["status"] == "withdrawn":
+            errors.append("run_withdrawn")
         if errors:
             raise InvalidTransition(ident + " cannot be published: " + ", ".join(errors))
         pins.append(pin)
@@ -258,7 +259,10 @@ def publish(*, actor, public_id, expected_revision, run_ids, removal_reason=""):
         raise InvalidTransition("Close the campaign for review before publishing")
     if current.properties.get("archived"):
         raise InvalidTransition("Cannot publish an archived campaign")
-    from .run_lifecycle_services import state, lookup\n    pins = review(item, run_ids)\n    if any(state(lookup(ident))["status"] != "active" for ident in run_ids):\n        raise InvalidTransition("A withdrawn Run cannot be republished")
+    from .run_lifecycle_services import state, lookup
+    pins = review(item, run_ids)
+    if any(state(lookup(ident))["status"] != "active" for ident in run_ids):
+        raise InvalidTransition("A withdrawn Run cannot be republished")
     previous = effective(item)
     old = set(x["id"] for x in previous["runs"]) if previous else set()
     removed = old - set(run_ids)
