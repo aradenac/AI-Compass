@@ -1457,8 +1457,17 @@ function runRegistry(publishedOnly){
 var sol=ui.filters.runSolution||"all",task=ui.filters.runTask||"all",status=publishedOnly?"published":ui.filters.runStatus||"all";
 var filtered=db.runs.filter(function(r){var c=caseOf(r);return visibleRun(r)&&(!publishedOnly||r.status==="published")&&(sol==="all"||r.solution===sol)&&(task==="all"||(c&&descendants(task).includes(c.task)))&&(status==="all"||r.status===status);}).sort(function(a,b){return b.date.localeCompare(a.date);});
 var filters='<div class="filters"><select data-filter="runTask">'+[opt("all","All tasks",task)].concat(db.tasks.filter(function(t){return db.cases.some(function(c){return c.task===t.id;});}).map(function(t){return opt(t.id,t.name,task);})).join("")+'</select><select data-filter="runSolution">'+[opt("all","All solutions",sol)].concat(db.solutions.filter(visibleSolution).map(function(s){return opt(s.id,s.name,sol);})).join("")+'</select> '+(!publishedOnly?'<select data-filter="runStatus">'+[["all","Any publication status"],["published","Published"],["draft","Draft"]].map(function(x){return opt(x[0],x[1],status);}).join("")+'</select>':"")+'<span class="muted small">'+filtered.length+" result(s)"+'</span></div>';
-var table=simpleTable(["Date / run","Test Case","Solution","Score / DoD","Human work","AI cost","Status",""],filtered.map(function(r){return '<tr>'+td('<strong>'+E(r.date)+'</strong><div class="muted small mono">'+E(r.id)+'</div>')+td(E(caseOf(r)?.title||r.case))+td(E(r.frameworkAggregate?(r.frameworkSnapshot?.name||"Framework")+" · collaborative workflow ("+(r.frameworkParticipantIds||[]).length+" participants)":rec("solutions",r.solution)?.name||r.solution))+td('<span class="score'+(r.score<75?' low':'')+'">'+r.score+'/100</span><div>'+badge(r.accepted?"Accepted":"Failed")+'</div>')+td(effort(r)+" min")+td(money(r.cost))+td(badge(r.status))+td(btn("Evidence","runDetail",r.id,"sm"))+'</tr>';}));
-return filters+table;
+var cards=window.AICompassWorkgroup.renderRecords(filtered.map(function(r){
+ var tested=caseOf(r),sol=rec("solutions",r.solution);
+ return {id:r.id,title:sol?.name||r.solution||"Composite Framework workflow",
+   status:r.status,description:"MEASURED · controlled benchmark",
+   facts:[r.date,tested?.title||r.case,
+     r.frameworkAggregate?"Collaborative workflow ("+(r.frameworkParticipantIds||[]).length+" participants)":"Individual",
+     "Quality "+r.score+"/100",r.accepted?"Accepted":"Failed",
+     "Human "+effort(r)+" min","AI cost "+money(r.cost)],
+   actions:[{label:"Evidence",attributes:{"data-act":"runDetail","data-id":r.id}}]};
+}),{domain:"results",mode:"demo",emptyText:"No matching published evidence."});
+return filters+cards;
 }
 function nextForkVersion(parent){
  var used=new Set(db.cases.filter(function(c){return c.task===parent.task;}).map(function(c){return String(c.version||"");}));
