@@ -106,4 +106,35 @@ assert(page.includes('renderGuideFields(g||{},"demo")'));
 assert(page.includes('renderGuideDetail(g,"demo")'));
 assert(page.includes("description:d.description"));
 
+
+const watchDemo={id:"w1",title:"Research <hypothesis>",hypothesis:"New & uncertain",
+  assumptions:"No benchmark yet",kind:"Research",status:"reviewed",publication:"published"};
+const watchServer={id:"w1",name:watchDemo.title,revision:"r001",status:"reviewed",
+  properties:{hypothesis:watchDemo.hypothesis,assumptions:watchDemo.assumptions,
+   visibility:"published",review_state:"reviewed"}};
+for(const [row,mode] of [[watchDemo,"demo"],[watchServer,"server"]]) {
+ const d=ui.renderKnowledgeDetail(row,{domain:"watch",mode});
+ assert(d.includes('data-knowledge-domain="watch"'));
+ assert(d.includes("New &amp; uncertain"));
+ assert(d.includes("&lt;hypothesis&gt;")&&!d.includes("<hypothesis>"));
+}
+const forecastDemo={id:"f1",name:"Projected <setup>",status:"staged",
+  confidence:"low",rationale:"External & speculative",
+  quality:null,aiCost:null,uncertainty:"Not tested"};
+const forecastServer={id:"f1",name:forecastDemo.name,revision:"r001",status:"staged",
+  properties:{confidence:"low",rationale:forecastDemo.rationale,
+    uncertainty:forecastDemo.uncertainty,predicted_metrics:{}}};
+for(const [row,mode] of [[forecastDemo,"demo"],[forecastServer,"server"]]) {
+ const d=ui.renderKnowledgeDetail(row,{domain:"forecasts",mode});
+ assert(d.includes("THEORETICAL")&&d.includes("NOT measured Run evidence"));
+ assert(d.includes("External &amp; speculative"));
+ assert(!d.includes("Predicted quality / 100</h4>"),"Missing metrics must not become zero");
+}
+const source=ui.renderKnowledgeDetail({id:"src1",name:"External paper",
+  properties:{url:"Citation reference",assessment:"Preliminary"}},{domain:"sources",mode:"server"});
+assert(source.includes("External source material is not controlled"));
+assert.throws(()=>ui.renderKnowledgeDetail(watchDemo,{domain:"runs",mode:"demo"}),/Explicit authorized/);
+assert(page.includes('renderKnowledgeDetail(w,{domain:"watch",mode:"demo"})'));
+assert(page.includes('renderKnowledgeDetail(p,{domain:"forecasts",mode:"demo"})'));
+
 console.log("UX-R04 shared Test Design tree: Demo, Server, forks, roles, escaping PASS");
