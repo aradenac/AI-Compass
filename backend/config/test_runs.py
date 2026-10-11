@@ -169,9 +169,8 @@ class IndividualRunTests(TestCase):
         browser_b=Client();browser_b.force_login(self.reader)
         self.assertEqual(browser_b.get("/api/v1/runs/"+run["id"]).status_code,404)
         self.assertEqual(browser_b.get("/api/v1/runs?campaign_id="+camp["id"]).json()["results"],[])
-        self.assertEqual(len(browser_b.get("/api/v1/solutions").json()["results"]),1)
-        self.assertEqual(browser_b.get("/api/v1/solutions/"+run["solution_id"]).json()
-                         ["recommended"],False)
+        self.assertEqual(browser_b.get("/api/v1/solutions").json()["results"],[])
+        self.assertEqual(browser_b.get("/api/v1/solutions/"+run["solution_id"]).status_code,404)
         self.assertEqual(browser_b.get(run["evidence"][0]["download"]).status_code,404)
         self.assertEqual(self.send("/api/v1/sessions/"+session["id"]+"/interactions",{
             "expected_revision":"r004","content":"mutate closed"}).status_code,409)
