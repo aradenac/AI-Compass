@@ -171,7 +171,7 @@ const STYLE='<style>'+
 '</style>';
 function mount(element,provider,mode){
  let available=false,scenarios=[],profiles=[],profile="",scenario="",revision="",
-     rowPage=0,columnPage=0,historyMode="stacked",collapsed=new Set(),matrix=null,
+     rowPage=0,columnPage=0,historyMode="stacked",activeSlice="",collapsed=new Set(),matrix=null,
      insights=null,detail=null,branch=-1,suggestions=null,seq=0,status="";
  const id=n=>element.querySelector(n);
  function info(s){status=s;const out=id("[data-heat-status]");if(out)out.textContent=s;}
@@ -235,6 +235,11 @@ function mount(element,provider,mode){
      matrix.columns.map(col=>{
        const c=index.get(row.id+"|"+col.kind+"|"+col.id);
        if(!c)return '<td class="heat-blank" title="Uncovered Task/configuration">—</td>';
+       const belonging=c.evidence_class==="measured"?"benchmarked_opportunity_eur":
+         "forecast_opportunity_eur";
+       if(activeSlice && (activeSlice==="activated_potential_eur"||!c.selected||
+          belonging!==activeSlice||c.intensity_eur==null))
+         return '<td class="heat-blank" title="Not part of the chosen annual slice">—</td>';
        const noShade=band(c.intensity_eur);
        const value=c.annual_eur==null?"unknown":amount(c.annual_eur);
        const mature=c.maturity==="B"?"Measured":c.maturity==="F"?"Forecast":"Incomplete";
@@ -282,10 +287,13 @@ function mount(element,provider,mode){
        ks.map((k,i)=>'<div class="heat-slice heat-slice-'+i+'" style="width:'+
          (sum?Math.max(0,Number(t[k[0]])/sum*100):0)+'%"></div>').join("")+'</div>'+
      '<div class="heat-slice-legend">'+ks.map((k,i)=>
-       '<button type="button" data-heat-slice="'+escape(k[0])+'">'+escape(k[1])+': '+
+       '<button type="button" aria-pressed="'+(activeSlice===k[0])+'" data-heat-slice="'+escape(k[0])+'">'+escape(k[1])+': '+
        amount(t[k[0]])+' ('+(sum?(Number(t[k[0]])/sum*100).toFixed(1):"0")+'%)</button>').join("")+'</div>'+
+     '<button type="button" data-heat-clear-slice'+(activeSlice?'':' disabled')+
+       '>Show all comparison cells</button>'+
      '<p class="muted small">Three mutually exclusive slices: activated requires verified first use. '+
-       'No such source is connected in FUT-14. Missing / negative values do not become positive totals.</p>';
+       'No such source is connected in FUT-14. Missing / negative values do not become positive totals.'+
+       (activeSlice?' Matrix filtered to the selected saved-portfolio slice; totals remain unchanged.':'')+'</p>';
  }
  function timeline(){
    if(!insights||!insights.snapshots.length)return '<p>No historical saved revisions.</p>';
@@ -376,7 +384,8 @@ function mount(element,provider,mode){
      ["[data-heat-stack]",()=>{historyMode="stacked";render();}],
      ["[data-heat-lines]",()=>{historyMode="lines";render();}],
      ["[data-heat-back]",()=>{detail=null;branch=-1;render();}],
-     ["[data-heat-suggestions]",getSuggestions]];
+     ["[data-heat-suggestions]",getSuggestions],
+     ["[data-heat-clear-slice]",()=>{activeSlice="";render();}]];
    buttons.forEach(([selector,fn])=>{const node=id(selector);if(node)node.onclick=fn;});
    element.querySelectorAll("[data-heat-collapse]").forEach(el=>el.onclick=()=>{
      const key=el.dataset.heatCollapse;
@@ -389,8 +398,10 @@ function mount(element,provider,mode){
    element.querySelectorAll("[data-heat-branch]").forEach(el=>el.onclick=()=>{
      const n=Number(el.dataset.heatBranch);branch=branch===n?-1:n;render();});
    element.querySelectorAll("[data-heat-slice]").forEach(el=>el.onclick=()=>{
-     info("Selected slice "+el.dataset.heatSlice+
-       ". Its total is the sum of disjoint saved Task selections, not all alternative cells.");
+     activeSlice=activeSlice===el.dataset.heatSlice?"":el.dataset.heatSlice;
+     render();
+     info(activeSlice?"Matrix filtered to "+activeSlice+
+       " among the saved portfolio; no unselected alternative contributes.":"All alternative comparisons shown.");
    });
  }
  async function inspect(task_id,kind,candidate_id){
