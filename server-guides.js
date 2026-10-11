@@ -179,8 +179,8 @@
         var response=await request(csrf,"/"+encodeURIComponent(item.id)+"/revisions");
         if(!active||current!==ticket)return;
         node=find("#guide-history");
-        node.innerHTML='<h3>'+escapeHtml(item.name)+' · '+escapeHtml(item.id)+'</h3>'+
-          (response.revisions||[]).map(function(r){
+        node.innerHTML=window.AICompassWorkgroup.renderGuideDetail(item,"server")+
+          '<h4>Immutable revision history</h4>'+(response.revisions||[]).map(function(r){
             return '<details><summary>'+escapeHtml(r.revision)+' · '+
               escapeHtml(r.created_at)+' · '+escapeHtml(r.created_by)+'</summary>'+
               '<pre style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></details>';
