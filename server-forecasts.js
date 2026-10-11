@@ -179,7 +179,8 @@ function mount(root,csrf,escapeHtml){
     try{
       var result=await api("forecasts/"+encodeURIComponent(f.id)+"/revisions");
       if(!enabled||current!==ticket)return;
-      node.innerHTML='<h3>'+esc(f.name)+' · THEORY / never measured</h3>'+
+      node.innerHTML=window.AICompassWorkgroup.renderKnowledgeDetail(f,{domain:"forecasts",mode:"server"})+
+        '<h4>Immutable theoretical revisions</h4>'+
         (result.revisions||[]).map(function(v){
           return '<details><summary>'+esc(v.revision)+' · '+esc(v.status)+' · '+esc(v.created_by)+
             '</summary><pre style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></details>';
