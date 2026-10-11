@@ -339,9 +339,12 @@ def serialize(item,rev=None,reader=False):
                 continue
         if (amended.pk if amended else None)!=entry.acknowledged_amendment_id:
             stale_ids.append(run.public_id)
+        pinned=entry.acknowledged_amendment
         links.append({
             "id":run.public_id,"uuid":str(run.pk),"kind":"individual",
-            "outcome":current["outcome"],"metrics":current["metrics"],
+            "outcome":pinned.outcome if pinned else run.outcome,
+            "metrics":pinned.metrics if pinned else run.metrics,
+            "reviewed_source_revision":"r%03d" % pinned.number if pinned else "r001",
             "effective_revision":current["revision"],
             "status":current["status"],
             "method_id":str(run.session.method_definition_id),
