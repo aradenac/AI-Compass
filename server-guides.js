@@ -13,8 +13,9 @@
       return body;
     });
   }
-  function formMarkup(escape,guide,heading) {
+  function formMarkup(escape,guide,heading,known) {
     var properties=guide&&guide.properties||{};
+    known=known||[];
     return '<h3>'+escape(heading)+'</h3>'+
       '<form class="guide-form">'+
       '<label>Guide title <input name="name" maxlength="160" required value="'+
@@ -25,13 +26,44 @@
       escape(properties.url||"")+'" placeholder="https://example.com/setup"></label>'+
       '<label>Notes / description <textarea name="description" rows="2" maxlength="4000">'+
       escape(properties.description||"")+'</textarea></label>'+
+      '<fieldset><legend>Composable recipe (optional)</legend>'+
+      '<p class="muted small">Reuse exact guide revisions. For OS/versions and variants, edit the JSON recipe.</p>'+
+      '<label>Reusable modules<select name="recipe_modules" multiple size="5">'+
+      known.filter(function(g){return !guide||g.id!==guide.id;}).map(function(g){
+        return '<option value="'+escape(g.id)+'">'+escape(g.name)+' · '+escape(g.revision)+'</option>';
+      }).join("")+'</select></label>'+
+      '<button type="button" class="guide-add-modules">Add selected pinned modules</button>'+
+      '<label>Recipe (JSON; optional)<textarea name="recipe_spec" rows="8">'+
+      escape(properties.recipe?JSON.stringify(properties.recipe,null,2):"")+'</textarea></label></fieldset>'+
       '<button type="submit">Save guide</button> <button type="button" class="guide-cancel">Cancel</button>'+
       '</form>';
   }
   function collect(form) {
-    return {name:form.elements.name.value,
-      properties:{text:form.elements.text.value,url:form.elements.url.value,
-        description:form.elements.description.value}};
+    var properties={text:form.elements.text.value,url:form.elements.url.value,
+      description:form.elements.description.value};
+    if(form.elements.recipe_spec&&form.elements.recipe_spec.value.trim()){
+      properties.recipe=JSON.parse(form.elements.recipe_spec.value);
+      if(!properties.recipe||Array.isArray(properties.recipe)||
+         typeof properties.recipe!=="object")throw Error("Recipe must be a JSON object");
+    }
+    return {name:form.elements.name.value,properties:properties};
+  }
+  function wireRecipeBuilder(node,known) {
+    var form=node.querySelector("form"),add=node.querySelector(".guide-add-modules");
+    if(!add)return;
+    add.addEventListener("click",function(){
+      try{
+        var spec=form.elements.recipe_spec.value.trim()?
+          JSON.parse(form.elements.recipe_spec.value):{modules:[],required:[]};
+        if(!spec||!Array.isArray(spec.modules))throw Error("Recipe needs a modules array");
+        Array.from(form.elements.recipe_modules.selectedOptions).forEach(function(option){
+          var chosen=known.find(function(g){return g.id===option.value;});
+          if(chosen&&!spec.modules.some(function(m){return m.id===chosen.id&&m.revision===chosen.revision;}))
+            spec.modules.push({id:chosen.id,revision:chosen.revision});
+        });
+        form.elements.recipe_spec.value=JSON.stringify(spec,null,2);
+      }catch(error){add.textContent="Invalid recipe: "+error.message;}
+    });
   }
   function mount(root,csrf,escapeHtml) {
     var active=false,write=false,ticket=0,records=[],selected=null;
@@ -112,7 +144,8 @@
     function edit(item) {
       var node=find("#guide-editor");
       node.hidden=false;
-      node.innerHTML=formMarkup(escapeHtml,item,item?"Revise existing Setup Guide":"New reusable Setup Guide");
+      node.innerHTML=formMarkup(escapeHtml,item,item?"Revise existing Setup Guide":"New reusable Setup Guide",records);
+      wireRecipeBuilder(node,records);
       node.querySelector(".guide-cancel").addEventListener("click",function(){node.hidden=true;});
       var draft = window.AICompassDrafts && window.AICompassDraftAccount ?
         window.AICompassDrafts.attach(node.querySelector("form"),{
@@ -190,7 +223,8 @@
       if(write)el(".guide-inline-create").addEventListener("click",function(){
         var node=el(".guide-inline-editor");
         node.hidden=false;
-        node.innerHTML=formMarkup(escapeHtml,null,"Create a reusable Setup Guide");
+        node.innerHTML=formMarkup(escapeHtml,null,"Create a reusable Setup Guide",known);
+        wireRecipeBuilder(node,known);
         node.querySelector(".guide-cancel").addEventListener("click",function(){node.hidden=true;});
         node.querySelector("form").addEventListener("submit",async function(event){
           event.preventDefault();
