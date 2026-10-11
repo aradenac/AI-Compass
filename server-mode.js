@@ -103,6 +103,45 @@
     '</main></div>'
   ].join("");
 
+  // UX-R02: keep existing data-bound domain nodes, but mount them into the
+  // *same* shell hierarchy as standalone Demo before controllers are attached.
+  var originalMain = root.querySelector(".server-main");
+  var originalPersonaLinks = document.getElementById("server-personas");
+  var moved = document.createDocumentFragment();
+  var overview = document.createElement("section");
+  overview.id = "ux-workgroup-overview";
+  var authPanel = null;
+  Array.from(originalMain.children).forEach(function (child) {
+    if (child === originalPersonaLinks || child.tagName === "H1" ||
+        (child.tagName === "P" && !child.id)) return;
+    if (child.id === "server-workgroup-home" ||
+        child.id === "server-workgroup-summary") {
+      overview.appendChild(child);
+      return;
+    }
+    if (child.classList.contains("server-card") &&
+        child.querySelector("#server-login-form")) {
+      authPanel = child;
+      child.id = "ux-auth-panel";
+    }
+    moved.appendChild(child);
+  });
+  if (!authPanel) throw new Error("Server login panel was not preserved by the shared shell");
+  root.innerHTML = window.AICompassShell.render({
+    mode: "server",
+    title: maintenanceWorkspace ? "Maintenance & Governance" : "AI Compass",
+    sidebar: '<div id="server-side-navigation"></div>',
+    footer: '<p>Authenticated Server · persistent records</p>' +
+      '<a href="/?mode=demo">Switch to independent Demo</a>',
+    content: '<div id="ux-screen-host"></div>'
+  });
+  var serverScreenHost = document.getElementById("ux-screen-host");
+  serverScreenHost.appendChild(overview);
+  serverScreenHost.appendChild(moved);
+  var topActions = root.querySelector(".ux-topbar .top-actions");
+  topActions.appendChild(originalPersonaLinks);
+  var dialogCoordinator = window.AICompassShell.attachDialogs(serverScreenHost);
+
   var state = document.getElementById("server-state");
   var form = document.getElementById("server-login-form");
   var account = document.getElementById("server-account");
@@ -315,6 +354,9 @@
       catalog.hidden = true;
       account.hidden = true;
       form.hidden = false;
+      document.getElementById("server-side-navigation").replaceChildren();
+      document.getElementById("ux-page-title").textContent = "Server sign in";
+      window.AICompassShell.selectScreen(serverScreenHost, "ux-auth-panel");
       status("Signed out. Use a real Server account created by the operator.", false);
       return;
     }
@@ -396,7 +438,7 @@
     if (!maintenanceWorkspace && personaId === "workgroup" &&
         grants.includes("business_write") && group) {
       var section = new URLSearchParams(window.location.search).get("section") || "studio";
-      if (section !== "studio" && !group.canVisit(section, grants, "server", true))
+      if (section !== "studio" && !["account","users"].includes(section) && !group.canVisit(section, grants, "server", true))
         section = "studio";
       var ids = Object.keys(group.SECTION_TO_SERVER).map(function(x){return group.SECTION_TO_SERVER[x];});
       ids.forEach(function(id){var el=document.getElementById(id);if(el)el.hidden = true;});
@@ -411,8 +453,9 @@
             '<button type="button" id="workgroup-show-editor">Open full workspace / edit / history</button></div>');
         if (section !== "studio") {
           document.getElementById("workgroup-show-editor").onclick = function() {
-            var target=document.getElementById(group.SECTION_TO_SERVER[section]);
-            if(target){target.hidden=false;summary.hidden=true;this.disabled=true;}
+            var next = new URL(window.location.href);
+            next.searchParams.set("view", "editor");
+            window.location.assign(next.href);
           };
         }
       }
@@ -449,6 +492,55 @@
         }
       }
     }
+    // Roles control capabilities, never how many business screens are stacked.
+    // One route chooses one screen even for multi-role administrators.
+    var route = new URLSearchParams(window.location.search);
+    var currentSection = route.get("section") ||
+      (maintenanceWorkspace ? "audit" : personaId === "workgroup" ? "studio" : "home");
+    var screen = "";
+    if (maintenanceWorkspace) {
+      screen = currentSection === "health" && grants.includes("maintenance_view") ?
+        "server-data-health" : grants.includes("audit_view") ? "server-governance-audit" :
+        grants.includes("maintenance_view") ? "server-data-health" : "ux-auth-panel";
+    } else if (currentSection === "users" && grants.includes("users_manage")) {
+      screen = "server-users";
+    } else if (currentSection === "account") {
+      screen = "ux-auth-panel";
+    } else if (personaId === "workgroup" && grants.includes("business_write")) {
+      var sections = window.AICompassWorkgroup.SECTION_TO_SERVER;
+      if (currentSection === "studio" || !sections[currentSection]) {
+        screen = "ux-workgroup-overview";
+        currentSection = "studio";
+      } else if (window.AICompassWorkgroup.STABLE[currentSection] &&
+                 route.get("view") !== "editor") {
+        screen = "ux-workgroup-overview";
+      } else {
+        screen = sections[currentSection];
+      }
+    } else if (personaId === "engineer" && grants.includes("business_read")) {
+      var engineerRoutes = {home:"server-engineer",tasks:"server-task-tree",
+        catalog:"server-model-catalog",results:"server-results",
+        guides:"server-guides",environment:"server-environment-profile"};
+      screen = engineerRoutes[currentSection] || engineerRoutes.home;
+    } else if (personaId === "management" && grants.includes("planning_view")) {
+      screen = currentSection === "planning" ? "server-planning" : "server-management-insights";
+    } else {
+      screen = grants.includes("users_manage") ? "server-users" : "ux-auth-panel";
+    }
+    var sidebar = document.getElementById("server-side-navigation");
+    sidebar.innerHTML = window.AICompassShell.serverNav(
+      personaId, grants, currentSection, maintenanceWorkspace);
+    window.AICompassShell.selectScreen(serverScreenHost, screen);
+    var active = document.getElementById(screen);
+    var label = active && active.querySelector("h2") ||
+      active && active.querySelector("h1");
+    document.getElementById("ux-page-title").textContent =
+      label ? label.textContent.trim().slice(0,90) :
+      maintenanceWorkspace ? "Maintenance & Governance" :
+      personaId === "workgroup" ? "AI Workgroup Studio" :
+      personaId === "management" ? "Management Insights" :
+      personaId === "engineer" ? "My AI Workspace" : "Account";
+    dialogCoordinator.sync();
   }
 
   function field(name, title, value, type, extra) {
@@ -823,6 +915,8 @@
       activity.setAccess(false, false);
       health.setAccess(false, false);
       document.getElementById("server-maintenance-nav").hidden = true;
+      document.getElementById("server-side-navigation").replaceChildren();
+      window.AICompassShell.selectScreen(serverScreenHost, "ux-auth-panel");
       status("Server unavailable. Demo data will NOT be loaded automatically. " + error.message, true);
     }
   })();
