@@ -221,7 +221,7 @@ def _snapshot_context(data, actor, previous=None):
     else:
         pins = [(pin.test_case, pin.revision)
                 for pin in previous.case_pins.select_related("test_case__task","revision")]
-    if task and any(case.task_id != task.pk for case, _ in pins):
+    if task and not (data.get("_trusted_matrix") or (previous and previous.revision.properties.get("matrix_plan"))) and any(case.task_id != task.pk for case, _ in pins):
         raise InvalidCampaign("All Test Cases must belong to the campaign's fixed task")
     if framework is None and "participants" in data and data["participants"] not in (None,[]):
         raise InvalidCampaign("Participant trios require a Framework")
@@ -251,6 +251,8 @@ def _properties(data, previous=None):
     props = dict(previous or {})
     supplied = data.get("properties", {})
     _dictionary(supplied, "properties")
+    if "matrix_plan" in supplied and data.get("_trusted_matrix") is not True:
+        raise InvalidCampaign("Matrix plans must be changed through the evaluation API")
     if set(supplied) & {"mode", "status", "archived", "pricing_policy"}:
         raise InvalidCampaign("mode and lifecycle state cannot be overridden through properties")
     props.update(supplied)
