@@ -18,6 +18,9 @@ function serverProvider(fetcher,csrf){
         {profile_id:profile,scenario:scenario});},
     create:function(profile,scenario){return api("/api/v1/planning/opportunities","POST",
         {profile_id:profile,scenario:scenario});},
+    revise:function(id,revision,scenario){return api(
+      "/api/v1/planning/opportunities/"+encodeURIComponent(id),"PATCH",
+      {expected_revision:revision,scenario:scenario});},
     detail:function(id){return api("/api/v1/planning/opportunities/"+encodeURIComponent(id));},
     revisions:function(id){return api("/api/v1/planning/opportunities/"+encodeURIComponent(id)+"/revisions");}
   };
@@ -39,7 +42,7 @@ function demoProvider(db){
           function(p){return {task_id:p.task,candidate_id:p.id,kind:"forecast",
             name:p.name,label:"Fictional theoretical Demo hypothesis"};})),
         scenarios:scenarios.map(function(s){return {id:s.id,profile_id:s.profile_id,
-          latest_revision:"r001"};})};},
+          latest_revision:s.revision};})};},
     preview:async function(profile,scenario){
       var cells=scenario.choices.map(function(choice){
         var source=db.runs.filter(function(r){
@@ -86,17 +89,27 @@ function demoProvider(db){
     create:async function(profile,scenario){
       var result=await this.preview(profile,scenario);
       var row={id:"opp-demo-"+(scenarios.length+1),profile_id:profile,
-        revision:"r001",snapshot:result,current:result,scenario:scenario,source_changed:false};
+        revision:"r001",snapshot:result,current:result,scenario:scenario,source_changed:false,
+        frozen:[{revision:"r001",totals:result.totals,projection:result}]};
       scenarios.push(row);return row;},
+    revise:async function(id,revision,scenario){
+      var row=scenarios.find(function(s){return s.id===id;});
+      if(!row||row.revision!==revision)throw Error("Demo scenario revision changed");
+      var projection=await this.preview(row.profile_id,scenario);
+      row.revision="r"+String(row.frozen.length+1).padStart(3,"0");
+      row.frozen.push({revision:row.revision,totals:projection.totals,projection:projection});
+      row.scenario=scenario;row.snapshot=projection;row.current=projection;
+      return row;},
     detail:async function(id){return scenarios.find(function(s){return s.id===id;});},
-    revisions:async function(id){return {revisions:scenarios.filter(function(s){return s.id===id;})
-      .map(function(s){return {revision:"r001",totals:s.snapshot.totals};})};}
+    revisions:async function(id){var row=scenarios.find(function(s){return s.id===id;});
+      return {revisions:row?row.frozen.map(function(x){return {
+        revision:x.revision,totals:x.totals};}):[]};}
   };
 }
 function mount(root,provider,mode){
   var active=false,write=false,profiles=[],tasks=[],candidates=[],scenarios=[],
       selected=[],profile="",weight="",name="",generation=0,rendered=null,
-      status="",inspection=null;
+      status="",loadedId=null,loadedRevision=null,loadedProfile=null;
   function info(text){status=text||"";var node=root.querySelector("[data-opp-status]");
     if(node)node.textContent=status;}
   function surface(){
@@ -126,6 +139,12 @@ function mount(root,provider,mode){
           return '<option value="'+E(key)+'"'+(
             key===c.kind+"|"+c.candidate_id?' selected':'')+'>'+
             E(o.name)+' · '+E(o.kind)+'</option>';}).join("")+'</select></label>'+
+        (c.kind==="benchmark"?'<label>Optional comparable published Forecast (exact pinned setup)' +
+          '<select data-opp-linked="'+i+'"><option value="">No blending</option>'+
+          choices.filter(function(o){return o.kind==="forecast";}).map(function(o){
+            return '<option value="'+E(o.candidate_id)+'"'+(
+              c.forecast_id===o.candidate_id?' selected':'')+'>'+E(o.name)+'</option>';
+          }).join("")+'</select></label>':'')+
         '<button data-opp-delete="'+i+'" type="button">Remove</button></div>';
     }).join("");
   }
@@ -170,7 +189,9 @@ function mount(root,provider,mode){
       '<div data-opp-lines>'+rows()+'</div>'+
       '<button type="button" data-opp-add>Add Task selection</button>'+
       '<button type="button" data-opp-preview'+(!write?' disabled':'')+'>Calculate current</button>'+
-      '<button type="button" data-opp-save'+(!write?' disabled':'')+'>Save immutable scenario revision</button>'+
+      '<button type="button" data-opp-save'+(!write?' disabled':'')+'>'+
+      (loadedId?"Save new immutable revision":"Create immutable scenario")+'</button>'+
+      '<button type="button" data-opp-new>New scenario</button>'+
       '<h3>Saved scenarios</h3>'+
       (scenarios.map(function(s){return '<button type="button" data-opp-open="'+
         E(s.id)+'">'+E(s.id)+' · '+E(s.latest_revision||"r001")+'</button>';}).join("")||
@@ -187,8 +208,15 @@ function mount(root,provider,mode){
     body.querySelectorAll("[data-opp-candidate]").forEach(function(el){el.onchange=function(){
       var i=Number(el.dataset.oppCandidate),parts=el.value.split("|");
       selected[i].kind=parts[0]||"";selected[i].candidate_id=parts[1]||"";};});
+    body.querySelectorAll("[data-opp-linked]").forEach(function(el){el.onchange=function(){
+      var i=Number(el.dataset.oppLinked);if(el.value)selected[i].forecast_id=el.value;
+      else delete selected[i].forecast_id;};});
     body.querySelectorAll("[data-opp-delete]").forEach(function(el){el.onclick=function(){
       selected.splice(Number(el.dataset.oppDelete),1);render();};});
+    body.querySelector("[data-opp-new]").onclick=function(){
+      loadedId=null;loadedRevision=null;loadedProfile=null;
+      profile=profiles.length===1?profiles[0].id:"";name="";weight="";
+      selected=[];rendered=null;info("New scenario: choose assumptions and candidates.");render();};
     body.querySelector("[data-opp-preview]").onclick=function(){run(false);};
     body.querySelector("[data-opp-save]").onclick=function(){run(true);};
     body.querySelectorAll("[data-opp-open]").forEach(function(el){el.onclick=function(){
@@ -201,17 +229,24 @@ function mount(root,provider,mode){
       throw Error("Choose population, scenario name and explicit Task configurations.");
     var ids=selected.map(function(x){return x.task_id;});
     if(new Set(ids).size!==ids.length)throw Error("Only one candidate per Task.");
-    return {name:name.trim(),choices:selected.map(function(x){return {
-      task_id:x.task_id,kind:x.kind,candidate_id:x.candidate_id};}),
+    return {name:name.trim(),choices:selected.map(function(x){
+      return {task_id:x.task_id,kind:x.kind,candidate_id:x.candidate_id,
+        ...(x.forecast_id?{forecast_id:x.forecast_id}:{})};}),
       benchmark_weight:weight};
   }
   async function run(save){
     var token=++generation;
     try{var data=payload();info(save?"Saving frozen scenario…":"Recalculating current potential…");
-      var value=save?await provider.create(profile,data):await provider.preview(profile,data);
+      if(save&&loadedId&&profile!==loadedProfile)
+        throw Error("A saved scenario population is immutable; use New scenario for another profile.");
+      var value=save?(loadedId?await provider.revise(loadedId,loadedRevision,data):
+        await provider.create(profile,data)):await provider.preview(profile,data);
       if(token!==generation||!active)return;
-      rendered=value.current||value;info(save?"Saved scenario "+value.id:"Current source-backed projection");
-      if(save){scenarios=(await provider.bootstrap()).scenarios;}render();
+      rendered=value.current||value;
+      if(save){loadedId=value.id;loadedRevision=value.revision;loadedProfile=value.profile_id;
+        scenarios=(await provider.bootstrap()).scenarios;}
+      info(save?"Saved immutable scenario "+loadedId+" "+loadedRevision:
+        "Current source-backed projection");render();
     }catch(error){if(token!==generation)return;info("Projection unavailable: "+error.message);}
   }
   async function open(id){
@@ -219,9 +254,11 @@ function mount(root,provider,mode){
     try{var data=await provider.detail(id),hist=await provider.revisions(id);
       if(token!==generation||!active)return;
       rendered=data.current||data.snapshot;
+      loadedId=data.id;loadedRevision=data.revision;loadedProfile=data.profile_id;
       profile=data.profile_id;name=data.scenario.name;weight=data.scenario.benchmark_weight;
       selected=data.scenario.choices.map(function(x){return {
-        task_id:x.task_id,kind:x.kind,candidate_id:x.candidate_id};});
+        task_id:x.task_id,kind:x.kind,candidate_id:x.candidate_id,
+        ...(x.forecast_id?{forecast_id:x.forecast_id}:{})};});
       info((data.source_changed?"Underlying evidence changed since snapshot. ":"")+
         "Frozen revision "+data.revision+" · "+
         (hist.revisions||[]).map(function(x){return x.revision;}).join(", "));
