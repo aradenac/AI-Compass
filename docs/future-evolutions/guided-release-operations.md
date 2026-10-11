@@ -24,16 +24,12 @@ compass release recover
 
 Preserve durable, idempotent state and crash-safe recovery for interrupted operations. Do not require Kubernetes, event buses, an external workflow system or a separate database for release metadata. Existing PLAT-26/29/34/35 guarantees remain mandatory. Human acceptance gates may be completed later, but the system must never report operational GO simply because code was merged or CI passed.
 
-## 7. Delivery boundaries and minimum acceptance
+## Release-operation acceptance criteria
 
-The future issue plan should separate: (a) contract/convergence foundations, (b) UX migration on shared screens, (c) manifest and artifact build, (d) compatibility checks + safe operator CLI, and (e) documented staging/production/recovery acceptance. Their exact order and scope require owner approval, not inference from this document.
+1. Validate a known coordinated frontend/backend pair, API/schema compatibility and relevant artifact digests before deployment.
+2. A compatible update is reproducible with pinned notes, running-version status and proper backend/frontend order.
+3. An incompatible update requires a complete verified recovery point, disposable real-browser staging acceptance and an explicit authorized verdict before altering live data.
+4. Rejection, interruption or failed staging leaves production untouched, with recovery/status safely inspectable.
+5. The operator workflow does not silently promote a staging database, create a second migration engine or claim production GO from CI alone.
 
-Minimum outcomes:
-1. One Catalog/Task/Campaign view is demonstrably the **same implementation** in Demo and Server; later covered domains replace their old duplicated views.
-2. Standalone Demo starts from static files with only fictional data; Server starts empty, authenticated and remains isolated on outage.
-3. Compatible backend update passes tests against the prior frontend; a breaking API update is either served compatibly or explicitly rejected before rollout.
-4. A release can be reconstructed from recorded frontend/backend digests, API/schema capability manifest and CI evidence; release notes explain known changes and operator actions.
-5. An incompatible migration cannot be applied without a verified recovery point, accepted real-browser staging verdict and authorized explicit production operation. Reject/discard/recreate and recovery remain tested.
-6. No future proposed feature is implemented merely because the convergence framework has become available.
-
-**Governance:** Future technical direction accepted; no new approved GitHub issues or automatic implementation permission. The [technical-debt register](../technical-debt.md) tracks cleanup and deliberately deferred validation without duplicating these design decisions.
+**Existing foundation:** [coordinated release contracts](../shared-frontend-and-release-lifecycle.md), [release readiness](../release-readiness.md), [migration staging](../migration-staging.md), [migration production](../migration-production.md).
