@@ -60,6 +60,8 @@ urlpatterns = [
     path("api/v1/campaigns/<slug:campaign_id>/sessions", session_views.collection),
     path("api/v1/sessions/<slug:public_id>", session_views.get_session),
     path("api/v1/sessions/<slug:public_id>/guide", session_views.get_pinned_guide),
+    path("api/v1/sessions/<slug:public_id>/metering", session_views.update_metering),
+    path("api/v1/sessions/<slug:public_id>/results", session_views.update_results),
     path("api/v1/sessions/<slug:public_id>/checkpoints", session_views.get_checkpoints),
     path("api/v1/sessions/<slug:public_id>/checkpoints/<int:number>", session_views.get_checkpoint),
     path("api/v1/sessions/<slug:public_id>/actions/<slug:action>", session_views.lifecycle),
