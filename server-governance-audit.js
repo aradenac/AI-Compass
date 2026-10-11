@@ -112,6 +112,16 @@
       try {
         var result=await get('?'+params.toString());
         if(!allowed||generation!==ticket)return;
+        var sourceSelect=el('#audit-filters').elements.source;
+        (result.sources||[]).filter(function(s){
+          return ['access','environment'].includes(s) &&
+            !sourceSelect.querySelector('option[value="'+s+'"]');
+        }).forEach(function(s){
+          var option=document.createElement('option');
+          option.value=s;option.textContent=s==='access'?
+            'Accounts (restricted)': 'User OS declarations (restricted)';
+          sourceSelect.appendChild(option);
+        });
         el('#audit-list').innerHTML=(result.results||[]).map(function(r){
           return '<div class="list-row"><strong>'+escapeHtml(r.operation)+
             '</strong> · '+escapeHtml(r.object_type)+' / '+escapeHtml(r.object_id)+

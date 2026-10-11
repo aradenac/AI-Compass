@@ -347,12 +347,32 @@ def _allowed(source, user):
         raise HiddenAudit("source_access_denied")
 
 
+def _restricted_catalog_change(row):
+    previous = CatalogRevision.objects.filter(
+        item=row.item, number=row.revision.number-1).first()
+    if previous is None:
+        return False
+    if row.revision.properties != previous.properties:
+        old_visible = _catalog_snapshot(previous).get("properties")
+        new_visible = _catalog_snapshot(row.revision).get("properties")
+        if row.item.type_slug == "pricing_offer":
+            old_visible = _safe_offer(previous.properties)
+            new_visible = _safe_offer(row.revision.properties)
+        if old_visible == new_visible:
+            return True
+    return False
+
+
 def event_detail(source, row, user):
     _allowed(source, user)
     data = summary(source, row)
     previous, current = _state(source, row)
     changes = _diff(previous, current)
     return {"event": data, "changes": changes,
+            "restricted_change_present": (source == "catalog" and
+                not getattr(row, "run_amendment", None) and
+                row.revision.number > 1 and
+                _restricted_catalog_change(row)),
             "before_revision_id": (
                 str(row.revision.item.revisions.filter(number=row.revision.number-1)
                     .values_list("pk", flat=True).first())

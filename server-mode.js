@@ -306,6 +306,7 @@
       discussions.setAccess(false, false, false);
       users.setAccess(false, false);
       activity.setAccess(false, false);
+      governanceAudit.setAccess(false);
       health.setAccess(false, false);
       planning.setAccess(false, false);
       document.getElementById("server-maintenance-nav").hidden = true;
