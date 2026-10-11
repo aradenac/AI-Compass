@@ -376,6 +376,58 @@ def demo_journey(browser, demo_url, artifacts, role, label, viewport):
                 raise AssertionError("Management original as-of state is missing")
             assert_no_horizontal_overflow(page)
             capture(page, artifacts, "demo-management-inspector-" + str(viewport["width"]))
+        if role == "u1":
+            # UX-R04: the Demo Campaign matrix is the shared component, and one
+            # real fictional decision is recorded through the shared form.
+            page.locator('[data-act="nav"][data-id="benchmark"]').click()
+            card = page.locator(
+                '[data-business-domain="campaigns"] [data-business-record]'
+            ).filter(has_text="planned").first
+            card.wait_for(state="visible", timeout=20000)
+            card.locator('button[data-act="campaignDetail"]').click()
+            dialog = page.get_by_role("dialog")
+            dialog.wait_for(state="visible", timeout=20000)
+            add = dialog.locator('button[data-act="campaignMatrixAdd"]')
+            if add.count():
+                add.first.click()
+                form = page.locator("#modalForm")
+                form.wait_for(state="visible", timeout=20000)
+                form.locator('input[name="label"]').fill("UX-R04 shared Demo configuration")
+                for name in ("model", "provider", "harness"):
+                    select = form.locator(f'select[name="{name}"]')
+                    if select.locator("option").count() == 0:
+                        raise AssertionError(
+                            "Demo lacks fictional catalog components for " + name)
+                    select.select_option(index=0)
+                page.get_by_role("button", name="Add evaluation column").click()
+            matrix = page.locator('[data-shared-matrix][data-matrix-mode="demo"]')
+            matrix.wait_for(state="visible", timeout=20000)
+            if matrix.locator("[data-shared-matrix-cell]").count() == 0:
+                raise AssertionError("Shared Demo matrix rendered no evaluation cell")
+            if not page.locator('[data-shared-stepper][data-stepper-mode="demo"]').count():
+                raise AssertionError("Demo campaign lifecycle does not use the shared stepper")
+            assert_no_horizontal_overflow(page)
+            capture(page, artifacts, "demo-shared-campaign-matrix-" + str(viewport["width"]))
+            matrix.locator("button[data-matrix-cell]").first.click()
+            cell = page.locator('[data-matrix-cell-detail][data-matrix-mode="demo"]')
+            cell.wait_for(state="visible", timeout=20000)
+            if "never measured evidence" not in cell.inner_text().lower():
+                raise AssertionError("Shared Demo matrix cell lost its evidence provenance notice")
+            decision_form = page.locator("#modalForm")
+            decision_form.locator('select[name="decision"]').select_option("waived")
+            decision_form.locator('textarea[name="reason"]').fill(
+                "UX-R04 Demo waiver recorded through the shared decision form")
+            page.get_by_role("button", name="Save decision").click()
+            matrix = page.locator('[data-shared-matrix][data-matrix-mode="demo"]')
+            matrix.wait_for(state="visible", timeout=20000)
+            matrix_text = matrix.inner_text()
+            if "Waived: 1" not in matrix_text:
+                raise AssertionError("Shared Demo matrix did not apply the waiver")
+            if "UX-R04 Demo waiver recorded" not in matrix_text:
+                raise AssertionError("Shared Demo matrix lost the recorded waiver reason")
+            capture(page, artifacts,
+                    "demo-shared-campaign-matrix-decided-" + str(viewport["width"]))
+            page.get_by_role("dialog").get_by_role("button", name="Close dialog").click()
         if errors:
             raise AssertionError("Demo JS runtime error(s): " + "; ".join(errors[:3]))
     finally:
@@ -579,6 +631,93 @@ def server_journey(browser, base_url, creds, artifacts, role, viewport):
                     state="visible", timeout=30000)
                 if page.locator('[data-shared-case-detail="demo"]').count():
                     raise AssertionError("Server Test Case incorrectly displayed Demo detail")
+                # UX-R04: real Server campaign matrix through the shared component.
+                page.goto(base_url + "/?mode=server&workspace=workgroup&section=catalog&view=editor",
+                          wait_until="domcontentloaded")
+                page.locator(".shared-catalog-workspace").wait_for(state="visible", timeout=30000)
+                for component_type in ("model", "provider", "harness"):
+                    page.locator(
+                        f'button[data-act="newComponentType"][data-id="{component_type}"]'
+                    ).first.click()
+                    editor = page.locator("[data-common-form]")
+                    editor.wait_for(state="visible", timeout=20000)
+                    editor.locator('input[name="name"]').fill("UX-R04 " + component_type)
+                    if component_type == "harness":
+                        editor.locator('input[name="osWindows"]').check()
+                    editor.locator('button[type="submit"]').click()
+                    editor.wait_for(state="hidden", timeout=30000)
+                page.goto(base_url + "/?mode=server&workspace=workgroup&section=benchmark&view=editor",
+                          wait_until="domcontentloaded")
+                page.locator("#campaign-add").wait_for(state="visible", timeout=30000)
+                page.locator("#campaign-add").click()
+                campaign_form = page.locator("#campaign-form")
+                campaign_form.wait_for(state="visible", timeout=20000)
+                campaign_form.locator('input[name="name"]').fill("UX-R04 shared matrix campaign")
+                campaign_form.locator('textarea[name="objective"]').fill(
+                    "Verify the shared campaign evaluation matrix in an authenticated Server")
+                task_choice = campaign_form.locator('select[name="task_id"] option').filter(
+                    has_text=task_name).first
+                task_value = task_choice.get_attribute("value")
+                if not task_value:
+                    raise AssertionError("Created real Task was not selectable for a campaign")
+                campaign_form.locator('select[name="task_id"]').select_option(task_value)
+                case_choice = campaign_form.locator('select[name="test_case_ids"] option').filter(
+                    has_text=case_title).first
+                case_value = case_choice.get_attribute("value")
+                if not case_value:
+                    raise AssertionError("Created real Test Case was not offered to the campaign")
+                campaign_form.locator('select[name="test_case_ids"]').select_option(case_value)
+                campaign_form.locator('button[type="submit"]').click()
+                campaign_card = page.locator(
+                    '[data-business-domain="campaigns"] [data-business-record]').filter(
+                        has_text="UX-R04 shared matrix campaign").first
+                campaign_card.wait_for(state="visible", timeout=30000)
+                campaign_card.locator('button[data-action="matrix"]').click()
+                matrix = page.locator('[data-shared-matrix][data-matrix-mode="server"]')
+                matrix.wait_for(state="visible", timeout=30000)
+                if not page.locator('[data-shared-stepper][data-stepper-mode="server"]').count():
+                    raise AssertionError("Server campaign lifecycle does not use the shared stepper")
+                add_form = page.locator("#matrix-add-form")
+                add_form.wait_for(state="visible", timeout=20000)
+                add_form.locator('input[name="label"]').fill("UX-R04 shared Server configuration")
+                for component in ("model", "provider", "harness"):
+                    add_form.locator(f'select[name="{component}"]').select_option(index=0)
+                add_form.locator('button[type="submit"]').click()
+                cell_button = page.locator(
+                    '[data-shared-matrix][data-matrix-mode="server"] button[data-matrix-cell]'
+                ).first
+                cell_button.wait_for(state="visible", timeout=30000)
+                assert_no_horizontal_overflow(page)
+                capture(page, artifacts, "server-shared-campaign-matrix-" +
+                        str(viewport["width"]))
+                cell_button.click()
+                cell = page.locator('[data-matrix-cell-detail][data-matrix-mode="server"]')
+                cell.wait_for(state="visible", timeout=30000)
+                if "never measured evidence" not in cell.inner_text().lower():
+                    raise AssertionError("Shared Server matrix cell lost its provenance notice")
+                decision = page.locator("#matrix-decision-form")
+                decision.wait_for(state="visible", timeout=20000)
+                decision.locator('select[name="decision"]').select_option("waived")
+                decision.locator('textarea[name="reason"]').fill(
+                    "UX-R04 Server waiver recorded through the shared decision form")
+                decision.locator('button[type="submit"]').click()
+                matrix = page.locator('[data-shared-matrix][data-matrix-mode="server"]')
+                matrix.locator('[data-matrix-state="waived"]').first.wait_for(
+                    state="visible", timeout=30000)
+                matrix_text = matrix.inner_text()
+                if "UX-R04 Server waiver recorded" not in matrix_text:
+                    raise AssertionError("Shared Server matrix lost the recorded waiver reason")
+                if "Waived: 1" not in matrix_text:
+                    raise AssertionError("Shared Server matrix did not apply the waiver")
+                capture(page, artifacts, "server-shared-campaign-matrix-decided-" +
+                        str(viewport["width"]))
+                page.reload(wait_until="domcontentloaded")
+                persisted = page.locator(
+                    '[data-shared-matrix][data-matrix-mode="server"] [data-matrix-state="waived"]')
+                persisted.first.wait_for(state="visible", timeout=30000)
+                if "UX-R04 Server waiver recorded" not in page.locator(
+                        '[data-shared-matrix][data-matrix-mode="server"]').inner_text():
+                    raise AssertionError("Persisted Server matrix waiver was lost after reload")
             if role == "multi_role":
                 # Same authenticated session: Users & Access must be explicit,
                 # and its account-creation form a protected, closed-by-default modal.
