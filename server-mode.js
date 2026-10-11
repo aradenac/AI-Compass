@@ -140,6 +140,8 @@
   serverScreenHost.appendChild(overview);
   serverScreenHost.appendChild(moved);
   var topActions = root.querySelector(".ux-topbar .top-actions");
+  originalPersonaLinks.className = "ux-persona-menu";
+  originalPersonaLinks.removeAttribute("style");
   topActions.appendChild(originalPersonaLinks);
   var dialogCoordinator = window.AICompassShell.attachDialogs(serverScreenHost);
 
