@@ -306,8 +306,52 @@
       (contents||'<p class="muted">No documented challenge fields.</p>')+'</div>';
   }
 
+
+  // UX-R04: shared, text-only presentation boundary for business record lists.
+  // Adapters supply authorized rows and permissible actions. Nothing here
+  // fetches, persists, invents revisions, or interprets a business decision.
+  function renderRecords(rows, options) {
+    if(!Array.isArray(rows))throw Error("Authorized business records required");
+    options=options||{};
+    var domain=options.domain,mode=options.mode;
+    if(!/^[a-z][a-z0-9-]*$/.test(domain||"")||!["demo","server"].includes(mode))
+      throw Error("Explicit business domain and Demo/Server mode required");
+    function attr(name,value){
+      if(!/^data-[a-z][a-z0-9-]*$/.test(name))throw Error("Invalid business action attribute");
+      return ' '+name+'="'+escape(value)+'"';
+    }
+    function command(action) {
+      if(!action || !action.label)throw Error("Missing business action label");
+      var attrs=action.attributes||{};
+      var keys=Object.keys(attrs);
+      if(!keys.length)throw Error("Business action without routing");
+      return '<button type="button"'+keys.map(function(k){return attr(k,attrs[k]);}).join("")+
+        '>'+escape(action.label)+'</button>';
+    }
+    if(!rows.length)return '<p class="muted" data-business-empty="'+escape(domain)+'">'+
+      escape(options.emptyText||"No matching authorized records.")+'</p>';
+    return '<div class="shared-business-list" data-business-domain="'+escape(domain)+'" data-business-mode="'+mode+'">'+
+      rows.map(function(r){
+        if(!r||!r.id)throw Error("Missing authorized record identity");
+        var facts=(r.facts||[]).filter(function(v){return v!=null&&v!=="";});
+        var notices=(r.notices||[]).filter(function(v){return v!=null&&v!=="";});
+        var actions=r.actions||[];
+        if(!Array.isArray(facts)||!Array.isArray(notices)||!Array.isArray(actions))
+          throw Error("Invalid record presentation");
+        return '<article class="shared-business-record list-row" data-business-record="'+escape(r.id)+'">'+
+          '<div class="shared-business-content"><h3>'+escape(r.title||r.id)+'</h3>'+
+          '<p class="muted small shared-business-meta">'+
+          [r.id,r.revision,r.status].concat(facts).filter(function(v){return v!=null&&v!=="";})
+            .map(escape).join(' · ')+'</p>'+
+          (r.description?'<p class="shared-business-description">'+escape(r.description)+'</p>':"")+
+          notices.map(function(v){return '<p class="shared-business-note">'+escape(v)+'</p>';}).join("")+
+          '</div><div class="shared-business-actions">'+actions.map(command).join("")+'</div></article>';
+      }).join("")+'</div>';
+  }
+
   root.AICompassWorkgroup={ZONES:ZONES,STABLE:STABLE,SECTION_TO_DEMO:SECTION_TO_DEMO,
     SECTION_TO_SERVER:SECTION_TO_SERVER,canVisit:canVisit,renderMap:renderMap,
     breadcrumbs:breadcrumbs,attention:attention,href:href,renderList:renderList,
-    serverProvider:serverProvider,demoProvider:demoProvider,mountSummary:mountSummary,renderCases:renderCases,renderCaseFields:renderCaseFields,renderCaseDetail:renderCaseDetail};
+    serverProvider:serverProvider,demoProvider:demoProvider,mountSummary:mountSummary,renderCases:renderCases,renderCaseFields:renderCaseFields,renderCaseDetail:renderCaseDetail,
+    renderRecords:renderRecords};
 })(window);
