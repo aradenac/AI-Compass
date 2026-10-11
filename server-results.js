@@ -44,6 +44,7 @@ function mount(root,csrf,escapeHtml){
       '<label>Measured AI Solution<select name="solution_id"><option value="">All solutions</option></select></label>'+
       '<label>Campaign<select name="campaign_id"><option value="">All campaigns</option></select></label>'+
       '<button type="submit">Apply filters</button></form>'+
+      '<div id="ux-results-context"></div>'+
       '<div id="results-matrix" class="server-card"></div>'+
       '<h3>Source observations · measured vs theoretical</h3>'+
       '<div id="results-rows" class="server-card"></div>'+
@@ -54,7 +55,14 @@ function mount(root,csrf,escapeHtml){
       '<section id="results-detail" class="server-card" hidden></section>';
     $("#results-refresh").addEventListener("click",refresh);
     $("#results-filter").addEventListener("submit",function(event){
-      event.preventDefault();loadMatrix();
+      event.preventDefault();
+      var next=new URL(window.location.href),fields=event.target.elements;
+      ["task_id","solution_id","campaign_id","kind","view"].forEach(function(k){
+        if(fields[k]&&fields[k].value)next.searchParams.set(k,fields[k].value);
+        else next.searchParams.delete(k);
+      });
+      window.history.replaceState(window.history.state,"",next.pathname+next.search+next.hash);
+      loadMatrix();
     });
     if(writer)$("#results-new-evaluation").addEventListener("click",function(){edit(null);});
     $("#results-rows").addEventListener("click",function(event){
@@ -82,7 +90,8 @@ function mount(root,csrf,escapeHtml){
   function renderChoices(){
     var form=$("#results-filter");
     var old=Object.fromEntries(["task_id","solution_id","campaign_id"].map(function(key){
-      return [key,form.elements[key].value];
+      return [key,form.elements[key].value ||
+        new URLSearchParams(window.location.search).get(key) || ""];
     }));
     [["task_id",tasks,"All tasks"],["solution_id",solutions,"All solutions"],
      ["campaign_id",campaigns,"All campaigns"]].forEach(function(spec){
@@ -95,6 +104,39 @@ function mount(root,csrf,escapeHtml){
   function renderMatrix(data){
     var node=$("#results-matrix");
     var groups=data.matrix||[];
+    var params=new URLSearchParams(window.location.search);
+    var wanted=params.get("record"),pinned=params.get("revision");
+    var selected=wanted&&(data.results||[]).find(function(r){return r.id===wanted;});
+    var context=$("#ux-results-context");
+    if(wanted){
+      if(!selected){
+        context.innerHTML='<p role="alert" class="ux-history-warning">Run not present in this authorized Results projection. Check the applied filters, publication scope and account permissions; no other version is substituted.</p>';
+      }else{
+        var revision=selected.revision||selected.run_revision||"";
+        var mismatch=pinned && (!revision || revision!==pinned);
+        var metrics=selected.kind==="forecast"?selected.predicted_metrics:selected.metrics||{};
+        context.innerHTML='<section class="ux-context-detail" aria-label="Measured Run context">'+
+          '<h3>'+esc(selected.kind==="forecast"?"Theoretical Forecast":"Measured Run")+
+          ' · '+esc(selected.id)+'</h3><p>'+esc(selected.outcome||selected.status||"")+
+          ' · Task '+esc(selected.task_id)+' · Candidate '+esc(selected.candidate)+'</p>'+
+          (mismatch?'<p role="alert" class="ux-history-warning">Requested historical revision '+
+             esc(pinned)+' is not verifiable from this results projection. Do not treat current metrics as the pinned original.</p>':
+            '<dl class="ux-context-properties"><dt>Quality</dt><dd>'+format(metrics.quality_score)+
+            '</dd><dt>Cost EUR</dt><dd>'+format(metrics.cost_eur||metrics.ai_cost_eur)+
+            '</dd><dt>Human time (minutes)</dt><dd>'+
+              format(metrics.human_total_minutes||metrics.human_minutes)+
+            '</dd></dl>')+
+          '<p><a href="'+esc(window.AICompassContext.route("server","engineer","home",{
+            task:selected.task_id,solution:selected.solution_id||selected.candidate
+          }))+'">Related measured AI Solution</a> · '+
+          '<a href="'+esc(window.AICompassContext.route("server","workgroup","benchmark",{
+            record:selected.campaign_id
+          }))+'">Related Campaign</a></p>'+
+          (selected.detail?'<details class="ux-advanced-source"><summary>Advanced: open authorized original Run record</summary>'+
+            '<a href="'+esc(selected.detail)+'" target="_blank" rel="noopener noreferrer">Open original API source</a></details>':'')+
+          '</section>';
+      }
+    }else context.replaceChildren();
     node.innerHTML='<p><strong>'+esc(data.view==="task"?"Task × candidate":"Candidate × task")+
       '</strong> · '+esc(data.counts.individual_runs)+' individual Run(s) · '+
       esc(data.counts.composite_workflows)+' composite workflow(s) · '+
@@ -129,7 +171,9 @@ function mount(root,csrf,escapeHtml){
           (forecast?'<p class="muted small">Estimates only · Uncertainty: '+
             esc(r.uncertainty||"Unspecified")+'</p>':
             '<p class="muted small">Unknown fields: '+esc((r.missing_fields||[]).join(", ")||"none")+
-            ' · <a href="'+esc(r.detail)+'">Current Run detail (JSON)</a></p>'+
+            ' · <a href="'+esc(window.AICompassContext.route("server","workgroup","results",{
+              record:r.id,revision:r.revision||"",task:r.task_id,solution:r.solution_id||r.candidate
+            }))+'">Open Run context</a></p>'+
             (reviewer?'<button type="button" data-amend-run="'+esc(r.id)+'">Correct / withdraw</button>':''))+
           '</div>';
       }).join(""):'<p>No source observations.</p>';
