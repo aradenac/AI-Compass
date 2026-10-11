@@ -63,7 +63,7 @@ function mount(root,api,escapeHtml){
       ticket++;active=null;session=null;root.hidden=true;root.replaceChildren();
     });
   }
-  async function openCampaign(row){
+  async function openCampaign(row,preferredEvaluationId){
     if(!canRead)return;
     active=row;session=null;var current=++ticket;
     panel();
@@ -195,6 +195,10 @@ function mount(root,api,escapeHtml){
           renderSessionPrices();
         }
       });
+      if(evaluationPicker&&preferredEvaluationId&&planned.some(function(c){return c.id===preferredEvaluationId;})){
+        evaluationPicker.value=preferredEvaluationId;
+        evaluationPicker.dispatchEvent(new Event("change"));
+      }
       var add=$("#session-create");
       if(add)add.addEventListener("click",async function(){
         add.disabled=true;
