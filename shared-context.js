@@ -56,7 +56,7 @@
       (mode==="demo" && /\/prototype\.html$/.test(root.location.pathname)?root.location.pathname:"/");
     var u=new URL(path,root.location.protocol==="file:"?root.location.href:root.location.origin);
     u.searchParams.set("mode",mode);
-    if(path==="/")u.searchParams.set("workspace",workspace);
+    if(workspace!=="maintenance" || mode==="demo")u.searchParams.set("workspace",workspace);
     if(section)u.searchParams.set("section",section);
     params=params||{};
     ["record","revision","task","solution","view","q","profile","scenario","kind","candidate"].forEach(function(k){
