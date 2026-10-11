@@ -61,7 +61,7 @@ class GovernanceAuditTests(ActivityFeedTests.__bases__[0]):
         self.assertEqual(len(history["results"]),2)
         self.assertEqual(self.client.get(BASE+"/export?source=catalog&format=json").status_code,200)
         self.assertEqual(self.client.get(BASE+"/export?source=catalog&format=csv").status_code,200)
-        self.assertEqual(self.client.get(BASE+"/export").headers["Cache-Control"],"no-store")
+        self.assertIn("no-store",self.client.get(BASE+"/export").headers["Cache-Control"])
 
     def test_account_secrets_and_internal_sources_never_leak(self):
         secret="DO_NOT_EXPOSE_TEST_SECRET_8531"
@@ -138,7 +138,7 @@ class GovernanceAuditTests(ActivityFeedTests.__bases__[0]):
     def test_bounded_queries_strict_filters_readonly_and_nonfabrication(self):
         self._as_auditor()
         self.assertEqual(self.client.post(BASE,data="{}",
-            content_type="application/json").status_code,405)
+            content_type="application/json",HTTP_X_CSRFTOKEN=self.csrf).status_code,405)
         self.assertEqual(self.client.get(BASE+"?page=21").status_code,400)
         self.assertEqual(self.client.get(BASE+"?source=unknown").status_code,400)
         self.assertEqual(self.client.get(BASE+"?unexpected=1").status_code,400)

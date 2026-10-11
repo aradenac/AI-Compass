@@ -125,13 +125,15 @@ def _meta(source, row):
             "object_type": "environment", "object_id": "user:" + str(row.user_id),
             "object_name": None, "revision": "r%03d" % row.number,
             "revision_id": str(row.id)}
-    parent, kind = {
-        "workload": (row.profile, "workload"),
-        "opportunity": (row.scenario, "opportunity"),
-        "budget": (row.budget, "budget"),
-        "deployment_revision": (row.target, "deployment"),
-        "deployment_event": (row.target, "deployment"),
+    # Do not evaluate unrelated FK attributes (Python dict values are eager).
+    field, kind = {
+        "workload": ("profile", "workload"),
+        "opportunity": ("scenario", "opportunity"),
+        "budget": ("budget", "budget"),
+        "deployment_revision": ("target", "deployment"),
+        "deployment_event": ("target", "deployment"),
     }[source]
+    parent = getattr(row, field)
     number = getattr(row, "number", None)
     return {"id": str(row.id),
         "occurred_at": row.created_at.isoformat(),
