@@ -791,6 +791,92 @@ class OpportunitySnapshot(models.Model):
         ordering = ["scenario", "number"]
 
 
+class DeploymentTarget(models.Model):
+    """Immutable deliberate Task/configuration/population assignment, never a grant."""
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    public_id = models.CharField(max_length=120, unique=True)
+    population = models.ForeignKey(WorkloadProfile, on_delete=models.PROTECT,
+                                   related_name="deployment_targets")
+    scenario = models.ForeignKey(OpportunityScenario, on_delete=models.PROTECT,
+                                 related_name="deployment_targets")
+    scenario_snapshot = models.ForeignKey(OpportunitySnapshot, on_delete=models.PROTECT,
+                                          related_name="deployment_targets")
+    task = models.ForeignKey(TaskNode, on_delete=models.PROTECT, related_name="+")
+    candidate_kind = models.CharField(max_length=16)
+    candidate = models.ForeignKey(CatalogItem, on_delete=models.PROTECT, related_name="+")
+    configuration = models.JSONField(default=dict)
+    purpose = models.CharField(max_length=16)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+                                   related_name="deployment_targets")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class DeploymentBeneficiary(models.Model):
+    """Explicit named scope; person need not own an AI Compass login."""
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    target = models.ForeignKey(DeploymentTarget, on_delete=models.PROTECT,
+                               related_name="beneficiaries")
+    person = models.ForeignKey(WorkloadProfile, on_delete=models.PROTECT,
+                               related_name="deployment_beneficiaries")
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["target","person"],
+                                               name="uniq_deployment_beneficiary")]
+
+
+class ExternalEntitlement(models.Model):
+    """Shared across targets: entitlement belongs to person × actual component."""
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    public_id = models.CharField(max_length=120, unique=True)
+    person = models.ForeignKey(WorkloadProfile, on_delete=models.PROTECT,
+                               related_name="external_entitlements")
+    component = models.ForeignKey(CatalogItem, on_delete=models.PROTECT,
+                                  related_name="external_entitlements")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["person","component"],
+                                               name="uniq_person_external_component")]
+
+
+class EntitlementEvent(models.Model):
+    """Append-only attributable external IAM assertions, not IAM execution."""
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    entitlement = models.ForeignKey(ExternalEntitlement, on_delete=models.PROTECT,
+                                    related_name="events")
+    number = models.PositiveIntegerField()
+    status = models.CharField(max_length=32)
+    reference = models.CharField(max_length=400)
+    reason = models.CharField(max_length=500)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+                              related_name="external_entitlement_events")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["entitlement","number"],
+                                               name="uniq_entitlement_event_seq")]
+        ordering = ["number"]
+
+
+class DeploymentMilestone(models.Model):
+    """Append-only environment/setup/use assertions for one named beneficiary."""
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    beneficiary = models.ForeignKey(DeploymentBeneficiary, on_delete=models.PROTECT,
+                                    related_name="milestones")
+    number = models.PositiveIntegerField()
+    action = models.CharField(max_length=32)
+    evidence_reference = models.CharField(max_length=400)
+    details = models.JSONField(default=dict)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+                              related_name="deployment_milestones")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["beneficiary","number"],
+                                               name="uniq_deployment_milestone_seq")]
+        ordering = ["number"]
+
+
 class ExternalImportBinding(models.Model):
     """Stable external identity map; its last-import pointer advances on new revisions."""
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
