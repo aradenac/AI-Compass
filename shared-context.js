@@ -24,6 +24,12 @@
       (url.pathname==="/maintenance" && params.get("mode")!=="demo") ? "server":"demo";
   }
   function normalizeOrigin(raw, mode) {
+    if(root.location.protocol==="file:" && mode==="demo"){
+      if(typeof raw!=="string"||raw.length>1800||raw.startsWith("//"))return null;
+      var local=root.location.pathname;
+      if(raw===local||raw.startsWith(local+"?"))return "?"+(raw.split("?")[1]||"").split("#")[0];
+      return null;
+    }
     if(typeof raw!=="string" || !raw.startsWith("/") || raw.startsWith("//") ||
        raw.length>1800 || /[\u0000-\u001f]/.test(raw))return null;
     try {
@@ -41,7 +47,7 @@
     if(!validWorkspaces.includes(workspace))throw Error("Invalid workspace");
     var path=workspace==="maintenance" && mode==="server"?"/maintenance":
       (mode==="demo" && /\/prototype\.html$/.test(root.location.pathname)?root.location.pathname:"/");
-    var u=new URL(path,root.location.origin);
+    var u=new URL(path,root.location.protocol==="file:"?root.location.href:root.location.origin);
     u.searchParams.set("mode",mode);
     if(path==="/")u.searchParams.set("workspace",workspace);
     if(section)u.searchParams.set("section",section);
@@ -54,7 +60,7 @@
       normalizeOrigin(params.from,mode);
     if(origin && origin!==u.pathname+u.search)
       u.searchParams.set("from",origin);
-    return u.pathname+u.search;
+    return mode==="demo"&&root.location.protocol==="file:"?u.search:u.pathname+u.search;
   }
   function returnTo(mode,fallback) {
     var params=new URLSearchParams(root.location.search);
