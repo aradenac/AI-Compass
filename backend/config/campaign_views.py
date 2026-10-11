@@ -19,7 +19,7 @@ FIELDS=frozenset({"name","objective","notes","properties","owner","mode",
                   "method_version","task_id","component_ids","test_case_ids",
                   "guide_id","configuration","repin","framework_id","participants", "pricing_selections"})
 EDIT_FIELDS=FIELDS|{"expected_revision"}
-ACTION_FIELDS=frozenset({"expected_revision","partial_review"})
+ACTION_FIELDS=frozenset({"expected_revision","partial_review","run_ids","removal_reason"})
 TRANSITIONS=frozenset({"start","close","rework","publish","unpublish","reopen","archive","restore"})
 
 
@@ -168,6 +168,23 @@ def transition(request,public_id,action):
         data=_payload(request,ACTION_FIELDS)
         if not isinstance(data.get("expected_revision"),str):
             raise InvalidCampaign("expected_revision is required")
+        if action in ("publish", "unpublish"):
+            from . import publication_services
+            if action == "publish":
+                item = publication_services.publish(
+                    actor=request.user, public_id=public_id,
+                    expected_revision=data["expected_revision"],
+                    run_ids=data.get("run_ids"),
+                    removal_reason=data.get("removal_reason", ""))
+            else:
+                if set(data) != {"expected_revision"}:
+                    raise InvalidCampaign("Unpublish accepts only expected_revision")
+                item = publication_services.revoke(
+                    actor=request.user, public_id=public_id,
+                    expected_revision=data["expected_revision"])
+            return json_no_store({"campaign":serialize(item),"changed":True})
+        if set(data) - {"expected_revision", "partial_review"}:
+            raise InvalidCampaign("Only publication actions accept Run selections")
         item,changed=modify(actor=request.user,public_id=public_id,data=data,action=action)
         return json_no_store({"campaign":serialize(item),"changed":changed})
     return _write(run)
