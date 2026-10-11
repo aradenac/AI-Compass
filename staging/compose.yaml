@@ -64,6 +64,7 @@ services:
       - ../server-planning.js:/srv/frontend/server-planning.js:ro
       - ../model-catalog.js:/srv/frontend/model-catalog.js:ro
       - ../shared-engineer.js:/srv/frontend/shared-engineer.js:ro
+      - ../shared-opportunities.js:/srv/frontend/shared-opportunities.js:ro
       - ./banner.js:/srv/frontend/banner.js:ro
     depends_on:
       api:

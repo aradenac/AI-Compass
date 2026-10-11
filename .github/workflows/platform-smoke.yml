@@ -126,6 +126,10 @@ jobs:
         run: docker compose exec -T api python manage.py test config.test_engineer -v 2
       - name: Verify FUT-12 shared Demo and Server engineer frontend adapter
         run: node scripts/test-shared-engineer.js
+      - name: Verify FUT-13 opportunity economics, revisions, source withdrawal and authorization
+        run: docker compose exec -T api python manage.py test config.test_opportunities -v 2
+      - name: Verify FUT-13 prospective Demo and Server adapters without data crossover
+        run: node scripts/test-shared-opportunities.js
       - name: Assert fresh Server has no seeded business data
         run: |
           docker compose exec -T api python manage.py shell -c \
@@ -338,6 +342,7 @@ jobs:
       - name: Check shared frontend modes and client syntax
         run: |
           node --check shared-engineer.js
+          node --check shared-opportunities.js
           node --check server-mode.js
           node --check server-tasks.js
           node --check server-test-cases.js
