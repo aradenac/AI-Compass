@@ -28,7 +28,7 @@
        raw.length>1800 || /[\u0000-\u001f]/.test(raw))return null;
     try {
       var u=new URL(raw,root.location.origin);
-      if(u.origin!==root.location.origin || !["/","/maintenance"].includes(u.pathname) ||
+      if(u.origin!==root.location.origin || (!["/","/maintenance"].includes(u.pathname) && !(mode==="demo" && /\/prototype\.html$/.test(u.pathname))) ||
          modeOf(u)!==mode)return null;
       // Never nest origins and never route to a foreign mode, protocol or host.
       u.searchParams.delete("from");
@@ -39,7 +39,8 @@
   function route(mode,workspace,section,params) {
     if(!["demo","server"].includes(mode))throw Error("Invalid UI mode");
     if(!validWorkspaces.includes(workspace))throw Error("Invalid workspace");
-    var path=workspace==="maintenance" && mode==="server"?"/maintenance":"/";
+    var path=workspace==="maintenance" && mode==="server"?"/maintenance":
+      (mode==="demo" && /\/prototype\.html$/.test(root.location.pathname)?root.location.pathname:"/");
     var u=new URL(path,root.location.origin);
     u.searchParams.set("mode",mode);
     if(path==="/")u.searchParams.set("workspace",workspace);
