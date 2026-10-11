@@ -65,7 +65,10 @@ assert(root.hidden);
 assert.equal(calls.length,0);
 ui.setAccess(true,false);
 setImmediate(()=>{
-  assert.equal(calls.length,5);
+  // UX-R06 adds one authorized published-Recommendation read for the
+  // measured-Result ↔ editorial-context link (business_read only).
+  assert.equal(calls.length,6);
+  assert(calls.includes("/api/v1/recommendations"));
   assert(!root.hidden);
   assert(root.innerHTML.includes("Results Explorer"));
   assert(!root.innerHTML.includes("+ Save evaluation"));

@@ -17,6 +17,31 @@ function serverProvider(fetcher,csrf){
 }
 function demoProvider(db,actor,persist){
   /* Demo stays fictional, editable and entirely offline. No v1 API calls. */
+  function declaredOs(){
+    var rows=(db.environmentHistory||[]).filter(function(x){return actor&&x.user===actor.id;});
+    var last=rows[rows.length-1];
+    var value=last&&Array.isArray(last.available_os)&&last.available_os.length?
+      last.available_os.slice():null;
+    var composer=root.AICompassEnvironment;
+    return composer&&typeof composer.normalize==="function"?
+      composer.normalize(value):(value||null);
+  }
+  function configurationOs(solutionId){
+    /* Synthetic Demo OS classification reuses the FUT-06 composer: never a new
+     * scoring formula, and an unclassified component stays explicitly unknown. */
+    var composer=root.AICompassEnvironment;
+    if(!composer||typeof composer.compose!=="function")
+      return {configured:false,value:{status:"unknown",supported_os:null,
+        reason:"OS compatibility is not available in this host: state is Unknown"}};
+    var solution=db.solutions.find(function(x){return x.id===solutionId;});
+    if(!solution)return {configured:false,value:null};
+    var refs=solution.componentRefs||{};
+    var parts=Object.keys(refs).map(function(kind){
+      return db.components.find(function(c){return c.id===refs[kind];});
+    }).filter(Boolean);
+    var available=declaredOs();
+    return {configured:!!available,value:composer.compose(parts,available,"shared_os")};
+  }
   function observations(){
     var result={},byCase=Object.fromEntries(db.cases.map(function(x){return [x.id,x];}));
     db.runs.filter(function(r){return r.status==="published"&&!r.withdrawn&&!r.frameworkAggregate;})
@@ -36,14 +61,16 @@ function demoProvider(db,actor,persist){
       var yes=rs.filter(function(r){return r.accepted;}).length;
       var no=rs.length-yes;
       var condition=!yes?"failed_only":no?"conflicting_evidence":"accepted_observed";
-      var os={status:"unknown",supported_os:null,reason:"Demo OS support is not verified"};
+      var os=configurationOs(s.id).value;
       var access={status:s.accessible?"accessible":"not_accessible",
         personal_entitlement:"unknown_unverified",grant_provisioned:false};
+      var compatible=os.status==="compatible";
       (out[tid]||(out[tid]=[])).push({
         task_id:tid,solution_id:sid,name:s.name,evidence_class:"measured_demo",
         outcome_status:condition,
-        suitability:condition==="accepted_observed"&&s.accessible?
-          "unverified_or_not_suitable":"unverified_or_not_suitable",
+        suitability:(condition==="accepted_observed"&&s.accessible&&compatible)?
+          "supported_observation":(condition==="accepted_observed"&&s.accessible&&
+          os.status==="other_os")?"other_os_observation":"unverified_or_not_suitable",
         published_run_count:rs.length,accepted_run_count:yes,failed_run_count:no,
         observed_test_case_count:new Set(rs.map(function(r){return r.case;})).size,
         scoring:{policy:"descriptive_only_v1",score:null,rank:null,
@@ -76,7 +103,8 @@ function demoProvider(db,actor,persist){
       return {mode:"engineer_demo",view:view,all_tasks:all,
         profile:{status:relevant.length?"simulated_person_profile":"not_configured",
           source:"fictional_demo_only",relevant_task_ids:relevant},
-        user_os:{configured:false,available_os:null},
+        user_os:{configured:!!declaredOs(),available_os:declaredOs(),
+          status:declaredOs()?"declared_fictional":"unconfigured"},
         tasks:rows,tools:Object.values(tools).sort(function(a,b){return a.name.localeCompare(b.name);}),
         scoring_policy:"descriptive_only_v1",theoretical:{mixed_with_measured:false,
           discover_in:"Demo Technology Watch"},message:"Fictional offline Demo evidence, not current Server publications"};
@@ -168,11 +196,38 @@ function mount(container,provider,mode){
       ' · '+o.accepted_run_count+' accepted / '+o.failed_run_count+' failed'+
       ' · '+o.observed_test_case_count+' observed Test Case(s)</span>';
   }
+  function osLabel(o){
+    /* Unknown, unconfigured and other-OS states are stated explicitly; no
+     * invented rank, eligibility or hidden removal of an interesting tool. */
+    var os=o.os||{},status=os.status;
+    if(status==="compatible")
+      return {text:"OS compatible ("+osNames(os.supported_os,", ")+")",kind:"compatible"};
+    if(status==="other_os")
+      return {text:"Requires "+osNames(os.requires_os||os.supported_os)+
+        " — alternative kept discoverable",kind:"other_os"};
+    if(status==="unconfigured_user")
+      return {text:"OS availability not configured on this account",kind:"unknown"};
+    if(status==="unsupported_combination")
+      return {text:"No common OS across this Harness/Framework configuration",kind:"unknown"};
+    if(status==="unknown_topology")
+      return {text:"Distributed topology unverified: OS compatibility unknown",kind:"unknown"};
+    return {text:"OS support unknown — not classified for this configuration",kind:"unknown"};
+  }
+  function osNames(list,separator){
+    return (list||[]).map(function(x){
+      var value=String(x);
+      return value.charAt(0).toUpperCase()+value.slice(1);
+    }).join(separator||" or ");
+  }
   function accessibility(o){
-    return '<p class="muted small">OS: '+safe(o.os.status)+
-      (o.os.requires_os?" · requires "+safe(o.os.requires_os.join(", ")):"")+
-      ' · Enterprise: '+safe(o.enterprise_access.status)+
-      ' · Personal entitlement: not verified</p>';
+    var os=osLabel(o),access=o.enterprise_access||{};
+    return '<p class="muted small">'+safe(os.text)+
+      (os.kind==="other_os"?' <span class="ux-os-alternative">Requires '+
+        safe(osNames(o.os.requires_os))+'</span>':"")+
+      ' · Enterprise availability: '+safe(access.status||"unknown")+
+      ' · Personal entitlement: '+safe(access.personal_entitlement||"unknown_unverified")+
+      (access.grant_provisioned?' · Grant provisioned':' · No provisioned grant')+'</p>'+
+      (o.os&&o.os.reason?'<p class="muted small">'+safe(o.os.reason)+'</p>':"");
   }
   function option(o,task){
     var positive=o.suitability==="supported_observation";
@@ -180,7 +235,9 @@ function mount(container,provider,mode){
       '<p>'+badge(o)+'</p>'+accessibility(o)+
       '<p class="muted small">'+(positive?
         "Observed accepted DoD — evidence coverage is shown, not a numeric rank":
-        "Not a verified positive recommendation; review applicability and negative evidence")+
+        o.suitability==="other_os_observation"?
+          "Not on your declared OS. Measured evidence is kept visible as a secondary alternative; changing your OS availability re-evaluates it.":
+          "Not a verified positive recommendation; review applicability, unknown states and negative evidence")+
       '</p></div><button type="button" data-engineer-detail="'+safe(o.solution_id)+
       '" data-engineer-task="'+safe(task)+'">Inspect</button></div>';
   }
@@ -201,7 +258,9 @@ function mount(container,provider,mode){
           '<strong>'+safe(t.name)+'</strong>'+
           (t.relevant?'<span class="muted small">My relevant Task</span>':'')+'</div>'+
           (expanded?'<div>'+((positive.length?positive.slice(0,3).map(function(x){
-            return option(x,t.id);}).join(""):"<p class='muted small'>No proven suitable configuration here.</p>")+
+            return option(x,t.id);}).join(""):"<p class='muted small'>No verified suitable "+
+            "configuration for this Task under the current profile, OS and access state. "+
+            "Alternatives below state their exact Unknown / unavailable state.</p>")+
           (positive.length>3?'<button type="button" data-engineer-more="'+safe(t.id)+
             '">More relevant options ('+(positive.length-3)+')</button>':'')+
           other.map(function(x){return option(x,t.id);}).join(""))+'</div>'+children:"")+'</div>';
@@ -221,10 +280,20 @@ function mount(container,provider,mode){
     if(!latest)return;
     var body=container.querySelector("[data-engineer-body]");
     if(selected){renderDetail();return;}
+    var profileLabels={"configured":"configured from the authorized Server profile",
+      "simulated_person_profile":"simulated fictional Demo profile"};
+    var profileLabel=profileLabels[latest.profile.status] ||
+      (latest.profile.status==="not_configured"?
+        "Not configured — Task relevance is not inferred and no Task membership is invented":
+        safe(latest.profile.status));
     body.innerHTML=controls()+
-      '<p class="muted small">Profile: '+safe(latest.profile.status)+
-      ' · Declared OS: '+safe((latest.user_os.available_os||[]).join(", ")||"unknown")+
-      '. Enterprise access does not prove personal entitlement. Accepted DoD does not prove general suitability.</p>'+
+      '<p class="muted small">Workload profile: '+profileLabel+
+      ' · Declared OS: '+safe((latest.user_os.available_os||[]).join(", ")||
+        "not configured (Unknown)")+
+      '. Enterprise availability does not prove personal entitlement. Accepted DoD does not prove general suitability.</p>'+
+      (latest.user_os.configured===false?
+        '<p class="muted small" data-engineer-os-unknown>OS availability is not configured: exactly which '+
+        'Windows/Linux alternatives apply is Unknown until you declare it in "My OS environment".</p>':"")+
       (latest.message?'<p class="muted small">'+safe(latest.message)+'</p>':'')+
       '<details><summary>My external-tool access and first use ('+
       (latest.deployment_status||[]).length+')</summary>'+

@@ -99,6 +99,14 @@ Only desktop Chromium journeys are an enforced CI requirement. This halves perso
 **Gate maturity (2026-10-11):** UX-R01–R03 ([#114](https://github.com/aradenac/AI-Compass/issues/114), [#115](https://github.com/aradenac/AI-Compass/issues/115), [#116](https://github.com/aradenac/AI-Compass/issues/116)) are merged and their *targeted* desktop Chromium checks passed. That result does not certify the full persona specification. UX-R04 [#123](https://github.com/aradenac/AI-Compass/issues/123) converges business-domain rendering, UX-R05 [#124](https://github.com/aradenac/AI-Compass/issues/124) closes draft/Run/concurrency behavior, UX-R06 [#125](https://github.com/aradenac/AI-Compass/issues/125) closes persona workflows, and UX-R07 [#126](https://github.com/aradenac/AI-Compass/issues/126) performs complete traceable **20-scenario** desktop verification. A preexisting broken UI must never be approved as its own golden baseline.
 
 **UX-R05 (#124) journeys in this suite:** `Standalone Demo draft/Run-stepper` and `Authenticated Server draft/stepper/conflict/ownership`. They cover unsaved Campaign form resume/discard without a business write, Run step navigation that appends no checkpoint, explicit resume of unsaved Run input and the remembered step, exactly one finalized Run across a reload, creation-only/read-only behaviour for a second contributor (`403` on a foreign Run write) and an Alice/Bob concurrent Campaign edit where the stale submit receives `409` with the draft intact and the newer revision preserved. The behavioural contract is documented in [Draft resume, Run stepper and conflict-safe concurrent editing](draft-conflict-and-run-stepper.md). Other persona journeys remain scheduled as UX-R06/R07 and are **not** certified by these checks.
+**Persona-journey progress (2026-10-12):** an open UX-R06 implementation PR adds two desktop
+Chromium journeys — `Standalone Demo multi-role persona journeys` and `Authenticated Server
+published persona journeys` — covering the published-only Workgroup Updates surface, the
+resolved Under-review counter with its read-only filter, the Profitability → Technology Catalog
+gap link, Engineer OS/Unknown variants and multi-role/Maintenance fail-closed boundaries.
+Coverage per §13 scenario (implemented / partial / blocked, with evidence) is recorded in
+[UX-R06 persona coverage](ux-r06-persona-coverage.md). This is **not** #125 acceptance and does
+not replace the complete 20-scenario certification of #126.
 
 ## Review / evidence protocol
 

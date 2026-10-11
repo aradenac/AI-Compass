@@ -10,6 +10,28 @@ Demo and Server render the **same** five-zone, keyboard-accessible, mobile-respo
 - Authenticated Server: `/?mode=server&workspace=workgroup&section=studio`; navigation is available with **actual** business authoring rights. Each module is `section=watch`, `testdesign`, `forecasts`, `guides`, `feedback`, `activity`, `benchmark`, etc.; direct object links use `&record=<public-id>`. The server still enforces every permission. Maintenance continues in its **separate** authorized workspace; a role/URL selection grants nothing.
 - The map has **no artificial To-Do list, assignment system or status transitions**. Badges appear only for non-archived Campaigns `under_review`, Forecasts `staged`, and Recommendations `in_review` / `review_needed` from authoritative records visible through authorized Server list endpoints. Permission denied or unavailable status means **no badge**, not "zero." Unanswered feedback, idle Watch items and draft guides never become invented overdue tasks.
 
+## Published Workgroup Updates and coverage-gap navigation (UX-R06)
+
+- **Workgroup Updates · What's New** (`shared-updates.js`, `GET /api/v1/updates`) is a
+  published-only read projection over existing authoritative objects: current effective published
+  Campaigns and measured Runs (via the shared publication selector, so withdrawals and corrections
+  apply immediately), published editorial Recommendations, published Setup Guides, published Watch
+  signals and recently recorded Catalog components. Every entry carries the exact source object ID
+  and revision, with a link that only resolves when the reader's persona may open that workspace;
+  otherwise the provenance line is shown without a link. Drafts, internal hypotheses, private
+  discussions, theoretical Forecasts and the privileged Activity Feed/audit log are never reused
+  as a news source. The service creates no business object, status model or assignment.
+- **Coverage-gap navigation:** the Capitalisation zone and every Management heatmap Task row expose
+  an explicit "Profitability & Opportunities → Technology Catalog" link. It explains that a blank
+  or uncovered cell means no current effective published measured configuration exists, offers no
+  candidate, and creates nothing automatically; the Catalog then shows the same notice with a
+  clear-filter link.
+- **Counter refinement:** a Campaign that already has an **effective publication** is no longer
+  counted as awaiting a review decision, even though its working revision may still be
+  `under_review` (reopen/unpublish remain explicit actions). The count badge opens the module with
+  the read-only `status=awaiting_publication` filter preapplied and states that it is not a
+  personal assignment.
+
 ## Common views, source details, existing specialist editors
 
 Both modes use the **same** `renderList`/read projection for Technology Watch, theoretical Forecasts, Test Design, Guides & Charter, Feedback/Discussions and Activity. The Demo adapter projects existing local fictional objects through their original visibility rules; Server uses exclusively authenticated `/api/v1/` list endpoints, refuses malformed/failed responses and never imports Demo data. A record link opens an authorized read-only current-row projection with exact ID/revision; this is **not** falsely presented as a historical snapshot. The original full form/history/source/evidence editors remain available from **Open full workspace / edit / history**, preserving every existing ability including Test Case forks, source attachments, publication transitions, messages, corrections and confidential-feedback authorization rather than imitating those complex editors inside a generic CRUD form. Only one common listing is the default view. This is a transitional specialization boundary pending future campaign/Run redesign, not a second model or replica database.

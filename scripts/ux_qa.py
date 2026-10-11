@@ -25,7 +25,9 @@ ROLES = {
     "engineer": ["user"],
     "management": ["deployment-planner"],
     "maintenance": ["data-maintainer"],
-    "multi_role": ["contributor", "user-admin", "deployment-planner"],
+    # UX-R06 publishes real synthetic evidence and reviews it with the same
+    # combined account; the grants stay independent, never inherited.
+    "multi_role": ["contributor", "user-admin", "deployment-planner", "reviewer"],
 }
 
 
@@ -190,6 +192,127 @@ def capture(page, directory, name):
         .forEach(input => { input.value = ''; })""")
     page.screenshot(path=str(directory / (name + ".png")), full_page=True,
                     animations="disabled")
+
+
+def sign_in(context, base_url, creds, role, path="/?mode=server"):
+    """Real session + CSRF cookie through the visible Server sign-in form."""
+    page = context.new_page()
+    page.set_default_timeout(15000)
+    page.goto(base_url + path, wait_until="domcontentloaded")
+    page.locator("#server-login-form").wait_for(state="visible", timeout=25000)
+    page.locator("#server-username").fill(creds[role]["username"])
+    page.locator("#server-password").fill(creds[role]["password"])
+    page.get_by_role("button", name="Sign in to Server").click()
+    page.locator("#server-login-form").wait_for(state="hidden", timeout=25000)
+    if page.locator("#server-account-name").text_content() != creds[role]["username"]:
+        raise AssertionError("Authenticated Server account does not match its fixture")
+    return page
+
+
+def api_call(context, base_url, path, method="POST", payload=None, expect=(200, 201)):
+    """Real same-origin API call using the authenticated session's CSRF cookie."""
+    csrf = next((cookie["value"] for cookie in context.cookies()
+                 if cookie["name"] == "csrftoken"), "")
+    headers = {"X-CSRFToken": csrf, "Content-Type": "application/json"}
+    response = context.request.fetch(
+        base_url + path, method=method,
+        data=None if payload is None else json.dumps(payload), headers=headers)
+    if expect is not None and response.status not in expect:
+        raise AssertionError(
+            f"{method} {path} returned {response.status}: {response.text()[:400]}")
+    if response.status == 204:
+        return {}
+    return response.json()
+
+
+def seed_server_evidence(context, base_url, label, published=True):
+    """Deterministic, explicitly synthetic Server evidence through the real API.
+
+    Everything is created by an authenticated disposable account with real
+    permissions; no Demo record, no mocked authorization and no vendor access.
+    """
+    harness = api_call(context, base_url, "/api/v1/catalog/harness", payload={
+        "name": "UX-R06 " + label + " Linux-only synthetic harness",
+        "properties": {"supported_os": ["linux"], "enterprise_accessibility": "accessible",
+                       "interface": "cli", "version": "1.0-synthetic",
+                       "details": "Disposable QA fixture, never a production technology"}})
+    model = api_call(context, base_url, "/api/v1/models", payload={
+        "name": "UX-R06 " + label + " synthetic model",
+        "properties": {"enterprise_accessibility": "accessible"}})
+    provider = api_call(context, base_url, "/api/v1/catalog/provider", payload={
+        "name": "UX-R06 " + label + " synthetic provider",
+        "properties": {"enterprise_accessibility": "accessible"}})
+    task = api_call(context, base_url, "/api/v1/tasks",
+                    payload={"name": "UX-R06 " + label + " synthetic Task"})
+    case = api_call(context, base_url, "/api/v1/test-cases", payload={
+        "name": "UX-R06 " + label + " synthetic Test Case", "task_id": task["id"],
+        "properties": {"objective": "Disposable synthetic challenge",
+                       "dod": "Synthetic acceptance only"}})
+    guide = api_call(context, base_url, "/api/v1/guides", payload={
+        "name": "UX-R06 " + label + " published synthetic guide",
+        "properties": {"text": "Synthetic runbook for a disposable fixture"}})
+    published_guide = api_call(
+        context, base_url, "/api/v1/guides/" + guide["id"], method="PATCH",
+        payload={"expected_revision": guide["revision"], "properties": {
+            "text": "Synthetic runbook for a disposable fixture",
+            "recipe": {"modules": [{"id": guide["id"], "revision": "r001"}],
+                       "required": ["model", "provider", "harness"]},
+            "publication": "published"}})["guide"]
+    draft_guide = api_call(context, base_url, "/api/v1/guides", payload={
+        "name": "UX-R06 " + label + " internal draft guide",
+        "properties": {"text": "Draft only; must never appear as published knowledge"}})
+    internal_watch = api_call(context, base_url, "/api/v1/watch-entries", payload={
+        "name": "UX-R06 " + label + " internal hypothesis",
+        "properties": {"hypothesis": "Unreviewed internal hypothesis",
+                       "review_state": "draft", "visibility": "internal"}})
+    campaign = api_call(context, base_url, "/api/v1/campaigns", payload={
+        "name": "UX-R06 " + label + " synthetic campaign", "objective": "Disposable QA objective",
+        "mode": "task_centred", "task_id": task["id"], "test_case_ids": [case["id"]],
+        "guide_id": guide["id"], "configuration": {"reasoning": None}})
+    started = api_call(
+        context, base_url, "/api/v1/campaigns/" + campaign["id"] + "/actions/start",
+        payload={"expected_revision": campaign["revision"]})["campaign"]
+    session = api_call(
+        context, base_url, "/api/v1/campaigns/" + started["id"] + "/sessions", payload={
+            "test_case_id": case["id"],
+            "component_ids": {"model": model["id"], "provider": provider["id"],
+                              "harness": harness["id"]},
+            "settings": {"reasoning": None}, "properties": {"tools": ["git"]},
+            "configuration_version": "v1"})
+    after_interaction = api_call(
+        context, base_url, "/api/v1/sessions/" + session["id"] + "/interactions", payload={
+            "expected_revision": session["revision"], "type": "human_prompt",
+            "content": "Synthetic prompt for a disposable QA fixture",
+            "human_minutes": 0, "agent_minutes": None})
+    closed = api_call(context, base_url, "/api/v1/sessions/" + session["id"] + "/close",
+                      payload={
+                          "expected_revision": after_interaction["revision"],
+                          "outcome": "accepted", "quality_score": 85,
+                          "quality_evaluation": "Synthetic acceptance under its method",
+                          "information_utility_score": 67,
+                          "information_utility_evaluation": "Synthetic utility",
+                          "tokens_count": None, "tokens_multiplier": 1,
+                          "cost_mode": "flat_rate", "cost_eur": None,
+                          "human_review_minutes": 4, "human_correction_minutes": 0,
+                          "produced_outputs": "synthetic-artifact.txt"})
+    current = api_call(context, base_url, "/api/v1/campaigns/" + started["id"],
+                       method="GET", expect=(200,))
+    under_review = api_call(
+        context, base_url, "/api/v1/campaigns/" + started["id"] + "/actions/close",
+        payload={"expected_revision": current["revision"]})["campaign"]
+    result = {"harness": harness, "model": model, "provider": provider, "task": task,
+              "case": case, "guide": published_guide, "draft_guide": draft_guide,
+              "internal_watch": internal_watch, "campaign": under_review,
+              "run": closed, "published": False}
+    if published:
+        current = api_call(context, base_url, "/api/v1/campaigns/" + started["id"],
+                           method="GET", expect=(200,))
+        api_call(context, base_url,
+                 "/api/v1/campaigns/" + started["id"] + "/publication/publish",
+                 payload={"expected_revision": current["revision"], "run_ids": [closed["id"]],
+                          "removal_reason": ""})
+        result["published"] = True
+    return result
 
 
 def demo_journey(browser, demo_url, artifacts, role, label, viewport):
@@ -628,6 +751,279 @@ def demo_journey(browser, demo_url, artifacts, role, label, viewport):
     finally:
         context.tracing.stop(path=str(artifacts / ("demo-" + label + "-" + str(viewport["width"]) + ".zip")))
         context.close()
+
+
+def demo_persona_journey(browser, demo_url, artifacts, viewport):
+    """UX-R06 Demo: published Updates, grounded counter filter, OS variants and
+    persona switching for an explicitly multi-role fictional account."""
+    context = browser.new_context(viewport=viewport, reduced_motion="reduce")
+    context.tracing.start(screenshots=True, snapshots=True, sources=True)
+    page = context.new_page()
+    page.set_default_timeout(15000)
+    errors = []
+    api_calls = []
+    page.on("pageerror", lambda e: errors.append(str(e)))
+    page.on("request", lambda request: api_calls.append(request.url)
+            if "/api/v1/" in request.url else None)
+    try:
+        page.goto(demo_url + "?mode=demo&workspace=workgroup", wait_until="domcontentloaded")
+        page.locator('[data-act="login"][data-id="u6"]').click()
+        page.locator(".app").wait_for(state="visible", timeout=20000)
+        personas = page.locator(".shared-personas a").all_inner_texts()
+        if len(personas) != 3 or any("Maintenance" in name for name in personas):
+            raise AssertionError(
+                "Multi-role Demo must expose exactly its granted personas: " + str(personas))
+        if api_calls:
+            raise AssertionError("Standalone Demo unexpectedly contacted an API")
+        map_marker = page.locator("[data-workgroup-map]")
+        map_marker.wait_for(state="visible", timeout=20000)
+        zones = page.locator("[data-workgroup-map] .shared-studio-zone")
+        if zones.count() != 5:
+            raise AssertionError("Workgroup Studio must expose exactly five themed zones")
+        if page.locator("[data-workgroup-map] .shared-studio-core").count() < 5:
+            raise AssertionError("Core study areas lost their visual emphasis")
+        if not page.evaluate("""() => Array.from(
+                document.querySelectorAll('[data-studio-section]'))
+                .every(node => node.textContent.trim().length > 0)"""):
+            raise AssertionError("Studio blocks lack accessible names")
+        published_link = page.locator('[data-studio-published="updates"]')
+        gap_link = page.locator('[data-studio-gap="catalog"]')
+        if not published_link.count() or not gap_link.count():
+            raise AssertionError("Studio lost the published-updates or coverage-gap link")
+        badge = page.locator('[data-attention-filter="benchmark"]')
+        if not badge.count():
+            raise AssertionError("Grounded Under-review attention count is missing")
+        if not badge.get_attribute("aria-label"):
+            raise AssertionError("Attention count has no accessible label")
+        badge.focus()
+        page.keyboard.press("Enter")
+        page.locator("[data-campaign-focus]").wait_for(state="visible", timeout=20000)
+        if "review" not in page.locator("[data-campaign-focus]").inner_text().lower():
+            raise AssertionError("Attention count did not open its source filter")
+        filtered = page.locator('[data-business-domain="campaigns"] [data-business-record]')
+        if filtered.count() != 1:
+            raise AssertionError(
+                "Filtered campaign view must show the single unresolved record; found %d"
+                % filtered.count())
+        assert_no_horizontal_overflow(page)
+        capture(page, artifacts, "demo-attention-filter-" + str(viewport["width"]))
+        page.get_by_role("button", name="Show all stages").click()
+        page.wait_for_timeout(300)
+        if page.locator('[data-business-domain="campaigns"] [data-business-record]').count() <= 1:
+            raise AssertionError("Clearing the counter filter did not restore every campaign")
+        page.goto(demo_url + "?mode=demo&workspace=workgroup&section=updates",
+                  wait_until="domcontentloaded")
+        surface = page.locator('[data-shared-updates="demo"]')
+        surface.wait_for(state="visible", timeout=20000)
+        if surface.locator("[data-updates-kind]").count() == 0:
+            raise AssertionError("Published Demo knowledge is unexpectedly empty")
+        if surface.locator('[data-updates-id="g5"]').count():
+            raise AssertionError("A draft Demo guide leaked into published updates")
+        if surface.locator('[data-updates-id="w2"]').count():
+            raise AssertionError("An internal Watch hypothesis leaked into published updates")
+        if not surface.locator('[data-updates-id="g1"]').count():
+            raise AssertionError("A published Demo guide is missing from published updates")
+        # Desktop keyboard and assistive-technology contract for the new surface.
+        nav_item = page.locator('[data-act="nav"][data-id="updates"]')
+        nav_item.focus()
+        if not page.evaluate(
+                "() => document.activeElement && "
+                "document.activeElement.textContent.includes('Workgroup updates')"):
+            raise AssertionError("Published updates nav item is not keyboard focusable")
+        withheld = surface.locator(".shared-updates-withheld")
+        if not withheld.count() or not withheld.locator("summary").inner_text().strip():
+            raise AssertionError("Published updates lack an accessible exclusion disclosure")
+        withheld.locator("summary").click()
+        if "never included" not in withheld.inner_text():
+            raise AssertionError("Excluded internal sources are not stated explicitly")
+        if surface.get_by_role("heading", name="Workgroup Updates · What's New").count() != 1:
+            raise AssertionError("Published updates lack a single semantic heading")
+        if surface.locator("[data-updates-group]").count() == 0:
+            raise AssertionError("Published updates are not grouped for progressive reading")
+        if not page.evaluate("""() => Array.from(
+                document.querySelectorAll('.shared-updates-withheld summary'))
+                .every(node => node.tabIndex >= 0 && node.textContent.trim().length > 0)"""):
+            raise AssertionError("Exclusion disclosure is not a focusable labelled control")
+        measured = surface.locator('[data-updates-kind="measured_result"]').first
+        source_link = measured.get_by_role("link").first
+        href = source_link.get_attribute("href") or ""
+        if "section=results" not in href or "record=" not in href:
+            raise AssertionError("Measured update source link lost its exact record route")
+        source_link.click()
+        page.locator("#ux-demo-run-context").wait_for(state="visible", timeout=20000)
+        if page.locator("#ux-demo-run-context .ux-advanced-source pre").is_visible():
+            raise AssertionError("Updates drilldown defaults to a raw JSON dump")
+        assert_no_horizontal_overflow(page)
+        capture(page, artifacts, "demo-updates-source-" + str(viewport["width"]))
+        page.go_back(wait_until="domcontentloaded")
+        surface.wait_for(state="visible", timeout=20000)
+
+        page.locator('[data-persona="management"]').click()
+        page.locator("#demo-management-insights").wait_for(state="visible", timeout=20000)
+        page.locator("[data-heat-scenario]").select_option("opp-demo-insights")
+        gap = page.locator("[data-heat-gap]").first
+        gap.wait_for(state="visible", timeout=20000)
+        uncovered_task = gap.get_attribute("data-heat-gap")
+        gap.click()
+        notice = page.locator("[data-coverage-gap]")
+        notice.wait_for(state="visible", timeout=20000)
+        if uncovered_task not in notice.inner_text():
+            raise AssertionError("Coverage-gap navigation lost the requested Task context")
+        if "not a hidden candidate" not in notice.inner_text():
+            raise AssertionError("Coverage-gap notice does not state the missing evidence")
+        if "created automatically" not in notice.inner_text():
+            raise AssertionError("Coverage-gap notice does not deny automatic creation")
+        capture(page, artifacts, "demo-coverage-gap-" + str(viewport["width"]))
+
+        page.locator('[data-persona="engineer"]').click()
+        page.locator("[data-engineer-body]").wait_for(state="visible", timeout=20000)
+        unknown = page.locator("[data-engineer-os-unknown]")
+        unknown.wait_for(state="visible", timeout=20000)
+        profile_text = page.locator("[data-engineer-body]").inner_text()
+        if "Unknown" not in profile_text and "not configured" not in profile_text:
+            raise AssertionError("Missing OS profile is not presented as an explicit unknown")
+        page.locator("#demo-environment-profile input[name=windows]").check()
+        page.get_by_role("button", name="Save my environment").click()
+        page.locator("[data-engineer-os-unknown]").wait_for(state="detached", timeout=20000)
+        page.wait_for_timeout(600)
+        if page.locator(".ux-os-alternative").count() == 0:
+            raise AssertionError("A Linux-only alternative was hidden from a Windows-only user")
+        alternative = page.locator(".ux-os-alternative").first.inner_text()
+        if "Linux" not in alternative:
+            raise AssertionError("Other-OS alternative does not name the required OS")
+        body_text = page.locator("[data-engineer-body]").inner_text()
+        if "windows" not in body_text.lower():
+            raise AssertionError("Declared OS is not reflected in Engineer discovery")
+        if page.locator("[data-engineer-view=tool]").count() != 1:
+            raise AssertionError("By Tool inversion is not keyboard reachable")
+        assert_no_horizontal_overflow(page)
+        capture(page, artifacts, "demo-engineer-os-" + str(viewport["width"]))
+        if errors:
+            raise AssertionError("Demo persona JS runtime error(s): " + "; ".join(errors[:3]))
+        return {"personas": len(personas), "zones": 5}
+    finally:
+        context.tracing.stop(path=str(artifacts / ("demo-personas-" +
+                                                   str(viewport["width"]) + ".zip")))
+        context.close()
+
+
+def server_publication_journey(browser, base_url, creds, artifacts, viewport):
+    """UX-R06 Server: real published evidence, counter filter, reader boundaries."""
+    publisher_context = browser.new_context(viewport=viewport, reduced_motion="reduce")
+    workgroup_context = browser.new_context(viewport=viewport, reduced_motion="reduce")
+    engineer_context = browser.new_context(viewport=viewport, reduced_motion="reduce")
+    maintenance_context = browser.new_context(viewport=viewport, reduced_motion="reduce")
+    try:
+        sign_in(publisher_context, base_url, creds, "multi_role",
+                "/?mode=server&workspace=workgroup")
+        evidence = seed_server_evidence(publisher_context, base_url, "published", published=True)
+        review_campaign = seed_server_evidence(publisher_context, base_url, "review", published=False)
+        seed_server_evidence(publisher_context, base_url, "second", published=True)
+
+        workgroup = sign_in(workgroup_context, base_url, creds, "workgroup",
+                            "/?mode=server&workspace=workgroup&section=studio")
+        home = workgroup.locator("#server-workgroup-home")
+        home.wait_for(state="visible", timeout=25000)
+        badge = workgroup.locator('#server-workgroup-home [data-attention-filter="benchmark"]')
+        badge.wait_for(state="visible", timeout=25000)
+        if badge.get_attribute("aria-label") is None:
+            raise AssertionError("Server attention count has no accessible label")
+        badge.click()
+        workgroup.locator("[data-campaign-status-focus]").wait_for(state="visible",
+                                                                   timeout=25000)
+        focus_text = workgroup.locator("[data-campaign-status-focus]").inner_text().lower()
+        if "awaiting a review decision" not in focus_text:
+            raise AssertionError("Server counter filter does not name the pending decision")
+        if "not a personal assignment" not in focus_text:
+            raise AssertionError("Server counter filter does not explain its derived scope")
+        if not workgroup.locator(
+                '[data-business-record="%s"]' % review_campaign["campaign"]["id"]).count():
+            raise AssertionError("Under-review campaign missing from the filtered list")
+        if workgroup.locator(
+                '[data-business-record="%s"]' % evidence["campaign"]["id"]).count():
+            raise AssertionError("Published campaign leaked into the under-review filter")
+        assert_no_horizontal_overflow(workgroup)
+        capture(workgroup, artifacts, "server-counter-filter-" + str(viewport["width"]))
+        workgroup.get_by_role("button", name="Show all campaigns").click()
+        workgroup.wait_for_timeout(400)
+
+        workgroup.goto(base_url + "/?mode=server&workspace=workgroup&section=updates",
+                       wait_until="domcontentloaded")
+        surface = workgroup.locator('[data-shared-updates="server"]')
+        surface.wait_for(state="visible", timeout=25000)
+        if surface.locator("[data-updates-kind]").count() == 0:
+            raise AssertionError("Published Server knowledge is unexpectedly empty")
+        for label, record in (("published guide", evidence["guide"]["id"]),
+                              ("draft guide", evidence["draft_guide"]["id"]),
+                              ("internal watch", evidence["internal_watch"]["id"])):
+            present = surface.locator(f'[data-updates-id="{record}"]').count()
+            if "published" in label and not present:
+                raise AssertionError(f"A published Server {label} is missing from updates")
+            if "draft" in label.lower() or "internal" in label:
+                if present:
+                    raise AssertionError(f"A restricted Server {label} leaked into updates")
+        if surface.locator(f'[data-updates-id="{evidence["campaign"]["id"]}"]').count() == 0:
+            raise AssertionError("Published campaign announcement is missing")
+        if surface.locator(f'[data-updates-id="{review_campaign["campaign"]["id"]}"]').count():
+            raise AssertionError("Unpublished campaign leaked into published updates")
+        if surface.locator(f'[data-updates-id="{evidence["run"]["id"]}"]').count() == 0:
+            raise AssertionError("Published measured Run is missing from updates")
+        assert_no_horizontal_overflow(workgroup)
+        capture(workgroup, artifacts, "server-updates-workgroup-" + str(viewport["width"]))
+
+        engineer = sign_in(engineer_context, base_url, creds, "engineer",
+                           "/?mode=server&workspace=engineer&section=updates")
+        reader_surface = engineer.locator('[data-shared-updates="server"]')
+        reader_surface.wait_for(state="visible", timeout=25000)
+        if reader_surface.locator("[data-updates-kind]").count() == 0:
+            raise AssertionError("A reader cannot see published Server knowledge")
+        denied = reader_surface.locator("[data-updates-source-denied]")
+        if denied.count() == 0:
+            raise AssertionError(
+                "An unreachable Workgroup source was offered as a live reader link")
+        if "is not available to this account" not in denied.first.inner_text():
+            raise AssertionError("Unreachable source does not explain the access boundary")
+        results_link = reader_surface.locator(
+            '[data-updates-kind="measured_result"] a').first
+        if "section=results" not in (results_link.get_attribute("href") or ""):
+            raise AssertionError("Reader-visible measured source link is not authorized")
+        draft_selector = '[data-updates-id="%s"]' % evidence["draft_guide"]["id"]
+        if reader_surface.locator(draft_selector).count():
+            raise AssertionError("Draft guide leaked into the reader's published view")
+        capture(engineer, artifacts, "server-updates-engineer-" + str(viewport["width"]))
+
+        maintainer = sign_in(maintenance_context, base_url, creds, "maintenance",
+                             "/maintenance?mode=server")
+        maintainer.goto(base_url + "/maintenance?mode=server&section=updates",
+                        wait_until="domcontentloaded")
+        maintainer.wait_for_timeout(1500)
+        if maintainer.locator("#server-updates").is_visible():
+            raise AssertionError("Maintenance-only account received published Workgroup updates")
+        if maintainer.locator("#server-governance-audit").is_hidden():
+            raise AssertionError("Maintenance workspace lost its authorized audit view")
+        assert_exactly_one_view(maintainer, "#ux-screen-host > [data-ux-screen]")
+        maintainer.goto(base_url + "/?mode=server&workspace=workgroup&section=studio",
+                        wait_until="domcontentloaded")
+        maintainer.wait_for_timeout(1500)
+        if (maintainer.locator("#server-workgroup-home").is_visible() or
+                maintainer.locator("#server-campaigns").is_visible() or
+                maintainer.locator("#server-updates").is_visible()):
+            raise AssertionError(
+                "Maintenance-only account obtained Workgroup business screens by URL")
+        assert_exactly_one_view(maintainer, "#ux-screen-host > [data-ux-screen]")
+
+        workgroup.goto(base_url + "/?mode=server&workspace=workgroup&section=users",
+                       wait_until="domcontentloaded")
+        workgroup.wait_for_timeout(1500)
+        if workgroup.locator("#server-users").is_visible():
+            raise AssertionError("A contributor reached Users & Access by URL")
+        assert_exactly_one_view(workgroup, "#ux-screen-host > [data-ux-screen]")
+        capture(maintainer, artifacts, "server-updates-maintenance-" + str(viewport["width"]))
+        return {"published_items": reader_surface.locator("[data-updates-kind]").count()}
+    finally:
+        for context in (publisher_context, workgroup_context, engineer_context,
+                        maintenance_context):
+            context.close()
 
 
 def server_journey(browser, base_url, creds, artifacts, role, viewport):
@@ -2520,6 +2916,8 @@ def run_tests(base_url, demo_url, credentials, artifacts):
                 run(f"Authenticated Server draft/stepper/conflict/ownership {width}",
                     lambda v=viewport: server_draft_stepper_conflict_journey(
                         browser, base_url, creds, directory, v))
+                run(f"Standalone Demo multi-role persona journeys {width}",
+                    lambda v=viewport: demo_persona_journey(browser, demo_url, directory, v))
                 for role in ROLES:
                     run(f"Authenticated Server {role} {width}",
                         lambda k=role, v=viewport: server_journey(
@@ -2537,6 +2935,10 @@ def run_tests(base_url, demo_url, credentials, artifacts):
                     run(f"Server Test Case fork + denial {width}",
                         lambda v=viewport: test_case_fork_and_denial(
                             browser, base_url, creds, directory, v))
+                # Runs last: it publishes real disposable synthetic evidence.
+                run(f"Authenticated Server published persona journeys {width}",
+                    lambda v=viewport: server_publication_journey(
+                        browser, base_url, creds, directory, v))
         finally:
             browser.close()
     failed = [record for record in records if record["result"] == "FAIL"]

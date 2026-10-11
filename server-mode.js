@@ -47,6 +47,7 @@
     '<div id="server-personas" class="server-card" style="margin:12px 0" hidden></div>',
     '<section id="server-environment-profile" class="server-catalog" hidden></section>',
     '<section id="server-engineer" class="server-catalog" hidden></section>',
+    '<section id="server-updates" class="server-catalog" hidden></section>',
     '<section id="server-workgroup-home" class="server-catalog" hidden></section>',
     '<section id="server-workgroup-summary" class="server-catalog" hidden></section>',
     '<p style="margin-bottom:20px;color:#64748b">Real Django session · persistent technology catalog · independent Demo</p>',
@@ -64,6 +65,7 @@
     '<div class="server-actions" id="server-actions"></div><button id="server-logout">Sign out</button></section>',
     '</div>',
     '<section id="server-model-catalog" class="server-catalog" hidden>',
+    '<div id="server-catalog-gap"></div>',
     '<div id="server-shared-catalog"></div>',
     '<section id="server-pricing" class="server-card" hidden></section>',
     '<div class="server-model-toolbar"><div><h2>Models · Providers · Harnesses · Frameworks</h2><p class="muted small">Persistent catalog · versions and original revisions</p></div>',
@@ -172,6 +174,7 @@
     return [type, modelsUi.ApiDataProvider(csrfFromCookie, type)];
   }));
   var grants = [];
+  var updateScope = {persona: null, grants: []};
   var refreshGeneration = 0;
   var adapter = modelsUi.ApiDataProvider(csrfFromCookie);
   var escapeHtml = modelsUi.escapeHtml;
@@ -199,11 +202,22 @@
   document.getElementById("server-model-refresh").parentElement.hidden = true;
   var environment = window.AICompassEnvironment.mount(
     document.getElementById("server-environment-profile"),
-    window.AICompassEnvironment.serverProvider(fetch, csrfFromCookie),"server");
+    window.AICompassEnvironment.serverProvider(fetch, csrfFromCookie),"server",
+    {onProfileSaved:function(){if(engineer)engineer.refresh();}});
   var personas = document.getElementById("server-personas");
   var engineer = window.AICompassEngineer.mount(
     document.getElementById("server-engineer"),
     window.AICompassEngineer.serverProvider(fetch, csrfFromCookie), "server");
+  var updates = window.AICompassUpdates.mount(
+    document.getElementById("server-updates"),
+    window.AICompassUpdates.serverProvider(fetch, csrfFromCookie), "server",
+    {workspace: function () {
+      var value = new URLSearchParams(window.location.search).get("workspace");
+      return ["workgroup", "engineer", "management"].includes(value) ? value : "workgroup";
+    },
+    sections: function () {
+      return window.AICompassUpdates.serverSections(updateScope.persona, updateScope.grants);
+    }});
 
   var tasks = window.AICompassServerTasks.mount(document.getElementById("server-task-tree"), csrfFromCookie, escapeHtml);
   var testCases = window.AICompassServerTestCases.mount(document.getElementById("server-test-cases"), csrfFromCookie, escapeHtml);
@@ -344,6 +358,7 @@
       sharedCatalog.setAccess(false, false);
       environment.setAccess(false);
       engineer.setAccess(false);
+      updates.setAccess(false);
       pricing.setAccess(false,false);
       personas.replaceChildren(); personas.hidden = true;
       tasks.setAccess(false, false);
@@ -408,6 +423,9 @@
     planning.setAccess(!maintenanceWorkspace && grants.includes("planning_view"), !maintenanceWorkspace && grants.includes("planning_manage"));
     managementInsights.setAccess(!maintenanceWorkspace &&
       grants.includes("planning_view") && personaId === "management");
+    updateScope.persona = personaId;
+    updateScope.grants = grants;
+    updates.setAccess(!maintenanceWorkspace && grants.includes("business_read"));
     document.getElementById("server-maintenance-nav").hidden = !grants.includes("maintenance_view");
     form.hidden = true;
     account.hidden = false;
@@ -423,13 +441,15 @@
     status("Authenticated as " + data.username + ". Permissions are enforced by Django.", false);
     catalog.hidden = maintenanceWorkspace || !grants.includes("business_read") ||
       personaId !== "workgroup";
+    document.getElementById("server-catalog-gap").innerHTML =
+      window.AICompassWorkgroup.coverageGapNotice("server");
     // Existing controllers retain full permission-aware API behavior. Persona
     // entry affects presentation only; the backend always enforces real grants.
     if (personaId === "management") {
       tasks.setAccess(false, false);
       ["server-test-cases","server-guides","server-watch","server-forecasts",
         "server-campaigns","server-recommendations","server-discussions",
-        "server-users","server-activity"].forEach(function (id) {
+        "server-users","server-activity","server-updates"].forEach(function (id) {
         document.getElementById(id).hidden = true;
       });
     } else if (personaId === "engineer") {
@@ -483,7 +503,12 @@
           ["benchmark", "forecasts", "recommendations"].forEach(function(section,i){
             var result=results[i];
             if(result.status==="fulfilled")
-              counters[section]=group.attention(section,result.value.results);
+              // A campaign that already has an effective publication is not
+              // awaiting a review decision even while its working revision
+              // remains "under review" (reopen/unpublish stay explicit actions).
+              counters[section]=group.attention(section,section==="benchmark"?
+                result.value.results.filter(function(row){
+                  return !row.effective_publication;}) : result.value.results);
           });
           showHome(counters);
         });
@@ -534,7 +559,8 @@
     } else if (personaId === "engineer" && grants.includes("business_read")) {
       var engineerRoutes = {home:"server-engineer",tasks:"server-task-tree",
         catalog:"server-model-catalog",results:"server-results",
-        guides:"server-guides",environment:"server-environment-profile"};
+        guides:"server-guides",environment:"server-environment-profile",
+        updates:"server-updates"};
       screen = engineerRoutes[currentSection] || engineerRoutes.home;
     } else if (personaId === "management" && grants.includes("planning_view")) {
       screen = currentSection === "planning" ? "server-planning" : "server-management-insights";

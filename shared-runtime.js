@@ -75,6 +75,14 @@
   ];
   function availablePersonas(identity, mode) {
     if (mode === MODES.demo) {
+      /* Demo may simulate an explicitly granted multi-role account. A persona
+       * that was never granted stays unavailable: privilege is composed, never
+       * inherited, and selecting a link grants nothing. */
+      var granted = identity && Array.isArray(identity.roles) && identity.roles.length ?
+        identity.roles : null;
+      if (granted) {
+        return PERSONAS.filter(function (p) { return granted.indexOf(p.id) !== -1; });
+      }
       var simulated = identity && identity.role;
       return PERSONAS.filter(function (p) {
         return p.id === (simulated === "reader" ? "engineer" : simulated);
@@ -91,9 +99,16 @@
     var esc = root.AICompassModels && root.AICompassModels.escapeHtml ||
       function (v) { return String(v); };
     var choices = availablePersonas(identity, mode);
+    function demoHref(id) {
+      /* The standalone Demo is served as prototype.html: keep the workspace
+       * switch on the same page instead of an absolute root that 404s. */
+      var path = (root.location && root.location.pathname) || "";
+      var base = /\.html$/.test(path) ? path : "/";
+      return base + "?mode=demo&workspace=" + id;
+    }
     return '<nav class="shared-personas" aria-label="Workspaces">' +
       choices.map(function (p) {
-        var href = mode === MODES.demo ? "/?mode=demo&workspace=" + p.id :
+        var href = mode === MODES.demo ? demoHref(p.id) :
           (p.id === "maintenance" ? "/maintenance?mode=server" : "/?mode=server&workspace=" + p.id);
         return '<a href="' + esc(href) + '" data-persona="' + p.id + '"' +
           (p.id === requested ? ' aria-current="page"' : "") + '>' + esc(p.label) + '</a>';

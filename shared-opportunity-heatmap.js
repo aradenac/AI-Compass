@@ -157,6 +157,8 @@ const STYLE='<style>'+
 '.heat-cell.heat-1{background:#edf6fd}.heat-cell.heat-2{background:#d3e8f9}.heat-cell.heat-3{background:#9ac8ed}.heat-cell.heat-4{background:#5196cb;color:#092b48}'+
 '.heat-maturity{background:#fff9;border:1px solid #8198b8;border-radius:50%;font-size:10px;min-width:20px;height:20px;display:inline-grid;place-items:center}'+
 '.heat-selected{font-size:9px;color:#2650a4}.heat-blank{color:#8896ad;text-align:center!important}'+
+'.heat-task-gap{font-size:10px;line-height:1.35;color:#4a5b74;white-space:normal;margin-top:3px}'+
+'.heat-task-gap a{color:#24429c}'+
 '.heat-pagination,.heat-slice-legend{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:10px 0}'+
 '.heat-pagination button{font-size:11px;padding:6px 9px}.heat-slices{height:23px;display:flex;border:1px solid #bdcadd;border-radius:6px;overflow:hidden;background:#f2f5fb}'+
 '.heat-slice{min-width:0}.heat-slice-0{background:#4b7597}.heat-slice-1{background:#2f9a92}.heat-slice-2{background:#c1a05b}'+
@@ -234,7 +236,11 @@ function mount(element,provider,mode){
      '<div style="padding-left:'+Math.min(row.depth*16,200)+'px">'+
      '<button type="button" data-heat-collapse="'+escape(row.id)+'" aria-label="Toggle Task descendants">'+
        (collapsed.has(row.id)?"+":"−")+'</button> '+escape(row.name)+
-     '</div></th>'+
+    '</div>'+
+    '<div class="heat-task-gap"><a data-heat-gap="'+escape(row.id)+'" href="'+
+      escape(root.AICompassContext.route(mode,"workgroup","catalog",{gap:"1",task:row.id}))+
+      '">Explore candidate technologies in the Technology Catalog</a> — '+
+      'knowledge discovery only, no automatic entry</div></th>'+
      matrix.columns.map(col=>{
        const c=index.get(row.id+"|"+col.kind+"|"+col.id);
        if(!c)return '<td class="heat-blank" title="Uncovered Task/configuration">—</td>';

@@ -20,7 +20,8 @@ def contract_document():
         "max_client_api_major": API_MAX_MAJOR,
         "compatible": True,
         "capabilities": ["health", "auth", "models", "catalog", "tasks",
-                         "test_cases", "campaigns", "runs", "evidence", "results"],
+                         "test_cases", "campaigns", "runs", "evidence", "results",
+                         "updates"],
         "error_contract": "ai-compass/api-error@1",
     }
 

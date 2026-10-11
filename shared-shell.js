@@ -59,6 +59,7 @@
       item("health", "Data health", grants.includes("maintenance_view"));
     } else if (persona === "workgroup") {
       item("studio", "Workgroup Studio", grants.includes("business_write"));
+      item("updates", "Workgroup Updates", grants.includes("business_read"));
       var group = root.AICompassWorkgroup;
       if (group) group.ZONES.forEach(function (zone) {
         sections.push('<div class="nav-label">' + esc(zone.name) + '</div>');
@@ -68,6 +69,7 @@
       });
     } else if (persona === "engineer") {
       item("home", "My AI Workspace", grants.includes("business_read"));
+      item("updates", "Workgroup Updates", grants.includes("business_read"));
       item("tasks", "Task explorer", grants.includes("business_read"));
       item("catalog", "Technology catalog", grants.includes("business_read"));
       item("results", "Benchmark results", grants.includes("business_read"));
