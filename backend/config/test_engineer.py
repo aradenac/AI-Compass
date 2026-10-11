@@ -139,6 +139,16 @@ class EngineerJourneyTests(IndividualRunTests.__bases__[0]):
         messages=reader.get("/api/v1/discussions/"+post.json()["id"])
         self.assertEqual(messages.status_code,200,messages.content)
         self.assertIn("no entitlement",json.dumps(messages.json()).lower())
+        update=reader.get(BASE+"/solutions/"+run["solution_id"]).json()
+        self.assertEqual([x["id"] for x in update["published_updates"]],[post.json()["id"]])
+        from .discussion_services import create_thread
+        reviewer=get_user_model().objects.get(username="publisher-"+str(self.editor.pk)[:8])
+        private,_=create_thread(reviewer,{
+            "title":"Private workgroup discussion",
+            "context_id":run["solution_id"], "body":"Workgroup-only investigation",
+            "properties":{"scope":"internal","kind":"discussion"}})
+        self.assertNotIn(private.item.public_id,json.dumps(
+            reader.get(BASE+"/solutions/"+run["solution_id"]).json()))
 
     def test_failed_only_and_withdrawn_never_positive_or_discoverable(self):
         self.setup_access(available=("windows",))
