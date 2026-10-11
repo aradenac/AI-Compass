@@ -1498,8 +1498,14 @@ var tools='<div class="filters"><input class="input" data-filter="guideSearch" v
 '<select data-filter="guideStatus">'+[["all","All publication states"],["published","Published"],["draft","Draft"]].map(function(x){return opt(x[0],x[1],status);}).join("")+'</select>'+
 '<select data-filter="guideSort">'+[["newest","Most recent"],["oldest","Oldest"],["alpha","Alphabetical"]].map(function(x){return opt(x[0],x[1],sort);}).join("")+'</select>'+badge(docs.length+" articles")+'</div>';
 return heading("Knowledge base","Guides, FAQs & charter","Search, sort, update and publish documentation. Each article revision is attributable and retained in the activity history.",canEdit()?btn("+ New article","newGuide","","primary"):"")+
-tools+'<div class="grid g2">'+(docs.map(function(g){return '<div class="card"><div class="row-between"><div class="tags">'+badge(g.type)+badge(g.status)+'</div><span class="muted small">'+E(g.date)+'</span></div>'+
-'<h3 style="margin:12px 0 7px">'+E(g.title)+'</h3><p class="muted small">'+E(g.body.slice(0,170))+(g.body.length>170?"…":"")+'</p><div class="row-between" style="margin-top:14px"><span class="muted small">Author: '+E(actor(g.owner))+'</span><div class="inline-actions">'+btn("Read","guideDetail",g.id,"sm")+(canEdit()?btn("Edit article","editGuide",g.id,"sm primary"):"")+'</div></div></div>';}).join("")||'<div class="empty">No articles match your filters.</div>')+'</div>';
+tools+window.AICompassWorkgroup.renderRecords(docs.map(function(g){
+ return {id:g.id,title:g.title,status:g.status,revision:g.revision||"",
+  description:String(g.body||"").slice(0,170),
+  facts:[g.type,g.date,"Author: "+actor(g.owner)],
+  actions:[{label:"Read",attributes:{"data-act":"guideDetail","data-id":g.id}}].concat(
+    canEdit()?[{label:"Edit article",attributes:{"data-act":"editGuide","data-id":g.id}}]:[])
+ };
+}),{domain:"guides",mode:"demo",emptyText:"No articles match your filters."});
 }
 function watchVisible(w){return !!w&&(canEdit()||w.publication==="published");}
 function researchVisible(e){return !!e&&(canEdit()||(e.publication==="published"&&(
