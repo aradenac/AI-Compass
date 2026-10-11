@@ -5,8 +5,11 @@ shared credit wallet, no fabricated observed usage or published results.
 """
 import copy
 import json
+import tempfile
+from pathlib import Path
 from decimal import Decimal
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import override_settings
 
 from .test_pricing import PricingTests
 from .pricing_services import offer_revise
@@ -15,6 +18,18 @@ from .run_cost_services import _tiers, quote, MissingMeter, InvalidMeter
 
 
 class TariffRunTests(PricingTests):
+    def setUp(self):
+        super().setUp()
+        # All bytes uploaded by this transactional test database must remain
+        # physically isolated. Otherwise rollback drops their EvidenceBlob
+        # rows but leaves orphan files in the platform's real evidence volume,
+        # which the full-archive verifier correctly rejects.
+        temporary=tempfile.TemporaryDirectory(prefix="aic-tariff-evidence-")
+        self.addCleanup(temporary.cleanup)
+        settings_override=override_settings(EVIDENCE_STORE_ROOT=Path(temporary.name))
+        settings_override.enable()
+        self.addCleanup(settings_override.disable)
+
     def chosen(self):
         model=self.props("model",billing="input-gateway",charge="input")
         model["lines"]=[
