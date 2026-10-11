@@ -60,8 +60,9 @@ The permanent offline Demo remains independent and does not import real Runs.
 
 ## Read-side contracts, privacy and rollout
 
-`GET /api/v1/results/explorer` defaults to `scope=published` and uses
-the same membership authority. `scope=private` requires an editor/reviewer.
+`GET /api/v1/results/explorer` defaults to `scope=published` for ordinary
+readers and `scope=private` for editors/reviewers. `scope=private` explicitly
+requires an editor/reviewer; published projections use the effective membership.
 `GET /api/v1/runs` shows private data to those roles, otherwise only effective
 published Runs; direct unpublished Run reads return 404 for read-only users.
 Read-only responses omit raw session checkpoint data. Campaign evidence
