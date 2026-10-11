@@ -11,8 +11,14 @@
     link.textContent = "Server sign-in";
     link.title = "Switch explicitly to the server-backed identity workspace";
     link.id = "server-mode-switch";
-    link.style.cssText = "position:fixed;right:12px;bottom:12px;z-index:100;background:#111e35;color:white;padding:9px 14px;border-radius:9px;box-shadow:0 4px 18px #172c4633;font:600 12px system-ui";
-    document.body.appendChild(link);
+    link.className = "ux-mode-link";
+    var demoRoot = document.getElementById("app");
+    function placeSwitch() {
+      var actions = demoRoot && demoRoot.querySelector(".ux-topbar .top-actions");
+      if (actions && link.parentElement !== actions) actions.appendChild(link);
+    }
+    if (demoRoot) new MutationObserver(placeSwitch).observe(demoRoot, {childList:true});
+    placeSwitch();
     return;
   }
 
