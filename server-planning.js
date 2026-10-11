@@ -9,12 +9,15 @@
       '<button id="planning-refresh" type="button">Refresh profiles</button>' +
       '<button id="planning-new" type="button">New profile</button>' +
       '<div id="planning-list"></div><div id="planning-editor" hidden></div>' +
-      '<div id="planning-detail"></div></div>';
+      '<div id="planning-detail"></div><section id="planning-opportunities"></section></div>';
     var status = root.querySelector("#planning-state");
     var list = root.querySelector("#planning-list");
     var editor = root.querySelector("#planning-editor");
     var detail = root.querySelector("#planning-detail");
     var add = root.querySelector("#planning-new");
+    var opportunities = window.AICompassOpportunities.mount(
+      root.querySelector("#planning-opportunities"),
+      window.AICompassOpportunities.serverProvider(fetch, csrf), "server");
     function tell(message, error) {
       status.textContent = message;
       status.className = error ? "server-status server-error" : "server-status";
@@ -210,6 +213,7 @@
     });
     return {setAccess: function (read, write) {
       canView = Boolean(read); canWrite = Boolean(write);
+      opportunities.setAccess(canView,canWrite);
       root.hidden = !canView; generation++;
       if (canView) refresh();
       else {profiles = []; tasks = []; editor.hidden = true; list.replaceChildren();
