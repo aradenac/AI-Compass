@@ -175,7 +175,7 @@ def compose(recipe, revisions, configuration):
     if not isinstance(required, list) or not all(isinstance(x, str) for x in required):
         raise SetupCompositionError("required must be a list of configuration keys")
     for key in required:
-        if key not in configuration or configuration[key] in (None, ""):
+        if key not in configuration or configuration[key] in (None, "", [], {}):
             missing.append({"kind": "configuration", "field": key})
     return {"ready": not missing and bool(sections),
             "sections": sections, "missing": missing or (
