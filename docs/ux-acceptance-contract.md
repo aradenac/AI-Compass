@@ -2,7 +2,7 @@
 
 > **Status:** Normative interaction acceptance derived from the approved [role-based UX specification](role-based-user-experience-and-guided-navigation.md) and [NFR](non-functional-requirements.md). **Visual proposal**, not an owner-approved golden screenshot. Final visual approval is separate from executable correctness.
 > **Scope:** Desktop web browsers only (reference 1366×900; standard desktop viewport 1024px or wider). Standalone fictional Demo, real authenticated Server, Workgroup, Engineer, Management and independent Maintenance. Mobile/tablet web, touch-specific layouts and native applications are **out of scope** by product-owner decision (2026-10-11). Existing CSS fallbacks are not tested or certified.
-> **Delivery:** UX-R01 [#114](https://github.com/aradenac/AI-Compass/issues/114) sets up the gate; [#115](https://github.com/aradenac/AI-Compass/issues/115) and [#116](https://github.com/aradenac/AI-Compass/issues/116) bring the old screens into conformance. No synthetic fixtures may become live Server business records.
+> **Delivery:** UX #114–#116 completed the first browser/shell/navigation recovery; the remaining desktop specification gaps are tracked by #123–#126 before P7. No synthetic fixtures may become live Server business records.
 
 ## Shared shell — desktop (reference layout)
 
@@ -96,7 +96,7 @@ Only desktop Chromium journeys are an enforced CI requirement. This halves perso
 | No page errors / no unintended overflow | Required | Required | Required |
 | Data isolation / no fallback | Required | Zero API use | Real authenticated API only |
 
-**Gate maturity:** R01 supplies real browser smoke, representative captures, traces and deliberately broken mutation fixtures that prove detectors work. R02 and R03 must promote the current live single-view, modal and contextual-journey invariants from diagnostic findings to mandatory failing checks. A preexisting broken UI must never be approved as its own golden baseline.
+**Gate maturity (2026-10-11):** UX-R01–R03 ([#114](https://github.com/aradenac/AI-Compass/issues/114), [#115](https://github.com/aradenac/AI-Compass/issues/115), [#116](https://github.com/aradenac/AI-Compass/issues/116)) are merged and their *targeted* desktop Chromium checks passed. That result does not certify the full persona specification. UX-R04 [#123](https://github.com/aradenac/AI-Compass/issues/123) converges business-domain rendering, UX-R05 [#124](https://github.com/aradenac/AI-Compass/issues/124) closes draft/Run/concurrency behavior, UX-R06 [#125](https://github.com/aradenac/AI-Compass/issues/125) closes persona workflows, and UX-R07 [#126](https://github.com/aradenac/AI-Compass/issues/126) performs complete traceable **20-scenario** desktop verification. A preexisting broken UI must never be approved as its own golden baseline.
 
 ## Review / evidence protocol
 
