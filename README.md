@@ -16,6 +16,8 @@ Benchmarking works in both directions: **compare solutions on the same task**, o
 
 ## Product definition
 
+**Maintained specifications for implemented domain capabilities:** [Campaign Matrix](docs/campaign-evaluation-matrix.md) · [Composable Setup Guides](docs/composable-setup-guides.md) · [Pricing](docs/technology-accessibility-and-pricing.md) · [OS Compatibility](docs/os-compatibility-and-user-environment.md) · [Publication & Run lifecycle](docs/publication-and-information-lifecycle.md) · [Deployment & Adoption Planning](docs/deployment-and-adoption-planning.md) · [Role-Based UX](docs/role-based-user-experience-and-guided-navigation.md) · [Governance Audit](docs/data-governance-audit-explorer.md) · [Frontend/Release contract](docs/shared-frontend-and-release-lifecycle.md). The [future-evolutions directory](docs/future-evolutions/README.md) only covers outstanding P7 evolutions and their delivery ledger. Corrective UI acceptance issues [#114](https://github.com/aradenac/AI-Compass/issues/114) → [#115](https://github.com/aradenac/AI-Compass/issues/115) → [#116](https://github.com/aradenac/AI-Compass/issues/116) run before remaining P7 [#92–#95](https://github.com/aradenac/AI-Compass/issues/92).
+
 Cross-cutting interaction, slider and tooltip rules: **[Non-Functional Requirements](docs/non-functional-requirements.md)**. Guided benchmark procedure: **[Benchmark Workflow](docs/benchmark-workflow.md)**.
 
 See **[Product Definition](docs/product-definition.md)** for the agreed product scope, roles, task hierarchy, benchmarking model, evidence and scoring principles, publishing workflow, and evolution roadmap.
@@ -26,7 +28,15 @@ For the Workgroup **Task × AI configuration × Test Case evaluation matrix**, a
 
 For composable, revision-pinned installation guides covering exact setups and Framework participants, see **[FUT-07 Composable Setup Guides](docs/composable-setup-guides-implementation.md)**. Setup composition reports declared coverage; actual installation validation and production rollout approvals remain separate.
 
-For user-managed Windows/Linux environments and versioned Harness/Framework compatibility (including other-OS alternatives), see **[FUT-06 OS Environment Compatibility](docs/os-environment-compatibility.md)**.\n\nFor explicit enterprise accessibility, source-backed versioned commercial alternatives and pinned Campaign tariffs, see **[FUT-05 Enterprise Pricing](docs/enterprise-pricing.md)**.\n\nFor the navigable five-zone Workgroup Studio, shared knowledge projections and isolated unsaved form drafts, see **[FUT-04 Workgroup Studio](docs/workgroup-studio.md)**.\n\nFor the first shared **Demo/Server Catalog and Task controllers**, role navigation and centralized API handling see **[FUT-03 Shared Workspace Bootstrap](docs/shared-workspace-bootstrap.md)**. This is a foundation, not the complete later role-specific UX.\n\nFor local versus secured LAN server operation, archive export privileges and evidence verification, see **[FUT-02 Deployment and Archive Security](docs/deployment-profiles-and-archive-permissions.md)**. LAN and Internet operational release gates remain separate.
+For user-managed Windows/Linux environments and versioned Harness/Framework compatibility, see **[OS Compatibility and User Environment](docs/os-compatibility-and-user-environment.md)**.
+
+For enterprise accessibility, versioned pricing, commercial alternatives and pinned Campaign tariffs, see **[Technology Accessibility and Pricing](docs/technology-accessibility-and-pricing.md)**.
+
+For the navigable five-zone Workgroup Studio, shared knowledge projections and isolated unsaved form drafts, see **[FUT-04 Workgroup Studio](docs/workgroup-studio.md)**.
+
+For the first shared **Demo/Server Catalog and Task controllers**, role navigation and centralized API handling see **[FUT-03 Shared Workspace Bootstrap](docs/shared-workspace-bootstrap.md)**. This is a foundation, not the complete later role-specific UX.
+
+For local versus secured LAN server operation, archive export privileges and evidence verification, see **[FUT-02 Deployment and Archive Security](docs/deployment-profiles-and-archive-permissions.md)**. LAN and Internet operational release gates remain separate.
 
 For coordinated, individually identified frontend/backend artifacts, automatic manifest verification, and strict API v1 compatibility, see **[FUT-01 Coordinated Release](docs/coordinated-release.md)**. The release still requires human PLAT-32 operational acceptance (**NO-GO** until approved).
 
@@ -34,7 +44,7 @@ For operational database protection, see the **[Verified Backup & Recovery Runbo
 
 See **[Platform Architecture & Data Governance](docs/platform-architecture-and-data-governance.md)** for the target backend, persistence, immutable revisions, human-readable IDs, migration strategy, evidence storage, backup/recovery, deployment and independent Maintenance & Governance workspace.
 
-See **[Incremental Platform Implementation Roadmap](docs/platform-implementation-roadmap.md)** for the existing PLAT delivery history. The separate **[proposed Future Evolutions Implementation Plan](docs/future-evolutions/implementation-plan.md)** maps all accepted future features into outcome-led phases; it is **not yet an approved development issue plan**.
+See **[Incremental Platform Implementation Roadmap](docs/platform-implementation-roadmap.md)** for PLAT delivery history and the **[live FUT/UX implementation ledger](docs/future-evolutions/implementation-plan.md)** for verified merged, prioritized corrective and remaining open work. The maintained [feature register](docs/features/README.md) links the delivered domain specifications.
 
 See **[Non-Functional Requirements](docs/non-functional-requirements.md)** for system-wide interaction and quality rules, including the modal form dismissal policy (**NFR-UX-001**). Forms can only be dismissed through explicit controls, while read-only modals retain backdrop/Escape dismissal.
 
@@ -47,9 +57,9 @@ For the benchmarker's guided campaign workflow, see **[Benchmark Campaign Workfl
 AI Compass intentionally maintains **two independent data modes using the same frontend**:
 
 - **Demo (standalone):** seeded fictitious records and simulated accounts persisted in browser `localStorage`. No Django, Docker or DB is required; this mode remains supported permanently.
-- **Server (progressively implemented):** starts with an **empty business database** (only required technical schemas/roles/accounts are initialized); real shared data is created by users via Django Ninja/PostgreSQL and will later be imported deliberately from external real-world sources **after production deployment validation**.
+- **Server (authenticated production-domain implementation):** starts with an **empty business database** (only required technical schemas/roles/accounts are initialized); real shared data is created by users via Django Ninja/PostgreSQL and will later be imported deliberately from external real-world sources **after production deployment validation**.
 
-The Models interface now uses a shared `LocalStorageDataProvider` (Demo) or authenticated `ApiDataProvider` (Server), with the same Models card UI; other domains will adopt this pattern as their APIs arrive. Demo and Server never silently mix data or fall back to one another. **Fake Demo fixtures are never imported into Server.** The cancelled [PLAT-04](https://github.com/aradenac/AI-Compass/issues/4) is no longer a prerequisite; real external-source onboarding is deferred to [PLAT-33](https://github.com/aradenac/AI-Compass/issues/33) after Server production validation. **PLAT-01–03 provide the persistent stack, identity and versioned Model API; PLAT-05 connects the graphical Models screen in Server mode. Providers, Harnesses, Frameworks, tasks, campaigns and other modules await their own Server integrations.**
+The frontend uses independent Demo/localStorage and authenticated Server/PostgreSQL adapters. Real Server capabilities cover versioned technology catalog components, Tasks, Test Cases, Campaigns, Runs, published evidence and Results, Guides, Feedback, Recommendations, Engineer/Workgroup/Management views, deployment planning, budgets and audit/governance. Shared controllers and domain-specific presentations are governed by the [current frontend contract](docs/shared-frontend-and-release-lifecycle.md) and [UX requirements](docs/role-based-user-experience-and-guided-navigation.md). **Synthetic Demo fixtures are never imported or used as fallback for Server.**
 
 See **[Local Installation & Deployment](docs/local-installation.md)** for setup and Server login, **[Model Catalog Architecture & API](docs/model-catalog-architecture.md)** for the versioned Model API, and [Platform Architecture](docs/platform-architecture-and-data-governance.md).
 
@@ -61,7 +71,7 @@ The same visual Models lane remains operational in `?mode=demo` with independent
 
 ## Interactive prototype
 
-**[Open the standalone prototype source](prototype.html)** · Single self-contained HTML file (vanilla CSS/JavaScript; no build system, backend, or external dependencies).
+**[Open the standalone prototype source](prototype.html)** · Offline Demo static HTML/CSS/JavaScript with bundled sibling assets; no backend or remote service required.
 
 To run it reliably with browser-local persistence, clone or download the repository and serve its root directory:
 
