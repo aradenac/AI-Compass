@@ -18,14 +18,7 @@
     known=known||[];
     return '<h3>'+escape(heading)+'</h3>'+
       '<form class="guide-form">'+
-      '<label>Guide title <input name="name" maxlength="160" required value="'+
-      escape(guide&&guide.name||"")+'"></label>'+
-      '<label>Procedure text (optional if URL present) <textarea name="text" rows="6" maxlength="32768">'+
-      escape(properties.text||"")+'</textarea></label>'+
-      '<label>Setup URL (optional if text present) <input name="url" type="url" maxlength="2048" value="'+
-      escape(properties.url||"")+'" placeholder="https://example.com/setup"></label>'+
-      '<label>Notes / description <textarea name="description" rows="2" maxlength="4000">'+
-      escape(properties.description||"")+'</textarea></label>'+
+      window.AICompassWorkgroup.renderGuideFields(guide||{},"server")+
       '<fieldset><legend>Composable recipe (optional)</legend>'+
       '<p class="muted small">Reuse exact guide revisions. For OS/versions and variants, edit the JSON recipe.</p>'+
       '<label>Reusable modules<select name="recipe_modules" multiple size="5">'+
