@@ -19,6 +19,8 @@ assert(stage.includes("server-watch.js:/srv/frontend/server-watch.js:ro"));
 assert(!source.includes("localStorage"));
 assert(!source.includes("sessionStorage"));
 assert(!source.includes("mode=demo"));
+assert(source.includes('if(kind==="entries"||kind==="watch-entries")return "watch-entries";'),
+    "UI list aliases must map to authoritative Watch API for inspect/edit/review");
 for(const required of ["sources","watch-entries","/revisions","/evidence/upload",
     'data.action==="review"',"sources.selectedOptions","expected_revision","csrf()",
     'credentials:"same-origin"','cache:"no-store"']){
