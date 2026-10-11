@@ -370,9 +370,15 @@ def modify(*, actor, public_id, data, action=None):
                 props["archived"]=False
             else:
                 if props["archived"]: raise InvalidTransition("Archived campaigns cannot transition")
-                if action not in ACTIONS or state not in ACTIONS[action][0]:
+                if action=="revoke_publication":
+                    event=data.get("_publication_event")
+                    if (not isinstance(event,dict) or event.get("kind")!="revoke"
+                            or state not in ("in_progress","under_review")):
+                        raise InvalidTransition("Only a working or reviewed campaign can revoke its effective publication")
+                    props["publication_event"]=event
+                elif action not in ACTIONS or state not in ACTIONS[action][0]:
                     raise InvalidTransition("Forbidden campaign lifecycle transition")
-                if action=="close" and props.get("matrix_plan"):
+                if action!="revoke_publication" and action=="close" and props.get("matrix_plan"):
                     from .campaign_matrix_services import projection
                     counts=projection(item,old)["summary"]
                     partial=data.get("partial_review",False)
@@ -382,7 +388,7 @@ def modify(*, actor, public_id, data, action=None):
                         raise InvalidTransition("Full plan has "+str(counts["outstanding"])+
                             " pending/in-progress obligations; complete/waive them or explicitly close for partial review")
                     props["review_scope"]="partial" if counts["outstanding"] else "full"
-                elif "partial_review" in data:
+                elif action!="revoke_publication" and "partial_review" in data:
                     raise InvalidCampaign("partial_review applies only when closing a matrix campaign")
                 if action=="publish":
                     event=data.get("_publication_event")
@@ -394,7 +400,8 @@ def modify(*, actor, public_id, data, action=None):
                     if not isinstance(event,dict) or event.get("kind")!="revoke":
                         raise InvalidTransition("Unpublish requires an explicit revocation decision")
                     props["publication_event"]=event
-                props["status"]=ACTIONS[action][1]
+                if action!="revoke_publication":
+                    props["status"]=ACTIONS[action][1]
             ctx=_snapshot_context({},actor,previous)
             ctx["pricing_pins"]=prepare_selections(None,ctx,previous)
             name=old.display_name
