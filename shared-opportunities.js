@@ -95,7 +95,7 @@ function demoProvider(db){
 }
 function mount(root,provider,mode){
   var active=false,write=false,profiles=[],tasks=[],candidates=[],scenarios=[],
-      selected=[],profile="",weight="0.8",name="",generation=0,rendered=null,
+      selected=[],profile="",weight="",name="",generation=0,rendered=null,
       status="",inspection=null;
   function info(text){status=text||"";var node=root.querySelector("[data-opp-status]");
     if(node)node.textContent=status;}
