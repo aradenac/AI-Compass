@@ -234,10 +234,28 @@ def create(*, actor, campaign_id, data):
     if snapshot.revision.properties.get("pricing_policy")=="offer_revisions_v1":
         from .pricing_services import pricing_status, prepare_selections, readiness
         if snapshot.framework_id or snapshot.revision.properties.get("mode")=="solution_centred":
-            check=pricing_status(snapshot)
-            if not check["complete"]:
-                raise SessionConflict("Pricing incomplete; choose complete campaign "
-                                      "tariff revisions: "+"; ".join(check["reasons"]))
+            if snapshot.framework_id:
+                from .pricing_services import readiness
+                required={"root:framework"}|{
+                    pid+":"+kind for pid in participant_ids
+                    for kind in ("model","provider","harness")
+                }
+                priced={pin.source_key:pin for pin in
+                    snapshot.pricing_pins.select_related("offer_revision")}
+                missing=sorted(required-set(priced))
+                bad=(["Unselected source(s): "+", ".join(missing)] if missing else [])
+                for key in sorted(required&set(priced)):
+                    checked=readiness(priced[key].offer_revision)
+                    if not checked["complete"]:
+                        bad.extend(key+": "+msg for msg in checked["reasons"])
+                if bad:
+                    raise SessionConflict("Pricing incomplete for selected Framework "
+                                          "participants: "+"; ".join(bad))
+            else:
+                check=pricing_status(snapshot)
+                if not check["complete"]:
+                    raise SessionConflict("Pricing incomplete; choose complete campaign "
+                                          "tariff revisions: "+"; ".join(check["reasons"]))
             if "pricing_selections" in data:
                 raise InvalidSession("Session tariff override forbidden for fixed campaign pricing")
         else:
