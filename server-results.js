@@ -129,9 +129,9 @@ function mount(root,csrf,escapeHtml){
           '<p><a href="'+esc(window.AICompassContext.route("server","engineer","home",{
             task:selected.task_id,solution:selected.solution_id||selected.candidate
           }))+'">Related measured AI Solution</a> · '+
-          '<a href="'+esc(window.AICompassContext.route("server","workgroup","benchmark",{
+          (writer&&selected.campaign_id?'<a href="'+esc(window.AICompassContext.route("server","workgroup","benchmark",{
             record:selected.campaign_id
-          }))+'">Related Campaign</a></p>'+
+          }))+'">Related Campaign</a>':'')+'</p>'+
           (selected.detail?'<details class="ux-advanced-source"><summary>Advanced: open authorized original Run record</summary>'+
             '<a href="'+esc(selected.detail)+'" target="_blank" rel="noopener noreferrer">Open original API source</a></details>':'')+
           '</section>';
