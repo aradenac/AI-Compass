@@ -673,6 +673,8 @@ class RecommendationRunPin(models.Model):
     snapshot = models.ForeignKey(RecommendationSnapshot, on_delete=models.PROTECT,
                                  related_name="run_pins")
     run = models.ForeignKey(BenchmarkRun, on_delete=models.PROTECT, related_name="recommendation_pins")
+    acknowledged_amendment = models.ForeignKey(RunAmendment, null=True, blank=True,
+        on_delete=models.PROTECT, related_name="+")
 
     class Meta:
         constraints = [
