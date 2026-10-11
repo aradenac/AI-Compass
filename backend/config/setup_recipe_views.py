@@ -8,6 +8,7 @@ from django.views.decorators.cache import never_cache
 from django.db.models import Q
 from .auth_views import capability, json_no_store
 from .catalog_views import read_payload
+from .catalog_schemas import InvalidModel
 from .models import CatalogItem, CatalogRevision
 from .setup_composition import compose, SetupCompositionError
 
@@ -59,5 +60,5 @@ def render_recipe(request):
         rendered = compose(spec, snapshots, cfg)
         rendered["recipe"] = {"id": gid, "revision": rev, "revision_id": str(recipe_revision.pk)}
         return json_no_store(rendered)
-    except (SetupCompositionError, ValueError, TypeError) as exc:
+    except (SetupCompositionError, InvalidModel, ValueError, TypeError) as exc:
         return json_no_store({"error": "invalid_recipe", "detail": str(exc)}, 400)
