@@ -458,7 +458,8 @@
                 var muted=cell.status==="not_selected"?'opacity:.55;':"";
                 return '<td style="border:1px solid #e3e8f0;padding:8px;'+muted+'">'+
                   '<button type="button" data-matrix-cell="'+esc(cell.id)+'">'+esc(cell.status.replaceAll("_"," "))+
-                  '</button><div class="muted small">'+cell.runs.length+' Run(s)'+
+                  '</button>'+(cell.introduced_revision===matrix.revision?'<span class="muted small"> New</span>':"")+
+                  '<div class="muted small">'+cell.runs.length+' Run(s)'+
                   (cell.waiver?'<p>Waiver: '+esc(cell.waiver.reason)+'</p>':"")+'</div></td>';
               }).join("")+'</tr>';
           });
