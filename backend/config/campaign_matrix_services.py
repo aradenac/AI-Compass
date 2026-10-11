@@ -79,7 +79,19 @@ def _configuration(actor, data, snapshot, occupied):
         available=set(snapshot.participant_pins.values_list("participant__public_id",flat=True))
         if not set(ids)<=available:
             raise InvalidCampaign("Framework participant not pinned to campaign")
-        config.update(participant_ids=ids,framework_id=snapshot.framework.public_id,
+        members={}
+        for pin in snapshot.participant_pins.select_related("participant"):
+            if pin.participant.public_id not in ids:
+                continue
+            members[pin.participant.public_id]={
+                "model_revision_id":str(pin.model_revision_id),
+                "provider_revision_id":str(pin.provider_revision_id),
+                "harness_revision_id":str(pin.harness_revision_id),
+                "configuration_version":pin.configuration_version,
+                "settings":pin.settings,"properties":pin.properties,
+            }
+        config.update(participant_ids=ids,participant_snapshots=members,
+                      framework_id=snapshot.framework.public_id,
                       framework_revision_id=str(snapshot.framework_revision_id))
     else:
         raise InvalidCampaign("Matrix kind must be individual or framework")
@@ -253,6 +265,17 @@ def prepared_for_session(snapshot, config, data, participant_ids):
             raise InvalidSession("Framework configuration is not pinned to this campaign")
         if participant_ids!=config["participant_ids"]:
             raise InvalidSession("Selected Framework participants differ from the matrix plan")
+        current={p.participant.public_id:p for p in snapshot.participant_pins.select_related("participant")}
+        for public_id in participant_ids:
+            pin=current.get(public_id)
+            expected=config.get("participant_snapshots",{}).get(public_id)
+            if pin is None or not expected or any(
+                expected.get(kind+"_revision_id")!=str(getattr(pin,kind+"_revision_id"))
+                for kind in ("model","provider","harness")
+            ) or expected.get("configuration_version")!=pin.configuration_version or (
+                expected.get("settings")!=pin.settings or expected.get("properties")!=pin.properties
+            ):
+                raise InvalidSession("Framework participant changed since the evaluation plan was pinned")
         if any(k in data for k in ("component_ids","settings","configuration_version","properties")):
             raise InvalidSession("Framework session setup is fixed by participant pins")
         return None
