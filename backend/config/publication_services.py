@@ -49,7 +49,7 @@ def effective(item, upto=None):
     return event if event is not None and event["kind"] == "publish" else None
 
 
-def effective_ids(campaign=None, kind=None):
+def published_membership_ids(campaign=None, kind=None):
     """Single effective membership authority for all read-side consumers.
 
     Only newest decision per campaign counts; a revoke masks older snapshots.
@@ -73,6 +73,38 @@ def effective_ids(campaign=None, kind=None):
                     if isinstance(pin.get("id"), str):
                         ids.add(pin["id"])
     return ids
+
+
+def effective_ids(campaign=None, kind=None):
+    """Shared CURRENT published selector, including Run-level withdrawals."""
+    from .run_lifecycle_services import effective_ids as valid
+    return valid(campaign=campaign, kind=kind)
+
+
+def active_manifest(item):
+    """Public effective subset; immutable as-published history stays unchanged."""
+    from .run_lifecycle_services import state, lookup
+    base = effective(item)
+    if base is None:
+        return None
+    ids = effective_ids(item.public_id)
+    visible = []
+    excluded = []
+    for pin in base.get("runs", []):
+        if pin["id"] not in ids:
+            excluded.append({"id": pin["id"], "status": "withdrawn"})
+        else:
+            run = lookup(pin["id"])
+            if run is None:
+                # Orphaned provenance is never silently public.
+                excluded.append({"id": pin["id"], "status": "unresolved"})
+                continue
+            current = state(run)
+            visible.append({**pin, "effective_revision": current["revision"],
+                            "effective_outcome": current["outcome"]})
+    return {**base, "runs": visible, "withdrawn": excluded,
+            "active_run_count": len(visible), "as_published_run_count": len(base["runs"]),
+            "effective_selection": True}
 
 
 def _all_runs(item):
@@ -184,9 +216,11 @@ def review(item, run_ids):
     if set(run_ids) - set(found):
         raise InvalidCampaign("Selected Run does not belong to this campaign")
     pins = []
+    from .run_lifecycle_services import state
     for ident in run_ids:
         run, kind = found[ident]
         pin, errors = _assess(run, kind)
+        if state(run)["status"] == "withdrawn":\n            errors.append("run_withdrawn")
         if errors:
             raise InvalidTransition(ident + " cannot be published: " + ", ".join(errors))
         pins.append(pin)
@@ -220,7 +254,7 @@ def publish(*, actor, public_id, expected_revision, run_ids, removal_reason=""):
         raise InvalidTransition("Close the campaign for review before publishing")
     if current.properties.get("archived"):
         raise InvalidTransition("Cannot publish an archived campaign")
-    pins = review(item, run_ids)
+    from .run_lifecycle_services import state, lookup\n    pins = review(item, run_ids)\n    if any(state(lookup(ident))["status"] != "active" for ident in run_ids):\n        raise InvalidTransition("A withdrawn Run cannot be republished")
     previous = effective(item)
     old = set(x["id"] for x in previous["runs"]) if previous else set()
     removed = old - set(run_ids)
