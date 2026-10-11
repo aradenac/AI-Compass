@@ -132,6 +132,7 @@
     title: maintenanceWorkspace ? "Maintenance & Governance" : "AI Compass",
     sidebar: '<div id="server-side-navigation"></div>',
     footer: '<p>Authenticated Server · persistent records</p>' +
+      '<p id="server-maintenance-nav" hidden><a href="/maintenance?mode=server">Maintenance & Governance</a></p>' +
       '<a href="/?mode=demo">Switch to independent Demo</a>',
     content: '<div id="ux-screen-host"></div>'
   });
