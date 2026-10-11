@@ -2644,7 +2644,20 @@ if(kind==="campaignReview"){
 }else if(kind==="campaignAttachCase"){
  var targetCampaign=rec("campaigns",id),selected=rec("cases",d.case);
  if(!targetCampaign||targetCampaign.stage!=="active"||!selected||targetCampaign.caseIds.includes(selected.id)||(targetCampaign.mode==="task_compare"&&selected.task!==targetCampaign.task)){toast("Choose a compatible Test Case.");return;}
+ var before=JSON.parse(JSON.stringify(targetCampaign));
  targetCampaign.caseIds.push(selected.id);targetCampaign.updated=TODAY;
+ if(targetCampaign.matrixPlan){
+  targetCampaign.matrixPlan.configurations.filter(function(config){
+   return config.taskId===selected.task;
+  }).forEach(function(config){
+   if(!targetCampaign.matrixPlan.cells.some(function(cell){
+     return cell.configurationId===config.id&&cell.caseId===selected.id;
+   }))targetCampaign.matrixPlan.cells.push({
+     id:next("evaluation"),configurationId:config.id,caseId:selected.id,
+     decision:"selected",history:[]});
+  });
+  revision("Campaign plan",targetCampaign.id,before,targetCampaign);
+ }
  event("Campaign","Attached "+selected.title+" to "+targetCampaign.title,true);persist();detailsCampaign(id);return;
 }else if(kind==="campaignTrialSetup"){
  var home=rec("campaigns",id),chosenCase=rec("cases",d.case);
