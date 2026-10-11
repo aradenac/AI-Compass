@@ -159,6 +159,31 @@
           esc(x.name)+' ('+esc(x.id)+')</option>';
       }).join("");
     }
+    /* Adapter only: authorized Server rows and same-origin routing. The grid,
+     * counters, cell detail and decision fields come from the shared component. */
+    function matrixProjection(matrix,row){
+      var configurations=matrix.configurations||[],cells=matrix.cells||[];
+      var taskIds=Array.from(new Set(configurations.map(function(x){return x.task_id;})));
+      var caseIds=Array.from(new Set(cells.map(function(x){return x.test_case_id;})));
+      function name(list,id,key){var found=list.find(function(x){return x.id===id;});return found?(found[key]||id):id;}
+      return {revision:matrix.revision||row.revision,
+        tasks:taskIds.map(function(id){return {id:id,name:name(tasks,id,"name")};}),
+        testCases:caseIds.map(function(id){return {id:id,name:name(cases,id,"name"),
+          href:window.AICompassContext.route("server","workgroup","testdesign",{record:id})};}),
+        configurations:configurations.map(function(x){
+          return {id:x.id,taskId:x.task_id,label:x.label,kind:x.kind};}),
+        cells:cells.map(function(cell){
+          return {id:cell.id,configurationId:cell.configuration_id,
+            testCaseId:cell.test_case_id,testCaseRevision:cell.test_case_revision||"",
+            status:cell.status,decision:cell.decision,activeAttempts:cell.active_attempts||0,
+            introducedRevision:cell.introduced_revision||"",
+            waiver:cell.waiver?{reason:cell.waiver.reason,actor:cell.waiver.actor,at:cell.waiver.at}:null,
+            runs:(cell.runs||[]).map(function(run){
+              return {id:run.id,kind:run.kind||"",revision:run.effective_revision||"",
+                outcome:run.outcome||"",
+                href:window.AICompassContext.route("server","workgroup","results",{
+                  record:run.id,revision:run.effective_revision||"",task:cell.task_id||""})};})};})};
+    }
     function editor(source){
       if(!allowed||!canWrite)return;
       var target=el("#campaign-editor"),mode=source?source.mode:"task_centred";
@@ -563,8 +588,6 @@
           (!revision||revision===row.revision);
         var chosenTask=taskIds.includes(filter)?filter:"";
         function taskName(id){var t=tasks.find(function(x){return x.id===id;});return t?t.name:id;}
-        function tcName(id){var t=cases.find(function(x){return x.id===id;});return t?t.name:id;}
-        var counts=matrix.summary||{};
         var html='<h3>'+esc(row.name)+' · Evaluation Matrix · '+esc(matrix.revision)+'</h3>'+
           '<p class="muted small">Task-associated configurations only · each pair has a stable evaluation ID. Candidate planning is distinct from immutable measured Runs. Historical decisions are frozen; attempt counts are the live observed projection.</p>'+
           '<label>Plan revision<select id="matrix-revision">'+
@@ -572,42 +595,12 @@
             (r.revision===matrix.revision?' selected':'')+'>'+esc(r.revision)+
             ' · '+esc(r.status)+' · '+esc(r.created_by)+'</option>';}).join("")+
           '</select></label>'+
-          '<p><strong>Full plan: '+(counts.full_plan_complete?"fulfilled":"outstanding")+'</strong>'+
-          ' · '+(counts.candidates||0)+' candidates · '+(counts.evaluated||0)+' evaluated · '+
-          (counts.pending||0)+' pending · '+(counts.in_progress||0)+' in progress · '+
-          (counts.waived||0)+' waived · '+(counts.not_selected||0)+' not selected · '+
-          (counts.measured_runs||0)+' measured Run(s)</p>'+
-          '<p class="muted small">Experimental coverage: '+(counts.evaluated||0)+' / '+
-          (counts.selected_obligations||0)+' selected combinations. Waived/Not Selected are not measured evidence. Pending cells do not invalidate independent eligible Runs.</p>'+
           '<label>Task filter<select id="matrix-task-filter"><option value="">All tasks</option>'+
           taskIds.map(function(id){return '<option value="'+esc(id)+'"'+(id===chosenTask?" selected":"")+'>'+esc(taskName(id))+'</option>';}).join("")+
-          '</select></label>'+
-          '<div id="matrix-tables" style="overflow-x:auto">';
-        taskIds.filter(function(id){return !chosenTask||id===chosenTask;}).forEach(function(taskId){
-          var cols=configRows.filter(function(x){return x.task_id===taskId;});
-          var rows=Array.from(new Set(cells.filter(function(x){return byId[x.configuration_id]?.task_id===taskId;}).map(function(x){return x.test_case_id;})));
-          html+='<h4>'+esc(taskName(taskId))+' · '+cols.length+' configurations</h4>'+
-            '<table style="width:100%;border-collapse:collapse"><thead><tr><th>Test Case</th>'+
-            cols.map(function(x){return '<th>'+esc(x.label)+'<div class="muted small">'+esc(x.kind)+' · '+esc(x.id)+'</div></th>';}).join("")+
-            '</tr></thead><tbody>';
-          rows.forEach(function(testCaseId){
-            html+='<tr><th style="text-align:left">'+esc(tcName(testCaseId))+'</th>'+
-              cols.map(function(cfg){
-                var cell=cells.find(function(x){return x.test_case_id===testCaseId&&x.configuration_id===cfg.id;});
-                if(!cell)return '<td>—</td>';
-                var muted=cell.status==="not_selected"?'opacity:.55;':"";
-                return '<td style="border:1px solid #e3e8f0;padding:8px;'+muted+'">'+
-                  '<button type="button" data-matrix-cell="'+esc(cell.id)+'">'+esc(cell.status.replaceAll("_"," "))+
-                  '</button>'+(cell.introduced_revision===matrix.revision?'<span class="muted small"> New</span>':"")+
-                  '<div class="muted small">'+cell.runs.length+' Run(s)'+
-                  (cell.waiver?'<p>Waiver: '+esc(cell.waiver.reason)+'</p>':"")+'</div></td>';
-              }).join("")+'</tr>';
-          });
-          html+='</tbody></table>';
-        });
-        html+='</div><section id="matrix-cell-details" class="server-card" hidden></section>';
+          '</select></label>';
+        var footer="";
         if(editable){
-          html+='<details><summary>+ Add Task-associated AI configuration</summary><form id="matrix-add-form">'+
+          footer+='<details><summary>+ Add Task-associated AI configuration</summary><form id="matrix-add-form">'+
             '<label>Task<select name="task_id">'+tasks.map(function(t){return '<option value="'+esc(t.id)+'">'+esc(t.name)+'</option>';}).join("")+'</select></label>'+
             '<label>Configuration label<input name="label" maxlength="160" required placeholder="Model + Provider + Harness"></label>'+
             '<label>Column type<select name="kind"><option value="individual">Individual AI configuration</option>'+
@@ -628,6 +621,14 @@
             '</select></label><label>Test Cases<select name="test_case_ids" multiple size="5"></select></label>'+
             '<button type="submit">Add Test Cases, preserving existing decisions</button></form></details>';
         }
+        // One shared matrix presentation; this controller only supplies the
+        // authorized projection, exact revision and permissible routing.
+        var projection=matrixProjection(matrix,row);
+        html+=window.AICompassWorkgroup.renderCampaignMatrix(projection,{
+          mode:"server",taskFilter:chosenTask,
+          cellAttributes:function(cell){return {"data-matrix-cell":cell.id};},
+          footer:footer});
+        html+='<section id="matrix-cell-details" class="server-card" hidden></section>';
         html+='<p><button type="button" id="matrix-close">Close matrix</button></p>';
         target.innerHTML=html;
         target.querySelector("#matrix-close").addEventListener("click",function(){
@@ -649,41 +650,31 @@
         function choose(id){return cells.find(function(x){return x.id===id;});}
         target.querySelectorAll("[data-matrix-cell]").forEach(function(button){
           button.addEventListener("click",function(){
-            var cell=choose(button.dataset.matrixCell),cfg=byId[cell.configuration_id];
+            var cell=choose(button.dataset.matrixCell);
             var detail=target.querySelector("#matrix-cell-details");detail.hidden=false;
-            detail.innerHTML='<h4>'+esc(tcName(cell.test_case_id))+' × '+esc(cfg.label)+'</h4>'+
-              '<p>'+esc(cell.id)+' · '+esc(cell.status)+' · '+esc(cell.decision)+'</p>'+
-              '<p>Attempts in progress: '+cell.active_attempts+' · Closed measured Runs: '+cell.runs.length+'</p>'+
-              (cell.waiver?'<p>Waived by '+esc(cell.waiver.actor)+' at '+esc(cell.waiver.at)+
-              ' — '+esc(cell.waiver.reason)+'</p>':"")+
-              '<p><a href="'+esc(window.AICompassContext.route("server","workgroup","testdesign",{
-                record:cell.test_case_id,revision:cell.test_case_revision||""
-              }))+'">Open Test Case context</a></p>'+
-              '<div id="matrix-run-links">'+cell.runs.map(function(r){
-                return '<a href="'+esc(window.AICompassContext.route("server","workgroup","results",{
-                  record:r.id,revision:r.revision||"",task:cell.task_id||row.task_id||""
-                }))+'">Measured '+esc(r.kind)+' Run '+esc(r.id)+' · '+esc(r.outcome)+'</a>';
-              }).join(" · ")+'</div>'+
+            detail.innerHTML=window.AICompassWorkgroup.renderMatrixCellDetail(
+                projection,cell.id,{mode:"server"})+
+              (editable?'<form id="matrix-decision-form" class="server-card">'+
+                window.AICompassWorkgroup.renderMatrixDecisionFields(projection,cell.id,"server")+
+                '<button type="submit">Save evaluation decision</button></form>':
+                '<p class="muted small">A write grant on a planned or in-progress campaign is required '+
+                'to change an evaluation decision.</p>')+
+              '<p><button type="button" id="matrix-open-sessions">Open Test Run workspace</button></p>'+
               '<details class="ux-advanced-source"><summary>Advanced: immutable matrix cell source</summary>'+
-                '<pre style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></details>'+
-              (editable?'<label>Waiver explanation (mandatory when waiving)<textarea id="matrix-waiver-reason" maxlength="4000"></textarea></label>'+
-                [["selected","Select / reinstate"],["not_selected","Not Selected"],["waived","Waive"]].map(function(x){
-                  return '<button type="button" data-matrix-decision="'+x[0]+'">'+x[1]+'</button>';
-                }).join(" "):"")+
-              '<button type="button" id="matrix-open-sessions">Open Test Run workspace</button>';
+                '<pre style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></details>';
             detail.querySelector("pre").textContent=JSON.stringify({runs:cell.runs,history:cell.history,
-               configuration:cfg},null,2);
+               configuration:byId[cell.configuration_id]},null,2);
             detail.querySelector("#matrix-open-sessions").addEventListener("click",function(){
               if(sessionWorkspace)sessionWorkspace.openCampaign(row,cell.id);
             });
-            detail.querySelectorAll("[data-matrix-decision]").forEach(function(action){
-              action.disabled=action.dataset.matrixDecision===cell.decision;
-              action.addEventListener("click",function(){
+            var decisionForm=detail.querySelector("#matrix-decision-form");
+            if(decisionForm)decisionForm.addEventListener("submit",function(event){
+              event.preventDefault();
+              try{
                 change({action:"decide",evaluation_id:cell.id,
-                  decision:action.dataset.matrixDecision,
-                  reason:action.dataset.matrixDecision==="waived"?
-                    detail.querySelector("#matrix-waiver-reason").value:""});
-              });
+                  decision:decisionForm.elements.decision.value,
+                  reason:decisionForm.elements.reason.value});
+              }catch(error){status("Matrix decision refused: "+error.message,true);}
             });
           });
         });

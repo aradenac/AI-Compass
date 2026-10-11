@@ -307,6 +307,246 @@
   }
 
 
+  /* UX-R04 campaign evaluation matrix: one presentation component for Demo and
+   * Server. Adapters supply an authorized, presentation-only projection of one
+   * exact matrix revision; this component never fetches, decides, persists or
+   * promotes a candidate planning cell into measured evidence. */
+  var MATRIX_STATES=Object.freeze(["pending","in_progress","evaluated","waived","not_selected"]);
+  var MATRIX_STATE_TAG=Object.freeze({pending:"amber",in_progress:"blue",evaluated:"green",
+    waived:"purple",not_selected:"red"});
+  var MATRIX_STATE_LABEL=Object.freeze({pending:"Pending",in_progress:"In progress",
+    evaluated:"Evaluated",waived:"Waived",not_selected:"Not selected"});
+  var MATRIX_DECISIONS=Object.freeze([["selected","Selected / Pending"],
+    ["not_selected","Not Selected"],["waived","Waived"]]);
+  var MATRIX_NOT_MEASURED="Waived, Not Selected and Pending cells are never measured evidence; "+
+    "a failed Definition-of-Done Run counts as a completed attempt, not a successful outcome.";
+
+  function matrixMode(mode) {
+    if(mode!=="demo"&&mode!=="server")throw Error("Explicit Demo or Server matrix mode required");
+    return mode;
+  }
+  function matrixAttribute(name,value) {
+    if(!/^data-[a-z][a-z0-9-]*$/.test(name))throw Error("Invalid matrix attribute");
+    return ' '+name+'="'+escape(value)+'"';
+  }
+  function matrixAttributes(attributes) {
+    var keys=Object.keys(attributes||{});
+    if(!keys.length)throw Error("Matrix action without routing");
+    return keys.map(function(key){return matrixAttribute(key,attributes[key]);}).join("");
+  }
+  function matrixCommand(action) {
+    if(!action||!action.label)throw Error("Missing matrix action label");
+    return '<button type="button"'+matrixAttributes(action.attributes)+'>'+
+      escape(action.label)+'</button>';
+  }
+  function matrixHref(item) {
+    var url=String(item&&item.href||"");
+    if(!((url.startsWith("/")&&!url.startsWith("//"))||url.startsWith("?")))
+      throw Error("Matrix record link must be same-origin");
+    return '<a href="'+escape(url)+'">'+escape(item.label||"Open record")+'</a>';
+  }
+  function indexMatrixRows(rows,label) {
+    if(!Array.isArray(rows))throw Error("Matrix projection requires "+label);
+    var map=new Map();
+    rows.forEach(function(row){
+      if(!row||!row.id)throw Error("Matrix "+label+" require stable public IDs");
+      var key=String(row.id);
+      if(map.has(key))throw Error("Duplicate matrix "+label+" identity");
+      map.set(key,row);
+    });
+    return map;
+  }
+  // Only data access, display names and permissible routing differ per mode.
+  function normalizeMatrixPlan(plan,mode) {
+    matrixMode(mode);
+    if(!plan||typeof plan!=="object"||Array.isArray(plan))
+      throw Error("Authorized matrix projection required");
+    if(typeof plan.revision!=="string"||!plan.revision)
+      throw Error("Matrix projection requires its exact revision");
+    var tasks=indexMatrixRows(plan.tasks,"tasks"),
+        testCases=indexMatrixRows(plan.testCases,"Test Cases"),
+        configurations=indexMatrixRows(plan.configurations,"configurations");
+    configurations.forEach(function(configuration){
+      if(!configuration.label)throw Error("Matrix configuration requires a label");
+      if(!tasks.has(String(configuration.taskId||"")))
+        throw Error("Matrix configuration requires its Task");
+    });
+    if(!Array.isArray(plan.cells))throw Error("Matrix projection requires cells");
+    var seen=new Set();
+    plan.cells.forEach(function(cell){
+      if(!cell||!cell.id)throw Error("Matrix cell requires a stable evaluation ID");
+      var id=String(cell.id);
+      if(seen.has(id))throw Error("Duplicate matrix evaluation identity");
+      seen.add(id);
+      if(!MATRIX_STATES.includes(cell.status))throw Error("Unsupported matrix cell state");
+      if(!configurations.has(String(cell.configurationId||"")))
+        throw Error("Matrix cell requires its configuration");
+      if(!testCases.has(String(cell.testCaseId||"")))
+        throw Error("Matrix cell requires its Test Case");
+      if(cell.decision&&!["selected","not_selected","waived"].includes(cell.decision))
+        throw Error("Unsupported matrix decision");
+      if(cell.waiver&&!String(cell.waiver.reason||"").trim())
+        throw Error("A recorded waiver must keep its reason");
+    });
+    return {revision:plan.revision,tasks:tasks,testCases:testCases,
+      configurations:configurations,cells:plan.cells};
+  }
+  function matrixTotals(read) {
+    var totals={candidates:read.cells.length,pending:0,in_progress:0,evaluated:0,waived:0,
+      not_selected:0,measured_runs:0,active_attempts:0};
+    read.cells.forEach(function(cell){
+      totals[cell.status]++;
+      totals.measured_runs+=(cell.runs||[]).length;
+      totals.active_attempts+=Number.isInteger(cell.activeAttempts)?cell.activeAttempts:0;
+    });
+    totals.selected_obligations=totals.pending+totals.in_progress+totals.evaluated;
+    totals.outstanding=totals.pending+totals.in_progress;
+    totals.full_plan_complete=totals.candidates>0&&totals.outstanding===0;
+    return totals;
+  }
+  function matrixStateTag(status) {
+    return '<span class="tag '+MATRIX_STATE_TAG[status]+
+      '" data-matrix-state-label="'+escape(status)+'">'+escape(MATRIX_STATE_LABEL[status])+
+      '</span>';
+  }
+  function matrixCell(read,cellId) {
+    var cell=read.cells.find(function(x){return String(x.id)===String(cellId);});
+    if(!cell)throw Error("Matrix cell is not part of this authorized revision");
+    return cell;
+  }
+  function renderCampaignMatrix(plan, options) {
+    options=options||{};
+    var mode=matrixMode(options.mode),read=normalizeMatrixPlan(plan,mode);
+    var totals=matrixTotals(read);
+    var cellAttributes=options.cellAttributes||function(cell){return {"data-matrix-cell":cell.id};};
+    var head='<section class="shared-matrix" data-shared-matrix="'+escape(mode)+
+      '" data-matrix-mode="'+escape(mode)+'" data-matrix-revision="'+escape(read.revision)+'">'+
+      '<h3>Campaign Evaluation Matrix</h3>';
+    if(!totals.candidates)
+      return head+'<p class="muted" data-matrix-empty>'+escape(options.emptyText||
+        "No Task-associated evaluation cell is planned yet. Candidate planning never creates measured evidence.")+
+        '</p>'+(options.footer||"")+'</section>';
+    var taskFilter=String(options.taskFilter||"");
+    var taskIds=Array.from(new Set(Array.from(read.configurations.values()).map(function(configuration){
+      return String(configuration.taskId);})));
+    var body=taskIds.filter(function(taskId){
+      return !taskFilter||taskId===taskFilter;}).map(function(taskId){
+      var task=read.tasks.get(taskId);
+      var configurations=Array.from(read.configurations.values()).filter(function(configuration){
+        return String(configuration.taskId)===taskId;});
+      var configurationIds=new Set(configurations.map(function(configuration){return String(configuration.id);}));
+      var rowIds=Array.from(new Set(read.cells.filter(function(cell){
+        return configurationIds.has(String(cell.configurationId));}).map(function(cell){
+        return String(cell.testCaseId);})));
+      return '<div class="shared-matrix-task" data-shared-matrix-task="'+escape(taskId)+'">'+
+        '<h4>'+escape(task?task.name:taskId)+' <span class="muted small">· '+
+        configurations.length+' configuration(s) · '+rowIds.length+' Test Case(s)</span></h4>'+
+        '<div class="shared-matrix-scroll"><table class="shared-matrix-grid"><thead><tr>'+
+        '<th scope="col">Test Case</th>'+
+        configurations.map(function(configuration){
+          return '<th scope="col" data-shared-matrix-configuration="'+escape(configuration.id)+'">'+
+            escape(configuration.label)+'<span class="muted small"> '+
+            escape(configuration.kind||"individual")+' · '+escape(configuration.id)+'</span></th>';
+        }).join("")+
+        '</tr></thead><tbody>'+
+        rowIds.map(function(testCaseId){
+          var testCase=read.testCases.get(testCaseId);
+          return '<tr><th scope="row">'+escape(testCase?testCase.name:testCaseId)+
+            '<span class="muted small">'+escape(testCaseId)+
+            (testCase&&testCase.revision?' · '+escape(testCase.revision):"")+'</span></th>'+
+            configurations.map(function(configuration){
+              var cell=read.cells.find(function(x){
+                return String(x.configurationId)===String(configuration.id)&&
+                  String(x.testCaseId)===testCaseId;});
+              if(!cell)return '<td class="shared-matrix-absent" data-shared-matrix-absent="'+
+                escape(configuration.id+"|"+testCaseId)+'">—</td>';
+              var runs=cell.runs||[];
+              return '<td class="shared-matrix-cell" data-shared-matrix-cell="'+escape(cell.id)+
+                '" data-matrix-state="'+escape(cell.status)+'">'+matrixStateTag(cell.status)+
+                '<button type="button"'+matrixAttributes(cellAttributes(cell))+
+                '>Open evaluation cell</button>'+
+                '<span class="muted small">'+runs.length+' Run(s)'+
+                (cell.activeAttempts?' · '+cell.activeAttempts+' attempt(s) in progress':'')+
+                (cell.introducedRevision===read.revision?' · New':"")+'</span>'+
+                (cell.waiver?'<p class="muted small">Waiver: '+escape(cell.waiver.reason)+'</p>':"")+
+                '</td>';
+            }).join("")+'</tr>';
+        }).join("")+'</tbody></table></div></div>';
+    }).join("");
+    return head+
+      '<p class="small shared-matrix-summary" data-shared-matrix-summary>'+
+        'Candidate cells: '+totals.candidates+' · Evaluated: '+totals.evaluated+
+        ' · Pending: '+totals.pending+' · In Progress: '+totals.in_progress+
+        ' · Waived: '+totals.waived+' · Not Selected: '+totals.not_selected+'</p>'+
+      '<p class="small shared-matrix-notice"><strong>Full plan: '+
+        (totals.full_plan_complete?"complete":"outstanding")+'</strong> · '+
+        escape(MATRIX_NOT_MEASURED)+'</p>'+
+      '<p class="muted small">Plan revision '+escape(read.revision)+' · measured Runs: '+
+        totals.measured_runs+' · selected obligations still open: '+totals.outstanding+'</p>'+
+      body+(options.footer||"")+'</section>';
+  }
+  function renderMatrixCellDetail(plan, cellId, options) {
+    options=options||{};
+    var mode=matrixMode(options.mode),read=normalizeMatrixPlan(plan,mode);
+    var cell=matrixCell(read,cellId);
+    var configuration=read.configurations.get(String(cell.configurationId));
+    var testCase=read.testCases.get(String(cell.testCaseId));
+    var task=read.tasks.get(String(configuration.taskId));
+    function section(label,body) {
+      return body?'<section class="shared-matrix-property"><h4>'+escape(label)+'</h4>'+
+        body+'</section>':"";
+    }
+    function line(value) {
+      return '<p class="shared-matrix-value">'+escape(value)+'</p>';
+    }
+    var runs=(cell.runs||[]).length?cell.runs.map(function(run){
+      var routing=run.href?matrixHref({href:run.href,label:"Open measured Run provenance"}):
+        run.action?matrixCommand(run.action):"";
+      return '<li>'+escape(run.label||("Measured "+(run.kind||"")+" Run "+run.id))+
+        (run.revision?'<span class="muted small"> · '+escape(run.revision)+'</span>':"")+
+        (run.outcome?'<span class="muted small"> · '+escape(run.outcome)+'</span>':"")+
+        (routing?' '+routing:"")+'</li>';
+    }).join(""):'<li class="muted">No measured Run is attached to this evaluation yet.</li>';
+    return '<article class="shared-matrix-cell-detail" data-matrix-cell-detail="'+escape(cell.id)+
+      '" data-matrix-mode="'+escape(mode)+'" data-matrix-state="'+escape(cell.status)+'">'+
+      '<h3>'+escape(testCase?testCase.name:cell.testCaseId)+' × '+escape(configuration.label)+'</h3>'+
+      '<p class="muted small">'+[cell.id,MATRIX_STATE_LABEL[cell.status],cell.decision]
+        .filter(function(value){return value!=null&&value!=="";}).map(escape).join(' · ')+'</p>'+
+      section("Task",line(task?task.name:configuration.taskId))+
+      section("Test Case",line(String(cell.testCaseId)+
+        (cell.testCaseRevision?" · pinned revision "+cell.testCaseRevision:"")+
+        (testCase&&testCase.revision?" · version "+testCase.revision:""))+
+        (testCase&&testCase.href?'<p>'+matrixHref({href:testCase.href,label:"Open Test Case context"})+'</p>':""))+
+      section("Configuration",line(configuration.label+' · '+
+        (configuration.kind||"individual")+' · '+configuration.id))+
+      section("Recorded state",line(MATRIX_STATE_LABEL[cell.status]+
+        (cell.introducedRevision?" · introduced in "+cell.introducedRevision:"")+
+        " · "+cell.activeAttempts+" active attempt(s)"))+
+      section("Waiver",cell.waiver?line(cell.waiver.reason)+
+        '<p class="muted small">'+[cell.waiver.actor,cell.waiver.at].filter(Boolean).map(escape).join(' · ')+
+        '</p>':"")+
+      '<section class="shared-matrix-property"><h4>Measured Runs ('+(cell.runs||[]).length+
+      ')</h4><ul class="shared-matrix-runs">'+runs+'</ul></section>'+
+      '<p class="muted small">'+escape(MATRIX_NOT_MEASURED)+'</p></article>';
+  }
+  function renderMatrixDecisionFields(plan, cellId, mode) {
+    var read=normalizeMatrixPlan(plan,matrixMode(mode));
+    var cell=matrixCell(read,cellId);
+    var current=cell.decision||"selected";
+    return '<div class="shared-matrix-decision" data-shared-matrix-decision="'+escape(mode)+'">'+
+      '<div class="field"><label for="matrix-decision-'+escape(mode)+'">Decision</label>'+
+      '<select id="matrix-decision-'+escape(mode)+'" name="decision">'+
+      MATRIX_DECISIONS.map(function(decision){
+        return '<option value="'+escape(decision[0])+'"'+
+          (decision[0]===current?' selected':'')+'>'+escape(decision[1])+'</option>';}).join("")+
+      '</select></div>'+
+      '<div class="field"><label for="matrix-reason-'+escape(mode)+
+      '">Waiver explanation (required only when waived)</label>'+
+      '<textarea id="matrix-reason-'+escape(mode)+'" name="reason" maxlength="4000" rows="3"></textarea>'+
+      '</div><p class="muted small">Waiver is a deliberate release from an existing obligation, not a '+
+      'failed Test Run. Only a waiver accepts a reason, and completed Runs remain immutable.</p></div>';
+  }
+
   // UX-R04: shared, text-only presentation boundary for business record lists.
   // Adapters supply authorized rows and permissible actions. Nothing here
   // fetches, persists, invents revisions, or interprets a business decision.
@@ -465,5 +705,9 @@
     breadcrumbs:breadcrumbs,attention:attention,href:href,renderList:renderList,
     serverProvider:serverProvider,demoProvider:demoProvider,mountSummary:mountSummary,renderCases:renderCases,renderCaseFields:renderCaseFields,renderCaseDetail:renderCaseDetail,
     renderRecords:renderRecords,renderGuideFields:renderGuideFields,
-    renderGuideDetail:renderGuideDetail,renderKnowledgeDetail:renderKnowledgeDetail};
+    renderGuideDetail:renderGuideDetail,renderKnowledgeDetail:renderKnowledgeDetail,
+    MATRIX_STATES:MATRIX_STATES,normalizeMatrixPlan:normalizeMatrixPlan,
+    matrixTotals:matrixTotals,renderCampaignMatrix:renderCampaignMatrix,
+    renderMatrixCellDetail:renderMatrixCellDetail,
+    renderMatrixDecisionFields:renderMatrixDecisionFields};
 })(window);

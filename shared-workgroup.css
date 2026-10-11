@@ -57,3 +57,53 @@
 .shared-knowledge-property { margin:12px 0; }
 .shared-knowledge-property h4 { margin:0 0 4px; font-size:13px; }
 .shared-knowledge-property p { margin:0; }
+
+/* UX-R04 one campaign evaluation matrix presentation for Demo and Server. */
+.shared-matrix {
+  border:1px solid #dce4ef;
+  border-radius:12px;
+  background:#fff;
+  padding:16px;
+  margin:12px 0;
+  min-width:0;
+}
+.shared-matrix h3 { margin:0 0 8px; }
+.shared-matrix-summary { margin:8px 0 6px; }
+.shared-matrix-notice {
+  margin:0 0 8px;
+  padding:8px 11px;
+  border-left:3px solid #91b3e6;
+  border-radius:6px;
+  background:#f7f9fd;
+}
+.shared-matrix-task { margin-top:16px; }
+.shared-matrix-task h4 { margin:0 0 8px; font-size:14px; }
+.shared-matrix-scroll { overflow-x:auto; max-width:100%; }
+table.shared-matrix-grid { width:100%; border-collapse:collapse; font-size:12px; }
+table.shared-matrix-grid th,
+table.shared-matrix-grid td {
+  border:1px solid #e3e8f0;
+  padding:8px;
+  text-align:left;
+  vertical-align:top;
+}
+table.shared-matrix-grid thead th { background:#fafbfe; color:#465672; }
+table.shared-matrix-grid tbody th { font-weight:650; }
+.shared-matrix-cell[data-matrix-state="not_selected"] { opacity:.55; }
+.shared-matrix-cell .tag { margin-bottom:6px; }
+.shared-matrix-cell button { display:block; margin:4px 0; }
+.shared-matrix-cell-detail,
+.shared-matrix-decision {
+  border:1px solid #dce4ef;
+  border-radius:12px;
+  background:#fff;
+  padding:14px;
+  margin:12px 0;
+  overflow-wrap:anywhere;
+}
+.shared-matrix-cell-detail h3 { margin:0 0 6px; }
+.shared-matrix-property { margin:12px 0; }
+.shared-matrix-property h4 { margin:0 0 4px; font-size:13px; }
+.shared-matrix-value { margin:0; white-space:pre-wrap; }
+.shared-matrix-runs { margin:0; padding-left:18px; }
+.shared-matrix-runs li { margin:4px 0; }
