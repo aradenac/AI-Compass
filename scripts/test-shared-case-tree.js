@@ -42,4 +42,19 @@ assert(writer.includes('data-action="edit"')&&writer.includes('data-action="fork
 assert(!render([],tasks,{mode:"server"}).includes('data-action="edit"'));
 assert.throws(()=>render(null,tasks,{mode:"server"}),/Authorized Test Cases/);
 assert.throws(()=>render(demo,tasks,{mode:"invalid"}),/Explicit Demo or Server/);
+
+const demoDetail=ui.renderCaseDetail(demo[0],"demo",{taskName:"Task"});
+const serverDetail=ui.renderCaseDetail(serverRecords[0],"server",{taskName:"Task"});
+assert(demoDetail.includes('data-shared-case-detail="demo"'));
+assert(serverDetail.includes('data-shared-case-detail="server"'));
+assert(demoDetail.includes("&lt;script&gt;bad&lt;/script&gt;")&&!demoDetail.includes("<script>"));
+assert(demoDetail.includes("Safe &amp; sound")&&serverDetail.includes("Safe &amp; sound"));
+const fields=ui.renderCaseFields({objective:"<input>",dod:"finish"},["objective","dod"]);
+assert(fields.includes("&lt;input&gt;")&&!fields.includes("<input>"));
+assert(fields.includes('name="objective"')&&fields.includes('name="dod"'));
+assert(!fields.includes('name="environment"'));
+assert.throws(()=>ui.renderCaseFields({},["danger"]),/Unknown Test Case/);
+assert(page.includes("AICompassWorkgroup.renderCaseFields(from"));
+assert(server.includes("AICompassWorkgroup.renderCaseFields(p)"));
+
 console.log("UX-R04 shared Test Design tree: Demo, Server, forks, roles, escaping PASS");
