@@ -12,6 +12,57 @@ class SetupCompositionError(ValueError):
     pass
 
 
+
+def validate_recipe(recipe):
+    """Validate bounded pinned recipe declarations before persisting them."""
+    if not isinstance(recipe, Mapping):
+        raise SetupCompositionError("recipe must be an object")
+    if set(recipe) - {"modules", "required"}:
+        raise SetupCompositionError("Unknown recipe fields")
+    modules = recipe.get("modules", [])
+    required = recipe.get("required", [])
+    if not isinstance(modules, list) or len(modules) > 128:
+        raise SetupCompositionError("modules must be a bounded list")
+    if not isinstance(required, list) or len(required) > 64 or not all(
+        isinstance(x, str) and 0 < len(x) <= 160 for x in required
+    ):
+        raise SetupCompositionError("required must contain configuration keys")
+    keys = set()
+    for module in modules:
+        if not isinstance(module, Mapping) or set(module) - {
+            "id", "revision", "requires", "applies_to"
+        }:
+            raise SetupCompositionError("Invalid module declaration")
+        mid, rev = module.get("id"), module.get("revision")
+        if not isinstance(mid, str) or not mid.startswith("gui-"):
+            raise SetupCompositionError("Module must have a guide ID")
+        if not isinstance(rev, str) or not (
+            len(rev) == 4 and rev.startswith("r") and rev[1:].isdigit()
+        ):
+            raise SetupCompositionError("Module must pin an exact revision")
+        key = (mid, rev)
+        if key in keys:
+            raise SetupCompositionError("Duplicate module declaration")
+        keys.add(key)
+        selector = module.get("applies_to", {})
+        if not isinstance(selector, Mapping) or len(selector) > 64:
+            raise SetupCompositionError("Invalid applicability")
+        dependencies = module.get("requires", [])
+        if not isinstance(dependencies, list) or len(dependencies) > 128:
+            raise SetupCompositionError("Invalid dependencies")
+        for dep in dependencies:
+            if not isinstance(dep, Mapping) or set(dep) != {"id", "revision"}:
+                raise SetupCompositionError("Dependency must pin ID and revision")
+            if not isinstance(dep["id"], str) or not dep["id"].startswith("gui-"):
+                raise SetupCompositionError("Invalid dependency ID")
+            if not isinstance(dep["revision"], str) or not (
+                len(dep["revision"]) == 4 and dep["revision"].startswith("r")
+                and dep["revision"][1:].isdigit()
+            ):
+                raise SetupCompositionError("Invalid dependency revision")
+    return recipe
+
+
 def _matches(selector, environment):
     """A declared selector matches only explicitly equal configuration fields."""
     if not isinstance(selector, Mapping):
@@ -32,6 +83,7 @@ def compose(recipe, revisions, configuration):
         raise SetupCompositionError("Invalid recipe or revision store")
     if not isinstance(configuration, Mapping):
         raise SetupCompositionError("Exact configuration must be an object")
+    validate_recipe(recipe)
     entries = recipe.get("modules", [])
     if not isinstance(entries, list):
         raise SetupCompositionError("modules must be a list")
