@@ -43,7 +43,7 @@ def _checked_list(value, label, limit=200):
 
 def _configuration(actor, data, snapshot, occupied):
     if not isinstance(data, dict) or set(data)-{
-        "task_id","kind","label","component_ids","configuration_version",
+        "action","task_id","kind","label","component_ids","configuration_version",
         "settings","participant_ids","test_case_ids"}:
         raise InvalidCampaign("Invalid matrix configuration declaration")
     task=_task(data.get("task_id"))
