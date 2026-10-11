@@ -1559,12 +1559,14 @@ window.AICompassWorkgroup.renderRecords(filtered.map(function(w){
 }),{domain:"watch",mode:"demo",emptyText:"No Watch entries match this filter."});
 var forecasts=db.proposals.filter(forecastVisible).sort(function(a,b){return String(b.updated).localeCompare(String(a.updated));});
 var estimates='<p class="muted small" style="margin-bottom:12px">These are <strong>predictions, not measured benchmark outcomes</strong>. Drafts remain editable; staged hypotheses can be compared, reviewed and explicitly published with their theoretical provenance intact.</p>'+
-simpleTable(["Configuration / task","Source basis","Forecast (quality, cost)","Lifecycle",""],forecasts.map(function(p){
-return '<tr>'+td(linkAction(p.name,"forecastDetail",p.id)+'<div class="muted small">'+E(rec("tasks",p.task)?.name||"Unassigned")+'</div>')+
-td(badge(p.watchIds.length+" signals")+' '+badge(p.confidence+" confidence"))+
-td('<span class="score">'+Number(p.quality||0)+'/100</span> · '+money(p.aiCost)+' <div class="muted small">Estimated, unverified</div>')+
-td(badge(p.status))+td(btn("Inspect","forecastDetail",p.id,"sm"))+'</tr>';
-}));
+window.AICompassWorkgroup.renderRecords(forecasts.map(function(p){
+  return {id:p.id,title:p.name,status:p.status,description:"THEORETICAL · not measured",
+    facts:[rec("tasks",p.task)?.name||"Unassigned",
+      p.watchIds.length+" signals",p.confidence+" confidence",
+      "Expected quality: "+(p.quality==null?"unknown":p.quality)+"/100",
+      "Projected cost: "+money(p.aiCost)+" · Estimated, unverified"],
+    actions:[{label:"Inspect",attributes:{"data-act":"forecastDetail","data-id":p.id}}]};
+}),{domain:"forecasts",mode:"demo",emptyText:"No theoretical forecasts available."});
 return heading("Technology intelligence","Technology Watch","Gather credible signals, explicit hypotheses and sources; turn selected evidence into staged, task-specific configuration forecasts. Benchmark results remain a separate evidence class.")+
 '<div class="grid g2">'+section("Signals & hypotheses",signals,canEdit()?btn("+ Watch entry","newWatch","","primary"):"")+
 section("Public literature & estimates",'<p class="muted small">Sources belong to watch signals. Record them while drafting a watch entry or add them later.</p>'+researchEvidenceList(db.researchEvidence.filter(researchVisible)),canEdit()?btn("+ Standalone source","newResearch","","sm"):"")+'</div>'+
