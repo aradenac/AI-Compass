@@ -130,10 +130,11 @@ def _save(session, actor, action, state, number):
     return checkpoint
 
 
-def _initial_state(session):
+def _initial_state(session, evaluation_id=None):
     steps=_descriptors(session)
     return {
         "status":"in_progress",
+        "evaluation_id":evaluation_id,
         "setup":{"started_at":None,"installation_duration_minutes":None,
                  "environment":{},"notes":"","extensions":{},"evidence_link_ids":[]},
         "steps":{s["key"]:{"status":"pending","values":{},"notes":"",
@@ -152,7 +153,7 @@ def can_edit(actor,session):
 
 
 def create(*, actor, campaign_id, data):
-    if set(data)-{"test_case_id","guide_id","selected_participant_ids",
+    if set(data)-{"test_case_id","guide_id","selected_participant_ids","evaluation_id",
                   "component_ids","settings","properties","configuration_version",
                   "pricing_selections"}:
         raise InvalidSession("Unsupported session creation fields")
@@ -197,7 +198,30 @@ def create(*, actor, campaign_id, data):
     if not snapshot.framework_id and participant_ids:
         raise InvalidSession("Non-Framework sessions have no participants")
     from .individual_setup_services import prepare, save
-    prepared=prepare(snapshot,participant_ids,data)
+    from .campaign_matrix_services import evaluation, prepared_for_session
+    plan=snapshot.revision.properties.get("matrix_plan")
+    evaluation_id=data.get("evaluation_id")
+    planned=None
+    if plan:
+        if not isinstance(evaluation_id,str):
+            raise InvalidSession("Select a planned evaluation in the campaign matrix")
+        cell,planned=evaluation(plan,evaluation_id,data.get("test_case_id"))
+        if not planned:
+            raise InvalidSession("Evaluation is missing, deselected or waived")
+        if planned["task_id"]!=case.test_case.task.item.public_id:
+            raise InvalidSession("Evaluation Task differs from pinned Test Case")
+    elif evaluation_id is not None:
+        raise InvalidSession("This legacy campaign has no evaluation matrix")
+    if planned:
+        # Fixed, immutable revision references are loaded from the evaluated
+        # configuration, not today's mutable current Model or Provider version.
+        if planned["kind"]=="framework":
+            prepared_for_session(snapshot,planned,data,participant_ids)
+            prepared=prepare(snapshot,participant_ids,data)
+        else:
+            prepared=prepared_for_session(snapshot,planned,data,participant_ids)
+    else:
+        prepared=prepare(snapshot,participant_ids,data)
     # A Task-centred Campaign without a Framework cannot know its billable
     # components before the individual session setup is chosen. Preserve its
     # exact manually selected offer revisions on this immutable session.
@@ -250,7 +274,7 @@ def create(*, actor, campaign_id, data):
                                       offer=offer,offer_revision=rev)
                     for key,component,offer,rev in session_prices
                 ])
-                _save(session,actor,"created",_initial_state(session),1)
+                _save(session,actor,"created",_initial_state(session,evaluation_id),1)
                 return session
         except IntegrityError:
             if BenchmarkSession.objects.filter(public_id=candidate).exists():
@@ -387,6 +411,7 @@ def serialize(session, checkpoint=None, include_state=True):
         "guide_id":session.guide.public_id if session.guide_id else None,
         "guide_revision_id":str(session.guide_revision_id) if session.guide_revision_id else None,
         "selected_participant_ids":session.selected_participants,
+        "evaluation_id":cp.state.get("evaluation_id"),
         "individual_setup":_individual_setup(session),
         "pricing_selections":[{
            "source_key":p.source_key,"component_id":p.component.public_id,
