@@ -67,7 +67,7 @@ function mount(root,csrf,escapeHtml){
     var run=++ticket;status("Loading real Server theoretical forecasts and references…");
     try{
       var rows=await Promise.all([api("forecasts"),api("watch-entries"),api("tasks")].concat(
-        listTypes.map(function(k){return api("catalog/"+k);})
+        listTypes.map(function(k){return api(k==="model"?"models":"catalog/"+k);})
       ));
       if(!enabled||run!==ticket)return;
       forecasts=rows[0].results||[];watch=rows[1].results||[];tasks=rows[2].results||[];
