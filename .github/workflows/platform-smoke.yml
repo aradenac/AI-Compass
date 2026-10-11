@@ -197,6 +197,8 @@ jobs:
         run: node scripts/test-server-sessions.js
       - name: Verify Server-only campaign UI regression
         run: node scripts/test-server-campaigns.js
+      - name: Verify composable guide historical Demo render and integrated Server workflow
+        run: node scripts/test-composable-guides.js
       - name: Run backend, persistence and backup/restore checks
         run: bash scripts/smoke-platform.sh
       - name: Verify DB-only recovery manifest flags uncovered evidence files
