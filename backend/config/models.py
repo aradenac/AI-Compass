@@ -508,6 +508,37 @@ class CompositeRunEvidence(models.Model):
         ]
 
 
+
+class RunAmendment(models.Model):
+    """Append-only correction/withdrawal of one original Run. r001 is the raw Run."""
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    individual_run = models.ForeignKey(BenchmarkRun, null=True, blank=True,
+        on_delete=models.PROTECT, related_name="amendments")
+    composite_run = models.ForeignKey(CompositeBenchmarkRun, null=True, blank=True,
+        on_delete=models.PROTECT, related_name="amendments")
+    number = models.PositiveIntegerField()
+    action = models.CharField(max_length=16)  # corrected | withdrawn
+    outcome = models.CharField(max_length=12)
+    metrics = models.JSONField(default=dict)
+    reason = models.TextField()
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+                                   related_name="run_amendments")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=(models.Q(individual_run__isnull=False, composite_run__isnull=True) |
+                           models.Q(individual_run__isnull=True, composite_run__isnull=False)),
+                name="run_amendment_exactly_one_target"),
+            models.UniqueConstraint(fields=["individual_run", "number"],
+                                    name="uniq_individual_run_amendment_number"),
+            models.UniqueConstraint(fields=["composite_run", "number"],
+                                    name="uniq_composite_run_amendment_number"),
+            models.CheckConstraint(condition=models.Q(number__gte=2),
+                                   name="run_amendment_number_gte_2"),
+        ]
+
 class WatchSourcePin(models.Model):
     """Immutable many-to-many provenance: Watch Entry revision -> Source exact revision."""
     id = models.BigAutoField(primary_key=True)
