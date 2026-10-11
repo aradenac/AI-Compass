@@ -266,5 +266,5 @@ class CampaignApiTests(TestCase):
         self.call(BASE+"/"+row["id"]+"/actions/start",{"expected_revision":"r001"})
         self.call(BASE+"/"+row["id"]+"/actions/close",{"expected_revision":"r002"})
         self.assertEqual(self.call(BASE+"/"+row["id"]+"/actions/publish",{
-                         "expected_revision":"r003"},user=self.reviewer).status_code,409)
+                         "expected_revision":"r003"},user=self.reviewer).status_code,400)
         self.assertEqual(self.client.get(BASE+"/pipeline").json()["columns"]["published"],[])
