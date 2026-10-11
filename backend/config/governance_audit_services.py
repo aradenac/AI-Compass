@@ -7,6 +7,7 @@ immutable rows are authoritative. Each producer joins SOURCES, not a new recorde
 from datetime import datetime
 from uuid import UUID
 
+from django.db.models import Q
 from django.utils.dateparse import parse_datetime
 from django.utils.timezone import is_aware
 
@@ -152,7 +153,7 @@ def summary(source, row):
     doc["origin"] = "unknown"  # Never pretend historical browser/API provenance.
     doc["actor_username_is_current"] = doc["actor"] is not None
     doc["actor_roles_at_event"] = None
-    doc["correlation_id"] = str(row.audit_event_id) if source == "catalog" and False else None
+    doc["correlation_id"] = None
     # An amendment is already identified by its own authoritative CatalogAuditEvent.
     if source == "catalog" and getattr(row, "run_amendment", None):
         doc["correlation_id"] = str(row.id)
@@ -411,6 +412,30 @@ def parse(params, user):
 def _query(source, filters):
     model, timefield, actorfield = SOURCES[source]
     qs = model.objects.all()
+    object_id = filters.get("object_id", "")
+    if object_id:
+        if source == "catalog":
+            if object_id.startswith("run-"):
+                qs = qs.filter(Q(run_amendment__individual_run__public_id=object_id) |
+                               Q(run_amendment__composite_run__public_id=object_id))
+            else:
+                qs = qs.filter(item__public_id=object_id)
+        elif source in ("run", "composite_run", "session", "health", "workload",
+                        "opportunity", "budget", "deployment_revision", "deployment_event"):
+            field = {"run": "public_id", "composite_run": "public_id",
+                     "session": "session__public_id", "health": "issue__public_id",
+                     "workload": "profile__public_id",
+                     "opportunity": "scenario__public_id", "budget": "budget__public_id",
+                     "deployment_revision": "target__public_id",
+                     "deployment_event": "target__public_id"}[source]
+            qs = qs.filter(**{field: object_id})
+        elif source in ("access", "environment"):
+            try:
+                uid = int(object_id.removeprefix("user:"))
+            except ValueError:
+                return []
+            qs = qs.filter(**{"subject_id" if source == "access"
+                              else "user_id": uid})
     if source == "catalog":
         qs = qs.filter(item__type_slug__in=SAFE_TYPES).select_related(
             "item", "revision", "actor")
@@ -431,6 +456,8 @@ def _query(source, filters):
         qs = qs.select_related("user")
     if filters["actor"] and actorfield:
         qs = qs.filter(**{actorfield: filters["actor"]})
+    elif filters["actor"] and source == "environment":
+        qs = qs.filter(user__username=filters["actor"])
     elif filters["actor"] and source != "environment":
         return []
     if filters["from"]:
@@ -470,7 +497,6 @@ def find(source, pk, user):
         identifier = UUID(pk)
     except (ValueError, TypeError):
         raise InvalidAudit("invalid_event_id") from None
-    rows = _query(source, {"actor": "", "from": None, "to": None})
     # Explicit ID lookup, not the most recent 500-events global query.
     q = SOURCES[source][0].objects.filter(pk=identifier)
     if source == "catalog":
