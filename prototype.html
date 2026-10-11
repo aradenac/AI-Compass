@@ -897,7 +897,16 @@ var runtime=window.AICompassRuntime;
 var requested=new URLSearchParams(window.location.search).get("workspace");
 var persona=runtime.choosePersona(user(), "demo", requested);
 var target=document.querySelector(".content");
-if(target)target.insertAdjacentHTML("afterbegin",runtime.renderPersonaLinks(user(),"demo",persona&&persona.id));
+if(target) {
+ target.insertAdjacentHTML("afterbegin",runtime.renderPersonaLinks(user(),"demo",persona&&persona.id));
+ var nav=document.createElement("div");
+ nav.id="ux-context-navigation";
+ target.insertBefore(nav,target.firstChild);
+ window.AICompassContext.syncContext(nav,"demo",persona&&persona.id||"engineer",
+   initialWorkspace==="workgroup"&&initialSection&&
+   ui.page===window.AICompassWorkgroup.SECTION_TO_DEMO[initialSection]?
+     initialSection:ui.page);
+}
 if(target && (ui.page==="dashboard" || ui.page==="tasks") && persona && persona.id==="engineer"){
  target.insertAdjacentHTML("beforeend",
    '<section id="demo-environment-profile" class="card" role="region" aria-label="My OS environment"></section>');
@@ -946,7 +955,7 @@ if(ui.page === "management" && persona && persona.id === "management" && window.
   }
 }
 
-if(persona && persona.id === "engineer" && window.AICompassEngineer) {
+if(persona && persona.id === "engineer" && ui.page==="tasks" && window.AICompassEngineer) {
   var engineerSource=document.querySelector(".content");
   if(engineerSource){
     Array.from(engineerSource.children).forEach(function(child){
@@ -969,7 +978,9 @@ if(persona && persona.id === "engineer" && window.AICompassEngineer) {
   }
 }
 
-if(initialWorkspace==="workgroup" && initialSection && window.AICompassWorkgroup.STABLE[initialSection]&&canEdit()) {
+if(initialWorkspace==="workgroup" && initialSection &&
+   ui.page===window.AICompassWorkgroup.SECTION_TO_DEMO[initialSection] &&
+   window.AICompassWorkgroup.STABLE[initialSection]&&canEdit()) {
   var source=document.querySelector(".content");
   if(source){
     // One default list/presentation in both runtimes. Keep historical Demo
@@ -993,7 +1004,9 @@ if(initialWorkspace==="workgroup" && initialSection && window.AICompassWorkgroup
       document.getElementById("demo-shared-summary"),
       window.AICompassWorkgroup.demoProvider(db,canEdit),initialSection,"demo",{
         recordId:new URLSearchParams(window.location.search).get("record"),
-        link:function(id){return window.AICompassWorkgroup.href("demo",initialSection)+"&record="+encodeURIComponent(id);}
+        revision:new URLSearchParams(window.location.search).get("revision"),
+        link:function(id){return window.AICompassContext.contextualLink(
+          "demo","workgroup",initialSection,id);}
       }).show()
       .catch(function(){/* error is already displayed */});
   }
