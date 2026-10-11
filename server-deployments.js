@@ -1,9 +1,10 @@
 /* FUT-15: Server-only deliberate deployment & external entitlement workflow. */
 (function () {
 "use strict";
-function mount(root, csrf, E) {
+function mount(root, csrf, E, demoTransport) {
   var writable=false, visible=false, generation=0, targets=[], profiles=[], candidates=[], selected=null;
   root.innerHTML='<div class="server-card"><h2>Deployment &amp; External Access</h2>'+
+    (demoTransport?'<p><strong>Fictional Demo:</strong> no real service rights, users or data. Local and independent of Server.</p>':'')+
     '<p>Targets are deliberate. Recording a status does not purchase, provision, grant AI Compass rights, or prove use.</p>'+
     '<p id="deployment-message" role="status"></p><button type="button" id="deployment-refresh">Refresh</button>'+
     '<button type="button" id="deployment-new">Select beneficiaries</button>'+
@@ -14,6 +15,7 @@ function mount(root, csrf, E) {
   var details=root.querySelector("#deployment-details");
   var add=root.querySelector("#deployment-new");
   async function api(path, method, data) {
+    if (demoTransport) return demoTransport(path, method||"GET", data);
     var opts={method:method||"GET",credentials:"same-origin",cache:"no-store"};
     if(data!==undefined) {
       opts.headers={"Content-Type":"application/json","X-CSRFToken":csrf()};

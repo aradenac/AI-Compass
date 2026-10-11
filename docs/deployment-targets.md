@@ -4,7 +4,7 @@ Issue: [#89](https://github.com/aradenac/AI-Compass/issues/89). Depends on FUT-0
 
 ## Operator workflow (Server)
 
-Open **Deployment Planning → Deployment & External Access** as a user with \`auth.planning_view\` and \`auth.planning_manage\` (the \`deployment-planner\` role). The repository's Demo remains a separate fictional local workspace; real targets **never** import or fall back to Demo data.
+Open **Deployment Planning → Deployment & External Access** as a user with \`auth.planning_view\` and \`auth.planning_manage\` (the \`deployment-planner\` role). The same UI is mounted in the management **Demo** with an independently fictional localStorage-backed provider. Real targets **never** import or fall back to Demo data.
 
 1. Select a real, existing population (role, specialty, person or cohort), a published Task/configuration candidate (a measured \`sol-*\` or theoretical \`fct-*\`) and one or more explicitly identified beneficiary seats. No matrix click or opportunity suggestion creates a target. Optionally supply an originating saved \`opp-*\` scenario, in which case the candidate must already be among the selected choices for that population.
 2. Optionally select a real **immutable setup-guide revision UUID**. For an individual measured Run, the existing pinned guide is offered automatically. A missing/legacy/inapplicable recipe blocks readiness rather than being silently accepted.
@@ -75,6 +75,7 @@ docker compose exec -T api python manage.py makemigrations --check --dry-run
 docker compose exec -T api python manage.py test config.test_deployments config.test_opportunities config.test_opportunity_insights config.test_workloads config.test_environment config.test_setup_composition -v 2
 node --check server-deployments.js
 node scripts/test-server-deployments.js
+node scripts/test-demo-deployments.js
 node scripts/test-server-planning.js
 \`\`\`
 

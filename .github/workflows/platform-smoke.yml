@@ -139,6 +139,8 @@ jobs:
           docker compose exec -T api python manage.py test config.test_deployments -v 2
           node --check server-deployments.js
           node scripts/test-server-deployments.js
+          node --check demo-deployments.js
+          node scripts/test-demo-deployments.js
           node scripts/test-server-planning.js
       - name: Assert fresh Server has no seeded business data
         run: |
