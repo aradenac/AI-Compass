@@ -2,7 +2,7 @@
 
 > **Reference:** Product/domain specification maintained with the implemented application. The delivery tracker and outstanding UX acceptance work are maintained in the [implementation plan](future-evolutions/implementation-plan.md).
 
-> **Status (2026-10-10):** Owner-approved functionality; bounded implementation tracked by [FUT-06 #80](https://github.com/aradenac/AI-Compass/issues/80). Engineer recommendations and deployment consumers remain future outcomes (#86, #89); this document is authoritative on semantics, not proof those later features are shipped.  
+> **Contract:** Versioned Windows/Linux user environments and Harness/Framework/configuration compatibility used by Engineer discovery, setup and deployment.
 > **Decision context:** October 2026 refinement.  
 > **Scope:** User self-declared Windows/Linux environments; mandatory supported-OS declaration for Harness and Framework catalog records; practical compatibility filtering and opportunity discovery.  
 > **Related future experience:** [Role-Based User Experience & Guided Navigation](role-based-user-experience-and-guided-navigation.md).  
@@ -23,7 +23,7 @@ For the initial scope, support **only two OS families: Windows and Linux**. No m
 5. The regular user's primary tool recommendations prioritize candidates compatible with at least one of the user's currently available OSs, alongside Task relevance, quality, publication, actual access and other established criteria.
 6. Interesting tools that only work on the **other OS** remain discoverable in a **clearly distinguished secondary recommendation or candidate list**, stating e.g. **"Requires Linux"** or **"Requires Windows"**. The user may decide to add that OS later.
 7. OS compatibility is not the same as **technology catalog accessibility**, a **user's entitlements/permissions**, having a **validated Setup Guide** or having **confirmed first use**. All remain separately represented.
-8. This OS enhancement is a **separate future feature page**, even though its fields are consumed by My AI Workspace and later Deployment & Access.
+8. OS compatibility is a separate authoritative domain consumed by My AI Workspace and Deployment & Access.
 9. Preserve historical benchmark/Run/guide references and existing versions when editing compatibility metadata. This classification does not automatically alter observed results.
 
 ## 2. Functional scope and supported states
@@ -166,7 +166,7 @@ Conceptual, not prescribed table/field names:
 - Reuse the common Demo/Server frontend/data-provider contracts. The real user OS preference in Server mode is stored authoritatively in Server; the independent Demo can simulate it only within its own namespace.
 - Self-service profile update requires authentication/CSRF; catalog edits require appropriate existing Workgroup permissions; both need server-side validation and safe optimistic concurrency where entity revisions are shared.
 - No external OS detection service, host enumeration, privileged desktop agent, workstation inventory sync or browser User-Agent trust requirement.
-- If device compatibility metadata is unavailable because an upstream domain/endpoint is not yet implemented, display **Unknown**, do not silently fall back to Demo guesses.
+- If current device compatibility metadata is unavailable or access is denied, display **Unknown**; never silently fall back to Demo guesses.
 - The OS choice changes future recommendations/read-model classifications; it should not trigger a new Campaign, Forecast, Test Case, license request or technical solution creation.
 
 ## 7. Examples / edge cases to preserve
