@@ -122,6 +122,10 @@ jobs:
             config.test_publication config.test_recommendations \
             config.test_evaluations config.test_campaign_matrix \
             config.test_runs config.test_composite_runs -v 1
+      - name: Verify FUT-12 Engineer privacy-scoped Task → Solution → Guide → Feedback
+        run: docker compose exec -T api python manage.py test config.test_engineer -v 2
+      - name: Verify FUT-12 shared Demo and Server engineer frontend adapter
+        run: node scripts/test-shared-engineer.js
       - name: Assert fresh Server has no seeded business data
         run: |
           docker compose exec -T api python manage.py shell -c \
@@ -333,6 +337,7 @@ jobs:
         run: python3 scripts/smoke_recovery_domain.py
       - name: Check shared frontend modes and client syntax
         run: |
+          node --check shared-engineer.js
           node --check server-mode.js
           node --check server-tasks.js
           node --check server-test-cases.js
