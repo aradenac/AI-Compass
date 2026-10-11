@@ -58,7 +58,7 @@ confidential `planning_view` grant:
   published evidence references, currently applicable Setup Guide if
   independently published/recipe-ready, distinctly labeled historical
   Run-pinned setup, current OS and access state, editorial Recommendation
-  rationale/limitations and other supported Tasks.
+  rationale/limitations, public contextual Workgroup discussion updates and\n  other supported Tasks. Internal discussion threads are never listed here.
 - `POST /api/v1/engineer/feedback` — `{"kind":"feedback"|"request"|"idea",
   "context_id":"sol-..."|"tsk-...","body":"..."}`. Creates an ordinary
   public chronological Discussion with strict context validation, CSRF
