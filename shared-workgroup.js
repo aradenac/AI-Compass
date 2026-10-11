@@ -328,6 +328,12 @@
       return '<button type="button"'+keys.map(function(k){return attr(k,attrs[k]);}).join("")+
         '>'+escape(action.label)+'</button>';
     }
+    function link(item){
+      var url=String(item.href||"");
+      if(!(url.startsWith("/")&&!url.startsWith("//"))&&!url.startsWith("?"))
+        throw Error("Business link must be same-origin");
+      return '<a href="'+escape(url)+'">'+escape(item.label||"Open detail")+'</a>';
+    }
     if(!rows.length)return '<p class="muted" data-business-empty="'+escape(domain)+'">'+
       escape(options.emptyText||"No matching authorized records.")+'</p>';
     return '<div class="shared-business-list" data-business-domain="'+escape(domain)+'" data-business-mode="'+mode+'">'+
@@ -335,8 +341,8 @@
         if(!r||!r.id)throw Error("Missing authorized record identity");
         var facts=(r.facts||[]).filter(function(v){return v!=null&&v!=="";});
         var notices=(r.notices||[]).filter(function(v){return v!=null&&v!=="";});
-        var actions=r.actions||[];
-        if(!Array.isArray(facts)||!Array.isArray(notices)||!Array.isArray(actions))
+        var actions=r.actions||[],links=r.links||[];
+        if(!Array.isArray(facts)||!Array.isArray(notices)||!Array.isArray(actions)||!Array.isArray(links))
           throw Error("Invalid record presentation");
         return '<article class="shared-business-record list-row" data-business-record="'+escape(r.id)+'">'+
           '<div class="shared-business-content"><h3>'+escape(r.title||r.id)+'</h3>'+
@@ -345,7 +351,7 @@
             .map(escape).join(' · ')+'</p>'+
           (r.description?'<p class="shared-business-description">'+escape(r.description)+'</p>':"")+
           notices.map(function(v){return '<p class="shared-business-note">'+escape(v)+'</p>';}).join("")+
-          '</div><div class="shared-business-actions">'+actions.map(command).join("")+'</div></article>';
+          '</div><div class="shared-business-actions">'+links.map(link).join("")+actions.map(command).join("")+'</div></article>';
       }).join("")+'</div>';
   }
 
