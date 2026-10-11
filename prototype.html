@@ -1933,7 +1933,7 @@ function refreshCampaignInstallationGuides(form){
  * This never infers pooled credits, FX, or an unmeasured quantity as zero. */
 function demoTariffCheck(spec){
  if(!spec||typeof spec!=="object"||Array.isArray(spec)||!Array.isArray(spec.lines)||
-    spec.lines.length<1||spec.lines.length>64||!/^r\\d{3,8}$/.test(spec.revision||"")||
+    spec.lines.length<1||spec.lines.length>64||!/^r\d{3,8}$/.test(spec.revision||"")||
     !/^[A-Z]{3}$/.test(spec.currency||""))
   throw Error("Demo tariff needs revision rNNN, ISO currency and 1–64 lines");
  var seen=new Set(),allowed=new Set(["input_tokens","output_tokens","cached_input_tokens",
