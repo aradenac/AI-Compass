@@ -7,13 +7,17 @@ const html=fs.readFileSync("prototype.html","utf8");
 assert(html.includes('<script src="demo-deployments.js"></script>'));
 assert(html.includes('demoDeploymentSection.id="demo-deployments"'));
 assert(!src.includes("fetch(")&&!src.includes("credentials:"));
-const w={AICompassOpportunities:{demoProvider(){return {bootstrap:async()=>({
-  profiles:[{id:"wlp-demo",name:"Fictional cohort"}],
-  candidates:[{task_id:"t1",kind:"benchmark",candidate_id:"s1",name:"Fictional run"}]
-})};}}};
-vm.runInNewContext(src,{window:w,Date,Set,JSON,Error});
+const w={};
+vm.runInNewContext(fs.readFileSync("shared-opportunities.js","utf8"),
+  {window:w,Date,Set,JSON,Error,Promise});
+vm.runInNewContext(src,{window:w,Date,Set,JSON,Error,Promise});
 (async()=>{
- const db={},saved=[];
+ const db={tasks:[{id:"t1",name:"Fictional task"}],cases:[{id:"c1",task:"t1"}],
+  runs:[{id:"r1",case:"c1",solution:"s1",accepted:true,status:"published"}],
+  solutions:[{id:"s1",name:"Fictional solution"}],proposals:[]},saved=[];
+ const economy=w.AICompassOpportunities.demoProvider(db);
+ const scope={name:"Demo",choices:[{task_id:"t1",kind:"benchmark",candidate_id:"s1"}]};
+ assert.equal((await economy.preview("wlp-demo",scope)).totals.activated_potential_eur,"0.00");
  const api=w.AICompassDemoDeployments.provider(db,()=>saved.push(true));
  const targets=await api("deployments","GET");
  assert.equal(targets.results.length,0);
@@ -34,12 +38,15 @@ vm.runInNewContext(src,{window:w,Date,Set,JSON,Error});
  await event(null,"setup_verified","Fictional setup verification");
  await event(null,"first_use","Fictional first use verification");
  assert.equal((await status()).activated_count,1);
+ assert(Number((await economy.preview("wlp-demo",scope)).totals.activated_potential_eur)>0);
  await event(target.components[0].id,"revoked");
+ assert.equal((await economy.preview("wlp-demo",scope)).totals.activated_potential_eur,"0.00");
  assert.equal((await status()).activated_count,0);
  for(const a of ["requested","approved","provisioned","verified"])
    await event(target.components[0].id,a,"Fictional repeat verification");
  assert.equal((await status()).activated_count,0);
  assert(saved.length>2,"Fictional changes persist independently");
- assert.equal(Object.keys(db).join(","),"demoDeploymentTargets");
+ assert.equal(db.demoDeploymentTargets.length,1);
+ assert.equal(w.AICompassDemoDeployments.provider(db).mine("u2").results.length,0);
  console.log("FUT-15 fictional Demo target, access and first use isolation passed");
 })().catch(err=>{console.error(err);process.exitCode=1;});

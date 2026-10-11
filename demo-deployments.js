@@ -85,7 +85,7 @@ function provider(db,persist){
       source:original?copy(original.source):null,guide_revision_id:guide||null};
   }
   function save(){if(typeof persist==="function")persist();}
-  return async function(path,method,data){
+  var api=async function(path,method,data){
     method=method||"GET";
     if(path==="profiles"&&method==="GET")return {
       results:(await source.bootstrap()).profiles};
@@ -157,6 +157,27 @@ function provider(db,persist){
       evidence_reference:reference,at:new Date().toISOString()});
     save();return {event_id:t.events[t.events.length-1].id,target:view(t,true)};
   };
+  api.activatedCount=function(profile,task,kind,candidate){
+    var target=targets.find(function(x){return x.profile_id===profile&&x.task_id===task&&
+      x.kind===kind&&x.candidate_id===candidate;});
+    return target?view(target,false).activated_count:0;
+  };
+  api.mine=function(userId){
+    var own=[];
+    targets.forEach(function(target){
+      view(target,true).beneficiaries.filter(function(x){
+        return x.person_profile_id==="demo-person-"+userId;
+      }).forEach(function(x){own.push({target_id:target.id,task_id:target.task_id,
+        candidate_id:target.candidate_id,kind:target.kind,ready:x.ready,
+        first_use_confirmed:x.first_use_confirmed,blockers:x.blockers,
+        entitlements:x.entitlements});});
+    });
+    return {results:own};
+  };
+  return api;
 }
-root.AICompassDemoDeployments={provider:provider};
+root.AICompassDemoDeployments={provider:provider,
+  activatedCount:function(db,profile,task,kind,candidate){
+    return provider(db).activatedCount(profile,task,kind,candidate);
+  }};
 })(window);

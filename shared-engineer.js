@@ -11,7 +11,8 @@ function serverProvider(fetcher,csrf){
     detail:function(id,task){return request("/api/v1/engineer/solutions/"+
       encodeURIComponent(id)+(task?"?task_id="+encodeURIComponent(task):""));},
     feedback:function(kind,context,body){return request("/api/v1/engineer/feedback",
-      "POST",{kind:kind,context_id:context,body:body});}
+      "POST",{kind:kind,context_id:context,body:body});},
+    accessStatus:function(){return request("/api/v1/engineer/deployments");}
   };
 }
 function demoProvider(db,actor,persist){
@@ -99,6 +100,10 @@ function demoProvider(db,actor,persist){
           rationale:s.description,limitations:s.limitations,editorial_only:true}],
         entitlement:"unknown_unverified",feedback:{context_id:id,
           request_status:"not_provisioned"}};
+    },
+    accessStatus:async function(){
+      return actor&&root.AICompassDemoDeployments?
+        root.AICompassDemoDeployments.provider(db).mine(actor.id):{results:[]};
     },
     feedback:async function(kind,context,body){
       if(!body||!body.trim())throw Error("Please provide a concrete message.");
@@ -199,6 +204,14 @@ function mount(container,provider,mode){
       ' · Declared OS: '+safe((latest.user_os.available_os||[]).join(", ")||"unknown")+
       '. Enterprise access does not prove personal entitlement. Accepted DoD does not prove general suitability.</p>'+
       (latest.message?'<p class="muted small">'+safe(latest.message)+'</p>':'')+
+      '<details><summary>My external-tool access and first use ('+
+      (latest.deployment_status||[]).length+')</summary>'+
+      ((latest.deployment_status||[]).map(function(s){
+        return '<p class="muted small">'+safe(s.candidate_id)+' · '+
+          (s.ready?'Ready':'Not ready')+' · '+
+          (s.first_use_confirmed?'First use confirmed':'First use unconfirmed')+
+          ' · '+safe((s.blockers||[]).join("; "))+'</p>';}).join("")||
+       '<p>No selected deployment linked to your person profile.</p>')+'</details>'+
       (view==="task"?taskRows():toolRows())+
       '<p class="muted small">Theoretical Forecasts are NOT measured results. '+
       'Use the separate Results Explorer / Technology Watch for experimental candidates.</p>';
@@ -254,6 +267,13 @@ function mount(container,provider,mode){
       'My AI Workspace</button> › '+safe(row.task_id)+' › '+safe(row.name)+'</nav>'+
       '<h3>'+safe(row.name)+'</h3>'+
       '<p>'+badge(o)+'</p>'+accessibility(o)+
+      '<h4>My verified deployment state</h4>'+
+      ((latest.deployment_status||[]).filter(function(s){return s.candidate_id===row.id;})
+        .map(function(s){return '<p>'+safe(s.task_id)+' · '+
+          (s.ready?'Ready':'Not ready')+' · '+
+          (s.first_use_confirmed?'First use confirmed':'Not confirmed')+
+          ' · '+safe((s.blockers||[]).join("; "))+'</p>';}).join("")||
+          '<p>No personally linked deployment.</p>')+
       '<p>Methodology: '+safe(o.scoring.policy)+
       ' · No numeric ranking until an authorized scoring policy is defined.</p>'+
       '<h4>Measured Test Case coverage and original sources</h4>'+
@@ -314,8 +334,13 @@ function mount(container,provider,mode){
   async function refresh(){
     if(!active)return;var at=++generation;
     message("Loading scoped Task and published evidence…");
-    try{var data=await provider.list(view,all);if(!active||at!==generation)return;
-      selected=null;latest=data;content();message("");}
+    try{
+      var responses=await Promise.all([provider.list(view,all),
+        provider.accessStatus?provider.accessStatus():Promise.resolve({results:[]})]);
+      if(!active||at!==generation)return;
+      var data=responses[0];data.deployment_status=responses[1].results||[];
+      selected=null;latest=data;content();message("");
+    }
     catch(error){if(!active||at!==generation)return;latest=null;
       container.querySelector("[data-engineer-body]").textContent=
         "Published Engineer discovery unavailable. No Demo fallback.";
