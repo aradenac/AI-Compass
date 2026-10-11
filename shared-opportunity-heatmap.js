@@ -80,9 +80,10 @@ function demoProvider(db){
      const all=candidates(),cols=Array.from(new Map(all.map(c=>[
        c.kind+"|"+c.candidate_id,{kind:c.kind,id:c.candidate_id,name:c.name,label:c.label}])).values());
      const rr=Number(p.row_page||0),cc=Number(p.column_page||0),
-       rows=tasks.slice(rr*16,rr*16+16).map((t,i)=>({id:t.id,name:t.name,
+       rowSize=Number(p.row_size||8),colSize=Number(p.column_size||8),
+       rows=tasks.slice(rr*rowSize,rr*rowSize+rowSize).map((t,i)=>({id:t.id,name:t.name,
          parent_id:t.parent,depth:0})),
-       columns=cols.slice(cc*12,cc*12+12);
+       columns=cols.slice(cc*colSize,cc*colSize+colSize);
      const calculated=await projectionCells(rev);
      let cells=[];
      for(const t of rows){for(const c of columns){
@@ -102,7 +103,7 @@ function demoProvider(db){
      return {scope:"fictional_demo_only",profile_id:p.profile_id,
        scenario_id:p.scenario_id||null,revision:p.revision||"r002",
        historical:!!p.revision,period:"annual",currency:"EUR",
-       row_page:rr,column_page:cc,row_size:16,column_size:12,
+       row_page:rr,column_page:cc,row_size:rowSize,column_size:colSize,
        total_rows:tasks.length,total_columns:cols.length,rows,columns,cells,
        note:"All data and original dates in this demo are fictional.",
        legend:{intensity_breakpoints_eur:["0","1000","10000","100000"]}};
@@ -140,6 +141,34 @@ function demoProvider(db){
         deployment_started:false,reason:"Fictional published Demo Run"}))})
  };
 }
+const STYLE='<style>'+
+'.management-heatmap{max-width:none!important;min-width:0}.heat-controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:12px}'+
+'.management-heatmap h3{margin-top:18px}.heat-scroll{max-width:100%;max-height:575px;overflow:auto;border:1px solid #dce4ee;border-radius:10px}'+
+'.heat-grid{border-collapse:separate;border-spacing:0;table-layout:fixed;font-size:12px;width:max-content;min-width:100%}'+
+'.heat-grid th,.heat-grid td{padding:0;border-right:1px solid #e3e9f2;border-bottom:1px solid #e3e9f2;text-align:left}'+
+'.heat-grid thead th{background:#eef3fa;position:sticky;top:0;z-index:3;padding:11px;min-width:125px;max-width:155px}'+
+'.heat-grid thead th small{display:block;font-size:10px;color:#52627a}'+
+'.heat-grid .heat-task-col{position:sticky;left:0;z-index:2;background:#fff;min-width:215px;max-width:260px;padding:8px;box-shadow:2px 0 3px #182b4310}'+
+'.heat-grid thead .heat-task-col{z-index:4;background:#e9f0fa}'+
+'.heat-grid .heat-task-col div{display:flex;align-items:center;gap:5px;white-space:normal}'+
+'.heat-grid .heat-task-col button{margin:0;padding:3px 6px;font-size:11px}'+
+'.heat-cell button{display:flex;align-items:center;justify-content:space-between;gap:7px;background:transparent!important;color:inherit!important;border:0;width:100%;min-height:47px;margin:0!important;padding:8px!important;font:inherit;cursor:pointer}'+
+'.heat-cell button:focus-visible{outline:3px solid #295edb;outline-offset:-3px}'+
+'.heat-cell.heat-1{background:#edf6fd}.heat-cell.heat-2{background:#d3e8f9}.heat-cell.heat-3{background:#9ac8ed}.heat-cell.heat-4{background:#5196cb;color:#092b48}'+
+'.heat-maturity{background:#fff9;border:1px solid #8198b8;border-radius:50%;font-size:10px;min-width:20px;height:20px;display:inline-grid;place-items:center}'+
+'.heat-selected{font-size:9px;color:#2650a4}.heat-blank{color:#8896ad;text-align:center!important}'+
+'.heat-pagination,.heat-slice-legend{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:10px 0}'+
+'.heat-pagination button{font-size:11px;padding:6px 9px}.heat-slices{height:23px;display:flex;border:1px solid #bdcadd;border-radius:6px;overflow:hidden;background:#f2f5fb}'+
+'.heat-slice{min-width:0}.heat-slice-0{background:#4b7597}.heat-slice-1{background:#2f9a92}.heat-slice-2{background:#c1a05b}'+
+'.heat-slice-legend button{font-size:12px;padding:7px}.heat-history-bars{display:flex;align-items:flex-end;overflow-x:auto;min-height:185px;gap:16px;padding:12px 5px}'+
+'.heat-history-point{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:104px}'+
+'.heat-history-column{height:140px;width:48px;display:flex;flex-direction:column-reverse;background:#edf1f6;border:1px solid #d6deea}'+
+'.heat-history-point button{font-size:11px;padding:5px}.heat-lines{display:block;width:100%;height:170px;border:1px solid #dce3eb}'+
+'.heat-history-point-buttons{display:flex;gap:10px;overflow-x:auto}.heat-trend-line{stroke:#1b547f}.heat-trend-line.trend-1{stroke:#269f87}.heat-trend-line.trend-2{stroke:#b78a3b}.heat-trend-line.trend-3{stroke:#3c4a68}'+
+'.heat-inspector{border:1px solid #b5c7df;border-radius:12px;padding:18px;margin-top:20px;background:#f7faff}'+
+'.heat-inspector pre{font-size:11px;max-height:310px;white-space:pre-wrap;overflow:auto;overflow-wrap:anywhere;background:#fff;padding:9px}'+
+'@media(max-width:700px){.heat-grid .heat-task-col{min-width:160px;max-width:190px}.heat-controls{grid-template-columns:1fr 1fr}}'+
+'</style>';
 function mount(element,provider,mode){
  let available=false,scenarios=[],profiles=[],profile="",scenario="",revision="",
      rowPage=0,columnPage=0,historyMode="stacked",collapsed=new Set(),matrix=null,
@@ -147,7 +176,7 @@ function mount(element,provider,mode){
  const id=n=>element.querySelector(n);
  function info(s){status=s;const out=id("[data-heat-status]");if(out)out.textContent=s;}
  function template(){
-   element.innerHTML='<section class="server-card management-heatmap">'+
+   element.innerHTML=STYLE+'<section class="server-card management-heatmap">'+
      '<div class="server-model-toolbar"><div><h2>Profitability & Opportunity Heatmap</h2>'+
      '<p>Task hierarchy × AI configurations • annual EUR prospective capacity, not recognized profit'+
      (mode==="demo"?" • fictional offline Demo":" • authorized Server")+'</p></div>'+
@@ -398,7 +427,7 @@ function mount(element,provider,mode){
      const r=await Promise.all([
        provider.insights(args),
        provider.heatmap({...args,row_page:rowPage,column_page:columnPage,
-         row_size:16,column_size:12,period:"annual"})]);
+         row_size:8,column_size:8,period:"annual"})]);
      if(!available||n!==seq)return;
      insights=r[0];matrix=r[1];render();info("");
    }catch(e){if(n!==seq)return;info("No fallback or unqualified amount: "+e.message);}
