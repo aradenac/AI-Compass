@@ -125,6 +125,10 @@ def _matrix(rows,view):
 
 
 def explore(actor,parameters):
+    if "scope" not in parameters and (
+            actor.has_perm("auth.business_write") or
+            actor.has_perm("auth.publication_review")):
+        parameters = {**parameters, "scope": "private"}
     view,kind,task,solution,campaign,scope=_filters(parameters)
     if scope=="private" and not (actor.has_perm("auth.business_write") or
                                  actor.has_perm("auth.publication_review")):
