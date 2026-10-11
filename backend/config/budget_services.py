@@ -7,7 +7,8 @@ including tier calculations, in native currencies. No purchasing, IAM or wallet.
 """
 import json
 from collections import defaultdict
-from datetime import date
+from datetime import date, timedelta
+from calendar import monthrange
 from decimal import Decimal, ROUND_CEILING, ROUND_HALF_UP
 from uuid import UUID
 
@@ -54,6 +55,15 @@ def fmt(n):
 
 def cash(n):
     return format(n.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP), "f")
+
+
+def period_last_day(start, months):
+    """Inclusive month horizon, never silently use an expired published offer."""
+    first = date.fromisoformat(start)
+    absolute = first.year * 12 + first.month - 1 + months
+    year, month = divmod(absolute, 12)
+    month += 1
+    return date(year, month, min(first.day, monthrange(year, month)[1])) - timedelta(days=1)
 
 
 def months_for(period, months):
@@ -381,6 +391,11 @@ def project(profile, plan):
                 ready = readiness(rev, as_of=plan["start_date"])
                 if not ready["complete"]:
                     gaps.extend("offer:" + task_id + "/" + key + ":" + x for x in ready["reasons"])
+                finish = readiness(rev, as_of=period_last_day(
+                    plan["start_date"], months).isoformat())
+                if not finish["complete"]:
+                    gaps.extend("offer_at_end:" + task_id + "/" + key + ":" + x
+                                for x in finish["reasons"])
                 for line in rev.properties.get("lines", []):
                     if line["charge_type"] == "free":
                         continue

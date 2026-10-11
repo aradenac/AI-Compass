@@ -182,3 +182,13 @@ class BudgetTests(OpportunityTests.__bases__[0]):
         self.assertEqual(calculated["amounts_by_native_currency"],{})
         self.assertEqual(calculated["segments"][0]["purpose"],"pilot")
         self.assertEqual(calculated["segments"][0]["headcount"],2)
+
+    def test_offer_effective_period_must_cover_budget_horizon(self):
+        _,browser,csrf,population=self.plan(headcount=3,frequency="10")
+        source=self.fake_source()
+        source[1][0][2].properties["effective_to"]="2026-11-15"
+        with patch("config.budget_services._source",return_value=source):
+            response=self.request(browser,csrf,API+"/preview",self.data(population))
+            self.assertEqual(response.status_code,200,response.content)
+            self.assertFalse(response.json()["ready_for_request"])
+            self.assertTrue(any(x.startswith("offer_at_end:") for x in response.json()["gaps"]))
