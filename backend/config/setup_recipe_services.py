@@ -11,7 +11,7 @@ from .setup_composition import compose, SetupCompositionError, validate_recipe
 
 def snapshots_for_recipe(recipe):
     validate_recipe(recipe)
-    pins = {(m["id"], m["revision"]) for m in recipe["modules"]}
+    pins = {(m["id"], m["revision"]) for m in recipe.get("modules", [])}
     result = {}
     for public_id, revision in pins:
         row = CatalogRevision.objects.select_related("item").filter(
