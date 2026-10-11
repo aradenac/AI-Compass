@@ -94,6 +94,7 @@
         var item=records.find(function(g){return g.id===btn.dataset.guide;});
         if(!item)return;
         if(btn.dataset.action==="inspect")inspect(item);
+        else if(btn.dataset.action==="preview")preview(item);
         else if(btn.dataset.action==="edit"&&write)edit(item);
       });
       var panel=find("#guide-inline");
@@ -116,6 +117,7 @@
           '<div class="muted small">'+escapeHtml(g.id)+' · '+escapeHtml(g.revision)+
           ' · '+escapeHtml(p.url?"URL"+(p.text?" + text":""):"text procedure")+'</div>'+
           '<button type="button" data-guide="'+escapeHtml(g.id)+'" data-action="inspect">Details / history</button> '+
+          (p.recipe?'<button type="button" data-guide="'+escapeHtml(g.id)+'" data-action="preview">Render recipe</button> ':'')+
           (write?'<button type="button" data-guide="'+escapeHtml(g.id)+'" data-action="edit">Revise</button>':"")+
           '</div>';
       }).join("");
@@ -189,6 +191,34 @@
       } catch(error) {
         if(active&&current===ticket)find("#guide-history").textContent="History unavailable: "+error.message;
       }
+    }
+    function preview(item) {
+      var node=find("#guide-history");node.hidden=false;
+      node.innerHTML='<h3>Composed setup · '+escapeHtml(item.name)+'</h3>'+
+        '<p>Supply exact OS, runtime, Model/Provider/Harness versions and settings. Unknown coverage is never assumed.</p>'+
+        '<textarea id="guide-render-configuration" rows="6">{}</textarea>'+
+        '<button type="button" id="guide-render-now">Render pinned recipe</button>'+
+        '<div id="guide-render-result" role="status"></div>';
+      find("#guide-render-now").addEventListener("click",async function(){
+        var output=find("#guide-render-result"),button=this;button.disabled=true;
+        try{
+          var configuration=JSON.parse(find("#guide-render-configuration").value);
+          if(!configuration||Array.isArray(configuration)||typeof configuration!=="object")
+            throw Error("Configuration must be a JSON object");
+          var result=await request(csrf,"/render","POST",{
+            guide_id:item.id,revision:item.revision,configuration:configuration});
+          var markup='<p>'+(result.ready?"All declared modules applicable":"Incomplete or ambiguous recipe")+'</p>'+
+            '<pre style="white-space:pre-wrap;overflow-wrap:anywhere">'+
+            escapeHtml(JSON.stringify(result.missing,null,2))+'</pre>';
+          result.sections.forEach(function(section){
+            markup+='<details open><summary>'+escapeHtml(section.name)+' · '+escapeHtml(section.revision)+'</summary>'+
+              '<pre style="white-space:pre-wrap;overflow-wrap:anywhere">'+escapeHtml(section.text||"")+'</pre>'+
+              '<p>'+escapeHtml(section.url||"")+'</p></details>';
+          });
+          output.innerHTML=markup;
+        }catch(error){output.textContent="Unable to render: "+error.message;}
+        finally{button.disabled=false;}
+      });
     }
     function setAccess(canRead,canWrite) {
       ++ticket;active=!!canRead;write=active&&!!canWrite;records=[];
