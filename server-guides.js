@@ -21,13 +21,13 @@
       window.AICompassWorkgroup.renderGuideFields(guide||{},"server")+
       '<fieldset><legend>Composable recipe (optional)</legend>'+
       '<p class="muted small">Reuse exact guide revisions. For OS/versions and variants, edit the JSON recipe.</p>'+
-      '<label>Reusable modules<select name="recipe_modules" multiple size="5">'+
-      known.filter(function(g){return !guide||g.id!==guide.id;}).map(function(g){
-        return '<option value="'+escape(g.id)+'">'+escape(g.name)+' · '+escape(g.revision)+'</option>';
-      }).join("")+'</select></label>'+
-      '<button type="button" class="guide-add-modules">Add selected pinned modules</button>'+
-      '<label>Recipe (JSON; optional)<textarea name="recipe_spec" rows="8">'+
-      escape(properties.recipe?JSON.stringify(properties.recipe,null,2):"")+'</textarea></label></fieldset>'+
+      window.AICompassWorkgroup.renderDomainFields(
+        window.AICompassWorkgroup.GUIDE_RECIPE_FIELDS,
+        {recipe_modules:[],recipe_spec:properties.recipe?JSON.stringify(properties.recipe,null,2):""},
+        "server",{idPrefix:"guide-recipe",choices:{recipe_modules:known.filter(function(g){
+          return !guide||g.id!==guide.id;}).map(function(g){
+            return [g.id,g.name+" · "+g.revision];})}})+
+      '<button type="button" class="guide-add-modules">Add selected pinned modules</button></fieldset>'+
       '<button type="submit">Save guide</button> <button type="button" class="guide-cancel">Cancel</button>'+
       '</form>';
   }
@@ -67,7 +67,11 @@
     function find(s){return root.querySelector(s);}
     function status(message,error) {
       var node=find("#guide-status");
-      if(node){node.textContent=message;node.className=error?"server-status server-error":"server-status";}
+      if(node){
+        node.className=error?"server-status server-error":"server-status";
+        node.innerHTML=window.AICompassWorkgroup.renderDomainStatus({
+          mode:"server",state:error?"error":"ok",message:message==null?"":String(message)});
+      }
     }
     function shell() {
       root.innerHTML=

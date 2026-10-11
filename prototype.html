@@ -1845,6 +1845,15 @@ field("newHarnessVersion","Harness version","Unverified")+'</div></details>'+
  '<div class="span2 note warn">The predicted outcomes above are workgroup estimates (0–100) and NOT benchmark results. AI cost and engineer time refer to a hypothetical accepted-result attempt, not an observed run.</div>';
 openForm(p?"Edit theoretical forecast":"Draft theoretical configuration","forecast",inputs,id||"",p?"Save forecast":"Create draft forecast");
 }
+/* UX-R04: one guided-execution step presentation for Demo and Server. */
+function demoRunStepStepper(trial){
+ var step=Number(trial&&trial.step)||3;
+ var steps=[{key:3,label:"Installation & setup"},{key:4,label:"Timed interactions"},
+  {key:5,label:"Outcome, artifacts & metrics"}];
+ return '<div class="span2">'+window.AICompassWorkgroup.renderStepper(steps.map(function(s){
+  return {label:s.label,state:s.key<step?"done":s.key===step?"current":"todo"};}),
+  {mode:"demo",domain:"session"})+'</div>';
+}
 function watchVisibleForPublication(id){var w=rec("watch",id);return !!w&&w.publication==="published"&&watchEvidence(id).some(function(e){return e.publication==="published";});}
 function forecastValidity(p){
 var sourceCount=forecastCitations(p).length;
@@ -2189,7 +2198,7 @@ guidedField("tariffPlan","Selected fictional offer, frozen before execution (JSO
  '{"revision":"r001","currency":"EUR","lines":[{"source_key":"root:model","charge_id":"input","charge_type":"variable","meter":"input_tokens","unit_size":1000000,"rate":"2.5"},{"source_key":"root:harness","charge_id":"seat","charge_type":"fixed","period":"seat_month","rate":"20"}]}',
  "textarea","full","This offline example offer is fictional and revisioned, never a current vendor quote. Required consumption counters will be generated from its variable charge lines.")+
 guidedField("setupNotes","Installation deviations / deployment environment (optional)","","textarea","full","Record OS, machine, deviations from the selected guide and environment constraints. If validating a Technology Watch forecast, document deviations from its proposed configuration here.");
-openForm("Step 3 · Installation & setup","campaignTrialSetup",fields,campaignId,"Save setup → interactions");
+openForm("Step 3 · Installation & setup","campaignTrialSetup",demoRunStepStepper({step:3})+fields,campaignId,"Save setup → interactions");
 }
 function campaignTrialInteraction(id){
 var t=rec("campaignTrials",id),c=t&&rec("campaigns",t.campaign);
@@ -2210,7 +2219,7 @@ guidedField("promptUpdate","Prompt / instructions given during this interaction 
 guidedField("inputDocuments","Documents / inputs supplied at this interaction (optional)","","textarea","full","Include versioned paths or references to actual files introduced or changed at this point, not files merely installed.")+
 guidedField("providedSkills","Skills or options activated at this interaction (optional)","","textarea","full","Record any context or agent skill introduced, tool permission changes or configuration toggles during the experiment.")+
 guidedField("artifacts","Intermediate outputs / evidence references (optional)","","textarea","full","Intermediate files, trace links, screenshots or logs, not final deliverables.");
-openForm("Step 4 · Timed interactions","campaignInteraction",fields,id,"Save interaction & add another");
+openForm("Step 4 · Timed interactions","campaignInteraction",demoRunStepStepper({step:4})+fields,id,"Save interaction & add another");
 ui.modalFooter=btn("Back to campaign","openCampaign",t.campaign,"")+
 btn("Finish interactions → results","campaignFinishIterations",id,"primary")+
 '<button class="btn" type="submit" form="modalForm">+ Save interaction</button>';render();
@@ -2251,7 +2260,7 @@ durationField("correctionMinutes","Final human correction duration (minutes)",0,
 '<div class="span2"><h3>Produced outputs</h3></div>'+
 guidedField("outputDocuments","Produced outputs — documents, code, reports, artifacts, paths or links",t.pendingResults?.outputDocuments||"","textarea","full","List the final deliverables and their references/versions. This is the canonical output-evidence field; do not re-enter the same outputs elsewhere.")+
 guidedField("additionalNotes","Additional notes (optional)",t.pendingResults?.additionalNotes||"","textarea","full","Only supplementary observations not already captured in the two metric evaluations or the produced outputs.");
-openForm("Step 5 · Results, artifacts & metrics","campaignTrialOutcome",fields,id,"Close Test Case execution");
+openForm("Step 5 · Results, artifacts & metrics","campaignTrialOutcome",demoRunStepStepper({step:5})+fields,id,"Close Test Case execution");
 }
 function campaignReviewForm(id){
 var c=rec("campaigns",id);if(!canEdit()||!c||c.stage!=="review")return;
@@ -2470,10 +2479,10 @@ function detailsGuide(id){
 function feedbackThreadMarkup(id){
 var msgs=db.feedbackMessages.filter(function(m){return m.feedback===id&&(canEdit()||m.visibility==="public");})
  .sort(function(a,b){return a.date.localeCompare(b.date)||a.id.localeCompare(b.id);});
-var list=msgs.map(function(m){
-return '<div class="feedback-message"><div class="row-between"><div class="row"><strong>'+E(actor(m.author))+'</strong> '+
-badge(m.visibility==="internal"?"INTERNAL · workgroup only":"PUBLIC")+'</div><span class="muted small">'+E(m.date.replace("T"," ").slice(0,19))+'</span></div>'+
-'<div class="text-block small" style="margin-top:8px">'+E(m.body)+'</div></div>';}).join("")||'<p class="muted small">No replies yet.</p>';
+var list=window.AICompassWorkgroup.renderThread(msgs.map(function(m){
+ return {id:m.id,author:actor(m.author),at:m.date.replace("T"," ").slice(0,19),
+  visibility:m.visibility==="internal"?"internal":"public",body:m.body};}),
+ {mode:"demo",emptyText:"No replies yet."});
 var compose='<form class="feedback-reply-form" data-feedback="'+E(id)+'">'+
 '<div class="row-between"><strong>Reply to the conversation</strong></div>'+
 window.AICompassWorkgroup.renderDomainFields(window.AICompassWorkgroup.FEEDBACK_REPLY_FIELDS,

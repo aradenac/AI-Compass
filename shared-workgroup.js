@@ -696,6 +696,47 @@
       }).join("")+'</ol>';
   }
   // Loading, empty, refused and denied states read the same in both modes.
+  /* One discussion-thread presentation: chronological messages, explicit
+   * public/internal visibility, immutable revision and pinned original
+   * attachments. Adapters supply authorized messages and permitted actions. */
+  function renderThread(messages, options) {
+    options=options||{};
+    var mode=domainMode(options.mode);
+    if(!Array.isArray(messages))throw Error("Authorized thread messages required");
+    var permitted=options.actions||function(){return [];};
+    return '<div class="shared-thread" data-shared-thread="'+escape(mode)+'">'+
+      (messages.length?messages.map(function(message){
+        if(!message||!message.id)throw Error("Thread message requires a stable ID");
+        var visibility=String(message.visibility||"public");
+        if(!["public","internal"].includes(visibility))
+          throw Error("Unsupported thread message visibility");
+        var allowed=permitted(message)||[];
+        if(!Array.isArray(allowed))throw Error("Invalid thread message actions");
+        var meta=[message.at,message.id,message.revision,
+          message.parentId?"reply to "+message.parentId:""]
+          .filter(function(value){return value!=null&&value!=="";}).map(escape);
+        return '<article class="shared-thread-message" data-message-id="'+escape(message.id)+
+          '" data-message-visibility="'+escape(visibility)+'">'+
+          '<div class="shared-thread-meta"><strong>'+escape(message.author||"Unknown author")+
+          '</strong> <span class="tag '+(visibility==="internal"?"amber":"blue")+'">'+
+          escape(visibility==="internal"?"INTERNAL · workgroup only":"PUBLIC")+'</span> '+
+          '<span class="muted small">'+meta.join(' · ')+'</span></div>'+
+          '<div class="shared-thread-body">'+escape(message.body==null?"":message.body)+'</div>'+
+          (message.attachments||[]).map(function(attachment){
+            if(!attachment||!attachment.href)
+              throw Error("Thread attachment requires its immutable location");
+            return '<p class="muted small">Original attachment: '+
+              recordLink({href:attachment.href,label:attachment.filename||"attachment"})+
+              (attachment.sha256?' · SHA-256 '+escape(attachment.sha256):"")+'</p>';
+          }).join("")+
+          (allowed.length?'<div class="shared-thread-actions">'+
+            allowed.map(matrixCommand).join("")+'</div>':"")+
+          '</article>';
+      }).join(""):'<p class="muted" data-shared-thread-empty>'+
+        escape(options.emptyText||"No messages in this conversation yet.")+'</p>')+
+      '</div>';
+  }
+
   function renderDomainStatus(options) {
     options=options||{};
     var mode=domainMode(options.mode),state=options.state;
@@ -858,6 +899,13 @@
     {key:"publication",modes:["demo"],label:"Record publication status",kind:"select",
      options:[["draft","Draft"],["published","Published"],["superseded","Superseded"],
        ["retired","Retired"]]}
+  ]);
+  var GUIDE_RECIPE_FIELDS=Object.freeze([
+    {key:"recipe_modules",modes:["server"],label:"Reusable modules (Ctrl/Command to select)",
+     kind:"multi",size:5,span:true,options:[],
+     help:"Reuse exact guide revisions; adding a module never rewrites the original."},
+    {key:"recipe_spec",modes:["server"],label:"Recipe (JSON; optional)",kind:"textarea",rows:8,
+     span:true,help:"OS/versions and variants. An empty value retires the recipe in a new immutable revision."}
   ]);
   var EVALUATION_FIELDS=Object.freeze([
     {key:"name",modes:["server"],label:"Evaluation title",kind:"text",maxlength:160,span:true,required:true},
@@ -1035,10 +1083,11 @@
     renderMatrixCellDetail:renderMatrixCellDetail,
     renderMatrixDecisionFields:renderMatrixDecisionFields,
     renderDomainFields:renderDomainFields,renderDomainDetail:renderDomainDetail,
-    renderDomainStatus:renderDomainStatus,renderStepper:renderStepper,
+    renderDomainStatus:renderDomainStatus,renderStepper:renderStepper,renderThread:renderThread,
     CAMPAIGN_LIFECYCLE:CAMPAIGN_LIFECYCLE,campaignLifecycleSteps:campaignLifecycleSteps,
     WATCH_SOURCE_FIELDS:WATCH_SOURCE_FIELDS,WATCH_ENTRY_FIELDS:WATCH_ENTRY_FIELDS,
     FORECAST_FIELDS:FORECAST_FIELDS,FEEDBACK_THREAD_FIELDS:FEEDBACK_THREAD_FIELDS,
     FEEDBACK_REPLY_FIELDS:FEEDBACK_REPLY_FIELDS,
-    RECOMMENDATION_FIELDS:RECOMMENDATION_FIELDS,EVALUATION_FIELDS:EVALUATION_FIELDS};
+    RECOMMENDATION_FIELDS:RECOMMENDATION_FIELDS,EVALUATION_FIELDS:EVALUATION_FIELDS,
+    GUIDE_RECIPE_FIELDS:GUIDE_RECIPE_FIELDS};
 })(window);

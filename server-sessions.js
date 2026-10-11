@@ -7,7 +7,11 @@ function mount(root,api,escapeHtml){
   function esc(v){return escapeHtml(v==null?"":String(v));}
   function note(message,error){
     var el=$("#session-status");
-    if(el){el.textContent=message;el.className=error?"server-status server-error":"server-status";}
+    if(el){
+      el.className=error?"server-status server-error":"server-status";
+      el.innerHTML=window.AICompassWorkgroup.renderDomainStatus({
+        mode:"server",state:error?"error":"ok",message:message==null?"":String(message)});
+    }
   }
   function option(value,label,selected){
     return '<option value="'+esc(value)+'"'+(selected?' selected':'')+'>'+esc(label)+'</option>';
@@ -297,6 +301,16 @@ function mount(root,api,escapeHtml){
       '</fieldset>'+
       '<h4>2. Method-guided progress · saved one step at a time</h4>'+
       '<p class="muted small">Steps and fields come from the original frozen method definition, not the current campaign schema.</p>'+
+      // Same guided-execution stepper presentation as the offline Demo.
+      (function(){
+        var firstOpen=steps.find(function(step){
+          return !(state.steps[step.key]&&Object.keys(state.steps[step.key]).length);});
+        return window.AICompassWorkgroup.renderStepper(steps.map(function(step){
+          var saved=state.steps[step.key]&&Object.keys(state.steps[step.key]).length;
+          return {label:step.label||step.key,
+            state:saved?"done":(step===firstOpen?"current":"todo")};
+        }),{mode:"server",domain:"session"});
+      })()+
       '<div id="session-steps">'+steps.map(function(step){
         var values=state.steps[step.key]||{},fields=(s.method_descriptor.fields||[]).filter(function(f){
           return !f.step||f.step===step.key;

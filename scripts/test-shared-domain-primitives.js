@@ -118,6 +118,33 @@ assert.throws(()=>ui.renderDomainDetail({title:"x"},{mode:"demo",domain:"Feedbac
 assert.throws(()=>ui.renderDomainDetail({title:"x",links:[{href:"https://evil.example"}]},
   {mode:"server",domain:"feedback"}),/same-origin/);
 
+/* One discussion-thread presentation for Demo and Server. */
+const thread=ui.renderThread([
+  {id:"msg-1",author:"Author & <b>",at:"2026-10-11T09:00",revision:"r002",
+   visibility:"internal",body:"<script>alert(1)</script>"},
+  {id:"msg-2",author:"Reader",visibility:"public",body:"Public reply",
+   attachments:[{href:"/api/v1/discussions/messages/msg-2/attachments/1",
+     filename:"evidence.pdf",sha256:"abc123"}]}
+],{mode:"server",emptyText:"No message yet.",
+   actions:message=>[{label:"Reply",attributes:{"data-message":message.id,"data-action":"reply"}}]});
+assert(thread.includes('data-shared-thread="server"'));
+assert.equal((thread.match(/data-message-id=/g)||[]).length,2);
+assert(thread.includes('data-message-visibility="internal"'));
+assert(!thread.includes("<script>alert(1)</script>")&&thread.includes("&lt;script&gt;"));
+assert(thread.includes("Author &amp; &lt;b&gt;"));
+assert(thread.includes("SHA-256 abc123")&&thread.includes('href="/api/v1/discussions/messages/msg-2/attachments/1"'));
+assert(thread.includes('data-action="reply"'));
+assert(ui.renderThread([],{mode:"demo",emptyText:"No replies yet."}).includes("No replies yet."));
+assert.throws(()=>ui.renderThread([{id:"x",visibility:"secret"}],{mode:"server"}),
+  /Unsupported thread message visibility/);
+assert.throws(()=>ui.renderThread([{}],{mode:"server"}),/stable ID/);
+assert.throws(()=>ui.renderThread([{id:"x",attachments:[{filename:"a.pdf"}]}],{mode:"server"}),
+  /immutable location/);
+assert.throws(()=>ui.renderThread([{id:"x",attachments:[{href:"https://evil.example/a"}]}],
+  {mode:"demo"}),/same-origin/);
+assert.throws(()=>ui.renderThread([{id:"x"}],{mode:"server",actions:()=>({})}),
+  /Invalid thread message actions/);
+
 /* One campaign lifecycle presentation, mapped by each mode. */
 const mid=ui.campaignLifecycleSteps("in_progress");
 assert.equal(mid.map(s=>s.state).join(","),"done,current,todo,todo");
@@ -144,12 +171,15 @@ const page=fs.readFileSync("prototype.html","utf8");
 const servers={
   "server-watch.js":["WATCH_SOURCE_FIELDS","WATCH_ENTRY_FIELDS"],
   "server-forecasts.js":["FORECAST_FIELDS"],
-  "server-discussions.js":["FEEDBACK_THREAD_FIELDS","FEEDBACK_REPLY_FIELDS"],
+  "server-discussions.js":["FEEDBACK_THREAD_FIELDS","FEEDBACK_REPLY_FIELDS","renderThread("],
   "server-recommendations.js":["RECOMMENDATION_FIELDS"],
   "server-results.js":["EVALUATION_FIELDS"],
+  "server-guides.js":["GUIDE_RECIPE_FIELDS"],
+  "server-sessions.js":["renderStepper("],
   "server-campaigns.js":["renderCampaignMatrix","renderStepper"]
 };
-assert(page.includes("renderDomainFields(")&&page.includes("renderStepper("));
+assert(page.includes("renderDomainFields(")&&page.includes("renderStepper(")&&
+  page.includes("renderThread("),"Demo must use the shared form, stepper and thread primitives");
 for(const [file,markers] of Object.entries(servers)) {
   const source=fs.readFileSync(file,"utf8");
   for(const marker of markers)

@@ -461,6 +461,18 @@ def server_journey(browser, base_url, creds, artifacts, role, viewport):
             page.locator("#server-workgroup-home").wait_for(state="visible", timeout=20000)
         elif role == "engineer":
             page.locator("#server-engineer").wait_for(state="visible", timeout=20000)
+            # Fail closed: a workgroup-only write surface must never render for
+            # the Engineer persona, and no other mode may be substituted.
+            page.goto(base_url + "/?mode=server&workspace=workgroup&section=testdesign",
+                      wait_until="domcontentloaded")
+            page.locator('#ux-screen-host[data-ux-current]').wait_for(state="visible", timeout=25000)
+            page.wait_for_timeout(1500)
+            if page.locator("#case-new").count() or page.locator("#server-test-cases").is_visible():
+                raise AssertionError("Engineer persona reached the Workgroup Test Case editor")
+            assert_exactly_one_view(page, "#ux-screen-host > [data-ux-screen]")
+            if not page.locator("#server-engineer").is_visible():
+                raise AssertionError("Unauthorized Workgroup section did not fall back closed")
+            capture(page, artifacts, "server-engineer-denied-" + str(viewport["width"]))
         elif role == "management":
             page.locator("#server-management-insights").wait_for(state="visible", timeout=20000)
         elif role == "maintenance":
@@ -657,7 +669,8 @@ def server_journey(browser, base_url, creds, artifacts, role, viewport):
                 page.locator("#campaign-add").click()
                 campaign_form = page.locator("#campaign-form")
                 campaign_form.wait_for(state="visible", timeout=20000)
-                campaign_form.locator('input[name="name"]').fill("UX-R04 shared matrix campaign")
+                campaign_title = "UX-R04 shared matrix campaign " + secrets.token_hex(3)
+                campaign_form.locator('input[name="name"]').fill(campaign_title)
                 campaign_form.locator('textarea[name="objective"]').fill(
                     "Verify the shared campaign evaluation matrix in an authenticated Server")
                 task_choice = campaign_form.locator('select[name="task_id"] option').filter(
@@ -675,7 +688,7 @@ def server_journey(browser, base_url, creds, artifacts, role, viewport):
                 campaign_form.locator('button[type="submit"]').click()
                 campaign_card = page.locator(
                     '[data-business-domain="campaigns"] [data-business-record]').filter(
-                        has_text="UX-R04 shared matrix campaign").first
+                        has_text=campaign_title).first
                 campaign_card.wait_for(state="visible", timeout=30000)
                 campaign_card.locator('button[data-action="matrix"]').click()
                 matrix = page.locator('[data-shared-matrix][data-matrix-mode="server"]')
@@ -725,6 +738,61 @@ def server_journey(browser, base_url, creds, artifacts, role, viewport):
                 if "UX-R04 Server waiver recorded" not in page.locator(
                         '[data-shared-matrix][data-matrix-mode="server"]').inner_text():
                     raise AssertionError("Persisted Server matrix waiver was lost after reload")
+                # Negative: a stale plan revision must be refused explicitly,
+                # through the shared status presentation, with no silent
+                # overwrite and no cross-mode fallback.
+                stale = context.new_page()
+                stale.set_default_timeout(20000)
+                try:
+                    stale.goto(page.url, wait_until="domcontentloaded")
+                    stale_matrix = stale.locator(
+                        '[data-shared-matrix][data-matrix-mode="server"]')
+                    stale_matrix.wait_for(state="visible", timeout=30000)
+                    advanced = page.locator(
+                        '[data-shared-matrix][data-matrix-mode="server"] '
+                        '[data-shared-matrix-cell][data-matrix-state="pending"] button').first
+                    advanced.click()
+                    page.locator("#matrix-decision-form").wait_for(state="visible")
+                    page.locator('#matrix-decision-form select[name="decision"]'
+                                 ).select_option("not_selected")
+                    page.locator('#matrix-decision-form button[type="submit"]').click()
+                    page.locator(
+                        '[data-shared-matrix][data-matrix-mode="server"] '
+                        '[data-matrix-state="not_selected"]').first.wait_for(
+                            state="visible", timeout=30000)
+                    # The other browser still holds the previous revision.
+                    stale.locator(
+                        '[data-shared-matrix][data-matrix-mode="server"] '
+                        '[data-shared-matrix-cell][data-matrix-state="pending"] button'
+                    ).first.click()
+                    stale.locator("#matrix-decision-form").wait_for(state="visible")
+                    stale.locator('#matrix-decision-form select[name="decision"]'
+                                  ).select_option("waived")
+                    stale.locator('#matrix-decision-form textarea[name="reason"]').fill(
+                        "Stale browser revision must be refused")
+                    stale.locator('#matrix-decision-form button[type="submit"]').click()
+                    refusal = stale.locator(
+                        '#campaign-status [data-shared-status="error"], '
+                        '[data-shared-status="error"]')
+                    refusal.first.wait_for(state="visible", timeout=30000)
+                    refusal_text = refusal.first.inner_text().lower()
+                    if "revision" not in refusal_text:
+                        raise AssertionError(
+                            "Stale matrix revision refusal lacks an explicit reason: " +
+                            refusal_text[:120])
+                    if stale.locator('[data-shared-matrix-cell][data-matrix-state="waived"]').count() and \
+                            "stale browser revision must be refused" in stale.locator(
+                                '[data-shared-matrix][data-matrix-mode="server"]').inner_text():
+                        raise AssertionError("Stale revision was silently applied")
+                    if stale.locator('[data-browser-domain="demo"]').count():
+                        raise AssertionError("Refused Server write fell back to Demo")
+                    capture(stale, artifacts, "server-shared-campaign-matrix-stale-" +
+                            str(viewport["width"]))
+                finally:
+                    stale.close()
+                if "UX-R04 Server waiver recorded" not in page.locator(
+                        '[data-shared-matrix][data-matrix-mode="server"]').inner_text():
+                    raise AssertionError("Refused stale write altered the committed waiver")
             if role == "multi_role":
                 # Same authenticated session: Users & Access must be explicit,
                 # and its account-creation form a protected, closed-by-default modal.

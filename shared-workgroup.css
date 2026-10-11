@@ -27,12 +27,14 @@
 /* UX-R04 unified Demo/Server business list surfaces; content is text-only. */
 .shared-business-list{display:flex;flex-direction:column;gap:10px;margin:12px 0}
 .shared-business-record{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;padding:16px;background:#fff;border:1px solid #dce4ef;border-radius:12px;min-width:0}
-.shared-business-content{min-width:0;overflow-wrap:anywhere;flex:1}
+/* A domain may expose many permitted actions: the action column must never
+ * squeeze the record content into a one-character-wide strip. */
+.shared-business-content{min-width:0;overflow-wrap:anywhere;flex:1 1 56%}
 .shared-business-content h3{font-size:16px;margin:0 0 7px}
 .shared-business-meta{margin:2px 0 7px;color:#526579;overflow-wrap:anywhere}
 .shared-business-description{margin:6px 0;white-space:pre-wrap;overflow-wrap:anywhere}
 .shared-business-note{margin:5px 0;color:#485f77;overflow-wrap:anywhere}
-.shared-business-actions{display:flex;flex-wrap:wrap;gap:7px;justify-content:flex-end;min-width:0}
+.shared-business-actions{display:flex;flex-wrap:wrap;gap:7px;justify-content:flex-end;min-width:0;flex:0 1 42%;max-width:42%}
 .shared-business-actions button{border:1px solid #cbd7e5;border-radius:9px;background:#f7f9fd;color:#253f69;font:600 13px system-ui,sans-serif;padding:9px 12px;cursor:pointer}
 .shared-business-actions button:focus-visible{outline:3px solid #4b6ad4;outline-offset:2px}
 
@@ -143,3 +145,19 @@ table.shared-matrix-grid tbody th { font-weight:650; }
   color:#a33d48;
 }
 .shared-matrix-identifier { text-transform:none; }
+
+/* One discussion-thread presentation for Demo and Server. */
+.shared-thread-message {
+  border:1px solid #e2e8f0;
+  border-radius:8px;
+  padding:12px;
+  margin-bottom:10px;
+  background:#fff;
+}
+.shared-thread-meta { display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
+.shared-thread-body {
+  margin-top:8px;
+  white-space:pre-wrap;
+  overflow-wrap:anywhere;
+}
+.shared-thread-actions { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }

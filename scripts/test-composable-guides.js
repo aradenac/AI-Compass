@@ -35,7 +35,10 @@ assert.equal(result.split("Original module").length,2,"Repeated shared sections 
 db.guides[0].status="draft";db.revisions[0].before.status="draft";
 assert(!sandbox.demoComposedGuide(db.guides[1]).includes("ORIGINAL"),
   "Unpublished module instructions must not be exposed to public reader");
-assert(server.includes('name="recipe_spec"'),"Server guides must support editing recipes");
+assert(server.includes("GUIDE_RECIPE_FIELDS"),
+  "Server guides must edit recipes through the shared field specification");
+assert(fs.readFileSync("shared-workgroup.js","utf8").includes('key:"recipe_spec"'),
+  "The shared recipe field must stay declared for both renderers");
 assert(server.includes('"/render","POST"'),"Server guide renderer must query pinned API");
 assert(campaign.includes("guide_modules"),"Campaign must capture reusable pinned modules");
 assert(campaign.includes('api("guides/render","POST"'),"Campaign must offer preview");

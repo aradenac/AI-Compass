@@ -139,25 +139,27 @@ function mount(root,csrf,escapeHtml){
       panel.innerHTML='<h3>'+esc(t.title)+' · '+esc(t.id)+'</h3>'+
         '<p class="muted small">'+(t.properties.scope==="internal"?"INTERNAL":"Public")+
         ' · '+esc(t.created_by)+' · context: '+esc(t.context_id||"none")+'</p>'+
-        '<div id="discussion-messages">'+(data.messages||[]).map(function(m){
+        '<div id="discussion-messages">'+window.AICompassWorkgroup.renderThread(
+          (data.messages||[]).map(function(m){
+            return {id:m.id,author:m.created_by,at:m.created_at,revision:m.revision,
+              parentId:m.parent_id,visibility:m.visibility==="internal"?"internal":"public",
+              body:m.body,
+              attachments:(m.attachments||[]).map(function(a){
+                return {href:a.download,filename:a.filename,sha256:a.sha256};})};}),
+          {mode:"server",emptyText:"No message in this Server conversation yet.",
+           actions:function(m){
+             var isAuthor=m.author===username;
+             return [{label:"Reply",attributes:{"data-message":m.id,"data-action":"reply"}}].concat(
+               (isAuthor||privileged)?[{label:"Correct / change visibility",
+                 attributes:{"data-message":m.id,"data-action":"correct"}}]:[]).concat(
+               [{label:"Correction history",
+                 attributes:{"data-message":m.id,"data-action":"history"}}]);}})+'</div>'+
+        '<div id="discussion-attachments">'+(data.messages||[]).map(function(m){
           var isAuthor=m.created_by===username;
-          return '<article style="padding:12px;margin-bottom:10px;border:1px solid #e2e8f0;border-radius:8px">'+
-            '<strong>'+esc(m.created_by)+'</strong> · '+esc(m.visibility==="internal"?"INTERNAL":"Public")+
-            ' · <span class="muted small">'+esc(m.created_at)+' · '+esc(m.id)+
-            ' · '+esc(m.revision)+(m.parent_id?" · reply to "+esc(m.parent_id):"")+'</span>'+
-            '<p style="white-space:pre-wrap;overflow-wrap:anywhere">'+esc(m.body)+'</p>'+
-            (m.attachments||[]).map(function(a){
-              return '<p class="muted small">Original attachment: <a href="'+
-                esc(a.download)+'">'+esc(a.filename)+'</a> · SHA-256 '+esc(a.sha256)+'</p>';
-            }).join("")+
-            '<button type="button" data-message="'+esc(m.id)+'" data-action="reply">Reply</button>'+
-            (isAuthor||privileged?'<button type="button" data-message="'+esc(m.id)+
-              '" data-action="correct">Correct / change visibility</button>':'')+
-            '<button type="button" data-message="'+esc(m.id)+'" data-action="history">Correction history</button>'+
-            (isAuthor||privileged?'<form data-attachment="'+esc(m.id)+'" style="display:inline-block;margin-left:8px">'+
-              '<input name="file" type="file" accept=".pdf,.txt,.md,.csv,.json,.png,.jpg,.jpeg,.webp,.zip" required>'+
-              '<button type="submit">Attach original</button></form>':'')+
-            '</article>';
+          return (isAuthor||privileged)?'<form data-attachment="'+esc(m.id)+
+            '" style="display:inline-block;margin:4px 8px 4px 0">'+
+            '<input name="file" type="file" accept=".pdf,.txt,.md,.csv,.json,.png,.jpg,.jpeg,.webp,.zip" required>'+
+            '<button type="submit">Attach original to '+esc(m.id)+'</button></form>':"";
         }).join("")+'</div>'+
         '<div id="discussion-reply-editor"></div>';
       panel.querySelectorAll("form[data-attachment]").forEach(function(form){
