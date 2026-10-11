@@ -1660,9 +1660,7 @@ function dialogCase(task,fromCase){
  '<input type="hidden" name="parentCaseId" value="'+E(from?.id||"")+'">'+
  (from?'<div class="span2 note">Forked from '+E(from.title)+' (v'+E(from.version)+'). Its parent remains unchanged.</div>':"")+
  field("title","Test Case title",from?from.title+" · new challenge":"TC · New challenge","","full")+
- versionField+field("objective","What does this case challenge?",from?.objective||"","textarea","full")+
- field("inputs","Initial state / input files / environment",from?.inputs||"","textarea","full")+
- field("dod","Specific acceptance conditions (DoD)",from?.dod||"","textarea","full"),"","Create Test Case");
+ versionField+window.AICompassWorkgroup.renderCaseFields(from||{},["objective","inputs","dod"]),"","Create Test Case");
 }
 function comboComponentOptions(type,chosen){
 return [["","Select "+type]].concat(db.components.filter(function(c){return c.type===type&&c.status!=="retired";}).map(function(c){return[c.id,c.name+(c.version?" · "+c.version:"")+(c.accessible?"":" (not accessible)")];}));
@@ -2366,7 +2364,14 @@ openModal("Benchmark evidence · "+r.id,html,foot);
 }
 function detailsCase(id){
 var c=rec("cases",id);if(!c||(!canEdit()&&c.status!=="published"))return;var t=rec("tasks",c.task),parent=rec("cases",c.parentCaseId),rs=db.runs.filter(function(r){return r.case===c.id;});
-var html='<div class="row-between">'+badge(c.status)+' '+badge("v"+c.version)+'</div><p style="margin:14px 0">'+E(c.objective)+'</p><h3>Engineering task</h3><p class="small">'+E(t?.name||"")+'</p><h3 style="margin:13px 0 6px">Inputs and test conditions</h3><pre class="code">'+E(c.inputs)+'</pre><h3 style="margin:13px 0 6px">Acceptance / DoD</h3><pre class="code">'+E(c.dod)+'</pre><hr class="divider"><h3>Recorded benchmark runs</h3>'+simpleTable(["Solution","Observed quality","Publication",""],rs.map(function(r){return '<tr>'+td(E(rec("solutions",r.solution)?.name||r.solution))+td('<span class="score">'+r.score+'/100</span>')+td(badge(r.status))+td(btn("Evidence","runDetail",r.id,"sm"))+'</tr>';}));
+var html=window.AICompassWorkgroup.renderCaseDetail(c,"demo",{
+ taskName:t?.name||"",fields:["objective","inputs","dod"]
+})+'<hr class="divider"><h3>Recorded benchmark runs</h3>'+
+simpleTable(["Solution","Observed quality","Publication",""],rs.map(function(r){
+ return '<tr>'+td(E(rec("solutions",r.solution)?.name||r.solution))+
+ td('<span class="score">'+r.score+'/100</span>')+td(badge(r.status))+
+ td(btn("Evidence","runDetail",r.id,"sm"))+'</tr>';
+}));
 if(parent)html='<div class="note" style="margin-bottom:12px"><strong>Forked from:</strong> '+linkAction(parent.title+" (v"+parent.version+")","caseDetail",parent.id)+'</div>'+html;
 openModal(c.title,html,btn("Close","close","","")+(canEdit()?btn("Fork new challenge","forkCase",c.id,"")+(ui.page==="benchmark"?btn("Run this TC","newRunForCase",c.id,"primary"):""):""));
 }
