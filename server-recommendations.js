@@ -86,37 +86,39 @@ function mount(root,csrf,escapeHtml){
   function render(){
     var task=$("#rec-task-filter")&&$("#rec-task-filter").value;
     var solution=$("#rec-solution-filter")&&$("#rec-solution-filter").value;
-    var shown=recommendations.filter(function(x){return (!task||x.task_id===task)&&
-                                                    (!solution||x.solution_id===solution);});
-    $("#rec-list").innerHTML=shown.length?shown.map(function(row){
-      var p=row.properties;
-      var alerts=row.review_needed?
-        '<p><strong>Review required: '+esc(row.reason)+'</strong> · '+esc(row.new_run_ids.length)+
-        ' new controlled Run(s), '+esc(row.contradictory_run_ids.length)+' failed. '+
-        'Published decision remains frozen until explicit review.</p>':"";
-      var freshness=row.eligible_for_current_suitability===false?
-        '<p><strong>Not currently qualified by active published evidence.</strong> '+
-        'Source evidence is missing, withdrawn or superseded; review is required before this recommendation can inform suitability or economic projections. '+
-        'Evidence freshness: '+esc(row.evidence_freshness||"unknown")+'.</p>':
-        '<p class="muted small">Qualification inputs current as of last review.</p>';
-      return '<article class="list-row" style="padding:14px;border-bottom:1px solid #dde5ee">'+
-        '<h3>'+esc(row.name)+'</h3><p class="muted small">'+esc(row.id)+' · '+esc(row.revision)+
-        ' · '+esc(row.state)+' · '+esc(p.decision)+' · '+esc(row.task_id)+
-        ' · '+esc(row.solution_id)+'</p>'+
-        '<p>'+esc(p.rationale)+'</p><p class="muted small">'+esc(row.run_refs.length)+
-        ' original Run(s) linked · reviewer: '+esc(row.reviewed_by||"awaiting review")+'</p>'+
-        freshness+alerts+
-        '<button type="button" data-recommendation="'+esc(row.id)+'" data-action="history">Original history / evidence</button>'+
-        (writer?'<button type="button" data-recommendation="'+esc(row.id)+'" data-action="edit">New draft revision</button>':'')+
-        (writer&&row.state==="draft"?
-          '<button type="button" data-recommendation="'+esc(row.id)+'" data-action="submit">Submit for review</button>':'')+
-        (reviewer&&row.state==="in_review"?
-          '<button type="button" data-recommendation="'+esc(row.id)+'" data-action="publish">Review and publish</button>':'')+
-        (reviewer&&row.state!=="unpublished"?
-          '<button type="button" data-recommendation="'+esc(row.id)+'" data-action="unpublish">Withdraw publication</button>':'')+
-        '</article>';
-    }).join(""):'No permitted recommendations in Server. Drafts are workgroup-only.';
+    var shown=recommendations.filter(function(x){
+      return (!task||x.task_id===task)&&(!solution||x.solution_id===solution);
+    });
+    $("#rec-list").innerHTML=window.AICompassWorkgroup.renderRecords(shown.map(function(r){
+      var p=r.properties||{},actions=[
+        {label:"Original history / evidence",
+         attributes:{"data-recommendation":r.id,"data-action":"history"}}
+      ];
+      if(writer)actions.push({label:"New draft revision",
+        attributes:{"data-recommendation":r.id,"data-action":"edit"}});
+      if(writer&&r.state==="draft")actions.push({label:"Submit for review",
+        attributes:{"data-recommendation":r.id,"data-action":"submit"}});
+      if(reviewer&&r.state==="in_review")actions.push({label:"Review and publish",
+        attributes:{"data-recommendation":r.id,"data-action":"publish"}});
+      if(reviewer&&r.state!=="unpublished")actions.push({label:"Withdraw publication",
+        attributes:{"data-recommendation":r.id,"data-action":"unpublish"}});
+      var notices=[];
+      if(r.review_needed)notices.push("Review required: "+r.reason+". "+
+        (r.new_run_ids||[]).length+" new controlled Run(s), "+
+        (r.contradictory_run_ids||[]).length+" failed. Published decision remains frozen.");
+      if(r.eligible_for_current_suitability===false)
+        notices.push("Not currently qualified by active published evidence. Evidence freshness: "+
+          (r.evidence_freshness||"unknown")+". Source evidence withdrawn or superseded.");
+      else notices.push("Qualification inputs current as of last review.");
+      return {id:r.id,title:r.name,revision:r.revision,status:r.state,
+        description:p.rationale||"",facts:[p.decision,r.task_id,r.solution_id,
+          (r.run_refs||[]).length+" original Run(s)",
+          "Reviewer: "+(r.reviewed_by||"awaiting review")],
+        notices:notices,actions:actions};
+    }),{domain:"recommendations",mode:"server",
+        emptyText:"No permitted recommendations in Server. Drafts are workgroup-only."});
   }
+
   function field(name,label,value,required,multi){
     return '<label>'+label+(multi?'<textarea name="'+name+'" '+(required?"required":"")+'>'+esc(value||"")+'</textarea>':
       '<input name="'+name+'" value="'+esc(value||"")+'" '+(required?"required":"")+'>')+'</label>';
