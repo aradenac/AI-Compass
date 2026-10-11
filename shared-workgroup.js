@@ -378,7 +378,7 @@
       return '<div class="field span2 shared-guide-field"><label for="'+id+'">'+
         escape(label)+'</label>'+control+'</div>';
     }
-    return '<div data-shared-guide-fields="'+mode+'">'+
+    return '<div class="span2 shared-guide-fields" data-shared-guide-fields="'+mode+'">'+
       field(keys[0],"Guide title",g.name,"text",160,true)+
       field(keys[1],"Procedure text (optional if URL present)",g.text,"textarea",32768,false)+
       field("url","Setup URL (HTTP or HTTPS; optional if text present)",g.url,"url",2048,false)+
