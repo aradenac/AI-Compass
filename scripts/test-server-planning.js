@@ -32,14 +32,25 @@ const sandbox={window:{},fetch:async(url,options)=>{
   if(url.endsWith("tasks"))return {ok:true,json:async()=>({results:taskRows})};
   return {ok:true,json:async()=>({workloads:[],headcount:1,hourly_rate_source:null,warnings:[]})};
 }};
+const opportunityGrants=[];
+sandbox.window.AICompassOpportunities={
+  serverProvider:function(){return {request:function(){throw Error("Protected opportunity provider must not fetch without authorization");}};},
+  mount:function(el,provider,mode){
+    assert.equal(mode,"server");
+    assert.equal(el,child("#planning-opportunities"));
+    return {setAccess:function(read,write){opportunityGrants.push([read,write]);}};
+  }
+};
 function escape(s){return String(s).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;");}
 vm.runInNewContext(code,sandbox,{filename:"server-planning.js"});
 const ui=sandbox.window.AICompassServerPlanning.mount(root,()=>"csrf",escape);
 assert.equal(urls.length,0);
 ui.setAccess(false,false);
+assert.deepEqual(opportunityGrants[0],[false,false]);
 assert(root.hidden);
 assert.equal(urls.length,0);
 ui.setAccess(true,false);
+assert.deepEqual(opportunityGrants[1],[true,false]);
 setImmediate(()=>{
   assert.equal(urls.length,2);
   assert(!root.hidden);
