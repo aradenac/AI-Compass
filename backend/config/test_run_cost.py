@@ -159,7 +159,7 @@ class TariffRunTests(PricingTests):
             "consumption":{"root:model":{"output_tokens":0}}},method="PATCH",csrf=False)
         self.assertEqual(denied.status_code,403)
         self.client.force_login(self.reader)
-        self.assertEqual(self.client.get(path).status_code,200)
+        self.assertEqual(self.client.get(path).status_code,404)
         self.assertEqual(self.call(path+"/metering",{"expected_revision":"r001",
             "consumption":{"root:model":{"output_tokens":0}}},method="PATCH").status_code,403)
         self.client.force_login(self.writer)
