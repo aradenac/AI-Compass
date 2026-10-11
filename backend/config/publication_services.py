@@ -211,7 +211,7 @@ def _coverage(item):
 
 @transaction.atomic
 def publish(*, actor, public_id, expected_revision, run_ids, removal_reason=""):
-    item = CatalogItem.objects.select_for_update().select_related(
+    item = CatalogItem.objects.select_for_update(of=("self",)).select_related(
         "current_revision").get(public_id=public_id, type_slug="campaign")
     current = item.current_revision
     if expected_revision != "r%03d" % current.number:
@@ -240,7 +240,7 @@ def publish(*, actor, public_id, expected_revision, run_ids, removal_reason=""):
 
 @transaction.atomic
 def revoke(*, actor, public_id, expected_revision):
-    item = CatalogItem.objects.select_for_update().select_related(
+    item = CatalogItem.objects.select_for_update(of=("self",)).select_related(
         "current_revision").get(public_id=public_id, type_slug="campaign")
     if effective(item) is None:
         raise InvalidTransition("No effective publication to withdraw")
