@@ -372,14 +372,29 @@ def _restricted_catalog_change(row):
         item=row.item, number=row.revision.number-1).first()
     if previous is None:
         return False
-    if row.revision.properties != previous.properties:
-        old_visible = _catalog_snapshot(previous).get("properties")
-        new_visible = _catalog_snapshot(row.revision).get("properties")
-        if row.item.type_slug == "pricing_offer":
-            old_visible = _safe_offer(previous.properties)
-            new_visible = _safe_offer(row.revision.properties)
-        if old_visible == new_visible:
-            return True
+    old_props, new_props = previous.properties, row.revision.properties
+    if not isinstance(old_props, dict) or not isinstance(new_props, dict):
+        return old_props != new_props
+    # Only compare *excluded* data in memory: never emit its names or values.
+    if row.item.type_slug == "pricing_offer":
+        safe = {"currency", "billing_owner", "status", "lines"}
+    else:
+        safe = SAFE_PROPS
+    before = {k: v for k, v in old_props.items() if k not in safe}
+    after = {k: v for k, v in new_props.items() if k not in safe}
+    if before != after:
+        return True
+    if row.item.type_slug == "pricing_offer":
+        # A line may have opaque conditions/terms in addition to safe tariff units.
+        old_lines = old_props.get("lines", [])
+        new_lines = new_props.get("lines", [])
+        def opaque(lines):
+            permitted = {"charge_id", "charge_type", "family", "meter",
+                         "rate", "unit_size", "period", "tiers",
+                         "provider_credit_namespace"}
+            return [{k: v for k, v in line.items() if k not in permitted}
+                    for line in lines if isinstance(line, dict)]
+        return opaque(old_lines) != opaque(new_lines)
     return False
 
 
