@@ -759,6 +759,38 @@ class WorkloadAllocation(models.Model):
         ordering = ["task__item__public_id"]
 
 
+
+class OpportunityScenario(models.Model):
+    """Stable planning scenario identity; exactly one scoped DAP-01 population."""
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    public_id = models.CharField(max_length=120, unique=True)
+    profile = models.ForeignKey(WorkloadProfile, on_delete=models.PROTECT,
+                                related_name="opportunity_scenarios")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class OpportunitySnapshot(models.Model):
+    """Immutable scenario choice, inputs and derived annual potential at one point in time.
+
+    GET /current recalculates from effective sources; it does not mutate this snapshot.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    scenario = models.ForeignKey(OpportunityScenario, on_delete=models.PROTECT,
+                                 related_name="snapshots")
+    number = models.PositiveIntegerField()
+    algorithm = models.CharField(max_length=48, default="dap-opportunity-v1")
+    assumptions = models.JSONField(default=dict)
+    projection = models.JSONField(default=dict)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+                                   related_name="opportunity_snapshots")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(
+            fields=["scenario", "number"], name="uniq_opportunity_scenario_revision")]
+        ordering = ["scenario", "number"]
+
+
 class ExternalImportBinding(models.Model):
     """Stable external identity map; its last-import pointer advances on new revisions."""
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
