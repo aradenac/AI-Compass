@@ -178,7 +178,7 @@ function mount(root,csrf,escapeHtml){
           (forecast?'<p class="muted small">Estimates only · Uncertainty: '+
             esc(r.uncertainty||"Unspecified")+'</p>':
             '<p class="muted small">Unknown fields: '+esc((r.missing_fields||[]).join(", ")||"none")+
-            ' · <a href="'+esc(window.AICompassContext.route("server","workgroup","results",{
+            ' · <a href="'+esc(window.AICompassContext.route("server",writer?"workgroup":"engineer","results",{
               record:r.id,revision:r.revision||"",task:r.task_id,solution:r.solution_id||r.candidate
             }))+'">Open Run context</a></p>'+
             (reviewer?'<button type="button" data-amend-run="'+esc(r.id)+'">Correct / withdraw</button>':''))+
