@@ -112,7 +112,7 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;b
 <script src="shared-pricing.js"></script>
 <script src="shared-workgroup.js"></script>
 <script src="shared-engineer.js"></script>
-<script src="shared-opportunities.js"></script>
+<script src="shared-opportunities.js"></script>\n<script src="shared-budgets.js"></script>
 <script src="shared-opportunity-heatmap.js"></script>
 <script src="shared-drafts.js"></script>
 <script src="server-tasks.js"></script>
@@ -905,7 +905,7 @@ if(persona && persona.id === "management" && window.AICompassHeatmap) {
       window.AICompassHeatmap.demoProvider(db),"demo").setAccess(true);
   }
 }
-if(persona && persona.id === "management" && window.AICompassDemoDeployments) {
+if(persona && persona.id === "management" && window.AICompassBudgets) {\n  var demoBudgetsHost=document.querySelector(".content");\n  if(demoBudgetsHost){\n    var demoBudgetSection=document.createElement("section");\n    demoBudgetSection.id="demo-budgets";\n    demoBudgetsHost.insertBefore(demoBudgetSection,demoBudgetsHost.firstChild);\n    window.AICompassBudgets.mount(demoBudgetSection,\n      window.AICompassBudgets.demoProvider(db,persist),"demo").setAccess(true,true);\n  }\n}\nif(persona && persona.id === "management" && window.AICompassDemoDeployments) {
   var demoDeploymentHost=document.querySelector(".content");
   if(demoDeploymentHost){
     var demoDeploymentSection=document.createElement("section");

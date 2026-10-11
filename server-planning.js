@@ -9,8 +9,8 @@
       '<button id="planning-refresh" type="button">Refresh profiles</button>' +
       '<button id="planning-new" type="button">New profile</button>' +
       '<div id="planning-list"></div><div id="planning-editor" hidden></div>' +
-      '<div id="planning-detail"></div><section id="planning-opportunities"></section><section id="planning-deployments"></section></div>';
-    var deployment = window.AICompassServerDeployments &&
+      '<div id="planning-detail"></div><section id="planning-opportunities"></section><section id="planning-deployments"></section><section id="planning-budgets"></section></div>';
+    var budgets = window.AICompassBudgets && window.AICompassBudgets.mount(\n      root.querySelector("#planning-budgets"),\n      window.AICompassBudgets.serverProvider(fetch,csrf), "server");\n    var deployment = window.AICompassServerDeployments &&
       window.AICompassServerDeployments.mount(root.querySelector("#planning-deployments"), csrf, E);
     var status = root.querySelector("#planning-state");
     var list = root.querySelector("#planning-list");
@@ -216,7 +216,7 @@
     return {setAccess: function (read, write) {
       canView = Boolean(read); canWrite = Boolean(write);
       opportunities.setAccess(canView,canWrite);
-      if (deployment) deployment.setAccess(canView,canWrite);
+      if (deployment) deployment.setAccess(canView,canWrite);\n      if (budgets) budgets.setAccess(canView,canWrite);
       root.hidden = !canView; generation++;
       if (canView) refresh();
       else {profiles = []; tasks = []; editor.hidden = true; list.replaceChildren();
