@@ -1,6 +1,6 @@
 # FUT-04 — Shared AI Workgroup Studio and stable knowledge views
 
-Issue: [#78](https://github.com/aradenac/AI-Compass/issues/78) · Original specification: [Role-based navigation](future-evolutions/role-based-user-experience-and-guided-navigation.md) · [Shared frontend](future-evolutions/shared-frontend-and-release-lifecycle.md).
+Issue: [#78](https://github.com/aradenac/AI-Compass/issues/78) · Original specification: [Role-based navigation](role-based-user-experience-and-guided-navigation.md) · [Shared frontend](shared-frontend-and-release-lifecycle.md).
 
 ## Workgroup navigation
 
