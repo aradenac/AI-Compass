@@ -103,6 +103,7 @@ def close(*,actor,public_id,expected_revision,data):
         provenance={
             "scope":"composite",
             "evaluation_id":state.get("evaluation_id"),
+            "setup_composition":__import__("config.run_provenance",fromlist=["snapshot"]).snapshot(session),
             "execution_environment":state["setup"].get("environment",{}),
             "setup_deviations":state["setup"].get("notes",""),
             "campaign_id":snap.revision.item.public_id,
