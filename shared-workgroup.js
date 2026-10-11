@@ -264,8 +264,50 @@
     return '<div class="shared-case-tree" data-shared-cases="'+mode+'">'+result+'</div>';
   }
 
+
+  var CASE_FIELDS=Object.freeze([
+    ["objective","Objective / challenge"],["inputs","Starting inputs / source context"],
+    ["constraints","Constraints / conditions"],["expected_outputs","Expected outputs"],
+    ["dod","Definition of Done"],["environment","Environment / setup"]
+  ]);
+  function normalizeCase(row,mode) {
+    if(!row||(mode!=="demo"&&mode!=="server"))throw Error("Explicit Test Case and mode required");
+    return {id:row.id,title:mode==="demo"?row.title:row.name,
+      version:mode==="demo"?row.version:row.case_version,
+      revision:row.revision||"",
+      parent:mode==="demo"?row.parentCaseId:row.fork_parent_id,
+      task:mode==="demo"?row.task:row.task_id,
+      fields:mode==="demo"?row:(row.properties||{})};
+  }
+  function renderCaseFields(values,selection) {
+    selection=selection||CASE_FIELDS.map(function(f){return f[0];});
+    if(!Array.isArray(selection)||selection.some(function(k){return !CASE_FIELDS.some(function(f){return f[0]===k;});}))
+      throw Error("Unknown Test Case field");
+    values=values||{};
+    return CASE_FIELDS.filter(function(f){return selection.includes(f[0]);}).map(function(f){
+      return '<div class="field span2 shared-case-field"><label for="shared-tc-'+f[0]+'">'+
+        escape(f[1])+'</label><textarea id="shared-tc-'+f[0]+'" name="'+f[0]+'" rows="3">'+
+        escape(values[f[0]]||"")+'</textarea></div>';
+    }).join("");
+  }
+  function renderCaseDetail(row,mode,options) {
+    var r=normalizeCase(row,mode),p=r.fields;
+    options=options||{};
+    var fields=options.fields||CASE_FIELDS.map(function(f){return f[0];});
+    var contents=CASE_FIELDS.filter(function(f){return fields.includes(f[0])&&p[f[0]];}).map(function(f){
+      return '<section class="shared-case-detail-field"><h4>'+escape(f[1])+'</h4>'+
+        '<p style="white-space:pre-wrap">'+escape(p[f[0]])+'</p></section>';
+    }).join("");
+    return '<div class="shared-case-detail" data-shared-case-detail="'+mode+'">'+
+      '<h3>'+escape(r.title)+'</h3><p class="muted small">ID '+escape(r.id)+
+      ' · Version '+escape(r.version)+(r.revision?' · Revision '+escape(r.revision):"")+
+      ' · Task '+escape(options.taskName||r.task||"Unknown")+
+      (r.parent?' · Fork of '+escape(r.parent):"")+'</p>'+
+      (contents||'<p class="muted">No documented challenge fields.</p>')+'</div>';
+  }
+
   root.AICompassWorkgroup={ZONES:ZONES,STABLE:STABLE,SECTION_TO_DEMO:SECTION_TO_DEMO,
     SECTION_TO_SERVER:SECTION_TO_SERVER,canVisit:canVisit,renderMap:renderMap,
     breadcrumbs:breadcrumbs,attention:attention,href:href,renderList:renderList,
-    serverProvider:serverProvider,demoProvider:demoProvider,mountSummary:mountSummary,renderCases:renderCases};
+    serverProvider:serverProvider,demoProvider:demoProvider,mountSummary:mountSummary,renderCases:renderCases,renderCaseFields:renderCaseFields,renderCaseDetail:renderCaseDetail};
 })(window);
