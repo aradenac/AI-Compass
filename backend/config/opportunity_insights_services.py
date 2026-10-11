@@ -5,6 +5,7 @@ via opportunity_services.project(). This module never stores or invents finance.
 All endpoints must enforce auth.planning_view BEFORE querying protected sources.
 """
 from collections import defaultdict
+from copy import deepcopy
 from decimal import Decimal
 from django.utils import timezone
 
@@ -62,6 +63,35 @@ def _task_nodes():
 
 def _slice_totals(projection):
     return {key: projection["totals"][key] for key in SLICES}
+
+
+def _management_projection(projection):
+    """Projection is not an authorization to expose personal input rates in a
+    tooltip, chart, audit link or convenient Management export payload."""
+    if projection is None:
+        return None
+    safe = deepcopy(projection)
+    for cell in safe.get("cells", []):
+        work = cell.get("source_workload")
+        if work is not None:
+            cell["source_workload"] = {
+                "profile_id": work.get("profile_id"),
+                "profile_revision_id": work.get("profile_revision_id"),
+                "effective_workload_source_id": [
+                    {"kind": x["kind"], "profile_id": x["profile_id"],
+                     "revision_id": x["revision_id"]}
+                    for x in (work.get("workload") or {}).get("sources", [])],
+                "individual_inputs": "restricted_use_authorized_planning_profile",
+            }
+        for key in ("economic", "measured_economics", "theoretical_economics"):
+            value = cell.get(key)
+            if value:
+                value.pop("valuation_eur_per_hour", None)
+                value.pop("baseline_human_hours", None)
+                value.pop("annual_occurrences", None)
+                value.pop("assisted_human_hours", None)
+    safe.pop("headcount", None)
+    return safe
 
 
 def _cell(task_id, candidate, result, chosen):
@@ -211,7 +241,7 @@ def heatmap(*, profile_id, scenario_id=None, revision=None,
                    "maturity_icons": {"B": "accepted measured source",
                                       "F": "published theoretical Forecast",
                                       "?": "source incomplete/unquantifiable"}},
-        "chosen_scenario": frozen if snap else None,
+        "chosen_scenario": _management_projection(frozen) if snap else None,
         "selected_choices": list(chosen.values()) if snap else [],
         "note": "Unselected cells are alternative projections and NEVER added to portfolio totals; historical mode shows frozen selected cells only.",
     }
@@ -266,7 +296,7 @@ def insights(*, profile_id, scenario_id=None, revision=None):
         "profile_id": profile.public_id, "scenario_id": scenario.public_id,
         "revision": "r%03d" % snap.number,
         "historical": revision is not None,
-        "portfolio": portfolio,
+        "portfolio": _management_projection(portfolio),
         "as_of": snap.created_at.isoformat() if revision is not None else timezone.now().isoformat(),
         "source_changed_since_snapshot": portfolio != snap.projection if revision is None else False,
         "snapshots": history,
@@ -314,7 +344,8 @@ def explain(*, profile_id, scenario_id, task_id, kind, candidate_id, revision=No
                  r["candidate_id"] == candidate_id), None)
     if cell is None:
         raise core.InvalidOpportunity("Candidate is not selected in the original scenario revision")
-    work = cell.get("source_workload") or {}
+    exposed = _management_projection({"cells": [cell]})["cells"][0]
+    work = exposed.get("source_workload") or {}
     original = cell.get("measured_reference") or {}
     theory = cell.get("forecast_reference") or {}
     return {
@@ -331,7 +362,7 @@ def explain(*, profile_id, scenario_id, task_id, kind, candidate_id, revision=No
             {"type": "formula", "label": "Annual economic calculation",
              "factors": {"algorithm": projection["algorithm"],
                          "expression": (cell.get("economic") or {}).get("formula"),
-                         "inputs": cell.get("economic"), "blend_weight": projection["benchmark_weight"],
+                         "inputs": exposed.get("economic"), "blend_weight": projection["benchmark_weight"],
                          "rate_source": "authorized_planning_only"}},
             {"type": "workload", "label": "Effective role/person/cohort workload",
              "factors": work, "original_revision_id": work.get("profile_revision_id")},
@@ -341,7 +372,7 @@ def explain(*, profile_id, scenario_id, task_id, kind, candidate_id, revision=No
              "factors": theory},
             {"type": "tariff", "label": "Recorded marginal EUR reference",
              "factors": {"basis": cell.get("cost_basis"),
-                         "recorded_cost": (cell.get("economic") or {}).get(
+                         "recorded_cost": (exposed.get("economic") or {}).get(
                              "marginal_reference_ai_cost_eur"),
                          "current_supplier_quote_verified": False}},
             {"type": "deployment", "label": "Entitlement and first use",
