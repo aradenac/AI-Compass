@@ -134,9 +134,8 @@ class BudgetTests(OpportunityTests.__bases__[0]):
         with patch("config.budget_services._source",return_value=self.fake_source()):
             bad=json.loads(json.dumps(args))
             bad["plan"]["items"][0]["meter_overrides"]={"other-owner":{"requests":"1"}}
-            # Original source includes a prequalified assumption. The provider
-            # must reject any attempt to pass an unpriced source/meter.
-            self.assertEqual(self.request(browser,csrf,API+"/preview",bad).status_code,200)
+            # Even with mocked upstream evidence, an unpriced source is not accepted.
+            self.assertEqual(self.request(browser,csrf,API+"/preview",bad).status_code,400)
 
     def test_rollout_active_capacity_disjoint_and_missing_source(self):
         _,browser,csrf,population=self.plan(headcount=3,frequency="10")

@@ -350,6 +350,14 @@ def project(profile, plan):
         else:
             frequency = num(work["annual_occurrences"], "annual Task frequency")
         components, pins, observations, source, maturity, metrics = _source(item)
+        if item["purpose"] == "pilot":
+            expected = {key: {line["meter"] for source_key, _, rev in pins
+                              if source_key == key for line in rev.properties.get("lines", [])
+                              if line["charge_type"] == "variable"}
+                        for key in components}
+            for source_key, meters in item["meter_overrides"].items():
+                if source_key not in expected or set(meters) - expected[source_key]:
+                    raise InvalidBudget("Unpriced or unrelated usage assumption")
         selected = {k for k, _, _ in pins}
         for key in components:
             if key not in selected:
@@ -362,6 +370,8 @@ def project(profile, plan):
                 "candidate_id": item.get("candidate_id", target.candidate.public_id if target else None),
                 "headcount": count, "estimated_task_occurrences": fmt(base) if base is not None else None,
                 "evidence_class": maturity, "source": source,
+                "commercial_pins": [{"source_key": k, "offer_id": o.public_id,
+                   "offer_revision_id": str(rev.pk)} for k, o, rev in pins],
                 "profile_revision_id": workload["revision_id"],
                 "workload_sources": work.get("sources") if work else [],
                 "distribution": "uniform_monthly_assumption_not_observed",
