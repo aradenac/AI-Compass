@@ -902,3 +902,33 @@ class DeploymentEvent(models.Model):
 
     class Meta:
         ordering = ["created_at", "id"]
+
+
+class BudgetPlan(models.Model):
+    """Permanent, explicitly selected resource request; no purchasing or IAM."""
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    public_id = models.CharField(max_length=120, unique=True)
+    profile = models.ForeignKey(WorkloadProfile, on_delete=models.PROTECT,
+                                related_name="resource_budgets")
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+                                   related_name="created_resource_budgets")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class BudgetRevision(models.Model):
+    """Append-only source-pinned planning decision and frozen cost/quantity projection."""
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    budget = models.ForeignKey(BudgetPlan, on_delete=models.PROTECT,
+                               related_name="revisions")
+    number = models.PositiveIntegerField()
+    algorithm = models.CharField(max_length=48, default="dap-resource-v1")
+    assumptions = models.JSONField(default=dict)
+    projection = models.JSONField(default=dict)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+                                   related_name="resource_budget_revisions")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(
+            fields=["budget", "number"], name="uniq_resource_budget_revision")]
+        ordering = ["budget", "number"]
