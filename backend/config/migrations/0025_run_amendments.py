@@ -44,6 +44,10 @@ class Migration(migrations.Migration):
             fields=["composite_run","number"],name="uniq_composite_run_amendment_number")),
         migrations.AddConstraint("runamendment", models.CheckConstraint(
             condition=models.Q(number__gte=2),name="run_amendment_number_gte_2")),
+        migrations.AddField(
+            model_name="recommendationrunpin", name="acknowledged_amendment",
+            field=models.ForeignKey(to="config.runamendment", null=True, blank=True,
+                on_delete=django.db.models.deletion.PROTECT, related_name="+")),
         migrations.RunSQL("""
             CREATE TRIGGER immutable_run_amendment BEFORE UPDATE OR DELETE
             ON config_runamendment FOR EACH ROW
