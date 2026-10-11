@@ -51,9 +51,10 @@ def contract(session):
     if pins is None:return None
     required=[];fixed=[];sources=[];reasons=[]
     seen=set()
+    credit_namespaces={}
     for p in pins:
         prop=p.offer_revision.properties
-        status=readiness(p.offer_revision)
+        status=readiness(p.offer_revision,as_of=session.created_at.date().isoformat())
         if not status["complete"]:
             reasons.extend(p.source_key+": "+s for s in status["reasons"])
         for line in prop.get("lines",[]):
@@ -63,6 +64,10 @@ def contract(session):
             if line["charge_type"]=="variable":
                 key=(p.source_key,line["meter"],
                      line.get("provider_credit_namespace") if line["meter"]=="provider_credits" else None)
+                slot=(p.source_key,line["meter"])
+                if slot in credit_namespaces and credit_namespaces[slot]!=key[2]:
+                    reasons.append("Ambiguous credit namespaces on one source and meter: "+p.source_key)
+                credit_namespaces[slot]=key[2]
                 if key not in seen:
                     seen.add(key)
                     required.append({"source_key":p.source_key,"meter":line["meter"],
