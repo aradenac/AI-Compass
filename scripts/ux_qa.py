@@ -170,8 +170,8 @@ def mutation_probes(browser, artifacts):
 
 def capture(page, directory, name):
     # Never retain sensitive credentials or the contents of unfinished auth forms.
-    for item in page.locator('input[type="password"]').all():
-        item.fill("")
+    page.evaluate("""() => document.querySelectorAll('input[type="password"]')
+        .forEach(input => { input.value = ''; })""")
     page.screenshot(path=str(directory / (name + ".png")), full_page=True,
                     animations="disabled")
 
