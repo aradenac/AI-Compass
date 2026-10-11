@@ -200,6 +200,31 @@ def demo_journey(browser, demo_url, artifacts, role, label, viewport):
             raise AssertionError("Standalone Demo unexpectedly contacted API: " + str(api_calls))
         capture(page, artifacts, "demo-" + label + "-" + str(viewport["width"]))
         if role == "u1":
+            # UX-R04: inspect actual shared business surfaces, not source text.
+            for section, domain in [
+                ("knowledge", "guides"), ("watch", "watch"),
+                ("feedback", "feedback"), ("recommendations", "recommendations"),
+                ("benchmark", "campaigns"), ("testdesign", "cases")
+            ]:
+                page.locator(f'[data-act="nav"][data-id="{section}"]').click()
+                if domain == "cases":
+                    surface = page.locator('.shared-case-tree[data-shared-cases="demo"]')
+                else:
+                    surface = page.locator(
+                        f'.shared-business-list[data-business-domain="{domain}"]')
+                surface.wait_for(state="visible", timeout=20000)
+                if surface.locator('[data-business-record]').count() == 0 and domain != "cases":
+                    raise AssertionError("Seeded Demo lacks real shared " + domain + " record cards")
+                assert_no_horizontal_overflow(page)
+                if domain in ("guides", "campaigns", "cases"):
+                    capture(page, artifacts, "demo-shared-" + domain + "-" + str(viewport["width"]))
+            page.locator(".shared-case-tree button[data-act=caseDetail]").first.click()
+            detail = page.locator('.shared-case-detail[data-shared-case-detail="demo"]')
+            detail.wait_for(state="visible")
+            if detail.locator("h3").count() != 1:
+                raise AssertionError("Shared Test Case detail lacks semantic heading")
+            page.get_by_role("dialog").get_by_role("button", name="Close dialog").click()
+        if role == "u1":
             # The actual Demo form must honor the same NFR modal contract.
             page.locator('[data-act="nav"][data-id="testdesign"]').click()
             page.locator('[data-act="newCase"]').first.click()
@@ -328,6 +353,23 @@ def server_journey(browser, base_url, creds, artifacts, role, viewport):
             raise AssertionError("Server JS runtime error(s): " + "; ".join(errors[:3]))
         # UX-R02 routes one domain at a time. Check real form dialogs as well
         # (a green static HTML test must never substitute for this interaction).
+        if role == "workgroup":
+            # Empty real Server is legitimate; Demo fixtures must NEVER leak.
+            # Each domain is rendered by the same list component as offline Demo.
+            for section, domain in [
+                ("guides", "guides"), ("watch", "watch"),
+                ("feedback", "feedback"), ("recommendations", "recommendations"),
+                ("benchmark", "campaigns"), ("forecasts", "forecasts")
+            ]:
+                page.goto(base_url + "/?mode=server&workspace=workgroup&section=" + section,
+                          wait_until="domcontentloaded")
+                page.locator(
+                    f'[data-business-domain="{domain}"], [data-business-empty="{domain}"]'
+                ).first.wait_for(state="visible", timeout=30000)
+                assert_exactly_one_view(page, "#ux-screen-host > [data-ux-screen]")
+                assert_no_horizontal_overflow(page)
+                if domain in ("guides", "campaigns"):
+                    capture(page, artifacts, "server-shared-" + domain + "-" + str(viewport["width"]))
         if role in ("workgroup", "multi_role"):
             page.goto(base_url + "/?mode=server&workspace=workgroup&section=testdesign&view=editor",
                       wait_until="domcontentloaded")
