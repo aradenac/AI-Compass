@@ -17,6 +17,8 @@ assert(fs.readFileSync("compose.yaml","utf8").includes(
 assert(fs.readFileSync("staging/compose.yaml","utf8").includes(
     "../server-results.js:/srv/frontend/server-results.js:ro"));
 assert(!source.includes("localStorage")&&!source.includes("sessionStorage"));
+assert(source.includes('writer?"workgroup":"engineer"'),
+  "Results deep links must preserve the read-only Engineer role without escalating to Workgroup");
 for(const marker of ["results/explorer?",'api("evaluations")',
   "experimental_method_version","No automatic averages",
   "THEORETICAL FORECAST","MEASURED ","Unknown / not measured",
