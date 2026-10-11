@@ -8,6 +8,8 @@
 > **Separate future proposal:** [OS Compatibility & User Environment](os-compatibility-and-user-environment.md). This UX proposal **consumes** OS compatibility information; it does not define its technical catalog schema.  
 > **Related work:** [Product Definition](product-definition.md) · [Platform Architecture & Data Governance](platform-architecture-and-data-governance.md) · [Benchmark Workflow](benchmark-workflow.md) · [Campaigns Server](campaigns-server.md) · [Test Cases Server](test-cases-server.md) · [Evidence-linked Recommendations](recommendations-server.md) · [Feedback & Discussions](feedback-discussions-server.md) · [Users & Access](users-and-access.md) · [Workload Planning DAP-01](workload-planning.md) · [Deployment & Adoption Planning](deployment-and-adoption-planning.md) · [Composable Setup Guides](composable-setup-guides.md) · [Campaign Evaluation Matrix](campaign-evaluation-matrix.md) · [Data Governance Audit Explorer](data-governance-audit-explorer.md).
 
+> **Delivery target (2026-10-11):** Desktop web application (Demo and Server), not mobile/tablet. Minimum target: common desktop windows (1024px+); Chromium CI reference 1366×900. Do not require mobile-specific implementation, screenshots, device emulation or mobile acceptance. Accessibility still applies to desktop keyboard and assistive technology.
+
 ## 1. Product problem, intention and boundaries
 
 Today much of AI Compass is exposed as a broad two-dimensional set of modules and navigation entries. Users must infer which data concerns them, which starting point answers their question, and how objects, evaluations and documents relate. The application appears as a complex website instead of a focused decision-support workspace.
@@ -37,7 +39,7 @@ Four purpose-built default experiences:
 8. **Pragmatic collaboration:** one experimenter edits one Run; shared business records use the backend's existing **optimistic expected-revision concurrency**, no global locks or automatic conflict merger.
 9. **Calculated suggestions:** suitable solutions appear automatically from profile-relevant Tasks and published comparable evidence, but Forecast is never misrepresented as a successful measured Benchmark; editorial opinions remain distinct.
 10. **Navigation permissions ≠ backend authorization:** selecting a persona never grants access. API authorization, publication and sensitive-data rules remain authoritative.
-11. **Accessibility/performance:** mouse/keyboard/touch-friendly navigation, readable icons/text, compact mobile fallbacks, sensible large-list search/filter, no reliance on arrows/colors/counter alone for meaning.
+11. **Desktop web accessibility/performance:** mouse/keyboard and assistive-technology navigation, readable icons/text, sensible large-list search/filter, no reliance on arrows/colors/counter alone for meaning. Mobile and touch-specific acceptance are out of scope.
 12. **Do not invent operational status:** status chips, attention counters and readiness claims must derive from explicitly modeled and resolvable states.
 
 ## 3. Role-aware spaces and interface switching
@@ -367,7 +369,7 @@ Data Maintainer **must not automatically** gain Workgroup business editing, publ
 | **Role-aware app shell** | Medium–high | Resolve eligible experiences from actual permissions; top-right switcher; per-account last chosen space; preserve /maintenance isolation. |
 | **Engineer Task/Tool projection** | **High** | Join DAP workloads/tasks to measured solutions, evidence, published editorial opinions, actual user access and OS compatibility. Provide no-profile fallback and secondary global discovery. |
 | **Solution Detail** | Medium–high | Reuse one measured-solution identity to present related Task results, recommendations, guides, feedback and deployment facts; no copied catalogs. |
-| **Workgroup diagram** | Medium | One categorized responsive graph, link/deep-link mapping, optional computed status count. |
+| **Workgroup diagram** | Medium | One categorized desktop web graph, link/deep-link mapping, optional computed status count. |
 | **Status count read projections** | Low–medium | Count only already resolvable states; no new status transitions; permission-filtered aggregation. |
 | **Results/Recommendations** | Medium | Retain existing PLAT-22 editor; integrate navigation into Solutions/Results; computed ranking distinct from editorial recommendation publication. |
 | **Breadcrumbs/deep links** | Medium | Stable object/revision-aware routes, originating context and preserved list filters where possible. |
@@ -400,11 +402,11 @@ Data Maintainer **must not automatically** gain Workgroup business editing, publ
 17. **Management:** lands on authorized DAP metrics and opens a sourced result without exposure of restricted individual rates.
 18. **Maintenance-only:** enters /maintenance and existing authorized health views while lacking Workgroup business editing or accounts administration if not granted.
 19. **Demo/Server:** shared frontend structure works with separately scoped real and synthetic records, local draft cache never crosses modes, and Server outages never trigger a fake Demo fallback.
-20. **Navigation/accessibility:** keyboard and assistive-tech users can traverse diagram nodes, counts, steppers and breadcrumbs; mobile view preserves hierarchy in a readable layout without information loss.
+20. **Navigation/accessibility:** desktop keyboard and assistive-tech users can traverse diagram nodes, counts, steppers and breadcrumbs. Mobile view adaptation is not an acceptance criterion.
 
 ## 14. Open implementation refinements, not blocking product decisions
 
-- Concrete UI layout for the categorized graph (adaptive graph vs responsive stacked section cards); all five zones, blocks and link semantics must survive.
+- Concrete desktop UI layout for the categorized graph (graph vs grouped section cards); all five zones, blocks and link semantics must survive.
 - Derivation, calibration and versioning of **automatic rankings**; quality/failure gates and relationship to published editorial limitations. Do not invent a scoring formula merely for presentation.
 - Scope and eligibility for resolving tool-by-person access when only aggregated DAP cohorts are known; don't claim individual provisioning from cohorts.
 - Choose precise UX wording/refresh strategy for the existing recommendation **review_needed** state and count without new status models.
