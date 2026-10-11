@@ -103,6 +103,11 @@ def _forecast(ident, task_id):
     if not item or not item.current_revision_id or (
             item.current_revision.properties.get("status")!="published"):
         return None
+    # A published Forecast is not automatically current if one of its pinned
+    # research/watch sources has since been withdrawn or made private.
+    from .forecast_services import serialize as public_forecast
+    if public_forecast(item,reader=True) is None:
+        return None
     snap=ForecastSnapshot.objects.filter(
         revision=item.current_revision,task__item__public_id=task_id).select_related(
             "revision","model","provider","harness").first()
@@ -377,6 +382,9 @@ def candidates():
         "current_revision").order_by("public_id")[:501]
     if len(fore)>500:raise InvalidOpportunity("Too many published Forecast candidates")
     for item in fore:
+        from .forecast_services import serialize as public_forecast
+        if public_forecast(item,reader=True) is None:
+            continue
         snap=ForecastSnapshot.objects.filter(revision=item.current_revision).select_related(
             "task__item").first()
         if snap:
