@@ -1785,10 +1785,8 @@ var g=rec("guides",id);
 openForm(g?"Edit document":"Create knowledge document","guide",
 selectField("type","Document type",[["Charter","Charter"],["Guide","User guide"],["Installation","Installation guide"],["FAQ","FAQ"],["Training","Training"]],g?.type||"Guide")+
 selectField("status","Publication",[["draft","Draft"],["published","Published"]],g?.status||"draft")+
-field("title","Title",g?.title||"","text","full")+
 selectField("solution","Related measured AI Solution (optional)",[["","Reusable / unassigned"]].concat(db.solutions.map(function(x){return[x.id,x.name];})),g?.solution||"")+
-field("body","Installation instructions (optional with URL)",g?.body||"","textarea","full")+
-field("url","Setup/reference URL (optional with text)",g?.url||"","url","full")+
+window.AICompassWorkgroup.renderGuideFields(g||{},"demo")+
  '<div class="span2 muted small">Optional offline Demo recipe: reuse guide IDs and pinned revisions (r001, r002…). This is not an OS compatibility validation.</div>'+
  field("recipe","Composable recipe (JSON; optional)",g?.recipe?JSON.stringify(g.recipe,null,2):"","textarea","full")+
 selectField("framework","Related Framework (optional)",[["","Reusable / no Framework"]].concat(db.components.filter(function(x){return x.type==="framework";}).map(function(x){return[x.id,x.name];})),g?.framework||"",true),id,g?"Save document":"Create document");
