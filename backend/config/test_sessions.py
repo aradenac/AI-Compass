@@ -430,5 +430,6 @@ class BenchmarkSessionTests(TestCase):
         self.assertEqual(rendered.status_code,200,rendered.content)
         self.assertTrue(rendered.json()["ready"],rendered.json())
         self.assertEqual(len(rendered.json()["configuration"]["participants"]),2)
-        self.assertEqual(len(rendered.json()["sections"]),3)
+        self.assertEqual(len(rendered.json()["sections"]),4)
+        self.assertEqual(rendered.json()["sections"][-1]["text"],"End-to-end verification")
 
