@@ -49,6 +49,23 @@ def _watch_readable(request, item, revision=None):
         if revision is None or not readable_revision(item,request.user,revision):
             raise Http404("Private or unpinned discussion evidence")
         return
+    if item.type_slug == "campaign" and not (
+            request.user.has_perm("auth.business_write") or
+            request.user.has_perm("auth.publication_review")):
+        from django.http import Http404
+        from .publication_services import effective_ids
+        from .models import BenchmarkRunEvidence, CompositeRunEvidence
+        allowed=effective_ids(item.public_id)
+        # Only evidence actually attached to an effectively published Run is
+        # accessible; uploading it to a Campaign alone never publishes it.
+        if not (BenchmarkRunEvidence.objects.filter(
+                evidence__item=item, evidence__revision=revision,
+                run__public_id__in=allowed).exists() or
+                CompositeRunEvidence.objects.filter(
+                evidence__item=item, evidence__revision=revision,
+                run__public_id__in=allowed).exists()):
+            raise Http404("Unpublished campaign evidence")
+        return
     if item.type_slug not in ("research_source","watch_entry","forecast","recommendation"):
         return
     if request.user.has_perm("auth.business_write") or request.user.has_perm("auth.publication_review"):
