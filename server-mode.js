@@ -370,8 +370,10 @@
     if (!maintenanceWorkspace && !requestedPersona && grants.includes("business_write"))
       personaId = "workgroup";
     personas.innerHTML = window.AICompassRuntime.renderPersonaLinks(data, "server", personaId);
-    engineer.setAccess(!maintenanceWorkspace && personaId === "engineer" &&
-                       grants.includes("business_read"));
+    engineer.setAccess(!maintenanceWorkspace &&
+      (personaId === "engineer" || (personaId === "workgroup" &&
+        new URLSearchParams(window.location.search).get("section") === "engineer")) &&
+      grants.includes("business_read"));
     personas.hidden = !personas.textContent.trim();
     pricing.setAccess(!maintenanceWorkspace &&
       ["engineer","workgroup"].includes(personaId) && grants.includes("business_read"),
