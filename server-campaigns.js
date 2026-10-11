@@ -5,7 +5,7 @@
   var STATES=["planned","in_progress","under_review","published"];
   var NEXT={
     planned:[["start","Start campaign"]],
-    in_progress:[["close","Close for review"]],
+    in_progress:[["close","Close full plan"],["close_partial","Close partial review"]],
     under_review:[["rework","Request rework"],["publish","Publish plan"],["reopen","Reopen"]],
     published:[["unpublish","Unpublish"],["reopen","Reopen"]]
   };
@@ -407,8 +407,10 @@
       var run=++ticket;
       status("Applying "+action+" to "+row.id+"…");
       try{
-        var result=await api("campaigns/"+encodeURIComponent(row.id)+"/actions/"+encodeURIComponent(action),
-          "POST",{expected_revision:row.revision});
+        var isPartial=action==="close_partial";
+        var result=await api("campaigns/"+encodeURIComponent(row.id)+"/actions/"+
+          encodeURIComponent(isPartial?"close":action),
+          "POST",{expected_revision:row.revision,...(isPartial?{partial_review:true}:{})});
         if(!allowed||run!==ticket)return;
         await refresh();
         status("Campaign "+result.campaign.id+" · "+result.campaign.revision+
