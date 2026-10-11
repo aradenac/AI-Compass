@@ -71,6 +71,8 @@ services:
       - ./demo-deployments.js:/srv/frontend/demo-deployments.js:ro
       - ./model-catalog.js:/srv/frontend/model-catalog.js:ro
       - ./shared-runtime.js:/srv/frontend/shared-runtime.js:ro
+      - ./shared-shell.js:/srv/frontend/shared-shell.js:ro
+      - ./shared-shell.css:/srv/frontend/shared-shell.css:ro
       - ./shared-catalog.js:/srv/frontend/shared-catalog.js:ro
       - ./shared-environment.js:/srv/frontend/shared-environment.js:ro
       - ./shared-workgroup.js:/srv/frontend/shared-workgroup.js:ro

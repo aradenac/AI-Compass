@@ -45,16 +45,23 @@
         }).join("") + '</select></div><button type="submit">Search</button></form>' +
         '<div id="server-users-list" class="server-card" style="margin:12px 0"></div>' +
         '<div id="server-users-editor" class="server-card" style="margin:12px 0" hidden></div>' +
-        '<div class="server-card" style="margin:12px 0"><h3>Create account · administrator-set credential</h3>' +
+        '<button id="server-user-open-create" type="button">+ Create account</button>' +
+        '<section id="server-user-create-panel" class="server-card" style="margin:12px 0" hidden><h3>Create account · administrator-set credential</h3>' +
         '<p class="muted small">Provide a strong temporary password via a secure channel. It is never returned by this API.</p>' +
         '<form id="server-user-create"><label>Username<input name="username" maxlength="150" required autocomplete="off"></label>' +
         '<label>Email (optional)<input name="email" type="email" maxlength="254"></label>' +
         '<label>Initial password<input name="password" type="password" required autocomplete="new-password"></label>' +
         '<fieldset><legend>Initial roles</legend>' + checkboxes(["user"]) + '</fieldset>' +
-        '<button type="submit">Create account</button></form></div>' +
+        '<button type="submit">Create account</button><button id="server-user-create-cancel" type="button">Cancel</button></form></section>' +
         '<div class="server-card"><h3>Recent access audit (last 100 events)</h3>' +
         '<button type="button" id="server-users-audit">Show audit events</button>' +
         '<pre id="server-users-audit-log" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></div>';
+      el("#server-user-open-create").addEventListener("click", function () {
+        el("#server-user-create-panel").hidden = false;
+      });
+      el("#server-user-create-cancel").addEventListener("click", function () {
+        el("#server-user-create-panel").hidden = true;
+      });
       el("#server-users-reload").addEventListener("click", refresh);
       el("#server-users-search").addEventListener("submit", function (event) {
         event.preventDefault();
@@ -70,6 +77,7 @@
             email: f.elements.email.value, password: f.elements.password.value,
             roles: getRoles(f)});
           f.reset();
+          el("#server-user-create-panel").hidden = true;
           text("Account created. Distribute its initial credential securely.", false);
           await refresh();
         } catch (error) { text("Create refused: " + error.message, true); }

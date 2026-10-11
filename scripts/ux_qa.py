@@ -191,11 +191,30 @@ def demo_journey(browser, demo_url, artifacts, role, label, viewport):
         page.goto(demo_url + "?mode=demo&workspace=" + label, wait_until="domcontentloaded")
         page.locator(f'[data-act="login"][data-id="{role}"]').click()
         page.locator(".app").wait_for(state="visible", timeout=20000)
-        if not page.locator(".content").is_visible():
-            raise AssertionError("Demo did not render primary content")
+        if not page.locator(".ux-shell .ux-content").is_visible() or not page.locator(".ux-shell .ux-sidebar").is_visible():
+            raise AssertionError("Demo did not render the common shell")
+        if page.locator(".ux-shell").count() != 1:
+            raise AssertionError("Demo has competing application shells")
+        assert_no_horizontal_overflow(page)
         if api_calls:
             raise AssertionError("Standalone Demo unexpectedly contacted API: " + str(api_calls))
         capture(page, artifacts, "demo-" + label + "-" + str(viewport["width"]))
+        if role == "u1":
+            # The actual Demo form must honor the same NFR modal contract.
+            page.locator('[data-act="nav"][data-id="testdesign"]').click()
+            page.locator('[data-act="newCase"]').first.click()
+            demo_dialog = page.get_by_role("dialog")
+            demo_dialog.wait_for(state="visible", timeout=12000)
+            if demo_dialog.locator("form").count() != 1:
+                raise AssertionError("Demo Test Case form missing from dialog")
+            original = demo_dialog.locator("input:not([type=hidden])").first
+            original.fill("Preserve this unfinished Demo draft")
+            page.locator("#backdrop").click(position={"x":2,"y":2}, force=True)
+            page.keyboard.press("Escape")
+            if not demo_dialog.is_visible() or original.input_value() != "Preserve this unfinished Demo draft":
+                raise AssertionError("Demo modal unexpectedly discarded unsaved form")
+            demo_dialog.get_by_role("button", name="Close dialog").click()
+            demo_dialog.wait_for(state="hidden")
         if errors:
             raise AssertionError("Demo JS runtime error(s): " + "; ".join(errors[:3]))
     finally:
@@ -219,8 +238,9 @@ def server_journey(browser, base_url, creds, artifacts, role, viewport):
         page.locator("#server-username").fill(creds[role]["username"])
         page.locator("#server-password").fill(creds[role]["password"])
         page.get_by_role("button", name="Sign in to Server").click()
-        page.locator("#server-account").wait_for(state="visible", timeout=25000)
-        if page.locator("#server-account-name").inner_text() != creds[role]["username"]:
+        page.locator('#ux-screen-host[data-ux-current]').wait_for(state="visible", timeout=25000)
+        page.locator("#server-login-form").wait_for(state="hidden", timeout=25000)
+        if page.locator("#server-account-name").text_content() != creds[role]["username"]:
             raise AssertionError("Authenticated user does not match the fixture")
         if role in ("workgroup", "multi_role"):
             page.locator("#server-workgroup-home").wait_for(state="visible", timeout=20000)
@@ -233,17 +253,61 @@ def server_journey(browser, base_url, creds, artifacts, role, viewport):
         context.tracing.start(screenshots=True, snapshots=True, sources=True)
         traced = True
         page.reload(wait_until="domcontentloaded")
-        page.locator("#server-account").wait_for(state="visible", timeout=25000)
+        page.locator('#ux-screen-host[data-ux-current]').wait_for(state="visible", timeout=25000)
+        page.locator("#server-login-form").wait_for(state="hidden", timeout=25000)
+        if page.locator(".ux-shell").count() != 1:
+            raise AssertionError("Competing Server application shells")
+        assert_exactly_one_view(page, "#ux-screen-host > [data-ux-screen]")
+        if not page.locator(".ux-shell .ux-sidebar").is_visible():
+            raise AssertionError("Server sidebar missing from shared shell")
+        if role == "multi_role" and page.locator("#server-users").is_visible():
+            raise AssertionError("Users & Access leaked onto Workgroup screen")
+        if role == "engineer" and page.locator("#server-planning").is_visible():
+            raise AssertionError("Planning leaked into Engineer screen")
+        assert_no_horizontal_overflow(page)
         capture(page, artifacts, "server-" + role + "-" + str(viewport["width"]))
         if errors:
             raise AssertionError("Server JS runtime error(s): " + "; ".join(errors[:3]))
-        # Known pre-UX-R02 defects are measured and reported, not silently
-        # declared compliant and not converted into a misleading golden baseline.
-        selectors = "#server-model-catalog, #server-task-tree, #server-test-cases, " \
-                    "#server-guides, #server-campaigns, #server-results, " \
-                    "#server-users, #server-planning, #server-environment-profile"
-        count = page.locator(selectors).filter(visible=True).count()
-        return {"visible_legacy_domains": count, "legacy_stack_observed": count > 1}
+        # UX-R02 routes one domain at a time. Check real form dialogs as well
+        # (a green static HTML test must never substitute for this interaction).
+        if role in ("workgroup", "multi_role"):
+            page.goto(base_url + "/?mode=server&workspace=workgroup&section=testdesign&view=editor",
+                      wait_until="domcontentloaded")
+            page.locator("#case-new").wait_for(state="visible", timeout=25000)
+            assert_exactly_one_view(page, "#ux-screen-host > [data-ux-screen]")
+            page.locator("#case-new").click()
+            dialog = page.locator("#case-editor[role=dialog]")
+            dialog.wait_for(state="visible", timeout=15000)
+            if dialog.get_attribute("aria-modal") != "true":
+                raise AssertionError("Editable form was not promoted to an accessible dialog")
+            if dialog.locator("form").count() != 1:
+                raise AssertionError("Test Case form missing from dialog")
+            box = dialog.locator('input[name="name"]')
+            box.fill("Unsaved browser QA text")
+            page.locator(".ux-dialog-backdrop").click(position={"x": 2, "y": 2}, force=True)
+            page.keyboard.press("Escape")
+            if not dialog.is_visible() or box.input_value() != "Unsaved browser QA text":
+                raise AssertionError("Backdrop/Escape unexpectedly dismissed the form or lost draft")
+            dialog.get_by_role("button", name="Close dialog").click()
+            dialog.wait_for(state="hidden")
+            if role == "multi_role":
+                # Same authenticated session: Users & Access must be explicit,
+                # and its account-creation form a protected, closed-by-default modal.
+                page.goto(base_url + "/?mode=server&workspace=workgroup&section=users",
+                          wait_until="domcontentloaded")
+                page.locator("#server-user-open-create").wait_for(state="visible", timeout=25000)
+                assert_exactly_one_view(page, "#ux-screen-host > [data-ux-screen]")
+                if page.locator("#server-test-cases").is_visible():
+                    raise AssertionError("Test Case editor leaked into Users & Access")
+                page.locator("#server-user-open-create").click()
+                user_dialog = page.locator("#server-user-create-panel[role=dialog]")
+                user_dialog.wait_for(state="visible")
+                page.keyboard.press("Escape")
+                if not user_dialog.is_visible():
+                    raise AssertionError("Escape incorrectly dismissed account-creation form")
+                user_dialog.get_by_role("button", name="Close dialog").click()
+                user_dialog.wait_for(state="hidden")
+        return {"visible_active_screens": 1, "shared_shell": True}
     finally:
         if traced:
             context.tracing.stop(path=str(artifacts / ("server-" + role + "-" + str(viewport["width"]) + ".zip")))
@@ -295,10 +359,10 @@ def run_tests(base_url, demo_url, credentials, artifacts):
     failed = [record for record in records if record["result"] == "FAIL"]
     report = {
         "version": 1,
-        "suite": "UX-R01 Chromium infrastructure + diagnostic baseline",
+        "suite": "UX-R02 Chromium cross-mode shell and modal acceptance",
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "status": "FAIL" if failed else "PASS",
-        "ui_conformance": "NOT_CERTIFIED: UX-R02/#115 and UX-R03/#116 required",
+        "ui_conformance": "SHELL_AND_MODAL_CERTIFIED; CONTEXT_NAVIGATION_PENDING_UX_R03",
         "production_approval": "NO-GO: separate operational gates",
         "checks": records,
         "known_ux_findings": debts,
@@ -307,7 +371,7 @@ def run_tests(base_url, demo_url, credentials, artifacts):
     (directory / "report.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
     lines = ["# UI QA — " + report["status"], "",
              f"Chromium journeys: **{len(records) - len(failed)}/{len(records)} passed**.",
-             "**UX conformance not certified** pending #115/#116; production remains NO-GO.",
+             "**Common shell and modal invariants tested in real browser; contextual navigation remains #116.** Production remains NO-GO.",
              "", "| Check | Result | Detail |", "| --- | --- | --- |"]
     for rec in records:
         lines.append(f"| {rec['name']} | {rec['result']} | " +
