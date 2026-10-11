@@ -100,6 +100,20 @@ def get_session(request,public_id):
 @require_GET
 @never_cache
 @capability("business_read")
+def get_pinned_guide(request,public_id):
+    if request.GET:
+        return json_no_store({"error":"invalid_filter"},400)
+    from .setup_recipe_services import from_session
+    from .setup_composition import SetupCompositionError
+    try:
+        return json_no_store(from_session(_session(public_id)))
+    except SetupCompositionError as exc:
+        return json_no_store({"error":"invalid_pinned_recipe","detail":str(exc)},409)
+
+
+@require_GET
+@never_cache
+@capability("business_read")
 def get_checkpoints(request,public_id):
     session=_session(public_id)
     if request.GET:return json_no_store({"error":"invalid_filter"},400)
