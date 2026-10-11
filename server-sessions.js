@@ -381,7 +381,9 @@ function mount(root,api,escapeHtml){
           esc(s.selected_participant_ids.length)+' version-pinned participant roles. Quality, cost, tokens and time will not be assigned to any individual AI Solution.</p>':'')+
         '<p class="muted small">DoD is mandatory. Unknown numeric values stay unknown, not zero. Run closure is irreversible.</p>'+
         '<label>Definition of Done outcome<select name="outcome">'+
-         option("accepted","Accepted",false)+option("failed","Failed",false)+'</select></label>'+
+         option("","Choose observed DoD outcome",!draft.outcome)+
+         option("accepted","Accepted",draft.outcome==="accepted")+
+         option("failed","Failed",draft.outcome==="failed")+'</select></label>'+
         '<label>Quality (0–100; blank = unmeasured)<input type="number" min="0" max="100" step="any" name="quality_score" value="'+esc(draft.quality_score==null?"":draft.quality_score)+'"></label>'+
         '<label>Quality rationale<textarea name="quality_evaluation">'+esc(draft.quality_evaluation||"")+'</textarea></label>'+
         '<label>Information utility (0–100; blank = unmeasured)<input type="number" min="0" max="100" step="any" name="information_utility_score" value="'+esc(draft.information_utility_score==null?"":draft.information_utility_score)+'"></label>'+
@@ -434,7 +436,7 @@ function mount(root,api,escapeHtml){
           "POST",{},"Session "+action);
       });
     }
-    function resultPayload(){
+    function resultPayload(requireOutputs){
       var f=$("#session-results");
       var tokens=f.querySelector('[name="tokens_count"]').value;
       var payload={
@@ -461,7 +463,10 @@ function mount(root,api,escapeHtml){
       }
       if(tokens!==""&&!Number.isSafeInteger(payload.tokens_count))
         throw Error("Total token count must be an integer");
-      if(!payload.produced_outputs.trim())throw Error("Produced outputs are required");
+      if(requireOutputs&&!payload.produced_outputs.trim())
+        throw Error("Produced outputs are required to finalize");
+      if(requireOutputs&&!payload.outcome)
+        throw Error("Choose the observed Definition of Done outcome");
       return payload;
     }
     if(editable&&priced){
@@ -479,14 +484,14 @@ function mount(root,api,escapeHtml){
     if(editable&&(s.individual_setup||isComposite)){
       $("#session-save-results").addEventListener("click",function(){
         try{submit("sessions/"+encodeURIComponent(s.id)+"/results","PATCH",
-                   resultPayload(),"Pending experimental results");}
+                   resultPayload(false),"Pending experimental results");}
         catch(error){note("Results draft not saved: "+error.message,true);}
       });
       $("#session-close-run").addEventListener("click",async function(){
         var f=$("#session-results"),button=$("#session-close-run");
         button.disabled=true;
         try{
-          var payload=resultPayload();
+          var payload=resultPayload(true);
           if(priced){
             // Persist outcome and artifacts *before* attempting metering-gated
             // finalization. On 409, this is a resumable pending checkpoint.
