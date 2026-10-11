@@ -34,7 +34,7 @@
         '<p class="muted small">Reusable engineering challenges · immutable revisions · explicit parent/fork lineage</p></div>' +
         '<button type="button" id="case-refresh">Refresh</button></div>' +
         '<p id="case-status" role="status" class="server-status"></p>' +
-        (canWrite ? '<button type="button" id="case-new">+ New Test Case</button>' : '') +
+        (canWrite ? '<button type="button" id="case-new" disabled>+ New Test Case</button>' : '') +
         '<div id="case-list" class="server-card" style="margin:14px 0"></div>' +
         '<section id="case-editor" class="server-card" hidden></section>' +
         '<section id="case-detail" class="server-card" hidden style="margin-top:14px"></section>';
@@ -61,17 +61,22 @@
 
     async function refresh(){
       if(!allowed)return;
+      // The editor's Task selector is built from this response. Prevent an
+      // early click from opening an incomplete, misleading empty selector.
+      if(canWrite&&el("#case-new"))el("#case-new").disabled=true;
       var run=++ticket;
       status("Loading persisted Test Cases and task IDs…");
       try{
         var response=await Promise.all([api("test-cases"),api("tasks")]);
         if(!allowed||run!==ticket)return;
         cases=response[0].results;tasks=response[1].results;
+        if(canWrite&&el("#case-new"))el("#case-new").disabled=false;
         render();
         status(cases.length+" Test Case(s), "+tasks.length+" real engineering task(s).");
       }catch(error){
         if(!allowed||run!==ticket)return;
         cases=[];tasks=[];el("#case-list").textContent="Server records are unavailable.";
+        if(canWrite&&el("#case-new"))el("#case-new").disabled=true;
         status("Test Design unavailable: "+error.message,true);
       }
     }
