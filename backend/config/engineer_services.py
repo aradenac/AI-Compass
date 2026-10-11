@@ -322,10 +322,24 @@ def detail(actor, solution_id, *, task_id=None):
                               "evidence_freshness":record["evidence_freshness"],
                               "eligible_for_current_suitability":record["eligible_for_current_suitability"],
                               "editorial_only": True})
+    # Public contextual Workgroup updates reuse ordinary chronological
+    # discussion threads. Never disclose internal conversations or messages,
+    # even if the caller separately holds Workgroup permissions.
+    context_ids = [solution_id] + [x["task_id"] for x in found]
+    updates = []
+    for thread in DiscussionThread.objects.filter(
+            context_item__public_id__in=context_ids,
+            item__current_revision__properties__scope="public"
+            ).select_related("item__current_revision", "context_item").order_by(
+                "-item__created_at", "item__public_id")[:30]:
+        updates.append({"id": thread.item.public_id,
+                        "title": thread.item.current_revision.display_name,
+                        "context_id": thread.context_item.public_id,
+                        "public_discussion": True})
     return {"id": solution_id, "name": current["name"], "task_id": current["task_id"],
             "overview": current, "other_tasks": [
                 {"id":x["task_id"]} for x in found if x["task_id"] != current["task_id"]],
-            "guide": guide, "editorial": editorial,
+            "guide": guide, "editorial": editorial, "published_updates": updates,
             "entitlement": "unknown_unverified",
             "feedback": {"context_id": solution_id,
                 "access_interest": "discussion_only_not_an_entitlement_or_purchase",
