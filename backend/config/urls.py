@@ -1,7 +1,7 @@
 from django.urls import path
 
 from . import auth_views, catalog_views, catalog_type_views, evidence_views, task_views, user_admin_views, activity_views, data_health_views, test_case_views, setup_guide_views, campaign_views, session_views, run_views, watch_views, forecast_views, results_views, recommendation_views, discussion_views, archive_views, workload_views, external_import_views
-from . import pricing_views, environment_views, setup_recipe_views, publication_views, run_lifecycle_views, engineer_views
+from . import pricing_views, environment_views, setup_recipe_views, publication_views, run_lifecycle_views, engineer_views, opportunity_views
 from .api import api
 
 urlpatterns = [
@@ -19,6 +19,11 @@ urlpatterns = [
     path("api/v1/imports/mock-models/preview", external_import_views.preview),
     path("api/v1/imports/mock-models/apply", external_import_views.apply),
     path("api/v1/imports/mock-models/batches/<uuid:batch_id>", external_import_views.batch),
+    path("api/v1/planning/opportunities", opportunity_views.collection),
+    path("api/v1/planning/opportunities/preview", opportunity_views.preview),
+    path("api/v1/planning/opportunities/<slug:public_id>", opportunity_views.detail),
+    path("api/v1/planning/opportunities/<slug:public_id>/revisions", opportunity_views.history),
+    path("api/v1/planning/opportunities/<slug:public_id>/revisions/<int:number>", opportunity_views.revision),
     path("api/v1/planning/tasks", workload_views.task_choices),
     path("api/v1/planning/profiles", workload_views.collection),
     path("api/v1/planning/profiles/<slug:public_id>", workload_views.detail),
