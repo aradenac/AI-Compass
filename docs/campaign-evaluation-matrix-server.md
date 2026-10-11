@@ -53,6 +53,10 @@ Example operation to add a Task-associated individual AI configuration:
 
 To add newly eligible Test Cases, use `action: "add_cases"`, `configuration_id`, `test_case_ids`. All assignments to the same Task receive *new* selected default cells while their existing decisions remain intact. To change a cell, use `{"action":"decide","evaluation_id":"evl-...","decision":"not_selected"}` or `waived` with `reason`; use `selected` to reinstate. Optimistic conflicts return HTTP 409, invalid scope/waivers return 400, unauthorized writes 403. Existing Server permission separation and CSRF are retained.
 
+## Closure and explicitly partial review
+
+For a versioned matrix campaign, ordinary `POST /api/v1/campaigns/<id>/actions/close` rejects outstanding selected Pending/In Progress obligations (HTTP 409). Workgroup can deliberately request a **partial review** using `{"expected_revision":"rNNN","partial_review":true}`. This transitions to `under_review` without claiming full-plan completion; the new immutable campaign revision records `properties.review_scope: "partial"`. When no selected obligation is outstanding, normal close records `"full"`. Subsequent evidence-subset publication validation remains FUT-10, which must check actual selected completed Runs independently of this flag. Reopening can expand a formerly published campaign without altering historical evidence.
+
 ## Reopening, provenance and limits
 
 Reopen published/under-review campaigns using the *existing* controlled lifecycle; editing generates a new immutable campaign plan revision while preserving earlier review/publication state and historic Run references. A Test Run is linked to a candidate evaluation by an `evaluation_id` stored in its **first immutable SessionCheckpoint**. Its canonical configuration comes from the version-pinned matrix assignment, not current catalog revisions. Current published Runs are never altered by matrix decisions. Untagged legacy Runs are not guessed into individual matrix cells.
