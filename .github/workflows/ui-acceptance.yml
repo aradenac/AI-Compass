@@ -24,6 +24,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Verify same-origin frontend asset and Caddy mount parity
+        run: python3 scripts/verify_frontend_assets.py
       - name: Install pinned Playwright and Chromium
         run: |
           python -m pip install --disable-pip-version-check "playwright==1.56.0"
