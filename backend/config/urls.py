@@ -1,10 +1,17 @@
 from django.urls import path
 
 from . import auth_views, catalog_views, catalog_type_views, evidence_views, task_views, user_admin_views, activity_views, data_health_views, test_case_views, setup_guide_views, campaign_views, session_views, run_views, watch_views, forecast_views, results_views, recommendation_views, discussion_views, archive_views, workload_views, external_import_views
-from . import pricing_views, environment_views, setup_recipe_views, publication_views, run_lifecycle_views, engineer_views, opportunity_views, opportunity_insights_views, deployment_views
+from . import pricing_views, environment_views, setup_recipe_views, publication_views, run_lifecycle_views, engineer_views, opportunity_views, opportunity_insights_views, deployment_views, budget_views
 from .api import api
 
 urlpatterns = [
+    path("api/v1/planning/budgets", budget_views.collection),
+    path("api/v1/planning/budgets/preview", budget_views.preview),
+    path("api/v1/planning/budgets/options", budget_views.options),
+    path("api/v1/planning/budgets/<slug:public_id>", budget_views.detail),
+    path("api/v1/planning/budgets/<slug:public_id>/revisions", budget_views.history),
+    path("api/v1/planning/budgets/<slug:public_id>/revisions/<int:number>", budget_views.revision),
+    path("api/v1/planning/budgets/<slug:public_id>/export", budget_views.export),
     path("api/v1/planning/deployments", deployment_views.collection),
     path("api/v1/planning/deployments/export", deployment_views.export),
     path("api/v1/planning/deployments/<slug:public_id>", deployment_views.detail),

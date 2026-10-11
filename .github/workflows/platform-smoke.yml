@@ -142,6 +142,12 @@ jobs:
           node --check demo-deployments.js
           node scripts/test-demo-deployments.js
           node scripts/test-server-planning.js
+      - name: Verify FUT-16 pilot, rollout, active capacity, meter pricing and private history
+        run: |
+          docker compose exec -T api python manage.py test config.test_budgets -v 2
+          node --check shared-budgets.js
+          node scripts/test-shared-budgets.js
+          node --check server-planning.js
       - name: Assert fresh Server has no seeded business data
         run: |
           docker compose exec -T api python manage.py shell -c \
