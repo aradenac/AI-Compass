@@ -228,6 +228,7 @@ def close(*,actor,public_id,expected_revision,data):
             "guide_id":session.guide.public_id if session.guide_id else None,
             "guide_revision_id":str(session.guide_revision_id) if session.guide_revision_id else None,
             "evaluation_id":state.get("evaluation_id"),
+            "setup_composition":__import__("config.run_provenance",fromlist=["snapshot"]).snapshot(session),
             "execution_environment":state["setup"].get("environment",{}),
             "setup_deviations":state["setup"].get("notes",""),
             "setup_guide_original_revision_id":str(session.guide_revision_id) if session.guide_revision_id else None,
