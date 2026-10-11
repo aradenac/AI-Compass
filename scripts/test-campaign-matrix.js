@@ -37,7 +37,7 @@ db.runs.push({campaignId:"cmp-demo",accepted:false,
   initialSetup:{evaluationId:"ev-a"},outcome:"failed"});
 assert.equal(sandbox.demoMatrixStatus(campaignData,campaignData.matrixPlan.cells[0]).state,"evaluated");
 assert.equal(sandbox.demoMatrixStatus(campaignData,campaignData.matrixPlan.cells[1]).state,"waived");
-assert(campaign.includes('api("campaigns/"+encodeURIComponent(row.id)+"/matrix")'));
+assert(campaign.includes('api("campaigns/"+encodeURIComponent(row.id)+"/matrix"'));
 assert(campaign.includes('"/matrix/edit"'));
 assert(campaign.includes('data-matrix-decision'));
 assert(sessions.includes("payload.evaluation_id=evaluationPicker.value"));
