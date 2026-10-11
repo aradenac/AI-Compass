@@ -361,7 +361,7 @@ def server_journey(browser, base_url, creds, artifacts, role, viewport):
                 ("feedback", "feedback"), ("recommendations", "recommendations"),
                 ("benchmark", "campaigns"), ("forecasts", "forecasts")
             ]:
-                page.goto(base_url + "/?mode=server&workspace=workgroup&section=" + section,
+                page.goto(base_url + "/?mode=server&workspace=workgroup&section=" + section + "&view=editor",
                           wait_until="domcontentloaded")
                 page.locator(
                     f'[data-business-domain="{domain}"], [data-business-empty="{domain}"]'
