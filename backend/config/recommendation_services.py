@@ -283,7 +283,7 @@ def visible_revision(item,reader):
     return published_revision(item) if reader else item.current_revision
 
 
-def _new_evidence(item,revision,snap):
+def _new_evidence(item,revision,snap,reader=False):
     # Immutable accepted/failed observations after publication are never
     # auto-included in the recommendation, auto-published or relabeled.
     if not revision or revision.properties.get("state")!="published":
@@ -296,6 +296,10 @@ def _new_evidence(item,revision,snap):
         created_at__gt=revision.created_at,
     ).order_by("created_at","id")[:101]
     newer=[r for r in records if r.pk not in cited]
+    if reader:
+        from .publication_services import effective_ids
+        active=effective_ids(kind="individual")
+        newer=[r for r in newer if r.public_id in active]
     return {
         "review_needed":bool(newer),
         "reason":"new_measured_evidence" if newer else None,
@@ -355,7 +359,7 @@ def serialize(item,rev=None,reader=False):
         if last_live is not None:
             alert_rev=last_live
             alert_snap=RecommendationSnapshot.objects.get(revision=last_live)
-    alert=_new_evidence(item,alert_rev,alert_snap)
+    alert=_new_evidence(item,alert_rev,alert_snap,reader=reader)
     # Editorial publication remains historically available, but never qualifies
     # as current measured suitability if source membership/acknowledgement changed.
     if stale_ids:
