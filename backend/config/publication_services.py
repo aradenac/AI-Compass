@@ -247,4 +247,5 @@ def revoke(*, actor, public_id, expected_revision):
     return modify(actor=actor, public_id=public_id,
                   data={"expected_revision": expected_revision,
                         "_publication_event": {"kind": "revoke", "runs": []}},
-                  action="unpublish")[0]
+                  action="unpublish" if item.current_revision.properties["status"]=="published"
+                  else "revoke_publication")[0]
