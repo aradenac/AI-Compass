@@ -1,10 +1,12 @@
-# Future evolution — Campaign Evaluation Matrix
+# AI Compass — Campaign Evaluation Matrix
 
-> **Status:** Proposed feature; product decisions captured, not an implementation claim.  
+> **Reference:** Product/domain specification maintained with the implemented application. The delivery tracker and outstanding UX acceptance work are maintained in the [implementation plan](future-evolutions/implementation-plan.md).
+
+> **Contract:** Versioned Campaign Evaluation Matrix and selected Test Case × configuration coverage.
 > **Discussed:** 2026-10-10  
 > **Area:** Benchmark Workspace / Campaigns  
-> **Intent:** Preserve the agreed behavior for later refinement, issue breakdown, and implementation.  
-> **Related baseline:** [Product Definition](../product-definition.md) · [Benchmark Workflow](../benchmark-workflow.md) · [Campaigns Server](../campaigns-server.md) · [Test Cases Server](../test-cases-server.md)
+> **Intent:** Describe the Campaign plan, selection/waiver/evaluation states and associated immutable history.
+> **Related baseline:** [Product Definition](product-definition.md) · [Benchmark Workflow](benchmark-workflow.md) · [Campaigns Server](campaigns-server.md) · [Test Cases Server](test-cases-server.md)
 
 ## 1. Summary
 
@@ -125,7 +127,7 @@ Rules:
 - Current lifecycle terminology is **Planned → In progress → Under review → Published**, with reopening supported. The feature should work within or deliberately evolve this workflow without losing review/publication semantics.
 - **Framework** participant and composite collaborative run attribution needs explicit treatment; avoid representing a Framework itself as an ordinary individual model/provider/harness trio.
 
-## 8. Draft acceptance criteria
+## 8. Acceptance criteria
 
 1. Selecting **one Task**, **3 AI Solutions**, and **2 linked Test Cases** yields **6 candidate combinations**, all selected/planned by default.
 2. Deselecting one marks **Not Selected**, keeps a discoverable muted cell and removes its execution obligation.
@@ -152,7 +154,7 @@ Rules:
 
 ## 10. Boundaries
 
-This page is a **future feature specification**, not an implemented behavior, a migration instruction, or authorization to alter the current campaign workflow. It records the decisions reached in the conversation and marks remaining design questions as open. Implement it through separate issues/PRs, while preserving existing architecture, identity, audit, permission and evidence guarantees.
+This page defines Campaign Evaluation Matrix behavior, data-model distinctions and acceptance criteria for controlled revisions and evaluation coverage.
 
 ## 11. Integration and source-of-truth boundary (consolidated)
 

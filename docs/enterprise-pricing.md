@@ -1,6 +1,6 @@
 # FUT-05 — Enterprise accessibility and versioned pricing offers
 
-Tracks [issue #79](https://github.com/aradenac/AI-Compass/issues/79), the authoritative [Accessibility & Pricing specification](future-evolutions/technology-accessibility-and-pricing.md), and the dependency on FUT-03 (#77). This release **does not implement metered Run cost calculation**: that belongs to FUT-09.
+Tracks [issue #79](https://github.com/aradenac/AI-Compass/issues/79), the authoritative [Accessibility & Pricing specification](technology-accessibility-and-pricing.md), and the dependency on FUT-03 (#77). This release **does not implement metered Run cost calculation**: that belongs to FUT-09.
 
 ## Data / authority
 

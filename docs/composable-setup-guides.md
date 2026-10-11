@@ -1,9 +1,11 @@
-# Future evolution — Composable Setup Guides & Lifecycle
+# AI Compass — Composable Setup Guides & Lifecycle
 
-> **Status:** Proposed feature — product decisions captured, implementation pending.  
+> **Reference:** Product/domain specification maintained with the implemented application. The delivery tracker and outstanding UX acceptance work are maintained in the [implementation plan](future-evolutions/implementation-plan.md).
+
+> **Contract:** Reusable Setup Guide modules, exact applicability, composed recipes, rendered guide history and validation semantics.
 > **Discussed:** 2026-10-10  
 > **Area:** Knowledge & Collaboration / Guides & Charter; Technology Catalog; Benchmark Workspace; solution-facing documentation.  
-> **Existing baseline:** [Setup Guides Server](../setup-guides-server.md), [Benchmark Workflow](../benchmark-workflow.md), [Product Definition](../product-definition.md).  
+> **Existing baseline:** [Setup Guides Server](setup-guides-server.md), [Benchmark Workflow](benchmark-workflow.md), [Product Definition](product-definition.md).  
 > **Scope of this page:** Setup Guide composition, capture, applicability, readiness, lifecycle, and reuse only.
 
 ## 1. Objective
@@ -129,7 +131,7 @@ Keep the existing distinction between individual measured solutions and composit
 
 Avoid secret leakage: guides should describe credential acquisition, required permissions and configuration-variable **names**, never actual API keys, tokens, passwords or other sensitive values.
 
-## 9. Proposed acceptance criteria
+## 9. Acceptance criteria
 
 1. A new Harness or Provider may be registered without a completed setup guide.
 2. An experimenter configuring a solution can retrieve relevant existing guidance and supply only missing integration/variant details.

@@ -1,10 +1,12 @@
-# Future evolution — Data Governance Audit Explorer
+# AI Compass — Data Governance Audit Explorer
 
-> **Status:** Proposed cross-platform feature — product decisions and preliminary impact, not an implementation claim.  
+> **Reference:** Product/domain specification maintained with the implemented application. The delivery tracker and outstanding UX acceptance work are maintained in the [implementation plan](future-evolutions/implementation-plan.md).
+
+> **Contract:** Read-only governance view of committed business and administrative changes, authorized original revisions and source-scoped diffs.
 > **Discussed:** 2026-10-10  
 > **Area:** Maintenance & Governance / Audit & Changes  
 > **Scope:** All persistent business objects and relevant administrative changes in AI Compass.  
-> **Related baseline:** [Platform Architecture & Data Governance](../platform-architecture-and-data-governance.md) · [Activity Feed](../activity-feed-server.md) · [Data Health](../data-health.md) · [Users & Access](../users-and-access.md)
+> **Related baseline:** [Platform Architecture & Data Governance](platform-architecture-and-data-governance.md) · [Activity Feed](activity-feed-server.md) · [Data Health](data-health.md) · [Users & Access](users-and-access.md)
 
 ## 1. Objective
 
@@ -170,7 +172,7 @@ The governance-only operator should be able to audit the permissible metadata wi
 
 Existing backend audit captures **some** catalogs and access changes, but current source coverage and existing Activity Feed display are **not** yet a platform-wide full-content diff explorer. Do not represent this proposal as already complete.
 
-## 10. Draft acceptance criteria
+## 10. Acceptance criteria
 
 1. A contributor edits a Model, Test Case, Campaign, Run metric or Setup Guide using the **existing form only**; the change is persisted and recorded with **zero audit-specific input**.
 2. An authorized audit operator finds the change by actor, time, object ID or type, and sees the appropriate **before/after** value or structured comparison.

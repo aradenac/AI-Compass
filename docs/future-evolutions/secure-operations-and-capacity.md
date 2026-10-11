@@ -1,20 +1,11 @@
-# Future evolution — Secure Operations, Remote Archives & Capacity Governance
+# Future evolutions — Secure remote archives, capacity governance and Internet readiness
 
-> **Status (2026-10-10):** Product-owner-approved direction with implementation issues [FUT-02](https://github.com/aradenac/AI-Compass/issues/76) (initial development/LAN safeguarding, archive permission split, evidence-list optimization), [FUT-19](https://github.com/aradenac/AI-Compass/issues/93) (asynchronous archive delivery) and [FUT-20](https://github.com/aradenac/AI-Compass/issues/94) (Internet exposure/capacity). Consult each merged PR for actual implementation status; the proposals below include **future unimplemented capabilities**.
-> **Scope:** Development/LAN/Internet deployment profiles; secure and resumable remote export/recovery transfers; operations policy, capacity controls and proactive health. Preserve existing integrity and role-separation guarantees.
-> **Related:** [Shared Frontend & Release Lifecycle](shared-frontend-and-release-lifecycle.md) · [Native export](../native-archive-export.md) · [Native restore](../native-archive-restore.md) · [Backup and recovery](../backup-and-recovery.md) · [PLAT readiness](../release-readiness.md) · [Technical debt](../technical-debt.md).
+> **Status:** Pending FUT-19 [#93](https://github.com/aradenac/AI-Compass/issues/93) and FUT-20 [#94](https://github.com/aradenac/AI-Compass/issues/94), with release integration FUT-21 [#95](https://github.com/aradenac/AI-Compass/issues/95). Resume after [UX-R03 #116](https://github.com/aradenac/AI-Compass/issues/116).
+> **Delivered foundation:** [Development/LAN operational profile](../secure-operations-baseline.md), [archive permissions](../deployment-profiles-and-archive-permissions.md) and [release contracts](../shared-frontend-and-release-lifecycle.md).
 
-## 1. Deployment profiles: one codebase, different exposure
+## Internet / inter-BU deployment profile
 
-| Profile | Exposure | Required behavior |
-| --- | --- | --- |
-| **Development** | Loopback or explicitly disposable test setup | Fast local testing, HTTP permitted only on loopback, isolated credentials/data, reproducible containers or standalone static Demo. |
-| **Production LAN (first target)** | Local IP + port or internal DNS; no public DNS assumed | Configurable hosts/proxy, authenticated HTTPS preferred (internal CA and client trust bootstrap if necessary), correct secure cookies/CSRF origin handling, private backups, auditable accounts, guarded network exposure. |
-| **Internet/inter-BU (later)** | Trusted domain and controlled public ingress/VPN | HTTPS mandatory, secure cookies and trusted hosts/origins, login throttling, careful reverse proxy/CSP/security headers, least privilege, abuse limits, observability and explicit acceptance. |
-
-Do not require a public domain, cloud service or redesign when transitioning between LAN and wider exposure. Explicit profiles and preflight checks must prevent accidentally treating plain-HTTP development defaults as publicly secure production settings. HTTP without TLS is acceptable on true loopback for local development only; ordinary IP-based LAN access containing real accounts/evidence should be secured through a trusted internal certificate or appropriate private network/TLS ingress. Do not promise that browsers automatically trust self-signed certificates.
-
-Current repository configuration binds Caddy to 127.0.0.1 and has insecure session/CSRF cookie flags for **local HTTP only**. It is not ready for direct network exposure. Use the [release lifecycle](shared-frontend-and-release-lifecycle.md) to qualify deployment profiles, rather than creating three separate application implementations.
+A trusted domain and controlled public ingress/VPN must provide HTTPS, secure cookies, trusted hosts/origins, login throttling, reverse-proxy/CSP/security headers, least privilege, abuse limits, observability and explicit acceptance. Never permit the public Internet to inherit loopback-only HTTP defaults.
 
 ## 2. Retain two different archive purposes
 
@@ -52,7 +43,7 @@ Provide a **small versioned operations-policy store**, administered only by expl
 
 The dashboard should provide counts, historical trend/forecast with clear uncertainty, storage free/used, export queue and failures, latest verified backup/restore, integrity scan freshness, configurable warning levels and practical suggested actions. Trigger notices **before** reaching a hard limit; on refusal return precise machine-readable reason and safe administrator remedy. If user operations are temporarily blocked by a configurable quota, an authorized administrator must have a supported path to raise it where physically possible. All policy changes require who/when/old/new audit and validated bounds.
 
-Do not confuse this operational overview with the [Data Governance Audit Explorer](data-governance-audit-explorer.md), which owns historical business-change inspection, or with [Publication & Information Lifecycle](publication-and-information-lifecycle.md), which owns logical deletion/retention of domain evidence. Technical backup retention cannot erase required historical evidence.
+Do not confuse this operational overview with the [Data Governance Audit Explorer](../data-governance-audit-explorer.md), which owns historical business-change inspection, or with [Publication & Information Lifecycle](../publication-and-information-lifecycle.md), which owns logical deletion/retention of domain evidence. Technical backup retention cannot erase required historical evidence.
 
 ## 5. Security and quality acceptance
 
@@ -63,8 +54,11 @@ Do not confuse this operational overview with the [Data Governance Audit Explore
 - Verify dynamic policy edits affect only new requests; stored evidence remains intact. Show warnings as capacity approaches configured thresholds and distinguish hard physical vs configurable blockers.
 - Keep infrastructure minimal: Django/PostgreSQL, existing filesystem evidence/backups, Caddy and a managed host job for archive generation are preferred over new services until actual load justifies them.
 
-## 6. Delivery governance
 
-The project owner approved the linked issues #76, #93 and #94; **follow their boundaries**. Initial permission/profile safeguards belong to #76; do not pre-emptively implement #93 export tokens or #94 Internet ingress, rate-limit middleware or resource quotas. Track the current coarse export grant, synchronous export ceiling and LAN/Internet readiness in the [technical-debt register](../technical-debt.md), but do not duplicate functional ownership in that register.
+## Issue boundaries and implementation order
 
-Volume/stress testing, multi-browser UX testing and live Internet deployment acceptance are consciously **deferred verifications**; minimum focused functional/security/integrity tests remain necessary whenever the underlying capability changes.
+- [#93](https://github.com/aradenac/AI-Compass/issues/93) owns immutable archive jobs and resumable confidential transfer.
+- [#94](https://github.com/aradenac/AI-Compass/issues/94) owns operator-configurable bounded capacity and hardened Internet profile, after #93.
+- [#95](https://github.com/aradenac/AI-Compass/issues/95) owns guided compatible/incompatible release and recovery operations, after #93.
+
+These are the **remaining** technical evolutions, not the already delivered development/LAN protection or existing coordinated manifest. All original data integrity and operational GO/NO-GO gates remain binding.

@@ -1,21 +1,19 @@
-# Future evolution — Shared Frontend, API Contracts & Release Lifecycle
+# AI Compass — Shared frontend, API contracts and coordinated releases
 
-> **Status (2026-10-10):** Product-owner-approved technical direction and [issue-backed plan](implementation-plan.md); first delivery through #75 (release manifest) and #77 (shared first views), remaining migration/operational improvements through #78 and #95. This original specification continues to describe the entire desired outcome, not merely implemented code.
-> **Scope:** One frontend for standalone Demo and authenticated Server; modular monorepo; independently identifiable build artifacts; compatible API evolution; deterministic release qualification, deployment and recovery.
-> **Related:** [Role-Based UX](role-based-user-experience-and-guided-navigation.md) · [Platform architecture](../platform-architecture-and-data-governance.md) · [PLAT release readiness](../release-readiness.md) · [Migration staging](../migration-staging.md) · [Production promotion](../migration-production.md) · [Technical debt](../technical-debt.md).
+**Engineering reference:** single business frontend with separate Demo and Server providers, versioned artifacts, compatibility controls and reproducible release evidence. The [role-based UX contract](role-based-user-experience-and-guided-navigation.md) governs presentation.
 
-## 1. Decisions and implementation boundary
+## Decisions and implementation boundary
 
 1. **Keep one Git repository.** Organize the sources into frontend, backend, deployment/release tooling and common contract/test areas as needed. Independently build and version the frontend and backend artifacts **within a coordinated release**; do not introduce separate repositories, microservices or independent release trains without demonstrated need.
-2. **One genuine business frontend.** Demo and Server must render the *same* domain views/forms/behavior via mode-specific data providers. The existing second Server UI shell and domain-specific presentation copies are an implementation gap, not the accepted final architecture. Do not accidentally preserve two permanent UI implementations.
+2. **One genuine business frontend.** Demo and Server must render the *same* domain views/forms/behavior via mode-specific data providers. Keep one consistent routing, layout and interaction contract across both modes; permanent divergent presentation copies are prohibited.
 3. **Preserve both runtime modes.** Demo works from static assets without Django, PostgreSQL, Docker or a backend; synthetic browser-local data is visibly labelled and never imported into Server. Server uses real authenticated APIs and initially empty business records; network failure never falls back to Demo. Permission differences must remain explicit.
 4. **Combine convergence with the planned UX redesign.** Build the shared presentation layer while implementing the [role-based experience](role-based-user-experience-and-guided-navigation.md), rather than recreating the obsolete UI twice. A single substantial refactor is acceptable before production, provided testable checkpoints and preservation of existing features/rights/data are enforced. Do not use UX redesign to change business semantics or server authorization.
 5. **Version the API contract, not every page against every database field.** The frontend talks to a stable API representation; relational schema migrations and versioned JSONB business documents can evolve independently. Unknown and historical records must degrade safely without fabricated values.
 6. **Make releases reproducible and operator-friendly.** Build once, promote the same verified artifacts from staging to the target deployment, retain release manifests, release notes, acceptance evidence and recovery references. No operator should need to compose ad hoc Docker commands to determine whether a release is compatible.
 
-These decisions describe **future consolidation work**. Current PLAT scripts already support *one specifically registered* Model v1-to-v2 migration with staging, approval, recovery and replay; they are **not** yet a universal cross-version deployment tool. The generic release manifest, component build/version pipeline, compatibility registry and guided deployment CLI are **not implemented**.
+The application uses one coordinated release identity while retaining independent Demo and authenticated Server data modes.
 
-## 2. Shared frontend contract
+## Shared frontend contract
 
 Use a presentation/controller layer which consumes a mode-neutral domain provider. The provider is selected **once at bootstrap**, not inside each view:
 
@@ -34,7 +32,7 @@ Use a presentation/controller layer which consumes a mode-neutral domain provide
 - The static Demo distribution remains easily launched without a mandatory JS build tool installed on the end user's computer. A build step during CI/release packaging is acceptable if static built output remains portable/offline.
 - Convergence and future UX redesign share implementation work, but the [UX proposal](role-based-user-experience-and-guided-navigation.md) owns navigation/personas and **this document owns the technical runtime/data-provider contract**.
 
-## 3. Versioned artifacts and compatibility
+## Versioned artifacts and compatibility
 
 Keep three independent notions, with one coordinated release identity:
 
@@ -76,7 +74,7 @@ All values above are **examples, not a claim that release 0.10.0 exists**. Inclu
 
 **Contract enforcement**: frontend build declares its supported API contract(s); backend advertises actual compatibility in a bounded capability/metadata endpoint. Check the pairing in CI, startup/deployment preflight and frontend initialization. Unknown or incompatible APIs must show a clear blocked/limited state, **never silently reinterpret data or switch to Demo**. Do not introduce a large persistent frontend↔backend version matrix before an actual multi-version need.
 
-## 4. Change classification and release order
+## Change classification and release order
 
 | Change | Procedure | Availability |
 | --- | --- | --- |
@@ -86,47 +84,3 @@ All values above are **examples, not a claim that release 0.10.0 exists**. Inclu
 
 **Never replace production data with a staging clone**. Staging remains disposable; execute the same reviewed transformation against the current production records so intervening production writes are not lost. Preserve source revisions and unknown fields. A rollback of frontend/backend binaries is allowed only when compatible with committed schema changes. Otherwise follow explicit, independently verified coordinated recovery with disclosed loss window, not an improvised database downgrade.
 
-## 5. Guided operator workflow (target; not available yet)
-
-Expose a small, documented operator entrypoint that orchestrates existing safe commands rather than introducing a second migration engine:
-
-~~~text
-compass release check
-compass release stage <version>
-compass release deploy <version>
-compass release status
-compass release recover
-~~~
-
-**These commands are examples of intended UX and do not exist in the current repository.**
-
-- **check**: verify host/profile, pinned artifacts/digests, supported API pair, current SQL/schema state, migration dependencies, backup destination, free space, secrets/configuration, operator authority and readiness.
-- **stage**: deploy *the exact proposed artifacts* in an isolated copy restored from a coordinated recovery point, run compatibility and recovery tests, collect actual browser acceptance and a signed/pinned verdict. Permit reject/discard/recreate.
-- **deploy**: refuse if any required approvals/preflights fail; for compatible changes, update backend before frontend; for incompatible data changes, close writes safely, capture/verify fresh recovery point, apply the approved artifact against current production, verify invariants, start the tested backend and frontend, then reopen writes.
-- **status**: display manifest, running frontend/backend versions, schema compatibility, maintenance state, latest verified recovery point, operator decision and incomplete operations.
-- **recover**: show a safe recovery plan and implications; require explicit target, privileges and confirmation; never quietly overwrite production or assume code rollback equals database rollback.
-
-Preserve durable, idempotent state and crash-safe recovery for interrupted operations. Do not require Kubernetes, event buses, an external workflow system or a separate database for release metadata. Existing PLAT-26/29/34/35 guarantees remain mandatory. Human acceptance gates may be completed later, but the system must never report operational GO simply because code was merged or CI passed.
-
-## 6. CI, deployment packaging and release acceptance
-
-- Trigger CI for **all relevant frontend files**, backend files, shared contracts, build/deployment files and workflows; the current workflow path filters omit several existing Server modules (tracked in [technical debt](../technical-debt.md)).
-- Split fast contract/unit/lint/security checks from heavier PostgreSQL, archive, restoration and migration smoke checks, but preserve release gating for both Demo and Server.
-- Add a small number of actual browser integration journeys that prove shared screens/permissions, standalone Demo, no fake-data leakage, 409 conflict semantics, schema incompatibility fallbacks and frontend↔backend compatibility.
-- Generate versioned release artifacts, immutable manifests and changelog/release notes from the *same tested commit*. Check artifact signatures/digests at staging and production promotion; do not rebuild differently between environments.
-- Document LAN-first and eventual Internet hosting profiles, with distinct secrets, TLS/cookie/origin configuration and hardened access policies; see [Secure Operations & Capacity](secure-operations-and-capacity.md).
-- Preserve independent publication approval and physical restore rehearsal; release readiness remains **NO-GO** until the currently documented human gates are fulfilled.
-
-## 7. Delivery boundaries and minimum acceptance
-
-The future issue plan should separate: (a) contract/convergence foundations, (b) UX migration on shared screens, (c) manifest and artifact build, (d) compatibility checks + safe operator CLI, and (e) documented staging/production/recovery acceptance. Their exact order and scope require owner approval, not inference from this document.
-
-Minimum outcomes:
-1. One Catalog/Task/Campaign view is demonstrably the **same implementation** in Demo and Server; later covered domains replace their old duplicated views.
-2. Standalone Demo starts from static files with only fictional data; Server starts empty, authenticated and remains isolated on outage.
-3. Compatible backend update passes tests against the prior frontend; a breaking API update is either served compatibly or explicitly rejected before rollout.
-4. A release can be reconstructed from recorded frontend/backend digests, API/schema capability manifest and CI evidence; release notes explain known changes and operator actions.
-5. An incompatible migration cannot be applied without a verified recovery point, accepted real-browser staging verdict and authorized explicit production operation. Reject/discard/recreate and recovery remain tested.
-6. No future proposed feature is implemented merely because the convergence framework has become available.
-
-**Governance:** Future technical direction accepted; no new approved GitHub issues or automatic implementation permission. The [technical-debt register](../technical-debt.md) tracks cleanup and deliberately deferred validation without duplicating these design decisions.

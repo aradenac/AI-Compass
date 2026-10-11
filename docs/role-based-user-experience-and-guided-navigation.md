@@ -1,10 +1,12 @@
-# Future evolution — Role-Based User Experience & Guided Navigation
+# AI Compass — Role-Based User Experience & Guided Navigation
 
-> **Status (2026-10-10):** Product-owner-approved product/UX specification with bounded delivery [FUT-03 #77](https://github.com/aradenac/AI-Compass/issues/77) and [FUT-04 #78](https://github.com/aradenac/AI-Compass/issues/78). This document continues to specify future Engineer/Management and evaluation UX owned by later FUT issues; do not assume all described features are implemented.  
+> **Reference:** Product/domain specification maintained with the implemented application. The delivery tracker and outstanding UX acceptance work are maintained in the [implementation plan](future-evolutions/implementation-plan.md).
+
+> **Contract:** Normative role-aware experiences, progressive disclosure, contextual navigation, shared component behavior, unsaved work and cross-persona acceptance criteria.
 > **Decision context:** October 2026 refinement.  
 > **Primary scope:** Role-adapted application entry points; one Workgroup knowledge-map/navigation hub; personalized engineer discovery; management entry point; independent governance entry; solution details; contextual navigation, breadcrumbs, steppers, local unsaved drafts and pragmatic concurrent editing.  
 > **Separate future proposal:** [OS Compatibility & User Environment](os-compatibility-and-user-environment.md). This UX proposal **consumes** OS compatibility information; it does not define its technical catalog schema.  
-> **Related work:** [Product Definition](../product-definition.md) · [Platform Architecture & Data Governance](../platform-architecture-and-data-governance.md) · [Benchmark Workflow](../benchmark-workflow.md) · [Campaigns Server](../campaigns-server.md) · [Test Cases Server](../test-cases-server.md) · [Evidence-linked Recommendations](../recommendations-server.md) · [Feedback & Discussions](../feedback-discussions-server.md) · [Users & Access](../users-and-access.md) · [Workload Planning DAP-01](../workload-planning.md) · [Deployment & Adoption Planning](deployment-and-adoption-planning.md) · [Composable Setup Guides](composable-setup-guides.md) · [Campaign Evaluation Matrix](campaign-evaluation-matrix.md) · [Data Governance Audit Explorer](data-governance-audit-explorer.md).
+> **Related work:** [Product Definition](product-definition.md) · [Platform Architecture & Data Governance](platform-architecture-and-data-governance.md) · [Benchmark Workflow](benchmark-workflow.md) · [Campaigns Server](campaigns-server.md) · [Test Cases Server](test-cases-server.md) · [Evidence-linked Recommendations](recommendations-server.md) · [Feedback & Discussions](feedback-discussions-server.md) · [Users & Access](users-and-access.md) · [Workload Planning DAP-01](workload-planning.md) · [Deployment & Adoption Planning](deployment-and-adoption-planning.md) · [Composable Setup Guides](composable-setup-guides.md) · [Campaign Evaluation Matrix](campaign-evaluation-matrix.md) · [Data Governance Audit Explorer](data-governance-audit-explorer.md).
 
 ## 1. Product problem, intention and boundaries
 
@@ -56,7 +58,7 @@ Users are **multi-role**. A person can be an Engineer, Workgroup contributor/rev
 
 ### 4.1 Primary landing, deliberately minimal
 
-Default screen is an **expandable hierarchical list of relevant Tasks** on the left, with a compact selection of **recommended, published and applicable AI tools/configurations** opposite each Task. Derive relevant Tasks primarily from the user's **JobRole, Specialty, WorkloadProfile and overrides** from [DAP-01](../workload-planning.md) when authorized/planning data are available; offer a meaningful no-profile/unknown state rather than fabricating an occupation or silently claiming no eligible tools.
+Default screen is an **expandable hierarchical list of relevant Tasks** on the left, with a compact selection of **recommended, published and applicable AI tools/configurations** opposite each Task. Derive relevant Tasks primarily from the user's **JobRole, Specialty, WorkloadProfile and overrides** from [DAP-01](workload-planning.md) when authorized/planning data are available; offer a meaningful no-profile/unknown state rather than fabricating an occupation or silently claiming no eligible tools.
 
 Task tree structure reuses the permanent Task hierarchy (not a bespoke recommendation taxonomy). Distinguish profile-inferred Tasks from manually confirmed user Tasks if appropriate, and do not require end users to edit the formal taxonomy.
 
@@ -235,7 +237,7 @@ Display the small badge near/on the block, e.g. "Benchmark Workspace · 3"; don'
 
 ## 7. AI Solutions, Results Explorer and Recommendations — no redundant catalogs
 
-**Existing verified state:** [PLAT-22](../recommendations-server.md) already implements a *manual reviewed recommendation* pinned to an exact **Task, measured individual AI Solution, individual Benchmark Run(s), optional Evaluation revision**, with evidence, rationale, limitations, historical revisions and controlled Draft → In review → Published/unpublished transitions. Publishing benchmark evidence does **not** automatically publish a recommendation. New evidence may produce **review_needed** without silently rewriting the historic editorial decision.
+**Existing verified state:** [PLAT-22](recommendations-server.md) already implements a *manual reviewed recommendation* pinned to an exact **Task, measured individual AI Solution, individual Benchmark Run(s), optional Evaluation revision**, with evidence, rationale, limitations, historical revisions and controlled Draft → In review → Published/unpublished transitions. Publishing benchmark evidence does **not** automatically publish a recommendation. New evidence may produce **review_needed** without silently rewriting the historic editorial decision.
 
 **Desired UX:**
 
@@ -269,7 +271,7 @@ The diagram remains an **entry map** rather than an obstacle: user can navigate 
 
 ### 8.2 Guided steppers for genuinely sequential local operations
 
-**Ideal first candidate:** the existing guided **Benchmark Test Run** process, reflecting [Benchmark Workflow](../benchmark-workflow.md):
+**Ideal first candidate:** the existing guided **Benchmark Test Run** process, reflecting [Benchmark Workflow](benchmark-workflow.md):
 
 1. Campaign / execution context;
 2. Test Case (challenge and acceptance criteria);
@@ -350,7 +352,7 @@ No automatic field-level merge; no cross-user shared unsaved drafts; no WebSocke
 
 - **Data Health:** broken/missing/obsolete records, structured quality checks and maintenance triage.
 - **Schema & Migrations:** compatibility and permitted previews/executions where existing rights and controls allow.
-- **Data Governance Audit:** passive, permission-filtered recorded changes, exact revisions and diff inspection, as described by its separate future feature.
+- **Data Governance Audit:** passive, permission-filtered recorded changes, exact revisions and diff inspection, as provided by the committed-change Audit & Changes workspace.
 - **Users & Access:** AI Compass accounts and RBAC, **only** for user administrators with explicit grants; not external Provider credentials.
 - **Integrity & Recovery / Platform Operations:** existing authorized backup, integrity, restore-test and operational summaries; production operations require their independent privileged controls.
 
@@ -375,7 +377,7 @@ Data Maintainer **must not automatically** gain Workgroup business editing, publ
 | **Maintenance landing** | Low | Repackage authorized existing tools; retain independent routes and permissions. |
 | **Security / Demo parity** | Cross-cutting | Server-side permission checks, publication visibility, CSRF, independent modes and smoke coverage. |
 
-**Dependencies do not authorize automatic implementation:** DAP beyond DAP-01, composed Guides and OS Compatibility are future plans; UI should gracefully handle features not yet implemented and avoid claiming future capabilities already exist. No feature can be moved to the approved implementation backlog without its own plan/decision.
+**Dependency discipline:** Reuse authoritative domain models and actual permissions for OS compatibility, Guides, workloads, access and historical evidence. Preserve fail-closed states and do not fabricate source values.
 
 ## 13. Recommended UX validation journeys
 
