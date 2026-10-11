@@ -17,7 +17,7 @@ class InvalidExplorer(ValueError):
 
 
 def _filters(parameters):
-    permitted={"view","task_id","solution_id","campaign_id","kind"}
+    permitted={"view","task_id","solution_id","campaign_id","kind","scope"}
     if set(parameters)-permitted:raise InvalidExplorer("Unsupported explorer filter")
     view=parameters.get("view","task")
     kind=parameters.get("kind","all")
@@ -41,7 +41,10 @@ def _filters(parameters):
         raise InvalidExplorer("Composite workflows are not individual AI Solutions")
     if solution and kind=="theoretical":
         raise InvalidExplorer("Forecasts have no measured Solution ID")
-    return view,kind,task,solution,campaign
+    scope=parameters.get("scope","published")
+    if scope not in ("published","private"):
+        raise InvalidExplorer("scope must be published or private")
+    return view,kind,task,solution,campaign,scope
 
 
 def _observation(run,kind):
@@ -68,7 +71,7 @@ def _observation(run,kind):
     }
 
 
-def _run_query(kind,task,solution,campaign):
+def _run_query(kind,task,solution,campaign,scope):
     queryset=(BenchmarkRun.objects if kind=="individual" else CompositeBenchmarkRun.objects)
     queryset=queryset.select_related(
         "session__case_pin__test_case__task__item",
@@ -77,6 +80,9 @@ def _run_query(kind,task,solution,campaign):
         "session__method_definition",
         "solution__item" if kind=="individual" else "framework"
     )
+    if scope=="published":
+        from .publication_services import effective_ids
+        queryset=queryset.filter(public_id__in=effective_ids(campaign,kind))
     if task:queryset=queryset.filter(
         session__case_pin__test_case__task__item__public_id=task)
     if campaign:queryset=queryset.filter(
@@ -119,11 +125,14 @@ def _matrix(rows,view):
 
 
 def explore(actor,parameters):
-    view,kind,task,solution,campaign=_filters(parameters)
+    view,kind,task,solution,campaign,scope=_filters(parameters)
+    if scope=="private" and not (actor.has_perm("auth.business_write") or
+                                 actor.has_perm("auth.publication_review")):
+        raise InvalidExplorer("Private experimental evidence requires workgroup privileges")
     rows=[]
     for k in ("individual","composite"):
         if kind not in ("all",k) or (k=="composite" and solution):continue
-        source=list(_run_query(k,task,solution,campaign))
+        source=list(_run_query(k,task,solution,campaign,scope))
         if len(source)>500:raise InvalidExplorer("Too many results; narrow your filters")
         rows.extend(_observation(run,k) for run in source)
     if kind in ("all","theoretical") and solution is None and campaign is None:
@@ -133,7 +142,7 @@ def explore(actor,parameters):
                     ("staged","reviewed","published"))
     if len(rows)>500:raise InvalidExplorer("Too many observations; narrow your filters")
     rows.sort(key=lambda x:(x["created_at"],x["id"]),reverse=True)
-    return {"view":view,"row_axis":"task" if view=="task" else "candidate",
+    return {"scope":scope,"view":view,"row_axis":"task" if view=="task" else "candidate",
             "column_axis":"candidate" if view=="task" else "task",
             "matrix":_matrix(rows,view),
             "results":rows,"counts":{
