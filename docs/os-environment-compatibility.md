@@ -1,6 +1,6 @@
 # FUT-06 — Windows/Linux user environments and composed OS compatibility
 
-Implements [#80](https://github.com/aradenac/AI-Compass/issues/80) from the [approved specification](future-evolutions/os-compatibility-and-user-environment.md). FUT-07 (setup recipes), FUT-12 (evidence-backed engineer matching) and FUT-15 (deployment entitlement) are **not** delivered by this feature.
+Implements [#80](https://github.com/aradenac/AI-Compass/issues/80) from the [approved specification](os-compatibility-and-user-environment.md). FUT-07 (setup recipes), FUT-12 (evidence-backed engineer matching) and FUT-15 (deployment entitlement) are **not** delivered by this feature.
 
 ## Two distinct truths
 
