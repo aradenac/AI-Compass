@@ -541,7 +541,7 @@
               });
             });
             detail.querySelector("#matrix-open-sessions").addEventListener("click",function(){
-              if(sessionWorkspace)sessionWorkspace.openCampaign(row);
+              if(sessionWorkspace)sessionWorkspace.openCampaign(row,cell.id);
             });
             detail.querySelectorAll("[data-matrix-decision]").forEach(function(action){
               action.disabled=action.dataset.matrixDecision===cell.decision;
