@@ -192,8 +192,22 @@ class GovernanceAuditTests(ActivityFeedTests.__bases__[0]):
         event=ExternalImportEvent.objects.create(
             batch=batch,binding=source,item=item,revision=new,
             source_key="remote-fixture",row_sha256="5"*64,action="revised")
-        migrated=ProductionMigrationReceipt.objects.create(
-            item=item,source_revision=old,target_revision=new,actor=self.writer,
+        # Production's SQL trigger only accepts a successive Model v1 -> v2
+        # promotion, never an arbitrary pair of v1 revisions.
+        from .models import ObjectTypeVersion
+        from .activity_services import record_catalog_event
+        schema_v2=ObjectTypeVersion.objects.get(type_slug="model",version=2)
+        with transaction.atomic():
+            promoted=CatalogRevision.objects.create(
+                item=item,number=3,schema_version=schema_v2,
+                display_name="Imported renamed model",properties=new.properties,
+                created_by=self.writer)
+            item.current_revision=promoted
+            item.save(update_fields=["current_revision"])
+            record_catalog_event(item=item,revision=promoted,actor=self.writer,
+                                 action="schema_migrated")
+            migrated=ProductionMigrationReceipt.objects.create(
+            item=item,source_revision=new,target_revision=promoted,actor=self.writer,
             candidate_id="candidate-01",migration_key="synthetic",
             migration_sha256="0"*64,app_commit="1"*40,
             recovery_id="synthetic-private-recovery-ref",
