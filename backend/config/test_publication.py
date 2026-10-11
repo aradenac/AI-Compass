@@ -177,3 +177,49 @@ class PublicationTests(IndividualRunTests.__bases__[0]):
         reader = Client()
         reader.force_login(self.reader)
         self.assertEqual(reader.get("/api/v1/runs/" + run["id"]).status_code, 404)
+
+    def test_matrix_partial_review_publishes_one_run_without_pending_second_cell(self):
+        self.ready_guide()
+        camp = self.campaign()
+        path = "/api/v1/campaigns/" + camp["id"]
+        for name in ("Measured setup", "Future alternative"):
+            added = self.send(path + "/matrix/edit", {
+                "expected_revision": camp["revision"],
+                "operation": {
+                    "action": "add_configuration",
+                    "task_id": self.task.item.public_id,
+                    "label": name,
+                    "component_ids": {kind: item.public_id
+                                      for kind, item in self.catalog.items()},
+                    "test_case_ids": [self.case.item.public_id],
+                }}, "PATCH")
+            self.assertEqual(added.status_code, 200, added.content)
+            camp = added.json()["campaign"]
+        matrix = self.client.get(path + "/matrix").json()
+        self.assertEqual(matrix["summary"]["pending"], 2)
+        evaluation = matrix["cells"][0]
+        created = self.send(path + "/sessions", {
+            "test_case_id": self.case.item.public_id,
+            "evaluation_id": evaluation["id"]})
+        self.assertEqual(created.status_code, 201, created.content)
+        session = created.json()
+        self.interaction(session)
+        closed = self.close(session, self.result(outcome="failed"))
+        self.assertEqual(closed.status_code, 201, closed.content)
+        run = closed.json()
+        partial = self.send(path + "/actions/close", {
+            "expected_revision": camp["revision"], "partial_review": True})
+        self.assertEqual(partial.status_code, 200, partial.content)
+        self.assertEqual(partial.json()["campaign"]["status"], "under_review")
+        self.publisher()
+        published = self.publish(partial.json()["campaign"], [run["id"]])
+        self.assertEqual(published.status_code, 200, published.content)
+        coverage = published.json()["publication"]["coverage"]
+        self.assertEqual(coverage["pending"], 1)
+        self.assertFalse(coverage["full_plan_complete"])
+        self.assertEqual(len(published.json()["publication"]["runs"]), 1)
+        reader = Client()
+        reader.force_login(self.reader)
+        self.assertEqual([x["id"] for x in reader.get(
+            "/api/v1/runs?campaign_id=" + camp["id"]).json()["results"]],
+                         [run["id"]])
