@@ -61,6 +61,16 @@ def _configuration(actor, data, snapshot, occupied):
         if not isinstance(components,dict) or set(components)!={"model","provider","harness"}:
             raise InvalidCampaign("Matrix configuration needs a complete Model/Provider/Harness trio")
         parts={k:_component(k,v) for k,v in components.items()}
+        # Solution-centred method fixes a single technical trio. Multi-Task
+        # comparisons using different trios belong to task-centred mode.
+        if snapshot.revision.properties.get("mode")=="solution_centred":
+            pinned={p.kind:p for p in snapshot.component_pins.select_related("component")}
+            if set(pinned)!={"model","provider","harness"} or any(
+                pinned[k].component_id!=parts[k].pk or
+                pinned[k].revision_id!=parts[k].current_revision_id
+                for k in ("model","provider","harness")
+            ):
+                raise InvalidCampaign("Solution-centred matrix must reuse the fixed pinned trio; use task-centred for comparisons")
         version=data.get("configuration_version","1")
         settings=data.get("settings",{})
         if not isinstance(version,str) or not 1<=len(version)<=160:
