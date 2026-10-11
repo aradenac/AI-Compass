@@ -29,6 +29,7 @@ function find(k){
   if(!nodes.has(k))nodes.set(k,{
     textContent:"",innerHTML:"",value:"",hidden:false,listeners:{},
     addEventListener(type,fn){this.listeners[type]=fn;},
+    replaceChildren(){this.innerHTML="";this.textContent="";},
     querySelector:find,querySelectorAll(){return [];},
     style:{},
   });
@@ -41,7 +42,8 @@ const root={hidden:true,innerHTML:"",querySelector:find,replaceChildren(){
   this.innerHTML="";
 },};
 const calls=[];
-const sandbox={window:{},URLSearchParams,fetch:async(url,opts)=>{
+const sandbox={window:{location:{pathname:"/",search:"?mode=server&workspace=engineer&section=results",hash:"",origin:"http://localhost"},
+ history:{replaceState(){}}},URL,URLSearchParams,fetch:async(url,opts)=>{
   calls.push(url);
   assert(url.startsWith("/api/v1/"));
   assert.equal(opts.credentials,"same-origin");
