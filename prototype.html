@@ -2383,7 +2383,8 @@ var body=head+demoMatrixMarkup(c)+'<h3 style="margin:18px 0 10px">Test Cases in 
 (c.stage==="active"?'<div class="inline-actions" style="margin:11px 0">'+btn("+ New Test Case","campaignNewCase",id,"sm primary")+btn("Attach existing Test Case","campaignAttachCase",id,"sm")+'</div>':"")+
 '<h3 style="margin:19px 0 8px">Experiment sessions</h3><div class="list">'+(trialList||'<div class="empty">No sessions recorded</div>')+'</div>'+review;
 var actions=btn("Close","close","","")+(canEdit()&&ui.page==="benchmark"?btn("Edit campaign","editCampaign",id,"")+
-(c.stage==="planned"?btn("Open campaign","campaignActivate",id,"primary"):c.stage==="active"?btn("Close → staging","campaignClose",id,"primary"):c.stage==="review"?btn("Record review","campaignReview",id,"primary"):"")+
+(c.stage==="planned"?btn("Open campaign","campaignActivate",id,"primary"):c.stage==="active"?btn("Close full plan","campaignClose",id,"primary")+
+  (c.matrixPlan?btn("Partial review","campaignClosePartial",id,""):""):c.stage==="review"?btn("Record review","campaignReview",id,"primary"):"")+
 (c.stage==="published"?btn("Unpublish → review","campaignUnpublish",id,""):"")+(c.stage!=="active"?btn("Reopen","campaignReopen",id,""):"")+btn("Delete / archive","campaignDelete",id,""):"");
 openModal("Benchmark campaign",body,actions);
 }
@@ -2411,12 +2412,26 @@ if(!canEdit())return;var rev=db.revisions.find(function(x){return x.id===id;});i
 openModal("Audit revision · "+rev.type,'<div class="row-between">'+badge(rev.type)+'<span class="muted small">'+E(rev.date)+' · '+E(actor(rev.by))+'</span></div><h3 style="margin:15px 0 7px">Previous record</h3><pre class="code">'+E(JSON.stringify(rev.before,null,2))+'</pre><h3 style="margin:15px 0 7px">Updated record</h3><pre class="code">'+E(JSON.stringify(rev.after,null,2))+'</pre>');
 }
 function campaignTrialsExistingOrCases(c){return c.caseIds.length>0||db.campaignTrials.some(function(x){return x.campaign===c.id;});}
-function setCampaignStage(id,stage){
+function setCampaignStage(id,stage,partial){
 if(!canEdit())return;var c=rec("campaigns",id);if(!c||c.archived)return;
 var allowed=stage==="active"?["planned","review","published"].includes(c.stage):
  stage==="review"?c.stage==="active":false;
 if(!allowed){toast("Use the supported campaign lifecycle actions.");return;}
-var before=JSON.parse(JSON.stringify(c));c.stage=stage;c.status=stage==="active"?"active":stage==="review"?"closed":stage;
+if(stage==="review"&&c.matrixPlan){
+ var outstanding=c.matrixPlan.cells.filter(function(cell){
+  var state=demoMatrixStatus(c,cell).state;
+  return state==="pending"||state==="in_progress";
+ }).length;
+ if(outstanding&&!partial){
+  toast("Full plan incomplete: "+outstanding+" outstanding evaluations. Choose partial review explicitly.");return;
+ }
+}
+var before=JSON.parse(JSON.stringify(c));
+if(stage==="review"&&c.matrixPlan){
+ c.reviewScope=c.matrixPlan.cells.some(function(cell){
+  return ["pending","in_progress"].includes(demoMatrixStatus(c,cell).state);
+ })?"partial":"full";
+}c.stage=stage;c.status=stage==="active"?"active":stage==="review"?"closed":stage;
 c.updated=TODAY;
 if(stage==="active"&&before.stage==="published"){c.reviewNotes="";c.reviewer="";}
 revision("Campaign lifecycle",id,before,c);
@@ -3031,7 +3046,8 @@ if(act==="campaignPeek"){campaignSummary(id);return;}
 if(act==="openCampaign"){ui.page="benchmark";ui.modal="";render();detailsCampaign(id);return;}
 if(act==="editCampaign"){dialogCampaign(id);return;}
 if(act==="campaignActivate"){setCampaignStage(id,"active");return;}
-if(act==="campaignClose"){setCampaignStage(id,"review");return;}
+if(act==="campaignClose"){setCampaignStage(id,"review",false);return;}
+if(act==="campaignClosePartial"){setCampaignStage(id,"review",true);return;}
 if(act==="campaignReopen"){setCampaignStage(id,"active");return;}
 if(act==="campaignDelete"){campaignRemove(id);return;}
 if(act==="campaignRestore"){restoreCampaign(id);return;}
