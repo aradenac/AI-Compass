@@ -46,7 +46,15 @@ Priorities are suggested **risk order**, not permission to start or a production
 
 Deferring these activities does **not** permit skipping tests required to prove a newly implemented feature, release artifact or irreversible migration.
 
-## III. Operational limitations that must remain visible
+## III. Explicitly accepted governance deferral — UI QA branch enforcement
+
+| ID | Status | Accepted decision | Revisit trigger |
+| --- | --- | --- | --- |
+| **TD-UI-01** | **Deferred at product-owner request (2026-10-11)** | The real-browser `ui-qa` GitHub Actions workflow is implemented and green ([UX-R01 #114](https://github.com/aradenac/AI-Compass/issues/114), [PR #118](https://github.com/aradenac/AI-Compass/pull/118)); however, configuring a **required, non-bypassable `ui-qa` status check in `main` branch protection/rulesets** is intentionally postponed. The connected GitHub integration cannot administer/verify rulesets. CI status must be checked by the implementing agent before merge; do not claim protection is enforced. | When branch settings are next reviewed, require the exact `ui-qa` check for `main`, prevent ordinary bypass and verify with a negative merge test. |
+
+This deferral concerns **only repository policy enforcement**, not browser testing, screenshots, mandatory PR checks in the agent workflow, or the accepted UI quality bar. No new issue is needed until the owner chooses to schedule this operational improvement.
+
+## IV. Operational limitations that must remain visible
 
 - Existing PLAT release readiness is explicitly **NO-GO** pending real staging/browser acceptance, production-like rehearsal and accountable release decision; closing PLAT issues does not grant GO.
 - Migration staging/production scripts are specialized to a registered migration and must not be represented as a generic all-version deployment mechanism.
