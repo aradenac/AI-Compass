@@ -1594,7 +1594,7 @@ return heading("Collaboration","Feedback & discussions",
 "One chronological conversation per contribution. Each message has its own public or workgroup-only visibility; actions and bug tracking are managed outside feedback.",
 !canEdit()?btn("+ Submit feedback","newFeedback","","primary"):"")+
 '<div class="card"><div class="filters"><input class="input" data-filter="feedbackSearch" placeholder="Find contributions and ideas…" value="'+E(ui.filters.feedbackSearch||"")+'">'+badge(items.length+" contributions")+'</div>'+
-simpleTable(["Feedback / idea","Kind","Related context","Contributor","Conversation",""],rows)+'</div>';
+window.AICompassWorkgroup.renderRecords(rows,{domain:"feedback",mode:"demo",emptyText:"No matching feedback."})+'</div>';
 }
 function activityPage(){
 var visible=db.events.filter(function(e){return canEdit()||!e.internal;});
