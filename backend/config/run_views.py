@@ -67,8 +67,15 @@ def close_session(request,public_id):
 @capability("business_read")
 @never_cache
 def list_runs(request):
-    if set(request.GET)-{"campaign_id","solution_id","kind"}:
+    if set(request.GET)-{"campaign_id","solution_id","kind","scope"}:
         return json_no_store({"error":"invalid_filter"},400)
+    from .publication_services import effective_ids, can_preview
+    private=can_preview(request.user)
+    scope=request.GET.get("scope","private" if private else "published")
+    if scope not in ("published","private"):
+        return json_no_store({"error":"invalid_scope"},400)
+    if scope=="private" and not private:
+        return json_no_store({"error":"permission_denied"},403)
     kind=request.GET.get("kind")
     if kind not in (None,"individual","composite"):
         return json_no_store({"error":"invalid_kind"},400)
@@ -88,6 +95,8 @@ def list_runs(request):
             "solution__item__current_revision","solution_revision","session",
             "closing_checkpoint","recorded_by"
         ).order_by("-created_at","-id")
+        if scope=="published":
+            individual=individual.filter(public_id__in=effective_ids(campaign,"individual"))
         if campaign:
             individual=individual.filter(
                 session__campaign_snapshot__revision__item__public_id=campaign)
@@ -98,6 +107,8 @@ def list_runs(request):
         composite=CompositeBenchmarkRun.objects.select_related(
             "session","framework","framework_revision","closing_checkpoint","recorded_by"
         ).order_by("-created_at","-id")
+        if scope=="published":
+            composite=composite.filter(public_id__in=effective_ids(campaign,"composite"))
         if campaign:
             composite=composite.filter(
                 session__campaign_snapshot__revision__item__public_id=campaign)
@@ -111,31 +122,47 @@ def list_runs(request):
 @capability("business_read")
 @never_cache
 def get_run(request,public_id):
+    from .publication_services import effective_ids, can_preview
+    private=can_preview(request.user)
     if request.GET:return json_no_store({"error":"invalid_filter"},400)
     individual=BenchmarkRun.objects.select_related(
         "solution__item__current_revision","solution_revision","session",
         "closing_checkpoint","recorded_by").filter(public_id=public_id).first()
     if individual is not None:
-        return json_no_store(serialize(individual))
+        if not private and public_id not in effective_ids(kind="individual"):
+            raise Http404("Run not in effective published membership")
+        return json_no_store(serialize(individual, include_raw=private))
     if not public_id.startswith("run-"):raise Http404("Not a Run identifier")
     composite=get_object_or_404(CompositeBenchmarkRun.objects.select_related(
         "session","framework","framework_revision","closing_checkpoint","recorded_by"),
         public_id=public_id)
-    return json_no_store(serialize_composite(composite))
+    if not private and public_id not in effective_ids(kind="composite"):
+        raise Http404("Run not in effective published membership")
+    return json_no_store(serialize_composite(composite, include_raw=private))
 
 
 @require_GET
 @capability("business_read")
 @never_cache
 def solutions(request):
-    if request.GET:return json_no_store({"error":"invalid_filter"},400)
-    rows=list(MeasuredSolution.objects.select_related(
-        "item__current_revision").order_by("item__public_id")[:501])
-    if len(rows)>500:return json_no_store({"error":"too_many_solutions"},422)
+    from .publication_services import effective_ids, can_preview
+    if request.GET:
+        return json_no_store({"error":"invalid_filter"},400)
+    private=can_preview(request.user)
+    published=effective_ids(kind="individual") if not private else None
+    rows=MeasuredSolution.objects.select_related("item__current_revision").order_by("item__public_id")
+    if not private:
+        rows=rows.filter(runs__public_id__in=published).distinct()
+    rows=list(rows[:501])
+    if len(rows)>500:
+        return json_no_store({"error":"too_many_solutions"},422)
     return json_no_store({"results":[{
         "id":row.item.public_id,"revision_id":str(row.item.current_revision_id),
-        "fingerprint":row.fingerprint,"lifecycle":row.item.current_revision.properties["lifecycle"],
-        "first_measured":True,"run_count":row.runs.count(),
+        "fingerprint":row.fingerprint,
+        "lifecycle":row.item.current_revision.properties["lifecycle"],
+        "first_measured":True,
+        "run_count":row.runs.count() if private else
+            row.runs.filter(public_id__in=published).count(),
     } for row in rows]})
 
 
@@ -143,15 +170,24 @@ def solutions(request):
 @capability("business_read")
 @never_cache
 def solution(request,public_id):
-    if request.GET:return json_no_store({"error":"invalid_filter"},400)
-    if not public_id.startswith("sol-"):raise Http404("Not a solution identifier")
+    from .publication_services import effective_ids, can_preview
+    if request.GET:
+        return json_no_store({"error":"invalid_filter"},400)
+    if not public_id.startswith("sol-"):
+        raise Http404("Not a solution identifier")
     row=get_object_or_404(MeasuredSolution.objects.select_related(
         "item__current_revision"),item__public_id=public_id)
+    private=can_preview(request.user)
+    published=effective_ids(kind="individual") if not private else None
+    run_ids=list(row.runs.order_by("created_at","id").values_list("public_id",flat=True))
+    if not private:
+        run_ids=[ident for ident in run_ids if ident in published]
+        if not run_ids:
+            raise Http404("Solution has no effective published Run")
     rev=row.item.current_revision
     return json_no_store({
         "id":row.item.public_id,"revision":f"r{rev.number:03d}",
         "revision_id":str(rev.pk),"fingerprint":row.fingerprint,
         "lifecycle":rev.properties["lifecycle"],"configuration":rev.properties["setup"],
-        "run_ids":list(row.runs.order_by("created_at","id").values_list("public_id",flat=True)),
-        "recommended":False,
+        "run_ids":run_ids,"recommended":False,
     })

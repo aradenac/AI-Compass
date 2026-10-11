@@ -195,7 +195,7 @@ class EvaluationMatrixTests(TestCase):
         pin=SessionSolutionPin.objects.get(session__public_id=session.json()["id"])
         self.assertEqual(str(pin.model_revision_id),original_revision)
         self.client.force_login(self.reader)
-        self.assertEqual(self.client.get(self.path+"/matrix").status_code,200)
+        self.assertEqual(self.client.get(self.path+"/matrix").status_code,404)
         self.assertEqual(self.operation({"action":"decide","evaluation_id":other["id"],
                          "decision":"not_selected"}).status_code,403)
         self.client.force_login(self.maint)

@@ -267,7 +267,8 @@ class ResultsAndEvaluationTests(TestCase):
         record=self.evaluation([individual["id"]])
         browser,token=self.as_user(self.reader)
         self.assertEqual(browser.get(EVALUATIONS+"/"+record["id"]).json(),record)
-        self.assertEqual(browser.get(EXPLORER).json()["counts"]["individual_runs"],1)
+        self.assertEqual(browser.get(EXPLORER).json()["counts"]["individual_runs"],0)
+        self.assertEqual(self.client.get(EXPLORER).json()["counts"]["individual_runs"],1)
         self.assertEqual(self.call(EVALUATIONS,{"name":"Denied","run_ids":[individual["id"]]},
                     browser=browser,token=token).status_code,403)
         no_csrf=Client(enforce_csrf_checks=True)

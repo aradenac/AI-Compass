@@ -68,6 +68,23 @@ def _watch_readable(request, item, revision=None):
     if data is None:
         raise Http404("Private Research Source / Watch evidence")
 
+def _campaign_link_readable(request, link):
+    """An unpublished campaign upload must not be downloadable via guessed UUID."""
+    if link.item.type_slug != "campaign":
+        return
+    if request.user.has_perm("auth.business_write") or request.user.has_perm("auth.publication_review"):
+        return
+    from django.http import Http404
+    from .publication_services import effective_ids
+    from .models import BenchmarkRunEvidence, CompositeRunEvidence
+    allowed = effective_ids(link.item.public_id)
+    if not (BenchmarkRunEvidence.objects.filter(
+            evidence=link, run__public_id__in=allowed).exists() or
+            CompositeRunEvidence.objects.filter(
+            evidence=link, run__public_id__in=allowed).exists()):
+        raise Http404("Unpublished campaign evidence")
+
+
 def _checked(link, *, full_integrity=True):
     row = serialize(link)
     # A metadata listing NEVER reads file bytes. A null verification timestamp is
@@ -121,6 +138,17 @@ def list_evidence(request, public_id):
         from .discussion_services import readable_revision
         rows=[link for link in rows if link.revision_id is not None and
               readable_revision(item,request.user,link.revision)]
+    if item.type_slug == "campaign" and not (
+            request.user.has_perm("auth.business_write") or
+            request.user.has_perm("auth.publication_review")):
+        from .publication_services import effective_ids
+        from .models import BenchmarkRunEvidence, CompositeRunEvidence
+        allowed = effective_ids(item.public_id)
+        run_pins = set(BenchmarkRunEvidence.objects.filter(
+            run__public_id__in=allowed).values_list("evidence_id", flat=True))
+        run_pins.update(CompositeRunEvidence.objects.filter(
+            run__public_id__in=allowed).values_list("evidence_id", flat=True))
+        rows = [link for link in rows if link.pk in run_pins]
     return json_no_store({"item_id": public_id, "results": [_checked(link, full_integrity=False) for link in rows]})
 
 
@@ -186,6 +214,7 @@ def upload_evidence(request, public_id):
 def evidence_detail(request, link_id):
     link=_owned_link(link_id)
     _watch_readable(request,link.item,link.revision)
+    _campaign_link_readable(request,link)
     return json_no_store(_checked(link))
 
 
@@ -195,6 +224,7 @@ def evidence_detail(request, link_id):
 def evidence_download(request, link_id):
     link = _owned_link(link_id)
     _watch_readable(request,link.item,link.revision)
+    _campaign_link_readable(request,link)
     try:
         path = verify_bytes(link.blob_id, size=link.blob.size)
         payload = path.open("rb")

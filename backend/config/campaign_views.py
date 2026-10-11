@@ -1,5 +1,5 @@
 """PLAT-12: authenticated campaign planning, revisions and workgroup pipeline."""
-from django.http import HttpResponseNotAllowed
+from django.http import HttpResponseNotAllowed, Http404
 from django.shortcuts import get_object_or_404
 from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_protect
@@ -19,7 +19,7 @@ FIELDS=frozenset({"name","objective","notes","properties","owner","mode",
                   "method_version","task_id","component_ids","test_case_ids",
                   "guide_id","configuration","repin","framework_id","participants", "pricing_selections"})
 EDIT_FIELDS=FIELDS|{"expected_revision"}
-ACTION_FIELDS=frozenset({"expected_revision","partial_review"})
+ACTION_FIELDS=frozenset({"expected_revision","partial_review","run_ids","removal_reason"})
 TRANSITIONS=frozenset({"start","close","rework","publish","unpublish","reopen","archive","restore"})
 
 
@@ -75,14 +75,34 @@ def methods(request):
         for row in rows]})
 
 
-def _list(include_archived=True):
+def _can_review_private(user):
+    from .publication_services import can_preview
+    return can_preview(user)
+
+
+def _public_revision(item):
+    """Read-only users see last committed publication, never ongoing edits."""
+    from .publication_services import effective
+    publication=effective(item)
+    if publication is None:
+        return None
+    return CatalogRevision.objects.filter(
+        item=item, pk=publication["campaign_revision_id"]).first()
+
+
+def _list(include_archived=True, user=None):
     items=CatalogItem.objects.filter(type_slug="campaign").select_related(
         "current_revision__schema_version","current_revision__created_by"
     ).order_by("created_at","public_id")
     rows=list(items[:501])
     if len(rows)>500:
         return None
-    result=[serialize(item) for item in rows]
+    private=user is None or _can_review_private(user)
+    result=[]
+    for item in rows:
+        revision=item.current_revision if private else _public_revision(item)
+        if revision is not None:
+            result.append(serialize(item,revision))
     return result if include_archived else [x for x in result if not x["archived"]]
 
 
@@ -95,7 +115,7 @@ def list_campaigns(request):
     flag=request.GET.get("include_archived","true")
     if flag not in ("true","false"):
         return json_no_store({"error":"invalid_filter"},400)
-    result=_list(include_archived=(flag=="true"))
+    result=_list(include_archived=(flag=="true"),user=request.user)
     if result is None:
         return json_no_store({"error":"too_many_campaigns","detail":"Campaign listing limit (500) reached"},422)
     return json_no_store({"results":result})
@@ -106,7 +126,7 @@ def list_campaigns(request):
 @never_cache
 def pipeline(request):
     if request.GET: return json_no_store({"error":"invalid_filter"},400)
-    result=_list(include_archived=False)
+    result=_list(include_archived=False,user=request.user)
     if result is None:
         return json_no_store({"error":"too_many_campaigns"},422)
     return json_no_store({"columns":{state:[
@@ -135,7 +155,10 @@ def add_campaign(request):
 @capability("business_read")
 @never_cache
 def get_campaign(request, public_id):
-    return json_no_store(serialize(_item(public_id)))
+    item=_item(public_id)
+    revision=item.current_revision if _can_review_private(request.user) else _public_revision(item)
+    if revision is None:raise Http404("Campaign has no effective public revision")
+    return json_no_store(serialize(item,revision))
 
 
 @require_http_methods(["PATCH"])
@@ -168,6 +191,23 @@ def transition(request,public_id,action):
         data=_payload(request,ACTION_FIELDS)
         if not isinstance(data.get("expected_revision"),str):
             raise InvalidCampaign("expected_revision is required")
+        if action in ("publish", "unpublish"):
+            from . import publication_services
+            if action == "publish":
+                item = publication_services.publish(
+                    actor=request.user, public_id=public_id,
+                    expected_revision=data["expected_revision"],
+                    run_ids=data.get("run_ids"),
+                    removal_reason=data.get("removal_reason", ""))
+            else:
+                if set(data) != {"expected_revision"}:
+                    raise InvalidCampaign("Unpublish accepts only expected_revision")
+                item = publication_services.revoke(
+                    actor=request.user, public_id=public_id,
+                    expected_revision=data["expected_revision"])
+            return json_no_store({"campaign":serialize(item),"changed":True})
+        if set(data) - {"expected_revision", "partial_review"}:
+            raise InvalidCampaign("Only publication actions accept Run selections")
         item,changed=modify(actor=request.user,public_id=public_id,data=data,action=action)
         return json_no_store({"campaign":serialize(item),"changed":changed})
     return _write(run)
@@ -180,6 +220,10 @@ def history(request,public_id):
     item=_item(public_id)
     revisions=CatalogRevision.objects.filter(item=item).select_related(
         "schema_version","created_by").order_by("number")
+    if not _can_review_private(request.user):
+        visible=_public_revision(item)
+        if visible is None:raise Http404("No effective public campaign")
+        revisions=[visible]
     return json_no_store({"id":item.public_id,
                           "revisions":[serialize(item,rev) for rev in revisions]})
 
@@ -191,6 +235,9 @@ def revision(request,public_id,number):
     item=_item(public_id)
     rev=get_object_or_404(CatalogRevision.objects.select_related(
         "schema_version","created_by"),item=item,number=number)
+    if not _can_review_private(request.user):
+        visible=_public_revision(item)
+        if visible is None or visible.pk!=rev.pk:raise Http404("Private revision")
     return json_no_store(serialize(item,rev))
 
 
@@ -209,6 +256,12 @@ def evaluation_matrix(request, public_id):
         if not isinstance(revision,str) or not revision.startswith("r") or not revision[1:].isdigit():
             return json_no_store({"error":"invalid_revision"},400)
         rev=get_object_or_404(CatalogRevision,item=item,number=int(revision[1:]))
+    if not _can_review_private(request.user):
+        visible=_public_revision(item)
+        if visible is None:raise Http404("Private matrix plan")
+        if revision is not None and visible.pk!=rev.pk:
+            raise Http404("Private matrix revision")
+        rev=visible
     from .campaign_matrix_services import projection
     return json_no_store(projection(item,rev))
 

@@ -87,7 +87,7 @@ class FrameworkParticipantTests(TestCase):
         self.assertEqual([p["position"] for p in initial["participants"]],[0,1,2])
         self.assertEqual([p["role"] for p in initial["participants"]],["Planner","Implementer","Reviewer"])
         self.assertEqual(initial["participants"][1]["settings"]["future"],{"preserve":[None,1]})
-        other=Client();other.force_login(self.reader)
+        other=Client();other.force_login(self.writer)
         cross_browser=other.get(BASE+"/"+initial["id"])
         self.assertEqual(cross_browser.status_code,200)
         self.assertEqual([p["id"] for p in cross_browser.json()["participants"]],ids)
@@ -271,7 +271,7 @@ class FrameworkParticipantTests(TestCase):
         self.assertEqual(self.send(BASE+"/"+created["id"],{
             "expected_revision":"r001","participants":[self.trio(0)]},method="PATCH",csrf=False).status_code,403)
         self.client.force_login(self.reader)
-        self.assertEqual(self.client.get(BASE+"/"+created["id"]).status_code,200)
+        self.assertEqual(self.client.get(BASE+"/"+created["id"]).status_code,404)
         self.assertEqual(self.send(BASE+"/"+created["id"],{
             "expected_revision":"r001","participants":[self.trio(0)]},method="PATCH").status_code,403)
         self.client.force_login(self.maint)

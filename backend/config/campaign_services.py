@@ -357,6 +357,9 @@ def modify(*, actor, public_id, data, action=None):
             "owner","method_definition","fixed_task","fixed_task_revision",
             "guide","guide_revision","framework","framework_revision").get(revision=old)
         props=dict(old.properties)
+        # A publication is an event on one immutable campaign revision, never
+        # inherited by later working revisions or automatically republished.
+        props.pop("publication_event", None)
         state=props["status"]
         if action:
             if action=="archive":
@@ -367,9 +370,15 @@ def modify(*, actor, public_id, data, action=None):
                 props["archived"]=False
             else:
                 if props["archived"]: raise InvalidTransition("Archived campaigns cannot transition")
-                if action not in ACTIONS or state not in ACTIONS[action][0]:
+                if action=="revoke_publication":
+                    event=data.get("_publication_event")
+                    if (not isinstance(event,dict) or event.get("kind")!="revoke"
+                            or state not in ("in_progress","under_review")):
+                        raise InvalidTransition("Only a working or reviewed campaign can revoke its effective publication")
+                    props["publication_event"]=event
+                elif action not in ACTIONS or state not in ACTIONS[action][0]:
                     raise InvalidTransition("Forbidden campaign lifecycle transition")
-                if action=="close" and props.get("matrix_plan"):
+                if action!="revoke_publication" and action=="close" and props.get("matrix_plan"):
                     from .campaign_matrix_services import projection
                     counts=projection(item,old)["summary"]
                     partial=data.get("partial_review",False)
@@ -379,11 +388,20 @@ def modify(*, actor, public_id, data, action=None):
                         raise InvalidTransition("Full plan has "+str(counts["outstanding"])+
                             " pending/in-progress obligations; complete/waive them or explicitly close for partial review")
                     props["review_scope"]="partial" if counts["outstanding"] else "full"
-                elif "partial_review" in data:
+                elif action!="revoke_publication" and "partial_review" in data:
                     raise InvalidCampaign("partial_review applies only when closing a matrix campaign")
-                if action=="publish" and previous.case_pins.count()==0:
-                    raise InvalidTransition("Cannot publish a campaign without Test Cases")
-                props["status"]=ACTIONS[action][1]
+                if action=="publish":
+                    event=data.get("_publication_event")
+                    if not isinstance(event,dict) or event.get("kind")!="publish" or not event.get("runs"):
+                        raise InvalidTransition("Publish requires validated selected Runs")
+                    props["publication_event"]=event
+                elif action=="unpublish":
+                    event=data.get("_publication_event")
+                    if not isinstance(event,dict) or event.get("kind")!="revoke":
+                        raise InvalidTransition("Unpublish requires an explicit revocation decision")
+                    props["publication_event"]=event
+                if action!="revoke_publication":
+                    props["status"]=ACTIONS[action][1]
             ctx=_snapshot_context({},actor,previous)
             ctx["pricing_pins"]=prepare_selections(None,ctx,previous)
             name=old.display_name
@@ -436,6 +454,7 @@ def serialize(item, rev=None):
         "method_definition_id":str(snap.method_definition_id),
         "method_definition":snap.method_definition.json_schema,
         "status":revision.properties["status"], "archived":revision.properties["archived"],
+        "effective_publication":_serialized_publication(item, revision),
         "task_id":snap.fixed_task.item.public_id if snap.fixed_task_id else None,
         "task_revision_id":str(snap.fixed_task_revision_id) if snap.fixed_task_revision_id else None,
         "guide_id":snap.guide.public_id if snap.guide_id else None,
@@ -466,3 +485,15 @@ def serialize(item, rev=None):
         "created_by":revision.created_by.get_username(),
         "compatibility":compatibility_for_revision(item,revision),
     }
+
+
+def _serialized_publication(item, revision):
+    """Historical as-of pointer, with no draft Run content disclosed."""
+    from .publication_services import effective
+    row = effective(item, revision.number)
+    if row is None:
+        return None
+    return {"revision": row["campaign_revision"],
+            "revision_id": row["campaign_revision_id"],
+            "included_runs": len(row["runs"]),
+            "coverage": row["coverage"]}

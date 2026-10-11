@@ -44,6 +44,12 @@ def _run(fn):
         return _fail(exc)
 
 
+def _require_private_review(request):
+    from .publication_services import can_preview
+    if not can_preview(request.user):
+        raise Http404("Private experiment session")
+
+
 def _item(campaign_id):
     if not campaign_id.startswith("cmp-"):raise Http404("Unknown campaign")
     return get_object_or_404(CatalogItem,public_id=campaign_id,type_slug="campaign")
@@ -62,6 +68,7 @@ def _session(public_id):
 @never_cache
 @capability("business_read")
 def list_sessions(request,campaign_id):
+    _require_private_review(request)
     campaign=_item(campaign_id)
     if request.GET:return json_no_store({"error":"invalid_filter"},400)
     rows=list(BenchmarkSession.objects.select_related(
@@ -93,6 +100,7 @@ def add_session(request,campaign_id):
 @never_cache
 @capability("business_read")
 def get_session(request,public_id):
+    _require_private_review(request)
     if request.GET:return json_no_store({"error":"invalid_filter"},400)
     return json_no_store(serialize(_session(public_id)))
 
@@ -101,6 +109,7 @@ def get_session(request,public_id):
 @never_cache
 @capability("business_read")
 def get_pinned_guide(request,public_id):
+    _require_private_review(request)
     if request.GET:
         return json_no_store({"error":"invalid_filter"},400)
     from .setup_recipe_services import from_session
@@ -115,6 +124,7 @@ def get_pinned_guide(request,public_id):
 @never_cache
 @capability("business_read")
 def get_checkpoints(request,public_id):
+    _require_private_review(request)
     session=_session(public_id)
     if request.GET:return json_no_store({"error":"invalid_filter"},400)
     checkpoints=SessionCheckpoint.objects.filter(session=session).order_by("number")
@@ -130,6 +140,7 @@ def get_checkpoints(request,public_id):
 @never_cache
 @capability("business_read")
 def get_checkpoint(request,public_id,number):
+    _require_private_review(request)
     session=_session(public_id)
     cp=get_object_or_404(SessionCheckpoint,session=session,number=number)
     return json_no_store(serialize(session,cp))

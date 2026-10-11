@@ -104,6 +104,16 @@ jobs:
         run: docker compose up -d --wait --build
       - name: Initialize Django's baseline schema
         run: docker compose run --rm api python manage.py migrate --noinput
+      - name: Verify FUT-10 immutable selected publication and privacy
+        run: docker compose exec -T api python manage.py test config.test_publication -v 2
+
+      - name: Verify FUT-10 dependent campaign, session, run and matrix regressions
+        run: |
+          docker compose exec -T api python manage.py test \
+            config.test_campaigns config.test_campaign_participants config.test_sessions \
+            config.test_runs config.test_composite_runs config.test_run_cost \
+            config.test_campaign_matrix config.test_evaluations config.test_release_readiness -v 1
+
       - name: Assert fresh Server has no seeded business data
         run: |
           docker compose exec -T api python manage.py shell -c \

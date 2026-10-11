@@ -165,7 +165,7 @@ class BenchmarkSessionTests(TestCase):
 
         # A fresh browser and client instance sees exactly the durable DB checkpoint.
         browser_b=Client()
-        browser_b.force_login(self.reader)
+        browser_b.force_login(self.editor)
         resumed=browser_b.get(b)
         self.assertEqual(resumed.status_code,200)
         self.assertEqual(resumed.json(),updated)
@@ -294,7 +294,7 @@ class BenchmarkSessionTests(TestCase):
         maintenance=Client();maintenance.force_login(self.maint)
         self.assertEqual(maintenance.get(b).status_code,403)
         read=Client();read.force_login(self.reader)
-        self.assertEqual(read.get(b).status_code,200)
+        self.assertEqual(read.get(b).status_code,404)
         self.assertEqual(self.call(b+"/setup",{"expected_revision":"r002","notes":"no"},
             "PATCH",client=read).status_code,403)
 
@@ -371,7 +371,7 @@ class BenchmarkSessionTests(TestCase):
         self.assertEqual(self.client.get(path).json()["sections"][0]["text"],
                          "Install pinned dependency")
         reader=Client();reader.force_login(self.reader)
-        self.assertEqual(reader.get(path).status_code,200)
+        self.assertEqual(reader.get(path).status_code,404)
         maint=Client();maint.force_login(self.maint)
         self.assertEqual(maint.get(path).status_code,403)
 

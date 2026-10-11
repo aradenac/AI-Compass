@@ -90,7 +90,7 @@ class CampaignApiTests(TestCase):
         original_guide=new["guide_revision_id"]
         self.assertEqual(new["properties"]["ext"],{"custom":True})
         browser2=Client()
-        browser2.force_login(self.reader)
+        browser2.force_login(self.writer)
         self.assertEqual(browser2.get(BASE+"/"+new["id"]).json()["revision_id"],new["revision_id"])
         self.assertEqual(browser2.get(BASE).json()["results"][0]["id"],new["id"])
         # Changes elsewhere do not silently re-pin the selected original revision.
@@ -182,35 +182,33 @@ class CampaignApiTests(TestCase):
         self.assertEqual(reviewed["status"],"under_review")
         self.assertEqual(self.call(BASE+"/"+row["id"]+"/actions/publish",{
                          "expected_revision":"r003"}).status_code,403)
+        # FUT-10 rejects a publication without any completed, eligible Run.
         published_response=self.call(BASE+"/"+row["id"]+"/actions/publish",{
-                                    "expected_revision":"r003"},user=self.reviewer)
-        self.assertEqual(published_response.status_code,200,published_response.content)
-        published=published_response.json()["campaign"]
-        self.assertEqual(published["revision"],"r004")
-        self.assertEqual(published["status"],"published")
-        self.assertEqual(self.call(BASE+"/"+row["id"],{"expected_revision":"r004",
+                                    "expected_revision":"r003","run_ids":[]},user=self.reviewer)
+        self.assertEqual(published_response.status_code,400,published_response.content)
+        self.assertEqual(self.client.get(BASE+"/"+row["id"]).json()["status"],"under_review")
+        self.assertEqual(self.call(BASE+"/"+row["id"],{"expected_revision":"r003",
                          "notes":"Illegal edit"},method="PATCH",user=self.writer).status_code,409)
         self.assertEqual(self.call(BASE+"/"+row["id"]+"/actions/restore",{
-                         "expected_revision":"r004"},user=self.writer).status_code,409)
+                         "expected_revision":"r003"},user=self.writer).status_code,409)
         archived=self.call(BASE+"/"+row["id"]+"/actions/archive",{
-                          "expected_revision":"r004"}).json()["campaign"]
+                          "expected_revision":"r003"}).json()["campaign"]
         self.assertTrue(archived["archived"])
         self.assertEqual(self.call(BASE+"/"+row["id"]+"/actions/reopen",{
-                         "expected_revision":"r005"}).status_code,409)
+                         "expected_revision":"r004"}).status_code,409)
         restored=self.call(BASE+"/"+row["id"]+"/actions/restore",{
-                          "expected_revision":"r005"}).json()["campaign"]
+                          "expected_revision":"r004"}).json()["campaign"]
         self.assertFalse(restored["archived"])
-        self.assertEqual(restored["status"],"published")
+        self.assertEqual(restored["status"],"under_review")
         reopened=self.call(BASE+"/"+row["id"]+"/actions/reopen",{
-                          "expected_revision":"r006"}).json()["campaign"]
+                          "expected_revision":"r005"}).json()["campaign"]
         self.assertEqual(reopened["status"],"in_progress")
         all_revs=self.client.get(BASE+"/"+row["id"]+"/revisions").json()["revisions"]
-        self.assertEqual(len(all_revs),7)
-        self.assertEqual(all_revs[3]["status"],"published")
-        self.assertEqual(all_revs[4]["archived"],True)
+        self.assertEqual(len(all_revs),6)
+        self.assertEqual(all_revs[3]["archived"],True)
         self.assertEqual(self.client.get(BASE+"/pipeline").json()["columns"]["in_progress"][0]["id"],
                          row["id"])
-        self.assertEqual(CatalogRevision.objects.filter(item__public_id=row["id"]).count(),7)
+        self.assertEqual(CatalogRevision.objects.filter(item__public_id=row["id"]).count(),6)
 
     def test_referential_integrity_no_partial_records_and_mode_change_history(self):
         base=self.task_payload()
@@ -268,5 +266,5 @@ class CampaignApiTests(TestCase):
         self.call(BASE+"/"+row["id"]+"/actions/start",{"expected_revision":"r001"})
         self.call(BASE+"/"+row["id"]+"/actions/close",{"expected_revision":"r002"})
         self.assertEqual(self.call(BASE+"/"+row["id"]+"/actions/publish",{
-                         "expected_revision":"r003"},user=self.reviewer).status_code,409)
+                         "expected_revision":"r003"},user=self.reviewer).status_code,400)
         self.assertEqual(self.client.get(BASE+"/pipeline").json()["columns"]["published"],[])
