@@ -19,7 +19,7 @@ FIELDS=frozenset({"name","objective","notes","properties","owner","mode",
                   "method_version","task_id","component_ids","test_case_ids",
                   "guide_id","configuration","repin","framework_id","participants", "pricing_selections"})
 EDIT_FIELDS=FIELDS|{"expected_revision"}
-ACTION_FIELDS=frozenset({"expected_revision"})
+ACTION_FIELDS=frozenset({"expected_revision","partial_review"})
 TRANSITIONS=frozenset({"start","close","rework","publish","unpublish","reopen","archive","restore"})
 
 
