@@ -178,11 +178,11 @@ class PublicationTests(IndividualRunTests.__bases__[0]):
         reader.force_login(self.reader)
         self.assertEqual(reader.get("/api/v1/runs/" + run["id"]).status_code, 404)
 
-    def test_matrix_partial_review_publishes_one_run_without_pending_second_cell(self):
+    def test_matrix_partial_review_publishes_one_run_with_pending_and_waived_cells(self):
         self.ready_guide()
         camp = self.campaign()
         path = "/api/v1/campaigns/" + camp["id"]
-        for name in ("Measured setup", "Future alternative"):
+        for name in ("Measured setup", "Future alternative", "Waived alternative"):
             added = self.send(path + "/matrix/edit", {
                 "expected_revision": camp["revision"],
                 "operation": {
@@ -196,7 +196,16 @@ class PublicationTests(IndividualRunTests.__bases__[0]):
             self.assertEqual(added.status_code, 200, added.content)
             camp = added.json()["campaign"]
         matrix = self.client.get(path + "/matrix").json()
+        self.assertEqual(matrix["summary"]["pending"], 3)
+        waived = self.send(path + "/matrix/edit", {
+            "expected_revision": camp["revision"],
+            "operation": {"action": "decide", "evaluation_id": matrix["cells"][2]["id"],
+                          "decision": "waived", "reason": "Not applicable in this campaign"}}, "PATCH")
+        self.assertEqual(waived.status_code, 200, waived.content)
+        camp = waived.json()["campaign"]
+        matrix = self.client.get(path + "/matrix").json()
         self.assertEqual(matrix["summary"]["pending"], 2)
+        self.assertEqual(matrix["summary"]["waived"], 1)
         evaluation = matrix["cells"][0]
         created = self.send(path + "/sessions", {
             "test_case_id": self.case.item.public_id,
@@ -216,6 +225,7 @@ class PublicationTests(IndividualRunTests.__bases__[0]):
         self.assertEqual(published.status_code, 200, published.content)
         coverage = published.json()["publication"]["coverage"]
         self.assertEqual(coverage["pending"], 1)
+        self.assertEqual(coverage["waived"], 1)
         self.assertFalse(coverage["full_plan_complete"])
         self.assertEqual(len(published.json()["publication"]["runs"]), 1)
         reader = Client()
