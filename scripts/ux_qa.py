@@ -234,6 +234,7 @@ def demo_journey(browser, demo_url, artifacts, role, label, viewport):
                 raise AssertionError("Return to origin lost Workgroup filter")
             if page.locator(".ux-context-detail").count():
                 raise AssertionError("Back from detail still displays selected record")
+            assert_no_horizontal_overflow(page)
             capture(page, artifacts, "demo-workgroup-return-" + str(viewport["width"]))
         if role == "u2":
             # Engineer Task/Tool → Solution detail → measured Run → contextual return.
@@ -253,6 +254,7 @@ def demo_journey(browser, demo_url, artifacts, role, label, viewport):
             page.locator("#ux-engineer-setup").wait_for(state="visible", timeout=20000)
             if page.url != before:
                 raise AssertionError("Browser back lost the exact Engineer Task/Solution URL")
+            assert_no_horizontal_overflow(page)
             capture(page, artifacts, "demo-engineer-origin-" + str(viewport["width"]))
         if role == "u3":
             # Management: source-specific, as-of Inspector, not just a green API.
@@ -269,6 +271,7 @@ def demo_journey(browser, demo_url, artifacts, role, label, viewport):
                 raise AssertionError("Management default drilldown exposes raw JSON")
             if not page.locator("[data-heat-asof]").is_visible():
                 raise AssertionError("Management original as-of state is missing")
+            assert_no_horizontal_overflow(page)
             capture(page, artifacts, "demo-management-inspector-" + str(viewport["width"]))
         if errors:
             raise AssertionError("Demo JS runtime error(s): " + "; ".join(errors[:3]))
