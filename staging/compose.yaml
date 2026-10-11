@@ -65,6 +65,7 @@ services:
       - ../model-catalog.js:/srv/frontend/model-catalog.js:ro
       - ../shared-engineer.js:/srv/frontend/shared-engineer.js:ro
       - ../shared-opportunities.js:/srv/frontend/shared-opportunities.js:ro
+      - ../shared-opportunity-heatmap.js:/srv/frontend/shared-opportunity-heatmap.js:ro
       - ./banner.js:/srv/frontend/banner.js:ro
     depends_on:
       api:
