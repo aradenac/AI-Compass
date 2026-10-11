@@ -145,19 +145,24 @@ def get_run(request,public_id):
 @capability("business_read")
 @never_cache
 def solutions(request):
-    if request.GET:return json_no_store({"error":"invalid_filter"},400)
-    rows=list(MeasuredSolution.objects.select_related(
-        "item__current_revision").order_by("item__public_id")[:501])
-    if len(rows)>500:return json_no_store({"error":"too_many_solutions"},422)
+    from .publication_services import effective_ids, can_preview
+    if request.GET:
+        return json_no_store({"error":"invalid_filter"},400)
+    private=can_preview(request.user)
+    published=effective_ids(kind="individual") if not private else None
+    rows=MeasuredSolution.objects.select_related("item__current_revision").order_by("item__public_id")
+    if not private:
+        rows=rows.filter(runs__public_id__in=published).distinct()
+    rows=list(rows[:501])
+    if len(rows)>500:
+        return json_no_store({"error":"too_many_solutions"},422)
     return json_no_store({"results":[{
         "id":row.item.public_id,"revision_id":str(row.item.current_revision_id),
-        "fingerprint":row.fingerprint,"lifecycle":row.item.current_revision.properties["lifecycle"],
-        "first_measured":True,"run_count":(row.runs.count() if (
-            request.user.has_perm("auth.business_write") or
-            request.user.has_perm("auth.publication_review")) else
-            row.runs.filter(public_id__in=__import__(
-                "config.publication_services",fromlist=["effective_ids"]).effective_ids(
-                    kind="individual")).count()),
+        "fingerprint":row.fingerprint,
+        "lifecycle":row.item.current_revision.properties["lifecycle"],
+        "first_measured":True,
+        "run_count":row.runs.count() if private else
+            row.runs.filter(public_id__in=published).count(),
     } for row in rows]})
 
 
@@ -165,15 +170,24 @@ def solutions(request):
 @capability("business_read")
 @never_cache
 def solution(request,public_id):
-    if request.GET:return json_no_store({"error":"invalid_filter"},400)
-    if not public_id.startswith("sol-"):raise Http404("Not a solution identifier")
+    from .publication_services import effective_ids, can_preview
+    if request.GET:
+        return json_no_store({"error":"invalid_filter"},400)
+    if not public_id.startswith("sol-"):
+        raise Http404("Not a solution identifier")
     row=get_object_or_404(MeasuredSolution.objects.select_related(
         "item__current_revision"),item__public_id=public_id)
+    private=can_preview(request.user)
+    published=effective_ids(kind="individual") if not private else None
+    run_ids=list(row.runs.order_by("created_at","id").values_list("public_id",flat=True))
+    if not private:
+        run_ids=[ident for ident in run_ids if ident in published]
+        if not run_ids:
+            raise Http404("Solution has no effective published Run")
     rev=row.item.current_revision
     return json_no_store({
         "id":row.item.public_id,"revision":f"r{rev.number:03d}",
         "revision_id":str(rev.pk),"fingerprint":row.fingerprint,
         "lifecycle":rev.properties["lifecycle"],"configuration":rev.properties["setup"],
-        "run_ids":list(row.runs.order_by("created_at","id").values_list("public_id",flat=True)),
-        "recommended":False,
+        "run_ids":run_ids,"recommended":False,
     })
