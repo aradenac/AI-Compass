@@ -232,3 +232,38 @@ class TariffRunTests(PricingTests):
         self.assertEqual(len(run["participants"]),2)
         self.assertEqual(CompositeBenchmarkRun.objects.count(),1)
         self.assertEqual(BenchmarkRun.objects.count(),0)
+    def test_unused_unpriced_framework_participant_cannot_block_independent_run(self):
+        offers={k:self.offer(k) for k in ("model","provider","harness","framework")}
+        new=self.call("/api/v1/campaigns",{
+            "name":"Partial Framework pricing","objective":"Execute selected priced participant",
+            "mode":"task_centred","task_id":self.task.item.public_id,
+            "test_case_ids":[self.case.item.public_id],
+            "framework_id":self.comps["framework"].public_id,
+            "participants":[{
+              "label":label,"role":"Agent","configuration_version":"1",
+              "component_ids":{k:self.comps[k].public_id
+                               for k in ("model","provider","harness")}}
+              for label in ("Active agent","Unused candidate")],
+            "pricing_selections":[]})
+        self.assertEqual(new.status_code,201,new.content)
+        row=new.json()
+        ids=[p["id"] for p in row["participants"]]
+        selected=[self.selection(offers["framework"],"framework")]
+        selected.extend(self.selection(offers[k],k,ids[0])
+                        for k in ("model","provider","harness"))
+        patched=self.call("/api/v1/campaigns/"+row["id"],{
+            "expected_revision":"r001","pricing_selections":selected},method="PATCH")
+        self.assertEqual(patched.status_code,200,patched.content)
+        self.assertFalse(patched.json()["campaign"]["pricing_readiness"]["complete"])
+        started=self.call("/api/v1/campaigns/"+row["id"]+"/actions/start",
+            {"expected_revision":"r002"})
+        self.assertEqual(started.status_code,200,started.content)
+        base="/api/v1/campaigns/"+row["id"]+"/sessions"
+        allowed=self.call(base,{"test_case_id":self.case.item.public_id,
+                               "selected_participant_ids":[ids[0]]})
+        self.assertEqual(allowed.status_code,201,allowed.content)
+        self.assertEqual(len(allowed.json()["metering"]["schema"]["required_meters"]),4)
+        self.assertEqual(self.call(base,{"test_case_id":self.case.item.public_id,
+                        "selected_participant_ids":[ids[1]]}).status_code,409)
+        self.assertEqual(self.call(base,{"test_case_id":self.case.item.public_id,
+                        "selected_participant_ids":ids}).status_code,409)
