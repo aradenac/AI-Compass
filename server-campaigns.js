@@ -86,35 +86,43 @@
           if(source)source.textContent=JSON.stringify(focused,null,2);
         }
       }else context.replaceChildren();
-      list.innerHTML=campaigns.length?(focused?[focused]:focusId?[]:campaigns).map(function(x){
-        var commands=x.archived?[["restore","Restore archive"]]:
-          (NEXT[x.status]||[]).concat([["archive","Archive"]]);
-        return '<div class="list-row" style="padding:14px 0;border-bottom:1px solid #e3e8f0">'+
-          '<strong>'+esc(x.name)+'</strong><p class="muted small">'+esc(x.id)+' · '+esc(x.revision)+
-          ' · '+esc(x.status)+(x.archived?' · archived':'')+' · owner '+esc(x.owner)+
-          ' · '+x.test_case_ids.length+' Test Case(s)'+
-          (x.framework_id?' · Framework '+esc(x.framework_id)+' · '+(x.participants||[]).length+' participant(s)':'')+'</p>'+
-          '<p>'+esc(x.properties.objective)+'</p>'+
-          '<p class="muted">Pricing · '+esc(x.pricing_readiness&&x.pricing_readiness.complete?
-             "complete / exact offer pins":(x.pricing_readiness&&x.pricing_readiness.requires_session_pricing?
-             "tariffs selected per Test Case session":"INCOMPLETE / new metered session blocked")) +'</p>'+
-          '<a href="'+esc(window.AICompassContext.contextualLink("server","workgroup","benchmark",x.id))+
-            '">Open Campaign detail</a> '+
-          '<button type="button" data-id="'+esc(x.id)+'" data-action="matrix">Evaluation matrix</button>'+
-          '<button type="button" data-id="'+esc(x.id)+'" data-action="sessions">Sessions / resume</button>'+
-          '<button type="button" data-id="'+esc(x.id)+'" data-action="history">Details / history</button>'+
-          '<button type="button" data-id="'+esc(x.id)+'" data-action="publication">Published evidence</button>'+
-          (x.effective_publication?'<p class="muted small">Effective publication · '+
-            esc(x.effective_publication.revision)+' · '+x.effective_publication.included_runs+
-            ' Run(s) · '+esc(x.effective_publication.coverage.plan==="matrix"&&
-              !x.effective_publication.coverage.full_plan_complete?"partial coverage":"reviewed subset")+'</p>':'')+
-          (canWrite&&!x.archived&&["planned","in_progress"].includes(x.status)?
-            '<button type="button" data-id="'+esc(x.id)+'" data-action="edit">Edit</button>':'')+
-          (commands.filter(function(k){
-            return ["publish","unpublish"].includes(k[0])?canReview:canWrite;
-          }).map(function(k){return '<button type="button" data-id="'+esc(x.id)+
-            '" data-action="'+esc(k[0])+'">'+esc(k[1])+'</button>';}).join("") )+'</div>';
-      }).join(""):'No real Server campaigns yet. Create tasks/Test Cases and, for solution-centred campaigns, catalog components first.';
+      list.innerHTML=window.AICompassWorkgroup.renderRecords(
+        (focused?[focused]:focusId?[]:campaigns).map(function(x){
+          var commands=x.archived?[["restore","Restore archive"]]:
+            (NEXT[x.status]||[]).concat([["archive","Archive"]]);
+          var actions=["matrix","sessions","history","publication"].map(function(k,i){
+            return {label:["Evaluation matrix","Sessions / resume","Details / history","Published evidence"][i],
+              attributes:{"data-id":x.id,"data-action":k}};
+          });
+          if(canWrite&&!x.archived&&["planned","in_progress"].includes(x.status))
+            actions.push({label:"Edit",attributes:{"data-id":x.id,"data-action":"edit"}});
+          commands.forEach(function(k){
+            if(["publish","unpublish"].includes(k[0])?canReview:canWrite)
+              actions.push({label:k[1],attributes:{"data-id":x.id,"data-action":k[0]}});
+          });
+          var pricing=x.pricing_readiness||{};
+          var readiness=pricing.complete?"complete / exact offer pins":
+            (pricing.requires_session_pricing?"tariffs selected per Test Case session":
+             "INCOMPLETE / new metered session blocked");
+          var notes=["Pricing · "+readiness];
+          if(x.effective_publication){
+            var pub=x.effective_publication,coverage=pub.coverage||{};
+            notes.push("Effective publication · "+pub.revision+" · "+pub.included_runs+
+              " Run(s) · "+(coverage.plan==="matrix"&&!coverage.full_plan_complete?
+                  "partial coverage":"reviewed subset"));
+          }
+          return {id:x.id,title:x.name,status:x.status,revision:x.revision,
+            description:(x.properties||{}).objective||"",
+            facts:["Owner: "+x.owner,(x.test_case_ids||[]).length+" Test Case(s)"].concat(
+              x.framework_id?["Framework "+x.framework_id,
+                (x.participants||[]).length+" participant(s)"]:[]).concat(x.archived?["archived"]:[]),
+            notices:notes,
+            links:[{label:"Open Campaign detail",
+              href:window.AICompassContext.contextualLink("server","workgroup","benchmark",x.id)}],
+            actions:actions};
+        }),{domain:"campaigns",mode:"server",emptyText:focusId?
+          "Campaign unavailable or not authorized.":"No real Server campaigns yet. Create Tasks and Test Cases first."});
+
     }
     async function refresh(){
       if(!allowed)return;
