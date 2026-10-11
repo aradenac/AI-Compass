@@ -131,7 +131,7 @@
       try{
         var responses=await Promise.all([
           api("campaigns"),api("campaign-methods"),api("tasks"),api("test-cases"),
-          api("guides"),api("catalog/model"),api("catalog/provider"),api("catalog/harness"),
+          api("guides"),api("models"),api("catalog/provider"),api("catalog/harness"),
           api("catalog/framework"),api("pricing/offers")
         ]);
         if(!allowed||run!==ticket)return;
