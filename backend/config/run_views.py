@@ -67,8 +67,15 @@ def close_session(request,public_id):
 @capability("business_read")
 @never_cache
 def list_runs(request):
-    if set(request.GET)-{"campaign_id","solution_id","kind"}:
+    if set(request.GET)-{"campaign_id","solution_id","kind","scope"}:
         return json_no_store({"error":"invalid_filter"},400)
+    from .publication_services import effective_ids, can_preview
+    private=can_preview(request.user)
+    scope=request.GET.get("scope","private" if private else "published")
+    if scope not in ("published","private"):
+        return json_no_store({"error":"invalid_scope"},400)
+    if scope=="private" and not private:
+        return json_no_store({"error":"permission_denied"},403)
     kind=request.GET.get("kind")
     if kind not in (None,"individual","composite"):
         return json_no_store({"error":"invalid_kind"},400)
@@ -88,6 +95,8 @@ def list_runs(request):
             "solution__item__current_revision","solution_revision","session",
             "closing_checkpoint","recorded_by"
         ).order_by("-created_at","-id")
+        if scope=="published":
+            individual=individual.filter(public_id__in=effective_ids(campaign,"individual"))
         if campaign:
             individual=individual.filter(
                 session__campaign_snapshot__revision__item__public_id=campaign)
@@ -98,6 +107,8 @@ def list_runs(request):
         composite=CompositeBenchmarkRun.objects.select_related(
             "session","framework","framework_revision","closing_checkpoint","recorded_by"
         ).order_by("-created_at","-id")
+        if scope=="published":
+            composite=composite.filter(public_id__in=effective_ids(campaign,"composite"))
         if campaign:
             composite=composite.filter(
                 session__campaign_snapshot__revision__item__public_id=campaign)
@@ -111,17 +122,23 @@ def list_runs(request):
 @capability("business_read")
 @never_cache
 def get_run(request,public_id):
+    from .publication_services import effective_ids, can_preview
+    private=can_preview(request.user)
     if request.GET:return json_no_store({"error":"invalid_filter"},400)
     individual=BenchmarkRun.objects.select_related(
         "solution__item__current_revision","solution_revision","session",
         "closing_checkpoint","recorded_by").filter(public_id=public_id).first()
     if individual is not None:
-        return json_no_store(serialize(individual))
+        if not private and public_id not in effective_ids(kind="individual"):
+            raise Http404("Run not in effective published membership")
+        return json_no_store(serialize(individual, include_raw=private))
     if not public_id.startswith("run-"):raise Http404("Not a Run identifier")
     composite=get_object_or_404(CompositeBenchmarkRun.objects.select_related(
         "session","framework","framework_revision","closing_checkpoint","recorded_by"),
         public_id=public_id)
-    return json_no_store(serialize_composite(composite))
+    if not private and public_id not in effective_ids(kind="composite"):
+        raise Http404("Run not in effective published membership")
+    return json_no_store(serialize_composite(composite, include_raw=private))
 
 
 @require_GET
@@ -135,7 +152,12 @@ def solutions(request):
     return json_no_store({"results":[{
         "id":row.item.public_id,"revision_id":str(row.item.current_revision_id),
         "fingerprint":row.fingerprint,"lifecycle":row.item.current_revision.properties["lifecycle"],
-        "first_measured":True,"run_count":row.runs.count(),
+        "first_measured":True,"run_count":(row.runs.count() if (
+            request.user.has_perm("auth.business_write") or
+            request.user.has_perm("auth.publication_review")) else
+            row.runs.filter(public_id__in=__import__(
+                "config.publication_services",fromlist=["effective_ids"]).effective_ids(
+                    kind="individual")).count()),
     } for row in rows]})
 
 
