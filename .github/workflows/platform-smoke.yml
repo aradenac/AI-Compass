@@ -300,6 +300,7 @@ jobs:
           node scripts/test-workgroup-studio.js
           node scripts/test-shared-case-tree.js
           node scripts/test-ux-context.js
+          node scripts/test-shared-updates.js
           node scripts/test-shared-drafts.js
           node scripts/test-shared-demo-task.js
           node scripts/test-catalog-types.js
