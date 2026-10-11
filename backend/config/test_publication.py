@@ -40,14 +40,14 @@ class PublicationTests(IndividualRunTests.__bases__[0]):
 
     def review(self, campaign):
         closed = self.send("/api/v1/campaigns/" + campaign["id"] + "/actions/close",
-                           {"expected_revision": campaign["revision"],
-                            "partial_review": True})
+                           {"expected_revision": campaign["revision"]})
         self.assertEqual(closed.status_code, 200, closed.content)
         return closed.json()["campaign"]
 
     def publisher(self):
-        reviewer = get_user_model().objects.create_user(
-            "publisher-" + str(self.editor.pk)[:8], password="test")
+        reviewer, _ = get_user_model().objects.get_or_create(
+            username="publisher-" + str(self.editor.pk)[:8],
+            defaults={"is_active": True})
         reviewer.groups.add(Group.objects.get(name="reviewer"))
         self.client.force_login(reviewer)
         return reviewer
