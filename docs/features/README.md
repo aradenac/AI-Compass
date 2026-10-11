@@ -31,7 +31,7 @@ These specifications contain the domain rules, acceptance criteria, cross-relati
 | **1 / P0-UX-GAP** | [#123](https://github.com/aradenac/AI-Compass/issues/123) — UX-R04 | Truly shared **business-domain** presentation components across Demo/Server, TD-01, no feature loss |
 | **2 / P1-UX-GAP** | [#124](https://github.com/aradenac/AI-Compass/issues/124) — UX-R05 | **Implemented, [PR #132](https://github.com/aradenac/AI-Compass/pull/132) in review:** scoped draft resume, real Run stepper, first-class 409 conflict UX and creator-only Run writes, reusing the existing helper; see [behaviour contract](../draft-conflict-and-run-stepper.md). Issue not closed until the PR is reviewed and merged. |
 | **3 / P2-UX-GAP** | [#125](https://github.com/aradenac/AI-Compass/issues/125) — UX-R06 | End-to-end Engineer, Workgroup, Results/Recommendations and Management user journeys |
-| **4 / P3-UX-GAP** | [#126](https://github.com/aradenac/AI-Compass/issues/126) — UX-R07 | Desktop Chromium coverage of 20 UX scenarios, visual consistency and accessibility baseline |
+| **4 / P3-UX-GAP** | [#126](https://github.com/aradenac/AI-Compass/issues/126) — UX-R07 | Desktop Chromium coverage of 20 UX scenarios, visual consistency and accessibility baseline — **executable [coverage matrix](../ux-acceptance-matrix.md) and gate implemented 2026-10-12**; 15 requirements VERIFIED, 5 PARTIAL and 4 BLOCKED behind #124/#125, so the issue stays open |
 
 All four retain **desktop-web-only** scope. No mobile/tablet requirement; run independent Server and Demo tests. Existing branch rule enforcement is deliberately deferred under [TD-UI-01](../technical-debt.md).
 

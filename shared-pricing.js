@@ -161,7 +161,10 @@ function serverAdapter(fetcher,csrf){
  const transport=root.AICompassRuntime.ServerTransport(fetcher,csrf);
  const request=transport.request;
  return {
-   components:async()=>{var results=await Promise.all(KINDS.map(k=>request("/api/v1/catalog/"+k)));
+   // Models are exposed at /api/v1/models; the generic catalog collection
+   // rejects the legacy "model" slug, so the shared adapter must map it.
+   components:async()=>{var results=await Promise.all(KINDS.map(k=>request(
+       k==="model"?"/api/v1/models":"/api/v1/catalog/"+k)));
      return results.flatMap(r=>r.results);},
    offers:async()=> (await request("/api/v1/pricing/offers")).results,
    create:data=>request("/api/v1/pricing/offers","POST",data),

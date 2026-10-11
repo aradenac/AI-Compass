@@ -146,7 +146,7 @@
       '<details class="budget-pilot"><summary>Exceptional qualified per-task usage assumptions (JSON, optional)</summary>'+
       '<p>Source-keyed exact meters, e.g. {"root:provider":{"requests":"2"}}. '+
       'A total Forecast token count is not an input/output split.</p>'+
-      '<textarea name="meters" rows="2" placeholder="{}">{}</textarea></details>'+
+      '<textarea name="meters" aria-label="Resource meters as JSON" rows="2" placeholder="{}">{}</textarea></details>'+
       '<p><button type="button" id="budget-preview">Preview resources</button> '+
       '<button type="submit">Save immutable version</button> '+
       '<button type="button" id="budget-reset">New plan</button></p></form>'+

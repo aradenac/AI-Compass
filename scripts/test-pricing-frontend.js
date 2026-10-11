@@ -15,6 +15,8 @@ assert(!fs.readFileSync("server-mode.js","utf8").includes("localStorage"));
 const log=[],win={AICompassRuntime:{ServerTransport(){
   return {request:async function(path,method,data){
     log.push([path,method||"GET",data]);
+    assert(!path.includes("/catalog/model"),
+      "models must be read from /api/v1/models, not the legacy catalog/model slug");
     if(path==="/api/v1/pricing/offers")return {results:[]};
     if(path.endsWith("/revisions"))return {revisions:[]};
     if(path.startsWith("/api/v1/catalog/"))return {results:[]};
@@ -57,6 +59,8 @@ const adapter=pricing.serverAdapter(()=>{},()=>"");
  assert(log.some(x=>x[0]==="/api/v1/pricing/access/model/mdl-real"&&
    x[1]==="PATCH"&&x[2].expected_revision==="r003"));
  assert(log.some(x=>x[0]==="/api/v1/pricing/offers"));
+ assert(log.some(x=>x[0]==="/api/v1/models"),
+   "shared pricing must read model components from the real /api/v1/models collection");
  const server=fs.readFileSync("server-campaigns.js","utf8");
  assert(server.includes("pricing_selections:pricingPicker.selections()"));
  assert(server.includes("AICompassPricingSelection.mount"));

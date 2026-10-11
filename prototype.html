@@ -842,7 +842,7 @@ function selectField(name,label,options,selected,full){return '<div class="field
 function formValue(form){var data=Object.fromEntries(new FormData(form).entries());return data;}
 function toNum(v){return Number(v)||0;}
 function optionsFrom(type,format){return db[type].map(function(x){return[x.id,format?format(x):x.title||x.name];});}
-function navButton(page,icon,title,count){return '<button class="nav-link'+(ui.page===page?' active':'')+'" data-act="nav" data-id="'+page+'"><span class="nav-icon">'+icon+'</span>'+title+(count!=null?'<span class="count">'+count+'</span>':'')+'</button>';}
+function navButton(page,icon,title,count){return '<button class="nav-link'+(ui.page===page?' active':'')+'" data-act="nav" data-id="'+page+'"'+(ui.page===page?' aria-current="page"':'')+'><span class="nav-icon">'+icon+'</span>'+title+(count!=null?'<span class="count">'+count+'</span>':'')+'</button>';}
 function shell(inner,title){var u=user();if(!u)return login();
 var navigation=canEdit()?
 '<div class="nav-group"><div class="nav-label">WORKGROUP HOME</div>'+navButton("studio","◈","AI Workgroup Studio")+navButton("updates","◷","Workgroup updates")+"</div>"+
@@ -1234,7 +1234,7 @@ var gapNotice=window.AICompassWorkgroup.coverageGapNotice("demo");
 if(canEdit())return gapNotice+heading("Workgroup catalog","Models, Providers, Harnesses & Frameworks","One shared Catalog editor in Demo and Server; each revision and original JSON is preserved.","") + '<div id="shared-demo-catalog"></div><section id="shared-demo-pricing"></section>';
 var q=String(ui.filters.solutionSearch||"").toLowerCase(),availability=ui.filters.access||"all",maturity=ui.filters.maturity||"all";
 var solutions=db.solutions.filter(function(s){return visibleSolution(s)&&(s.name+" "+s.model+" "+s.harness+" "+s.provider+" "+s.tags.join(" ")).toLowerCase().includes(q)&&(availability==="all"||(availability==="yes"?s.accessible:!s.accessible))&&(maturity==="all"||s.maturity===maturity);});
-var filters='<div class="filters"><input class="input" data-filter="solutionSearch" placeholder="Search model, harness, provider or capability…" value="'+E(ui.filters.solutionSearch||"")+'"><select data-filter="access">'+[["all","Any access"],["yes","Accessible"],["no","Not accessible"]].map(function(x){return opt(x[0],x[1],availability);}).join("")+'</select><select data-filter="maturity">'+[["all","Any maturity"],["candidate","Candidate"],["experimental","Experimental"],["evaluated","Evaluated"],["qualified","Qualified"]].map(function(x){return opt(x[0],x[1],maturity);}).join("")+'</select></div>';
+var filters='<div class="filters"><input class="input" data-filter="solutionSearch" aria-label="Filter solutions by model, harness, provider or capability" placeholder="Search model, harness, provider or capability…" value="'+E(ui.filters.solutionSearch||"")+'"><select data-filter="access" aria-label="Filter solutions by access availability">'+[["all","Any access"],["yes","Accessible"],["no","Not accessible"]].map(function(x){return opt(x[0],x[1],availability);}).join("")+'</select><select data-filter="maturity" aria-label="Filter solutions by maturity">'+[["all","Any maturity"],["candidate","Candidate"],["experimental","Experimental"],["evaluated","Evaluated"],["qualified","Qualified"]].map(function(x){return opt(x[0],x[1],maturity);}).join("")+'</select></div>';
 var compare=ui.selectedCompare.length>=2?section("Selected solution comparison",solutionComparison(ui.selectedCompare)):'<div class="note" style="margin-top:18px">Select two or more solution cards to compare configurations, accessibility, evidence, outcomes, cost and effort side by side.</div>';
 return gapNotice+heading("Explore","Benchmarked AI solutions","Each listed solution is a model + provider + harness + configuration that has been used in a recorded benchmark run.",btn("Explore engineering tasks","nav","tasks"))+filters+'<div class="grid g3">'+(solutions.length?solutions.map(solutionCard).join(""):'<div class="empty">No solutions match these filters.</div>')+'</div><div style="margin-top:20px">'+compare+'</div>';
 }
@@ -1369,7 +1369,7 @@ var forecasts=db.proposals.filter(function(p){return forecastVisible(p)&&["stage
 var items=measured.map(function(s){return {id:s.id,label:s.name,type:"measured",solution:s};})
  .concat(forecasts.map(function(p){return {id:p.id,label:p.name,type:"forecast",forecast:p};}));
 var chosen=items.filter(function(x){return ui.selectedCompare.includes(x.id);});
-var filters='<div class="filters"><select data-filter="crossTask">'+[opt("all","All tasks (different task mixes)",task)].concat(db.tasks.filter(function(t){return t.baseline>0;}).map(function(t){return opt(t.id,t.name,task);})).join("")+'</select>'+
+var filters='<div class="filters"><select data-filter="crossTask" aria-label="Compare results across one task">'+[opt("all","All tasks (different task mixes)",task)].concat(db.tasks.filter(function(t){return t.baseline>0;}).map(function(t){return opt(t.id,t.name,task);})).join("")+'</select>'+
 badge(measured.length+" measured")+' '+badge(forecasts.length+" projected")+'</div>';
 var cards='<div class="grid g2">'+items.map(function(x){
 var p=x.forecast;
@@ -1419,7 +1419,7 @@ return heading("Evidence & analysis","Results explorer","Examine experimental ou
 function runRegistry(publishedOnly){
 var sol=ui.filters.runSolution||"all",task=ui.filters.runTask||"all",status=publishedOnly?"published":ui.filters.runStatus||"all";
 var filtered=db.runs.filter(function(r){var c=caseOf(r);return visibleRun(r)&&(!publishedOnly||r.status==="published")&&(sol==="all"||r.solution===sol)&&(task==="all"||(c&&descendants(task).includes(c.task)))&&(status==="all"||r.status===status);}).sort(function(a,b){return b.date.localeCompare(a.date);});
-var filters='<div class="filters"><select data-filter="runTask">'+[opt("all","All tasks",task)].concat(db.tasks.filter(function(t){return db.cases.some(function(c){return c.task===t.id;});}).map(function(t){return opt(t.id,t.name,task);})).join("")+'</select><select data-filter="runSolution">'+[opt("all","All solutions",sol)].concat(db.solutions.filter(visibleSolution).map(function(s){return opt(s.id,s.name,sol);})).join("")+'</select> '+(!publishedOnly?'<select data-filter="runStatus">'+[["all","Any publication status"],["published","Published"],["draft","Draft"]].map(function(x){return opt(x[0],x[1],status);}).join("")+'</select>':"")+'<span class="muted small">'+filtered.length+" result(s)"+'</span></div>';
+var filters='<div class="filters"><select data-filter="runTask" aria-label="Filter runs by task">'+[opt("all","All tasks",task)].concat(db.tasks.filter(function(t){return db.cases.some(function(c){return c.task===t.id;});}).map(function(t){return opt(t.id,t.name,task);})).join("")+'</select><select data-filter="runSolution" aria-label="Filter runs by solution">'+[opt("all","All solutions",sol)].concat(db.solutions.filter(visibleSolution).map(function(s){return opt(s.id,s.name,sol);})).join("")+'</select> '+(!publishedOnly?'<select data-filter="runStatus" aria-label="Filter runs by publication status">'+[["all","Any publication status"],["published","Published"],["draft","Draft"]].map(function(x){return opt(x[0],x[1],status);}).join("")+'</select>':"")+'<span class="muted small">'+filtered.length+" result(s)"+'</span></div>';
 var cards=window.AICompassWorkgroup.renderRecords(filtered.map(function(r){
  var tested=caseOf(r),sol=rec("solutions",r.solution);
  var editorial=sol&&sol.recommendation&&sol.publication==="published"?
@@ -1464,7 +1464,7 @@ function caseRegistry(){
 function comparisonMatrix(){
 var mode=ui.matrix||"task",target=ui.matrixTarget;if(mode==="task"&&!rec("tasks",target))target="t5";if(mode==="solution"&&!rec("solutions",target))target="s1";
 var targetOpts=mode==="task"?db.tasks.filter(function(t){return db.cases.some(function(c){return descendants(t.id).includes(c.task);});}).map(function(t){return opt(t.id,t.name,target);}):db.solutions.filter(visibleSolution).map(function(s){return opt(s.id,s.name,target);});
-var controls='<div class="filters"><label class="small">Benchmark perspective</label><select data-filter="matrixMode">'+opt("task","Task → compare solutions",mode)+opt("solution","Solution → compare tasks",mode)+'</select><select data-filter="matrixTarget">'+targetOpts.join("")+'</select></div>';
+var controls='<div class="filters"><label class="small">Benchmark perspective</label><select data-filter="matrixMode" aria-label="Benchmark perspective">'+opt("task","Task → compare solutions",mode)+opt("solution","Solution → compare tasks",mode)+'</select><select data-filter="matrixTarget" aria-label="Benchmark comparison target">'+targetOpts.join("")+'</select></div>';
 var cs=mode==="task"?db.cases.filter(function(c){return descendants(target).includes(c.task);}):db.cases.filter(function(c){return db.runs.some(function(r){return r.case===c.id&&r.solution===target&&r.status==="published";});});
 var cols=mode==="task"?db.solutions.filter(function(s){return visibleSolution(s)&&db.runs.some(function(r){return r.solution===s.id&&cs.some(function(c){return c.id===r.case;})&&r.status==="published";});}):[rec("solutions",target)].filter(function(s){return s&&visibleSolution(s);});
 var matrix=cs.length?window.AICompassWorkgroup.renderObservationMatrix({
@@ -1514,10 +1514,10 @@ function knowledgePage(){
 var type=ui.filters.guideType||"all",status=ui.filters.guideStatus||"all",sort=ui.filters.guideSort||"newest",query=(ui.filters.guideSearch||"").toLowerCase();
 var docs=db.guides.filter(function(g){return (canEdit()||g.status==="published")&&(type==="all"||g.type===type)&&(status==="all"||g.status===status)&&(g.title+" "+(g.body||"")+" "+(g.url||"")).toLowerCase().includes(query);})
  .sort(function(a,b){return sort==="alpha"?a.title.localeCompare(b.title):sort==="oldest"?String(a.date).localeCompare(String(b.date)):String(b.date).localeCompare(String(a.date));});
-var tools='<div class="filters"><input class="input" data-filter="guideSearch" value="'+E(ui.filters.guideSearch||"")+'" placeholder="Search article text / title…">'+
-'<select data-filter="guideType">'+[["all","All article types"],["Charter","Charter"],["Guide","Guide"],["Installation","Installation guide"],["FAQ","FAQ"],["Training","Training"]].map(function(x){return opt(x[0],x[1],type);}).join("")+'</select>'+
-'<select data-filter="guideStatus">'+[["all","All publication states"],["published","Published"],["draft","Draft"]].map(function(x){return opt(x[0],x[1],status);}).join("")+'</select>'+
-'<select data-filter="guideSort">'+[["newest","Most recent"],["oldest","Oldest"],["alpha","Alphabetical"]].map(function(x){return opt(x[0],x[1],sort);}).join("")+'</select>'+badge(docs.length+" articles")+'</div>';
+var tools='<div class="filters"><input class="input" data-filter="guideSearch" aria-label="Search guides by title or text" value="'+E(ui.filters.guideSearch||"")+'" placeholder="Search article text / title…">'+
+'<select data-filter="guideType" aria-label="Filter articles by type">'+[["all","All article types"],["Charter","Charter"],["Guide","Guide"],["Installation","Installation guide"],["FAQ","FAQ"],["Training","Training"]].map(function(x){return opt(x[0],x[1],type);}).join("")+'</select>'+
+'<select data-filter="guideStatus" aria-label="Filter articles by publication state">'+[["all","All publication states"],["published","Published"],["draft","Draft"]].map(function(x){return opt(x[0],x[1],status);}).join("")+'</select>'+
+'<select data-filter="guideSort" aria-label="Sort articles">'+[["newest","Most recent"],["oldest","Oldest"],["alpha","Alphabetical"]].map(function(x){return opt(x[0],x[1],sort);}).join("")+'</select>'+badge(docs.length+" articles")+'</div>';
 return heading("Knowledge base","Guides, FAQs & charter","Search, sort, update and publish documentation. Each article revision is attributable and retained in the activity history.",canEdit()?btn("+ New article","newGuide","","primary"):"")+
 tools+window.AICompassWorkgroup.renderRecords(docs.map(function(g){
  return {id:g.id,title:g.title,status:g.status,revision:g.revision||"",
@@ -1538,7 +1538,7 @@ function watchEvidence(id){var ids=new Set(sourceIdsForWatch(id));return db.rese
 function sourceKey(x){return String(x.source||x.title||"").trim().toLowerCase().replace(/\/$/,"");}
 function librarySourcePicker(selected){
  var ids=new Set(selected||[]);
- return '<div class="watch-source-library"><input class="input" type="search" data-source-search="1" placeholder="Search existing sources by title, URL or type…">'+
+ return '<div class="watch-source-library"><input class="input" type="search" data-source-search="1" aria-label="Search existing sources by title, URL or type" placeholder="Search existing sources by title, URL or type…">'+
  '<div class="watch-library-options">'+db.researchEvidence.map(function(e){
  return '<label class="watch-link-row watch-library-option" data-source-title="'+E((e.title+" "+e.source+" "+e.type).toLowerCase())+'"><input type="checkbox" name="librarySource_'+E(e.id)+'" value="yes"'+(ids.has(e.id)?' checked':'')+'><span><strong>'+E(e.title)+'</strong><span class="muted small" style="display:block">'+E(e.type)+' · '+E(e.source)+' · '+E(e.confidence||"low")+' confidence</span></span></label>';
  }).join("")+'</div></div>';
@@ -1553,7 +1553,7 @@ function evidenceKind(p){return "THEORETICAL · "+p.status;}
 function watchPage(){
 var status=ui.filters.watchStatus||"all",filtered=db.watch.filter(function(w){return watchVisible(w)&&(status==="all"||w.status===status);})
  .sort(function(a,b){return String(b.date).localeCompare(String(a.date));});
-var signals='<div class="filters"><select data-filter="watchStatus">'+[["all","All signals"],["watching","Under review"],["pending","Evidence collection"],["reviewed","Documented"]].map(function(x){return opt(x[0],x[1],status);}).join("")+'</select>'+badge(filtered.length+" signals")+'</div>'+
+var signals='<div class="filters"><select data-filter="watchStatus" aria-label="Filter technology watch signals by status">'+[["all","All signals"],["watching","Under review"],["pending","Evidence collection"],["reviewed","Documented"]].map(function(x){return opt(x[0],x[1],status);}).join("")+'</select>'+badge(filtered.length+" signals")+'</div>'+
 window.AICompassWorkgroup.renderRecords(filtered.map(function(w){
  var sources=watchEvidence(w.id),forecasts=db.proposals.filter(function(p){return p.watchIds.includes(w.id);});
  return {id:w.id,title:w.title,status:w.status,description:w.hypothesis||w.summary||"",
@@ -1616,7 +1616,7 @@ var rows=items.map(function(x){
 return heading("Collaboration","Feedback & discussions",
 "One chronological conversation per contribution. Each message has its own public or workgroup-only visibility; actions and bug tracking are managed outside feedback.",
 !canEdit()?btn("+ Submit feedback","newFeedback","","primary"):"")+
-'<div class="card"><div class="filters"><input class="input" data-filter="feedbackSearch" placeholder="Find contributions and ideas…" value="'+E(ui.filters.feedbackSearch||"")+'">'+badge(items.length+" contributions")+'</div>'+
+'<div class="card"><div class="filters"><input class="input" data-filter="feedbackSearch" aria-label="Search contributions and ideas" placeholder="Find contributions and ideas…" value="'+E(ui.filters.feedbackSearch||"")+'">'+badge(items.length+" contributions")+'</div>'+
 window.AICompassWorkgroup.renderRecords(rows,{domain:"feedback",mode:"demo",emptyText:"No matching feedback."})+'</div>';
 }
 function activityPage(){
@@ -1637,8 +1637,8 @@ btn("Export detailed JSON","exportActivityJson","","primary")+btn("Export CSV","
 stat("Contributors",new Set(visible.map(function(e){return e.actor;})).size,"Distinct actors")+
 stat("Tracked revisions",canEdit()?db.revisions.length:"—","Inspect below")+'</div>'+
 '<div class="card" style="margin-top:18px"><div class="filters">'+
-'<input class="input" data-filter="activitySearch" placeholder="Search activity, contributor or BU…" value="'+E(ui.filters.activitySearch||"")+'">'+
-'<select data-filter="activityType">'+[opt("all","All activity types",type)].concat(types.map(function(x){return opt(x,x,type);})).join("")+'</select>'+
+'<input class="input" data-filter="activitySearch" aria-label="Search the activity feed" placeholder="Search activity, contributor or BU…" value="'+E(ui.filters.activitySearch||"")+'">'+
+'<select data-filter="activityType" aria-label="Filter activity by type">'+[opt("all","All activity types",type)].concat(types.map(function(x){return opt(x,x,type);})).join("")+'</select>'+
 badge(filtered.length+" events")+'</div>'+eventList(filtered)+'</div>'+
 (canEdit()?'<div style="margin-top:18px">'+revisions+'</div>':"");
 }

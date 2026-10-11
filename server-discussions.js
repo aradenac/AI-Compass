@@ -109,7 +109,9 @@ function mount(root,csrf,escapeHtml){
     var current=++ticket;
     status("Loading shared Server discussion history…");
     try{
-      var results=await Promise.all([api("discussions"),api("auth/account")]);
+      // The authenticated identity endpoint is /api/v1/auth/me; "auth/account"
+      // never existed and made the whole shared feedback view fail with 404.
+      var results=await Promise.all([api("discussions"),api("auth/me")]);
       if(!enabled||current!==ticket)return;
       threads=results[0].results||[];
       username=results[1].username||"";

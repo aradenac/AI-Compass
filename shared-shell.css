@@ -18,10 +18,21 @@
   flex-wrap:wrap; justify-content:flex-end; gap:8px; }
 .ux-mode-server .topbar .shared-personas a { padding:7px 9px; color:var(--ink);
   border:1px solid var(--line); background:white; border-radius:9px; text-decoration:none; }
-.ux-mode-server .topbar .shared-personas a[aria-current="page"] { border-color:#4b6ad4;
+.ux-mode-server .topbar .shared-personas a[aria-current] { border-color:#4b6ad4;
+  color:#3159ad; background:#edf1ff; }
+/* The same shared workspace switcher appears in the Demo content area: keep the
+ * Server pill presentation, typography and spacing instead of a bare link. */
+.ux-mode-demo .ux-content > .shared-personas { font-size:12px; margin:0 0 14px; display:flex;
+  flex-wrap:wrap; gap:8px; }
+.ux-mode-demo .ux-content > .shared-personas a { padding:7px 9px; color:var(--ink);
+  border:1px solid var(--line); background:white; border-radius:9px; text-decoration:none; }
+.ux-mode-demo .ux-content > .shared-personas a[aria-current] { border-color:#4b6ad4;
   color:#3159ad; background:#edf1ff; }
 .ux-shell .server-status { font-size:13px; }
 #ux-screen-host { width:100%; min-width:0; }
+/* The Server location heading is the page's h1 but keeps the compact topbar look. */
+.ux-shell .ux-topbar h1.ux-location { margin:0; font-size:14px; font-weight:650;
+  letter-spacing:normal; line-height:1.3; }
 #ux-screen-host > [data-ux-screen]:not([data-ux-active]) { display:none!important; }
 #ux-screen-host > [hidden] { display:none!important; }
 .ux-dialog-backdrop { position:fixed; inset:0; background:#0d1a2c98;

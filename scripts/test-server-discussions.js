@@ -41,7 +41,7 @@ const sandbox={window:{},fetch:async(url,options)=>{
   assert(url.startsWith("/api/v1/"));
   assert.equal(options.credentials,"same-origin");
   assert.equal(options.cache,"no-store");
-  return {ok:true,json:async()=>url.includes("auth/account")?
+  return {ok:true,json:async()=>url.includes("auth/me")?
     {authenticated:true,username:"engineer"}:{results:[]}};
 }};
 vm.runInNewContext(fs.readFileSync("shared-workgroup.js","utf8"),sandbox,{filename:"shared-workgroup.js"});
@@ -53,6 +53,8 @@ ui.setAccess(true,false,false);
 setImmediate(()=>{
   assert(!root.hidden);
   assert.equal(requests.length,2);
+  assert(requests.includes("/api/v1/auth/me"),
+    "the shared feedback view must read the real /api/v1/auth/me identity endpoint");
   assert(!src.includes("Demo fallback")||src.includes("no Demo fallback"));
   assert($("#discussion-threads").innerHTML.includes("No real Server feedback"));
   assert(root.innerHTML.includes("Feedback & Discussions"));
