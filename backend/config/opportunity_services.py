@@ -84,7 +84,7 @@ def _inputs(data):
             raise InvalidOpportunity("Candidate ID must match its evidence class")
         if "forecast_id" in c and (kind!="benchmark" or
                 not isinstance(c["forecast_id"],str) or not
-                c["forecast_id"].startswith(("frc-","for-"))):
+                c["forecast_id"].startswith("fct-")):
             raise InvalidOpportunity("Only measured candidates may link a theoretical Forecast")
         if task in ids:
             raise InvalidOpportunity("Each Task may have exactly one scenario candidate")
