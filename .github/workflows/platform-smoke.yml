@@ -2,6 +2,7 @@ name: Platform Demo + Server smoke
 
 on:
   push:
+    branches: [main]
     paths:
       - "backend/**"
       - "scripts/**"
@@ -52,6 +53,11 @@ on:
       - ".env.example"
       - ".github/workflows/**"
   workflow_dispatch:
+
+concurrency:
+  # Keep the latest PR validation while retaining every main/dispatch release record.
+  group: platform-smoke-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   demo-and-server:
@@ -104,39 +110,16 @@ jobs:
         run: docker compose up -d --wait --build
       - name: Initialize Django's baseline schema
         run: docker compose run --rm api python manage.py migrate --noinput
-      - name: Verify FUT-10 immutable selected publication and privacy
-        run: docker compose exec -T api python manage.py test config.test_publication -v 2
-
-      - name: Verify FUT-10 dependent campaign, session, run and matrix regressions
-        run: |
-          docker compose exec -T api python manage.py test \
-            config.test_campaigns config.test_campaign_participants config.test_sessions \
-            config.test_runs config.test_composite_runs config.test_run_cost \
-            config.test_campaign_matrix config.test_evaluations config.test_release_readiness -v 1
-
-      - name: Verify FUT-11 Run correction and withdrawal contracts
-        run: docker compose exec -T api python manage.py test config.test_run_lifecycle -v 2
-      - name: Verify FUT-11 read-model and authorization regressions
-        run: |
-          docker compose exec -T api python manage.py test \
-            config.test_publication config.test_recommendations \
-            config.test_evaluations config.test_campaign_matrix \
-            config.test_runs config.test_composite_runs -v 1
-      - name: Verify FUT-12 Engineer privacy-scoped Task → Solution → Guide → Feedback
-        run: docker compose exec -T api python manage.py test config.test_engineer -v 2
+      - name: Run all 256 Django regressions in one isolated test-database lifecycle
+        run: docker compose exec -T api python manage.py test config --verbosity 1
       - name: Verify FUT-12 shared Demo and Server engineer frontend adapter
         run: node scripts/test-shared-engineer.js
-      - name: Verify FUT-13 opportunity economics, revisions, source withdrawal and authorization
-        run: docker compose exec -T api python manage.py test config.test_opportunities -v 2
       - name: Verify FUT-13 prospective Demo and Server adapters without data crossover
         run: node scripts/test-shared-opportunities.js
-      - name: Verify FUT-14 Management matrix, as-of history, privacy and effective economics
-        run: docker compose exec -T api python manage.py test config.test_opportunity_insights -v 2
       - name: Verify FUT-14 shared Management Demo and Server adapters
         run: node scripts/test-shared-opportunity-heatmap.js
       - name: Verify FUT-15 deliberate deployment, external entitlements, revocation and privacy
         run: |
-          docker compose exec -T api python manage.py test config.test_deployments -v 2
           node --check server-deployments.js
           node scripts/test-server-deployments.js
           node --check demo-deployments.js
@@ -144,13 +127,11 @@ jobs:
           node scripts/test-server-planning.js
       - name: Verify FUT-16 pilot, rollout, active capacity, meter pricing and private history
         run: |
-          docker compose exec -T api python manage.py test config.test_budgets -v 2
           node --check shared-budgets.js
           node scripts/test-shared-budgets.js
           node --check server-planning.js
       - name: Verify FUT-17 role-scoped committed governance audit, diffs and Activity parity
         run: |
-          docker compose exec -T api python manage.py test config.test_governance_audit -v 2
           node --check server-governance-audit.js
           node scripts/test-server-governance-audit.js
           node scripts/test-server-activity.js
@@ -172,14 +153,10 @@ jobs:
           AI_COMPASS_TEST_PASSWORD="$contributor_pw" python3 scripts/smoke_catalog.py ci-contributor
           AI_COMPASS_TEST_PASSWORD="$contributor_pw" python3 scripts/smoke_evidence.py ci-contributor
           docker compose exec -T api python manage.py reconcile_evidence --json
-      - name: Verify tariff-driven Run contracts, pending evidence and composite reference costs
-        run: docker compose exec -T api python manage.py test config.test_run_cost -v 2
       - name: Verify offline Demo tariff families, unknown meters and Server metering UI
         run: node scripts/test-run-cost.js
       - name: Verify metered Run composite Results and updated checkpoint revision UI
         run: node scripts/test-server-composite-runs.js
-      - name: Verify Task-scoped Campaign Evaluation Matrix, stable cells and historical Run pins
-        run: docker compose exec -T api python manage.py test config.test_campaign_matrix -v 2
       - name: Verify real Server archive with fully offline host verifier
         run: |
           docker compose exec -T api python manage.py shell -c \
@@ -189,64 +166,6 @@ jobs:
           rm -f /tmp/ai-native-ci.zip
       - name: Check that catalog ORM models match checked-in migrations
         run: docker compose exec -T api python manage.py makemigrations --check --dry-run
-      - name: Validate staging-only registered migration in Django test database
-        run: docker compose exec -T api python manage.py test config.test_migration_staging -v 1
-      - name: Validate additive API v1 release handshake and typed errors
-        run: docker compose exec -T api python manage.py test config.test_release_contract -v 2
-      - name: Verify native restore authorization, integrity and read-only preview
-        run: docker compose exec -T api python manage.py test config.test_native_restore -v 2
-      - name: Verify separate native archive privileges and no per-listing evidence hashing
-        run: |
-          docker compose exec -T api python manage.py test config.test_archive_permissions -v 2
-          docker compose exec -T api python manage.py test config.test_evidence_fast_listing -v 2
-      - name: Verify native history export and evidence archive permissions
-        run: docker compose exec -T api python manage.py test config.test_native_archive -v 2
-      - name: Verify Users & Access permission, CSRF and audit boundaries
-        run: docker compose exec -T api python manage.py test config.test_user_admin -v 2
-      - name: Verify production migration gate, immutable receipts and crash-safe replay
-        run: docker compose exec -T api python manage.py test config.test_schema_promotion -v 2
-      - name: Verify Activity Feed permissions, audit correlation and exports
-        run: docker compose exec -T api python manage.py test config.test_activity -v 2
-      - name: Verify maintenance-only health scans, access isolation and immutable triage
-        run: docker compose exec -T api python manage.py test config.test_data_health -v 2
-      - name: Verify confidential immutable workloads, inheritance and cohort planning
-        run: docker compose exec -T api python manage.py test config.test_workloads -v 2
-      - name: Verify mock external import preview, idempotent apply, provenance and isolation
-        run: docker compose exec -T api python manage.py test config.test_external_mock_import -v 2
-      - name: Verify task taxonomy ancestry, version history and permissions
-        run: docker compose exec -T api python manage.py test config.test_tasks -v 2
-      - name: Verify persistent Test Case forks, version history, task links and permissions
-        run: docker compose exec -T api python manage.py test config.test_test_cases -v 2
-      - name: Verify reusable text and URL guides, immutable history and permissions
-        run: docker compose exec -T api python manage.py test config.test_setup_guides -v 2
-      - name: Verify composable revision-pinned guides, variants, Framework session and RBAC
-        run: docker compose exec -T api python manage.py test config.test_setup_composition config.test_setup_recipe_views -v 2
-      - name: Verify canonical Research Sources and revision-pinned Technology Watch
-        run: docker compose exec -T api python manage.py test config.test_watch -v 2
-      - name: Verify theoretical Forecast lifecycle, immutable predictions and campaign validation
-        run: docker compose exec -T api python manage.py test config.test_forecasts -v 2
-      - name: Verify Results Explorer and immutable evaluated individual/composite Run interpretation
-        run: docker compose exec -T api python manage.py test config.test_evaluations -v 2
-      - name: Verify versioned Recommendations, reviewed publication, contradictory Runs and public evidence security
-        run: docker compose exec -T api python manage.py test config.test_recommendations -v 2
-      - name: Validate cross-role Task to published Recommendation real Server journey
-        run: docker compose exec -T api python manage.py test config.test_release_readiness -v 2
-      - name: Verify chronological public/internal Feedback, immutable corrections and evidence privacy
-        run: docker compose exec -T api python manage.py test config.test_discussions -v 2
-      - name: Verify immutable Server campaigns, transitions and historical method context
-        run: docker compose exec -T api python manage.py test config.test_campaigns -v 2
-      - name: Verify enterprise accessibility, versioned offer snapshots and pricing safeguards
-        run: docker compose exec -T api python manage.py test config.test_pricing -v 2
-      - name: Verify self-service Windows/Linux profiles and revision-pinned composite OS compatibility
-        run: docker compose exec -T api python manage.py test config.test_environment -v 2
-      - name: Verify stable Framework participants, immutable trio pins and defensive validation
-        run: docker compose exec -T api python manage.py test config.test_campaign_participants -v 2
-      - name: Verify resumable Test Case session checkpoints, evidence and access
-        run: docker compose exec -T api python manage.py test config.test_sessions -v 2
-      - name: Verify permanent individual runs, measured solution dedupe and historical evidence
-        run: docker compose exec -T api python manage.py test config.test_runs -v 2
-      - name: Verify composite Framework runs, frozen member revisions and absence of individual score attribution
-        run: docker compose exec -T api python manage.py test config.test_composite_runs -v 2
       - name: Verify Server composite Results and read-only Run UI without Demo fallback
         run: node scripts/test-server-composite-runs.js
       - name: Verify guided individual Run close/read frontend without Demo fallback
@@ -260,6 +179,9 @@ jobs:
       - name: Verify composable guide historical Demo render and integrated Server workflow
         run: node scripts/test-composable-guides.js
       - name: Run backend, persistence and backup/restore checks
+        env:
+          # Full suite already ran immediately after schema setup; smoke still checks real DB and recovery.
+          AI_COMPASS_DJANGO_TESTS_ALREADY_RUN: "1"
         run: bash scripts/smoke-platform.sh
       - name: Verify DB-only recovery manifest flags uncovered evidence files
         run: |
