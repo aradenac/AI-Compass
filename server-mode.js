@@ -143,6 +143,9 @@
     content: '<div id="ux-screen-host"></div>'
   });
   var serverScreenHost = document.getElementById("ux-screen-host");
+  var contextNav = document.createElement("div");
+  contextNav.id = "ux-context-navigation";
+  serverScreenHost.parentNode.insertBefore(contextNav,serverScreenHost);
   serverScreenHost.appendChild(overview);
   serverScreenHost.appendChild(moved);
   var topActions = root.querySelector(".ux-topbar .top-actions");
@@ -495,8 +498,9 @@
           group.mountSummary(document.getElementById("server-shared-summary"),
             summaryProvider,section,"server",{
               recordId:new URLSearchParams(window.location.search).get("record"),
-              link:function(id){return group.href("server",section)+
-                "&record="+encodeURIComponent(id);}
+              revision:new URLSearchParams(window.location.search).get("revision"),
+              link:function(id){return window.AICompassContext.contextualLink(
+                "server","workgroup",section,id);}
             }).show().catch(function(){ /* visible error is already fail-closed */ });
         } else if(target) {
           target.hidden=false;
@@ -542,6 +546,8 @@
     sidebar.innerHTML = window.AICompassShell.serverNav(
       personaId, grants, currentSection, maintenanceWorkspace);
     window.AICompassShell.selectScreen(serverScreenHost, screen);
+    window.AICompassContext.syncContext(contextNav,"server",
+      maintenanceWorkspace?"maintenance":personaId,currentSection);
     var active = document.getElementById(screen);
     var label = active && active.querySelector("h2") ||
       active && active.querySelector("h1");
