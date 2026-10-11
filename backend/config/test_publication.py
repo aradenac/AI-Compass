@@ -122,8 +122,8 @@ class PublicationTests(IndividualRunTests.__bases__[0]):
         second = self.publish(again, [newrun["id"]], reason="Replacement evidence selected")
         self.assertEqual(second.status_code, 200, second.content)
         self.assertEqual(effective_ids(camp["id"]), {newrun["id"]})
-        old = reader.get("/api/v1/campaigns/" + camp["id"] +
-                         "/revisions/4").json()
+        old = self.client.get("/api/v1/campaigns/" + camp["id"] +
+                              "/revisions/4").json()
         self.assertEqual(old["effective_publication"]["revision_id"], first_rev)
 
     def test_reopen_keeps_pins_after_setup_guide_correction(self):
