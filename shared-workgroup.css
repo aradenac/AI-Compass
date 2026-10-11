@@ -43,3 +43,17 @@
   align-items:flex-start;
   border:1px solid #dce4ef;
 }
+
+/* Source-aware record detail: one semantic hierarchy for Watch and forecasts. */
+.shared-knowledge-detail {
+  border:1px solid #dce4ef;
+  border-radius:12px;
+  background:#fff;
+  padding:16px;
+  margin:12px 0;
+  overflow-wrap:anywhere;
+}
+.shared-knowledge-detail h3 { margin:0 0 8px; }
+.shared-knowledge-property { margin:12px 0; }
+.shared-knowledge-property h4 { margin:0 0 4px; font-size:13px; }
+.shared-knowledge-property p { margin:0; }
