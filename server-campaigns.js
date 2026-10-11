@@ -465,9 +465,25 @@
             html+='<p class="muted small">Publication requires review status and publication_review permission.</p>';
           }
         }
+        if(effective&&canReview&&!row.archived){
+          html+='<button type="button" id="publication-withdraw">Withdraw effective publication</button>';
+        }
         html+='<button type="button" id="publication-close">Close</button>';
         target.innerHTML=html;
         target.querySelector("#publication-close").addEventListener("click",function(){target.hidden=true;});
+        var withdraw=target.querySelector("#publication-withdraw");
+        if(withdraw)withdraw.addEventListener("click",async function(){
+          if(!window.confirm("Withdraw all currently published evidence for this campaign? Historical records remain intact."))return;
+          withdraw.disabled=true;
+          try{
+            await api("campaigns/"+encodeURIComponent(row.id)+"/publication/withdraw",
+                      "POST",{expected_revision:row.revision});
+            target.hidden=true;
+            await refresh();
+            status("Effective publication withdrawn; historical evidence preserved.");
+          }catch(error){status("Withdrawal refused: "+error.message,true);}
+          finally{withdraw.disabled=false;}
+        });
         var button=target.querySelector("#publication-commit");
         if(button)button.addEventListener("click",async function(){
           var ids=Array.from(target.querySelectorAll("input[data-run-id]:checked")).map(function(e){return e.dataset.runId;});
