@@ -135,9 +135,13 @@ class EvaluationMatrixTests(TestCase):
         self.assertEqual(self.call(self.path+"/actions/start",
             {"expected_revision":original}).status_code,200)
         self.camp=self.client.get(self.path).json()
-        closed=self.call(self.path+"/actions/close",{
+        blocked=self.call(self.path+"/actions/close",{
             "expected_revision":self.camp["revision"]})
+        self.assertEqual(blocked.status_code,409,blocked.content)
+        closed=self.call(self.path+"/actions/close",{
+            "expected_revision":self.camp["revision"],"partial_review":True})
         self.assertEqual(closed.status_code,200,closed.content)
+        self.assertEqual(closed.json()["campaign"]["properties"]["review_scope"],"partial")
         self.camp=closed.json()["campaign"]
         reopened=self.call(self.path+"/actions/reopen",{
             "expected_revision":self.camp["revision"]})
