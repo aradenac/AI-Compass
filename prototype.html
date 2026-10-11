@@ -1347,8 +1347,18 @@ var html='<div class="grid g2">'+stat("Published runs",stats.count,cases.size+" 
 openModal(s.name,html);
 }
 function recommendationsPage(){
-var solutions=db.solutions.filter(function(s){return visibleSolution(s);}),rows=solutions.map(function(s){var st=solutionStats(s.id);return '<tr>'+td(linkAction(s.name,"solution",s.id)+'<div class="muted small">'+E(s.model)+' · '+E(s.harness)+'</div>')+td('<div class="small">'+E(s.recommendation)+'</div>')+td(badge(s.accessible?"Accessible":"Not accessible")+" "+badge(s.maturity)+" "+badge(s.publication)+(s.supersededBy?'<div class="small">Successor: '+E(rec("solutions",s.supersededBy)?.name||"")+"</div>":""))+td(st.count?st.score+"/100 · "+st.count+" runs":"Unbenchmarked")+td(canEdit()?btn("Revise","editRecommendation",s.id,"sm"):"")+'</tr>';});
-return heading("Decision support","Published recommendations","Globally shared recommendations per solution; apply task, accessibility, cost, evidence and capability filters instead of BU-specific scoreboards.",btn("Browse tasks","nav","tasks"))+section("Solution guidance",simpleTable(["Solution","Recommendation / intended fit","Properties","Evidence",""],rows))+'<div class="grid g2" style="margin-top:17px">'+section("General charters",db.guides.filter(function(g){return g.type==="Charter"&&g.status==="published";}).map(function(g){return '<div class="list-row">'+linkAction(g.title,"guideDetail",g.id)+btn("Read","guideDetail",g.id,"sm")+'</div>';}).join(""))+section("How to interpret a recommendation",'<p class="muted">Published does not mean best for every task. Check its configured harness, evidence coverage, cost, acceptance, and limitations. New Test Cases may revise previous conclusions.</p><div class="inline-actions" style="margin-top:14px">'+btn("Evidence matrix","matrix","","sm")+'</div>')+'</div>';
+var solutions=db.solutions.filter(function(s){return visibleSolution(s);});
+var rows=solutions.map(function(s){
+ var st=solutionStats(s.id);
+ return {id:s.id,title:s.name,status:s.publication,description:s.recommendation,
+   facts:[s.model,s.harness,s.accessible?"Accessible":"Not accessible",s.maturity,
+     st.count?st.score+"/100 · "+st.count+" runs":"Unbenchmarked"].concat(
+       s.supersededBy?["Successor: "+(rec("solutions",s.supersededBy)?.name||"Unknown")]:[]),
+   actions:[{label:"Inspect solution",attributes:{"data-act":"solution","data-id":s.id}}].concat(
+     canEdit()?[{label:"Revise",attributes:{"data-act":"editRecommendation","data-id":s.id}}]:[])
+ };
+});
+return heading("Decision support","Published recommendations","Globally shared recommendations per solution; apply task, accessibility, cost, evidence and capability filters instead of BU-specific scoreboards.",btn("Browse tasks","nav","tasks"))+section("Solution guidance",window.AICompassWorkgroup.renderRecords(rows,{domain:"recommendations",mode:"demo",emptyText:"No published recommendations available."}))+'<div class="grid g2" style="margin-top:17px">'+section("General charters",db.guides.filter(function(g){return g.type==="Charter"&&g.status==="published";}).map(function(g){return '<div class="list-row">'+linkAction(g.title,"guideDetail",g.id)+btn("Read","guideDetail",g.id,"sm")+'</div>';}).join(""))+section("How to interpret a recommendation",'<p class="muted">Published does not mean best for every task. Check its configured harness, evidence coverage, cost, acceptance, and limitations. New Test Cases may revise previous conclusions.</p><div class="inline-actions" style="margin-top:14px">'+btn("Evidence matrix","matrix","","sm")+'</div>')+'</div>';
 }
 
 
