@@ -395,10 +395,12 @@ def demo_journey(browser, demo_url, artifacts, role, label, viewport):
                 form.locator('input[name="label"]').fill("UX-R04 shared Demo configuration")
                 for name in ("model", "provider", "harness"):
                     select = form.locator(f'select[name="{name}"]')
-                    if select.locator("option").count() == 0:
+                    values = [value for value in select.locator("option").evaluate_all(
+                        "options => options.map(option => option.value)") if value]
+                    if not values:
                         raise AssertionError(
                             "Demo lacks fictional catalog components for " + name)
-                    select.select_option(index=0)
+                    select.select_option(values[0])
                 page.get_by_role("button", name="Add evaluation column").click()
             matrix = page.locator('[data-shared-matrix][data-matrix-mode="demo"]')
             matrix.wait_for(state="visible", timeout=20000)
@@ -408,7 +410,7 @@ def demo_journey(browser, demo_url, artifacts, role, label, viewport):
                 raise AssertionError("Demo campaign lifecycle does not use the shared stepper")
             assert_no_horizontal_overflow(page)
             capture(page, artifacts, "demo-shared-campaign-matrix-" + str(viewport["width"]))
-            matrix.locator("button[data-matrix-cell]").first.click()
+            matrix.locator("[data-shared-matrix-cell] button").first.click()
             cell = page.locator('[data-matrix-cell-detail][data-matrix-mode="demo"]')
             cell.wait_for(state="visible", timeout=20000)
             if "never measured evidence" not in cell.inner_text().lower():
@@ -649,6 +651,9 @@ def server_journey(browser, base_url, creds, artifacts, role, viewport):
                 page.goto(base_url + "/?mode=server&workspace=workgroup&section=benchmark&view=editor",
                           wait_until="domcontentloaded")
                 page.locator("#campaign-add").wait_for(state="visible", timeout=30000)
+                page.locator(
+                    '[data-business-domain="campaigns"], [data-business-empty="campaigns"]'
+                ).first.wait_for(state="visible", timeout=30000)
                 page.locator("#campaign-add").click()
                 campaign_form = page.locator("#campaign-form")
                 campaign_form.wait_for(state="visible", timeout=20000)
@@ -677,6 +682,8 @@ def server_journey(browser, base_url, creds, artifacts, role, viewport):
                 matrix.wait_for(state="visible", timeout=30000)
                 if not page.locator('[data-shared-stepper][data-stepper-mode="server"]').count():
                     raise AssertionError("Server campaign lifecycle does not use the shared stepper")
+                # The add-configuration form is disclosed, not always open.
+                page.locator("details:has(#matrix-add-form)").locator("summary").first.click()
                 add_form = page.locator("#matrix-add-form")
                 add_form.wait_for(state="visible", timeout=20000)
                 add_form.locator('input[name="label"]').fill("UX-R04 shared Server configuration")
@@ -684,7 +691,7 @@ def server_journey(browser, base_url, creds, artifacts, role, viewport):
                     add_form.locator(f'select[name="{component}"]').select_option(index=0)
                 add_form.locator('button[type="submit"]').click()
                 cell_button = page.locator(
-                    '[data-shared-matrix][data-matrix-mode="server"] button[data-matrix-cell]'
+                    '[data-shared-matrix][data-matrix-mode="server"] [data-shared-matrix-cell] button'
                 ).first
                 cell_button.wait_for(state="visible", timeout=30000)
                 assert_no_horizontal_overflow(page)

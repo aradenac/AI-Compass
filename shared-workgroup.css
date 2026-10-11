@@ -107,3 +107,39 @@ table.shared-matrix-grid tbody th { font-weight:650; }
 .shared-matrix-value { margin:0; white-space:pre-wrap; }
 .shared-matrix-runs { margin:0; padding-left:18px; }
 .shared-matrix-runs li { margin:4px 0; }
+
+/* Compact lifecycle stepper and case-preserving identifiers in matrix headers. */
+.shared-stepper {
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  list-style:none;
+  margin:8px 0 12px;
+  padding:0;
+}
+.shared-stepper li {
+  display:flex;
+  align-items:center;
+  gap:6px;
+  padding:4px 10px;
+  border:1px solid #e3e8f0;
+  border-radius:50px;
+  background:#f7f9fd;
+  font-size:12px;
+}
+.shared-stepper li[data-step-state="current"] {
+  border-color:#91b3e6;
+  background:#edf4ff;
+  font-weight:650;
+}
+.shared-stepper li[data-step-state="done"] {
+  border-color:#c4ead9;
+  background:#e4f7ed;
+  color:#19744f;
+}
+.shared-stepper li[data-step-state="blocked"] {
+  border-color:#f9d5da;
+  background:#feedef;
+  color:#a33d48;
+}
+.shared-matrix-identifier { text-transform:none; }

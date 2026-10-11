@@ -445,14 +445,14 @@
         '<th scope="col">Test Case</th>'+
         configurations.map(function(configuration){
           return '<th scope="col" data-shared-matrix-configuration="'+escape(configuration.id)+'">'+
-            escape(configuration.label)+'<span class="muted small"> '+
+            escape(configuration.label)+'<span class="muted small shared-matrix-identifier"> '+
             escape(configuration.kind||"individual")+' · '+escape(configuration.id)+'</span></th>';
         }).join("")+
         '</tr></thead><tbody>'+
         rowIds.map(function(testCaseId){
           var testCase=read.testCases.get(testCaseId);
           return '<tr><th scope="row">'+escape(testCase?testCase.name:testCaseId)+
-            '<span class="muted small">'+escape(testCaseId)+
+            '<span class="muted small shared-matrix-identifier">'+escape(testCaseId)+
             (testCase&&testCase.revision?' · '+escape(testCase.revision):"")+'</span></th>'+
             configurations.map(function(configuration){
               var cell=read.cells.find(function(x){
