@@ -40,6 +40,7 @@
       '</h1>',
     '<div id="server-personas" class="server-card" style="margin:12px 0" hidden></div>',
     '<section id="server-environment-profile" class="server-catalog" hidden></section>',
+    '<section id="server-engineer" class="server-catalog" hidden></section>',
     '<section id="server-workgroup-home" class="server-catalog" hidden></section>',
     '<section id="server-workgroup-summary" class="server-catalog" hidden></section>',
     '<p style="margin-bottom:20px;color:#64748b">Real Django session · persistent technology catalog · independent Demo</p>',
@@ -147,6 +148,9 @@
     document.getElementById("server-environment-profile"),
     window.AICompassEnvironment.serverProvider(fetch, csrfFromCookie),"server");
   var personas = document.getElementById("server-personas");
+  var engineer = window.AICompassEngineer.mount(
+    document.getElementById("server-engineer"),
+    window.AICompassEngineer.serverProvider(fetch, csrfFromCookie), "server");
 
   var tasks = window.AICompassServerTasks.mount(document.getElementById("server-task-tree"), csrfFromCookie, escapeHtml);
   var testCases = window.AICompassServerTestCases.mount(document.getElementById("server-test-cases"), csrfFromCookie, escapeHtml);
@@ -281,6 +285,7 @@
       document.getElementById("server-workgroup-summary").hidden = true;
       sharedCatalog.setAccess(false, false);
       environment.setAccess(false);
+      engineer.setAccess(false);
       pricing.setAccess(false,false);
       personas.replaceChildren(); personas.hidden = true;
       tasks.setAccess(false, false);
@@ -314,6 +319,8 @@
     if (!maintenanceWorkspace && !requestedPersona && grants.includes("business_write"))
       personaId = "workgroup";
     personas.innerHTML = window.AICompassRuntime.renderPersonaLinks(data, "server", personaId);
+    engineer.setAccess(!maintenanceWorkspace && personaId === "engineer" &&
+                       grants.includes("business_read"));
     personas.hidden = !personas.textContent.trim();
     pricing.setAccess(!maintenanceWorkspace &&
       ["engineer","workgroup"].includes(personaId) && grants.includes("business_read"),
@@ -348,7 +355,7 @@
     if (grants.includes("platform_view")) action("Platform operations", "platform", "GET");
     status("Authenticated as " + data.username + ". Permissions are enforced by Django.", false);
     catalog.hidden = maintenanceWorkspace || !grants.includes("business_read") ||
-      !["engineer", "workgroup"].includes(personaId);
+      personaId !== "workgroup";
     // Existing controllers retain full permission-aware API behavior. Persona
     // entry affects presentation only; the backend always enforces real grants.
     if (personaId === "management") {
@@ -361,8 +368,10 @@
     } else if (personaId === "engineer") {
       // Engineer starts with task and catalog discovery; advanced Workgroup
       // authoring stays in its dedicated entry rather than an extra shell.
-      ["server-test-cases","server-campaigns","server-users","server-data-health",
-        "server-planning"].forEach(function (id) {
+      ["server-task-tree","server-test-cases","server-guides","server-watch",
+        "server-forecasts","server-campaigns","server-recommendations",
+        "server-discussions","server-users","server-data-health",
+        "server-planning","server-activity"].forEach(function (id) {
         document.getElementById(id).hidden = true;
       });
     }

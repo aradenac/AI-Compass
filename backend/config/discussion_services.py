@@ -17,7 +17,7 @@ from .models import (CatalogItem,CatalogRevision,ObjectTypeVersion,DiscussionThr
                      DiscussionMessage,EvidenceLink)
 
 PUBLIC_CONTEXT_TYPES=frozenset({
-    "task","model","provider","harness","framework","solution",
+    "task","model","provider","harness","framework","solution","ai_solution",
 })
 THREAD_KINDS=frozenset({"feedback","question","idea","request","discussion"})
 VISIBILITY=frozenset({"public","internal"})
@@ -90,7 +90,7 @@ def _message_props(payload,previous=None):
     return _object(out)
 
 
-def _context(identifier):
+def _context(identifier, actor):
     if identifier is None:
         return None,None
     if not isinstance(identifier,str) or len(identifier)>120:
@@ -98,6 +98,11 @@ def _context(identifier):
     item=CatalogItem.objects.select_related("current_revision").filter(public_id=identifier).first()
     if not item or item.type_slug not in PUBLIC_CONTEXT_TYPES or not item.current_revision_id:
         raise InvalidDiscussion("Unknown or unsupported public discussion context object")
+    if item.type_slug == "ai_solution":
+        from .publication_services import effective_ids
+        if not item.measured_solution.runs.filter(
+                public_id__in=effective_ids(kind="individual")).exists():
+            raise InvalidDiscussion("Solution has no current public measured evidence")
     return item,item.current_revision
 
 
@@ -185,7 +190,7 @@ def create_thread(actor,data):
     props=_thread_props(data.get("properties",{}))
     if props["scope"]=="internal" and not privileged(actor):
         raise InvalidDiscussion("Only workgroup can create internal conversations")
-    context,context_revision=_context(data.get("context_id"))
+    context,context_revision=_context(data.get("context_id"),actor)
     title=_text(data.get("title"),"title",160,True)
     body=_text(data.get("body"),"body",16000,True)
     visibility=data.get("visibility","public" if props["scope"]=="public" else "internal")
