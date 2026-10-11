@@ -32,6 +32,7 @@ class BudgetTests(OpportunityTests.__bases__[0]):
     plan = OpportunityTests.plan
     request = OpportunityTests.request
     priced_published = OpportunityTests.priced_published
+    forecast = OpportunityTests.forecast
 
     def data(self, profile, *, pilot=True):
         return {"profile_id": profile.public_id, "plan": {
@@ -165,3 +166,19 @@ class BudgetTests(OpportunityTests.__bases__[0]):
             self.assertEqual(fixed["seats"],2)
             self.assertEqual(result["quantities"][0]["quantity"],"20")
             self.assertEqual(result["amounts_by_native_currency"]["EUR"]["fixed"],"72.00")
+
+    def test_real_forecast_only_still_cannot_fabricate_provider_units(self):
+        _,browser,csrf,population=self.plan(headcount=3,frequency="10")
+        self.priced_published()
+        forecast=self.forecast()
+        data=self.data(population)
+        data["plan"]["items"][0]["candidate_id"]=forecast.public_id
+        response=self.request(browser,csrf,API+"/preview",data)
+        self.assertEqual(response.status_code,200,response.content)
+        calculated=response.json()
+        self.assertTrue(calculated["gaps"])
+        self.assertFalse(calculated["ready_for_request"])
+        self.assertTrue(any(x.startswith("unselected_offer:") for x in calculated["gaps"]))
+        self.assertEqual(calculated["amounts_by_native_currency"],{})
+        self.assertEqual(calculated["segments"][0]["purpose"],"pilot")
+        self.assertEqual(calculated["segments"][0]["headcount"],2)

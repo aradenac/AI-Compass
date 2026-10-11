@@ -376,6 +376,7 @@ def project(profile, plan):
                 "workload_sources": work.get("sources") if work else [],
                 "distribution": "uniform_monthly_assumption_not_observed",
                 "pilot_total_tokens_hint": metrics.get("tokens") if item["purpose"] == "pilot" else None})
+            invoice_claims = set()
             for key, offer, rev in pins:
                 ready = readiness(rev, as_of=plan["start_date"])
                 if not ready["complete"]:
@@ -387,6 +388,11 @@ def project(profile, plan):
                     # Deduplicate one invoice for cumulative Model+Provider
                     # references and across Tasks; never deduplicate different
                     # participant namespaces into generic shared credits.
+                    claim = (rev.properties["billing_owner"], line["charge_id"], namespace or "")
+                    if claim in invoice_claims:
+                        gaps.append("duplicate_billing_source:" + task_id + "/" + line["charge_id"])
+                        continue
+                    invoice_claims.add(claim)
                     invoice = (rev.properties["billing_owner"], offer.public_id,
                                str(rev.pk), line["charge_id"], namespace or "")
                     same_owner = (rev.properties["billing_owner"], line["charge_id"],

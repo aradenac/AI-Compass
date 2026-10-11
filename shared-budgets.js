@@ -108,7 +108,8 @@
       create:async function(req){
         if(!req||!req.plan||!req.profile_id)throw Error("Invalid Demo request");
         var b={id:"bdg-demo-"+(saved.length+1),profile_id:req.profile_id,revisions:[]};
-        await revision(b,req.plan);saved.push(b);return latest(b);
+        saved.push(b);
+        try{await revision(b,req.plan);}catch(err){saved.pop();throw err;}\n        return latest(b);
       },
       update:async function(id,req){var b=get(id);
         if(req.expected_revision!=="r"+String(b.revisions.length).padStart(3,"0"))
