@@ -41,10 +41,14 @@
   function collect(form) {
     var properties={text:form.elements.text.value,url:form.elements.url.value,
       description:form.elements.description.value};
-    if(form.elements.recipe_spec&&form.elements.recipe_spec.value.trim()){
-      properties.recipe=JSON.parse(form.elements.recipe_spec.value);
-      if(!properties.recipe||Array.isArray(properties.recipe)||
-         typeof properties.recipe!=="object")throw Error("Recipe must be a JSON object");
+    if(form.elements.recipe_spec){
+      // Explicit null retires a recipe in a new immutable revision; it does
+      // not alter any historical guide or already pinned experiment.
+      properties.recipe=form.elements.recipe_spec.value.trim()?
+        JSON.parse(form.elements.recipe_spec.value):null;
+      if(properties.recipe!==null&&(Array.isArray(properties.recipe)||
+         typeof properties.recipe!=="object"))
+        throw Error("Recipe must be a JSON object");
     }
     return {name:form.elements.name.value,properties:properties};
   }
