@@ -208,3 +208,42 @@ class EvaluationMatrixTests(TestCase):
         wrong=self.add(task=self.task2,tests=[self.cases[0].item.public_id])
         self.assertEqual(wrong.status_code,400)
         self.assertEqual(self.matrix()["configured"],False)
+    def test_failed_dod_closed_run_counts_as_evaluated_and_repeatable(self):
+        self.add(tests=[self.cases[0].item.public_id])
+        cell=self.matrix()["cells"][0]
+        started=self.call(self.path+"/actions/start",{
+            "expected_revision":self.camp["revision"]})
+        self.assertEqual(started.status_code,200,started.content)
+        self.camp=started.json()["campaign"]
+        cfg=self.matrix()["configurations"][0]
+        session=self.call(self.path+"/sessions",{
+            "test_case_id":cell["test_case_id"],
+            "evaluation_id":cell["id"],"component_ids":cfg["component_ids"]})
+        self.assertEqual(session.status_code,201,session.content)
+        ident=session.json()["id"]
+        interaction=self.call("/api/v1/sessions/"+ident+"/interactions",{
+            "expected_revision":"r001","type":"human_prompt",
+            "content":"Implement driver and run tests","human_minutes":3})
+        self.assertEqual(interaction.status_code,200,interaction.content)
+        closed=self.call("/api/v1/sessions/"+ident+"/close",{
+            "expected_revision":"r002","outcome":"failed",
+            "quality_score":20,"quality_evaluation":"Tests fail",
+            "information_utility_score":35,"information_utility_evaluation":"Partial",
+            "tokens_count":None,"tokens_multiplier":1,
+            "cost_mode":"unknown","cost_eur":None,
+            "human_review_minutes":3,"human_correction_minutes":2,
+            "produced_outputs":"Driver build logs and compiler errors"})
+        self.assertEqual(closed.status_code,201,closed.content)
+        self.assertEqual(closed.json()["outcome"],"failed")
+        counted=self.matrix()
+        self.assertEqual(counted["summary"]["evaluated"],1)
+        self.assertEqual(counted["summary"]["pending"],0)
+        self.assertEqual(counted["summary"]["measured_runs"],1)
+        self.assertEqual(counted["cells"][0]["runs"][0]["outcome"],"failed")
+        repeated=self.call(self.path+"/sessions",{
+            "test_case_id":cell["test_case_id"],
+            "evaluation_id":cell["id"],"component_ids":cfg["component_ids"]})
+        self.assertEqual(repeated.status_code,201,repeated.content)
+        self.assertEqual(self.matrix()["summary"]["measured_runs"],1)
+        self.assertEqual(self.matrix()["summary"]["evaluated"],1)
+
