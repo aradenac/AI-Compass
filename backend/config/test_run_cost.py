@@ -4,11 +4,13 @@ All records are disposable real PostgreSQL test fixtures; no provider API, no
 shared credit wallet, no fabricated observed usage or published results.
 """
 import copy
+import json
 from decimal import Decimal
+from django.core.files.uploadedfile import SimpleUploadedFile
 
 from .test_pricing import PricingTests
 from .pricing_services import offer_revise
-from .models import CatalogItem, BenchmarkRun, CompositeBenchmarkRun
+from .models import CatalogItem, BenchmarkRun, CompositeBenchmarkRun, SessionCheckpointEvidence
 from .run_cost_services import _tiers, quote, MissingMeter, InvalidMeter
 
 
@@ -81,10 +83,23 @@ class TariffRunTests(PricingTests):
         self.assertEqual(partial.status_code,200,partial.content)
         self.assertFalse(partial.json()["metering"]["ready"])
         self.assertIn("output_tokens",partial.json()["metering"]["missing"][0])
+        upload=self.client.post("/api/v1/catalog/items/"+ses["campaign_id"]+
+            "/evidence/upload",{
+                "file":SimpleUploadedFile("compile-output.log",
+                           b"error: driver compilation failed\\n",content_type="text/plain"),
+                "revision":ses["campaign_revision"],"source":"experiment:test-case",
+                "provenance":json.dumps({"stage":"pending results"})
+            },HTTP_X_CSRFTOKEN=self.csrf)
+        self.assertEqual(upload.status_code,201,upload.content)
+        eid=upload.json()["id"]
         draft=self.call(base+"/results",{"expected_revision":partial.json()["revision"],
-                                        **self.results()},method="PATCH")
+                                        **self.results(),"evidence_link_ids":[eid]},
+                        method="PATCH")
         self.assertEqual(draft.status_code,200,draft.content)
         self.assertEqual(draft.json()["state"]["results_draft"]["outcome"],"failed")
+        self.assertTrue(SessionCheckpointEvidence.objects.filter(
+            checkpoint__session__public_id=ses["id"],checkpoint__number=4,
+            evidence_id=eid).exists())
         incomplete=self.call(base+"/close",{"expected_revision":draft.json()["revision"]})
         self.assertEqual(incomplete.status_code,409,incomplete.content)
         self.assertEqual(BenchmarkRun.objects.count(),0)
@@ -108,6 +123,8 @@ class TariffRunTests(PricingTests):
         self.assertEqual(run["metrics"]["cost_mode"],"amount")
         self.assertEqual(run["metrics"]["cost_eur"],10.0)
         self.assertEqual(run["metrics"]["reference_cost"],quote_data)
+        self.assertIn(eid,[x["id"] for x in run["evidence"]])
+        self.assertTrue(run["provenance"]["setup_composition"]["missing_coverage"])
         self.assertEqual(run["provenance"]["test_case_revision_id"],
                          ses["test_case_revision_id"])
         self.assertEqual(self.call(base+"/close",{
