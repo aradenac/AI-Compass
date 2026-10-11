@@ -170,7 +170,10 @@ const STYLE='<style>'+
 '@media(max-width:700px){.heat-grid .heat-task-col{min-width:160px;max-width:190px}.heat-controls{grid-template-columns:1fr 1fr}}'+
 '</style>';
 function mount(element,provider,mode){
- let available=false,scenarios=[],profiles=[],profile="",scenario="",revision="",
+ let route=new URLSearchParams(root.location.search);
+ let available=false,scenarios=[],profiles=[],
+     profile=route.get("profile")||"",scenario=route.get("scenario")||"",
+     revision=route.get("revision")||"",
      rowPage=0,columnPage=0,historyMode="stacked",activeSlice="",collapsed=new Set(),matrix=null,
      insights=null,detail=null,branch=-1,suggestions=null,seq=0,status="";
  const id=n=>element.querySelector(n);
@@ -339,6 +342,42 @@ function mount(element,provider,mode){
      '<p class="muted small">Frozen source revisions are never rewritten. Selecting a point opens its exact as-of calculations; '+
      'the current scenario can differ. Change factors are observed differences, not proof of a single cause.</p>';
  }
+ function factRows(value,depth,key,count) {
+   if(count.n++>65)return "";
+   if(value===null||value===undefined)
+     return '<dt>'+escape(key)+'</dt><dd>Unknown / not recorded</dd>';
+   if(Array.isArray(value)){
+     if(!value.length)return '<dt>'+escape(key)+'</dt><dd>No items</dd>';
+     if(value.every(x=>x==null||typeof x!=="object"))
+       return '<dt>'+escape(key)+'</dt><dd>'+escape(value.join(" · "))+'</dd>';
+     return value.slice(0,20).map((v,i)=>factRows(v,depth+1,key+" "+(i+1),count)).join("");
+   }
+   if(typeof value==="object"&&depth<4)
+     return Object.keys(value).slice(0,30).map(k=>factRows(value[k],depth+1,
+       key?key+" / "+k:k,count)).join("");
+   return '<dt>'+escape(key)+'</dt><dd>'+escape(typeof value==="object"?
+     "Nested value; open advanced source":String(value))+'</dd>';
+ }
+ function pinnedRefs(refs) {
+   return (refs||[]).map(r=>'<div class="ux-source-ref">' +
+     '<strong>'+escape(r.type||r.kind||"Original source")+'</strong> · '+
+     escape(r.id||r.public_id||"unavailable")+
+     ' · pinned '+escape(r.revision||r.source_revision||"not provided")+
+     (r.source_role?'<span> · '+escape(r.source_role)+'</span>':"")+'</div>').join("");
+ }
+ function contextLocation(extra){
+   const p={profile:profile,scenario:scenario,revision:revision,from:""};
+   Object.assign(p,extra||{});
+   return root.AICompassContext.route(mode,"management","home",p);
+ }
+ function replaceFilterUrl(){
+   const u=new URL(root.location.href);
+   for(const [k,v] of [["profile",profile],["scenario",scenario],["revision",revision]]){
+     if(v)u.searchParams.set(k,v);else u.searchParams.delete(k);
+   }
+   ["task","kind","candidate"].forEach(k=>u.searchParams.delete(k));
+   root.history.replaceState(root.history.state,"",u.pathname+u.search+u.hash);
+ }
  function inspector(){
    if(!detail)return "";
    if(detail.error)return '<aside class="heat-inspector"><button data-heat-back>Back</button><p>'+
@@ -353,9 +392,11 @@ function mount(element,provider,mode){
      '<p class="muted small">'+escape(detail.source_warning||"")+'</p>'+
      (detail.branches||[]).map((b,i)=>'<section><button type="button" data-heat-branch="'+i+
        '" aria-expanded="'+(branch===i)+'">'+escape(b.label)+' '+(branch===i?"−":"+")+'</button>'+
-       (branch===i?'<pre>'+escape(JSON.stringify(b.factors||{},null,2))+'</pre>'+
-         (b.refs||[]).map(r=>'<p>Original source '+escape(r.id||"")+
-           ' · '+escape(r.revision||"")+' (pinned, not updated)</p>').join(""):'')+
+       (branch===i?'<dl class="ux-inspector-kv">'+
+          factRows(b.factors||{},0,"",{n:0})+'</dl>'+
+          pinnedRefs(b.refs)+
+          '<details class="ux-advanced-source"><summary>Advanced: inspect original calculation factors</summary>'+
+          '<pre>'+escape(JSON.stringify(b.factors||{},null,2))+'</pre></details>':'')+
        '</section>').join("")+'</aside>';
  }
  function suggestionsView(){
@@ -374,9 +415,9 @@ function mount(element,provider,mode){
      '<button data-heat-suggestions type="button">Explain possible Task candidates</button>'+
      suggestionsView()+inspector();
    const change=(attr,fn)=>{let item=id(attr);if(item)item.onchange=fn;};
-   change("[data-heat-profile]",function(){profile=this.value;scenario="";revision="";rowPage=0;columnPage=0;load();});
-   change("[data-heat-scenario]",function(){scenario=this.value;revision="";load();});
-   change("[data-heat-asof]",function(){revision=this.value;load();});
+   change("[data-heat-profile]",function(){profile=this.value;scenario="";revision="";rowPage=0;columnPage=0;replaceFilterUrl();load();});
+   change("[data-heat-scenario]",function(){scenario=this.value;revision="";replaceFilterUrl();load();});
+   change("[data-heat-asof]",function(){revision=this.value;replaceFilterUrl();load();});
    const buttons=[["[data-heat-rprev]",()=>{rowPage--;load();}],
      ["[data-heat-rnext]",()=>{rowPage++;load();}],
      ["[data-heat-cprev]",()=>{columnPage--;load();}],
@@ -392,9 +433,10 @@ function mount(element,provider,mode){
      if(collapsed.has(key))collapsed.delete(key);else collapsed.add(key);render();});
    element.querySelectorAll("[data-heat-cell]").forEach(el=>el.onclick=()=>{
      const [task,kind,candidate]=el.dataset.heatCell.split("|");
-     inspect(task,kind,candidate);});
+     root.location.assign(contextLocation({task:task,kind:kind,candidate:candidate}));});
    element.querySelectorAll("[data-heat-point]").forEach(el=>el.onclick=()=>{
-     revision=el.dataset.heatPoint;load();});
+     revision=el.dataset.heatPoint;
+     root.location.assign(contextLocation({revision:revision}));});
    element.querySelectorAll("[data-heat-branch]").forEach(el=>el.onclick=()=>{
      const n=Number(el.dataset.heatBranch);branch=branch===n?-1:n;render();});
    element.querySelectorAll("[data-heat-slice]").forEach(el=>el.onclick=()=>{
@@ -441,6 +483,12 @@ function mount(element,provider,mode){
          row_size:8,column_size:8,period:"annual"})]);
      if(!available||n!==seq)return;
      insights=r[0];matrix=r[1];render();info("");
+     if(route.get("task")&&route.get("kind")&&route.get("candidate")){
+       var selected=matrix.cells.find(c=>c.task_id===route.get("task") &&
+         c.kind===route.get("kind") && c.candidate_id===route.get("candidate"));
+       if(selected)inspect(selected.task_id,selected.kind,selected.candidate_id);
+       else{detail={error:"The requested Task/configuration is outside the current authorized saved selection or filter."};render();}
+     }
    }catch(e){if(n!==seq)return;info("No fallback or unqualified amount: "+e.message);}
  }
  async function refresh(){
