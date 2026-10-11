@@ -170,7 +170,9 @@ def _assess(run, kind):
 
     reference = guide.get("recipe") if guide else None
     pin = {
-        "id": run.public_id, "kind": kind,\n        "effective_revision": current["revision"],\n        "effective_revision_id": current["revision_id"],
+        "id": run.public_id, "kind": kind,
+        "effective_revision": current["revision"],
+        "effective_revision_id": current["revision_id"],
         "run_uuid": str(run.pk),
         "session_id": session.public_id,
         "closing_checkpoint_id": str(run.closing_checkpoint_id),
