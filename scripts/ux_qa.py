@@ -390,6 +390,52 @@ def server_journey(browser, base_url, creds, artifacts, role, viewport):
                 raise AssertionError("Backdrop/Escape unexpectedly dismissed the form or lost draft")
             dialog.get_by_role("button", name="Close dialog").click()
             dialog.wait_for(state="hidden")
+            if role == "workgroup":
+                # Real persisted Test Design round-trip: UI Task creation -> TC
+                # save -> same shared presenter after a full browser reload.
+                page.goto(base_url + "/?mode=server&workspace=workgroup&section=tasks&view=editor",
+                          wait_until="domcontentloaded")
+                page.locator("#server-task-add-root").wait_for(state="visible", timeout=30000)
+                page.locator("#server-task-add-root").click()
+                task_dialog = page.locator("#server-task-editor[role=dialog]")
+                task_dialog.wait_for(state="visible", timeout=15000)
+                task_name = "UX-R04 reusable browser Task"
+                task_dialog.locator('input[name="name"]').fill(task_name)
+                task_dialog.get_by_role("button", name="Save task revision").click()
+                task_dialog.wait_for(state="hidden", timeout=25000)
+                page.locator(".server-task-node").filter(has_text=task_name).first.wait_for(
+                    state="visible", timeout=25000)
+                page.goto(base_url + "/?mode=server&workspace=workgroup&section=testdesign&view=editor",
+                          wait_until="domcontentloaded")
+                page.locator("#case-new").wait_for(state="visible", timeout=30000)
+                page.locator("#case-new").click()
+                case_dialog = page.locator("#case-editor[role=dialog]")
+                case_dialog.wait_for(state="visible", timeout=15000)
+                case_title = "UX-R04 preserved browser challenge"
+                case_dialog.locator('input[name="name"]').fill(case_title)
+                task_choice = case_dialog.locator('select[name="task_id"] option').filter(
+                    has_text=task_name).first
+                task_id = task_choice.get_attribute("value")
+                if not task_id:
+                    raise AssertionError("Created real Task was not selectable")
+                case_dialog.locator('select[name="task_id"]').select_option(task_id)
+                case_dialog.locator('textarea[name="objective"]').fill(
+                    "Validate shared Demo and Server presentation")
+                case_dialog.locator('textarea[name="inputs"]').fill(
+                    "Synthetic, disposable browser fixture")
+                case_dialog.locator('textarea[name="dod"]').fill(
+                    "Created object remains readable after reload")
+                case_dialog.locator('button[type="submit"]').click()
+                case_dialog.wait_for(state="hidden", timeout=30000)
+                page.locator('[data-shared-case]').filter(has_text=case_title).first.wait_for(
+                    state="visible", timeout=30000)
+                capture(page, artifacts, "server-shared-test-cases-persisted-" +
+                        str(viewport["width"]))
+                page.reload(wait_until="domcontentloaded")
+                page.locator('[data-shared-case]').filter(has_text=case_title).first.wait_for(
+                    state="visible", timeout=30000)
+                if page.locator('[data-shared-case-detail="demo"]').count():
+                    raise AssertionError("Server Test Case incorrectly displayed Demo detail")
             if role == "multi_role":
                 # Same authenticated session: Users & Access must be explicit,
                 # and its account-creation form a protected, closed-by-default modal.
