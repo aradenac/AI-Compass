@@ -3263,7 +3263,7 @@ document.addEventListener("input",function(ev){var el=ev.target;if(["solutionSea
 document.addEventListener("click",function(ev){
 var b=ev.target.closest("[data-act]");if(!b)return;
 var act=b.dataset.act,id=b.dataset.id||"";
-if(act==="login"){currentUser=id;localStorage.setItem(SESSION,id);ui.page=canEdit()?"studio":"dashboard";render();return;}
+if(act==="login"){currentUser=id;localStorage.setItem(SESSION,id);ui.page=initialWorkspace==="engineer"?"tasks":initialWorkspace==="management"?"management":canEdit()?"studio":"dashboard";render();return;}
 if(act==="switch"){currentUser="";localStorage.removeItem(SESSION);ui.modal="";render();return;}
 if(act==="close"){closeModal();return;}
 if(act==="nav"){ui.page=id;ui.modal="";render();window.scrollTo(0,0);return;}
