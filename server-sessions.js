@@ -75,10 +75,12 @@ function mount(root,api,escapeHtml){
         ...(row.mode==="task_centred"&&!row.framework_id?
           ["model","provider","harness"].map(function(k){return api("catalog/"+k);}):[]),
         ...(row.mode==="task_centred"&&!row.framework_id&&
-            row.pricing_policy==="offer_revisions_v1"?[api("pricing/offers")]:[])
+            row.pricing_policy==="offer_revisions_v1"?[api("pricing/offers")]:[]),
+        api("guides")
       ]);
       if(current!==ticket||!canRead)return;
-      var result=results[0],runs=results[1].results||[],catalogResults=results.slice(2);
+      var result=results[0],runs=results[1].results||[],catalogResults=results.slice(2),
+          knownGuides=results[results.length-1].results||[];
       var offered=(row.mode==="task_centred"&&!row.framework_id&&
         row.pricing_policy==="offer_revisions_v1")?(catalogResults[3].results||[]):[];
       var offersByComponent=function(component){
@@ -104,7 +106,8 @@ function mount(root,api,escapeHtml){
             return option(id,id,false);}).join("")+'</select></label>'+
           '<label>Setup Guide<select id="session-new-guide">'+
           option("","No guide",!row.guide_id)+
-          (row.guide_id?option(row.guide_id,row.guide_id,true):"")+'</select></label>'+
+          knownGuides.map(function(g){return option(g.id,g.name+" · "+g.revision,g.id===row.guide_id);}).join("")+
+          '</select></label>'+
           (row.framework_id?
             '<label>Framework participants (one or more)<select id="session-new-participants" multiple size="4">'+
             (row.participants||[]).map(function(p){return option(p.id,p.label+" · "+p.role,true);}).join("")+
