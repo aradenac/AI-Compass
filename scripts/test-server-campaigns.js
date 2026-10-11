@@ -46,6 +46,7 @@ const sandbox={window:{location:{origin:"http://localhost",protocol:"http:",
   if(!rows[key])throw Error("Unknown "+url);
   return {ok:true,json:async()=>rows[key]};
 }};
+vm.runInNewContext(fs.readFileSync("shared-workgroup.js","utf8"),sandbox,{filename:"shared-workgroup.js"});
 vm.runInNewContext(contextSource,sandbox,{filename:"shared-context.js"});
 vm.runInNewContext(sessionsSource,sandbox,{filename:"server-sessions.js"});
 vm.runInNewContext(source,sandbox,{filename:"server-campaigns.js"});
