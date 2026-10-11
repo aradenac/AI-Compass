@@ -5,6 +5,8 @@ module revisions by exact ID before rendering; it never fetches external URLs.
 """
 from collections.abc import Mapping
 
+# A resolver is not a certification of documentation or installation success.
+
 
 class SetupCompositionError(ValueError):
     pass
