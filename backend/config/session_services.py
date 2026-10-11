@@ -98,6 +98,9 @@ def _allowed_evidence(session, state):
             ids.append(ref)
     append(state["setup"].get("evidence_link_ids",[]))
     append(state.get("closing_evidence_link_ids",[]))
+    # Pending results must pin original uploaded artifacts before metering is
+    # complete, exactly as permanent close evidence does.
+    append(state.get("results_draft",{}).get("evidence_link_ids",[]))
     for row in state["steps"].values():
         append(row.get("evidence_link_ids",[]))
     for row in state["interactions"]:
