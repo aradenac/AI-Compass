@@ -665,6 +665,48 @@ def server_journey(browser, base_url, creds, artifacts, role, viewport):
                     state="visible", timeout=30000)
                 if page.locator('[data-shared-case-detail="demo"]').count():
                     raise AssertionError("Server Test Case incorrectly displayed Demo detail")
+                # Tasks: one shared tree in both modes; a stale move revision
+                # must be refused explicitly, never applied.
+                page.goto(base_url + "/?mode=server&workspace=workgroup&section=tasks&view=editor",
+                          wait_until="domcontentloaded")
+                page.locator("#server-task-add-root").wait_for(state="visible", timeout=30000)
+                page.locator("#server-task-add-root").click()
+                sibling = page.locator("#server-task-editor[role=dialog]")
+                sibling.wait_for(state="visible", timeout=15000)
+                sibling.locator('input[name="name"]').fill("UX-R04 sibling section")
+                sibling.get_by_role("button", name="Save task revision").click()
+                sibling.wait_for(state="hidden", timeout=25000)
+                page.locator("#server-task-list").wait_for(state="visible", timeout=25000)
+                stale_tasks = context.new_page()
+                stale_tasks.set_default_timeout(20000)
+                try:
+                    stale_tasks.goto(page.url, wait_until="domcontentloaded")
+                    stale_tasks.locator("#server-task-list").wait_for(state="visible", timeout=30000)
+                    move = page.locator(
+                        '#server-task-list button[data-task-action="down"]').first
+                    move.wait_for(state="visible", timeout=25000)
+                    move.click()
+                    page.locator("#server-task-state", has_text="task node(s)").first.wait_for(
+                        state="visible", timeout=25000)
+                    stale_move = stale_tasks.locator(
+                        '#server-task-list button[data-task-action="down"]').first
+                    stale_move.click()
+                    refusal = stale_tasks.locator(
+                        '#server-task-state [data-shared-status="error"]').first
+                    refusal.wait_for(state="visible", timeout=25000)
+                    if "refused" not in refusal.inner_text().lower():
+                        raise AssertionError(
+                            "Stale task move was not refused explicitly: " +
+                            refusal.inner_text()[:120])
+                    if "revision" not in refusal.inner_text().lower() and \
+                            "changed" not in refusal.inner_text().lower():
+                        raise AssertionError(
+                            "Stale task move refusal lacks the revision reason")
+                    capture(stale_tasks, artifacts,
+                            "server-task-stale-refusal-" + str(viewport["width"]))
+                finally:
+                    stale_tasks.close()
+
                 # UX-R04: real Server campaign matrix through the shared component.
                 page.goto(base_url + "/?mode=server&workspace=workgroup&section=catalog&view=editor",
                           wait_until="domcontentloaded")

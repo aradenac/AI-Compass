@@ -10,6 +10,17 @@
     var history = root.querySelector("#server-task-history");
     var E = escapeHtml;
 
+    // One shared loading/read/refused presentation in Demo and Server.
+    function report(message, error) {
+      if (!state) return;
+      state.className = error ? "server-status server-error" : "server-status";
+      state.innerHTML = window.AICompassWorkgroup.renderDomainStatus({
+        mode: provider ? "demo" : "server",
+        state: error ? "error" : "ok",
+        message: message == null ? "" : String(message)
+      });
+    }
+
     async function api(url, method, data) {
       if (provider) return provider.tasks.request(url, method, data);
       if (window.AICompassRuntime) {
@@ -76,18 +87,18 @@
     async function refresh() {
       if (!canRead) return;
       var ticket = ++generation;
-      state.textContent = "Loading " + (provider ? "fictional Demo" : "authoritative Server") + " tasks…";
+      report("Loading " + (provider ? "fictional Demo" : "authoritative Server") + " tasks…");
       try {
         var result = await api("");
         if (ticket !== generation || root.hidden) return;
         if (!Array.isArray(result.results)) throw Error("Invalid Server task response");
         rows = result.results;
         render();
-        state.textContent = rows.length + " task node(s). Each identity and revision is retained.";
+        report(rows.length + " task node(s). Each identity and revision is retained.");
       } catch (error) {
         if (ticket !== generation) return;
         rows = []; tree.replaceChildren();
-        state.textContent = "Task tree unavailable: " + error.message + ". No cross-mode fallback.";
+        report("Task tree unavailable: " + error.message + ". No cross-mode fallback.", true);
       }
     }
 
@@ -155,8 +166,8 @@
           editor.hidden = true;
           await refresh();
         } catch (error) {
-          state.textContent = "Save rejected: " + error.message +
-            ". Reload the current tree; the rejected revision was not applied.";
+          report("Save rejected: " + error.message +
+            ". Reload the current tree; the rejected revision was not applied.", true);
         } finally { button.disabled = false; }
       };
     }
@@ -175,8 +186,11 @@
         });
         await refresh();
       } catch (error) {
-        state.textContent = "Reorder refused: " + error.message;
+        // The refusal must survive the refresh: reporting first made the
+        // reload erase the conflict message before the user could read it.
         await refresh();
+        report("Reorder refused: " + error.message +
+          ". Reload the current tree; the rejected revision was not applied.", true);
       }
     }
 

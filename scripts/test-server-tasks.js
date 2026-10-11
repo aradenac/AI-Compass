@@ -24,6 +24,10 @@ const sandbox = {window: {}, Set, console, fetch: async (url, options) => {
   assert.equal(options.credentials, "same-origin");
   return {ok: true, json: async () => ({results: rows})};
 }};
+// The Task tree uses the shared Workgroup presentation primitives, which the
+// real page loads before server-tasks.js.
+vm.runInNewContext(fs.readFileSync("shared-workgroup.js", "utf8"), sandbox,
+  {filename: "shared-workgroup.js"});
 vm.runInNewContext(code, sandbox, {filename: "server-tasks.js"});
 const ui = sandbox.window.AICompassServerTasks;
 assert(ui && typeof ui.mount === "function");

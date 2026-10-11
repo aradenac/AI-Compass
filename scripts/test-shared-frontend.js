@@ -24,7 +24,8 @@ assert(modeCode.includes('AICompassServerTasks.mount('));
 
 const win = {location: {search: "", pathname: "/"}, URLSearchParams};
 const sandbox = {window: win, URLSearchParams, console, Set, Promise};
-for (const file of ["model-catalog.js", "shared-runtime.js", "shared-catalog.js", "server-tasks.js"])
+for (const file of ["model-catalog.js", "shared-runtime.js", "shared-workgroup.js",
+  "shared-catalog.js", "server-tasks.js"])
   vm.runInNewContext(fs.readFileSync(file, "utf8"), sandbox, {filename: file});
 const rt = win.AICompassRuntime;
 assert.equal(rt.modeFromLocation({search: "?mode=server", pathname: "/"}), "server");

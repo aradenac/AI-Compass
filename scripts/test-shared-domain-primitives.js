@@ -224,7 +224,8 @@ const servers={
   "server-guides.js":["GUIDE_RECIPE_FIELDS"],
   "server-sessions.js":["renderStepper("],
   "server-campaigns.js":["renderCampaignMatrix","renderStepper","campaignLifecycleBar","renderLifecycleActions("],
-  "server-forecasts.js":["FORECAST_FIELDS","renderLifecycleActions("]
+  "server-forecasts.js":["FORECAST_FIELDS","renderLifecycleActions("],
+  "server-tasks.js":["renderDomainStatus("]
 };
 assert(page.includes("renderDomainFields(")&&page.includes("renderStepper(")&&
   page.includes("renderThread(")&&page.includes("renderLifecycleActions(")&&
