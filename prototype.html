@@ -638,7 +638,7 @@ var initialWorkspace=new URLSearchParams(window.location.search).get("workspace"
 var initialSection=new URLSearchParams(window.location.search).get("section");
 var initialPage=initialWorkspace==="workgroup" ?
   (initialSection&&window.AICompassWorkgroup.SECTION_TO_DEMO[initialSection]||"studio") :
-  initialWorkspace==="engineer"?"tasks":initialWorkspace==="management"?"management":"dashboard";
+  initialWorkspace==="engineer"?(initialSection==="results"?"results":"tasks"):initialWorkspace==="management"?"management":"dashboard";
 if(!initialWorkspace && db.users.some(function(u){return u.id===currentUser&&u.role==="workgroup";}))
   initialPage="studio";
 var ui={page:initialPage,task:"t5",solution:"s1",solutionView:"solutions",bench:"runs",matrix:"task",
@@ -989,7 +989,6 @@ if(initialWorkspace==="workgroup" && initialSection &&
       if(!child.classList.contains("shared-personas"))child.hidden=true;
     });
     source.insertAdjacentHTML("afterbegin",
-      window.AICompassWorkgroup.breadcrumbs("demo",initialSection)+
       '<div id="demo-shared-summary" class="card" role="region" aria-label="Shared knowledge view"></div>'+
       '<button type="button" id="demo-open-full-workspace" class="btn">Open complete Demo workspace / edit / history</button>');
     document.getElementById("demo-open-full-workspace").onclick=function(){
