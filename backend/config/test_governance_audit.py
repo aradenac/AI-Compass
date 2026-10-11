@@ -192,26 +192,39 @@ class GovernanceAuditTests(ActivityFeedTests.__bases__[0]):
         event=ExternalImportEvent.objects.create(
             batch=batch,binding=source,item=item,revision=new,
             source_key="remote-fixture",row_sha256="5"*64,action="revised")
-        # Production's SQL trigger only accepts a successive Model v1 -> v2
-        # promotion, never an arbitrary pair of v1 revisions.
+        # API-created Models now default to v2, so a *separate* synthetic v1
+        # source is required for the database's strict v1->v2 promotion receipt.
         from .models import ObjectTypeVersion
         from .activity_services import record_catalog_event
+        from .catalog_ids import new_public_id
+        schema_v1=ObjectTypeVersion.objects.get(type_slug="model",version=1)
         schema_v2=ObjectTypeVersion.objects.get(type_slug="model",version=2)
         with transaction.atomic():
-            promoted=CatalogRevision.objects.create(
-                item=item,number=3,schema_version=schema_v2,
-                display_name="Imported renamed model",properties=new.properties,
+            migration_item=CatalogItem.objects.create(
+                type_slug="model",public_id=new_public_id("mdl"))
+            mig_old=CatalogRevision.objects.create(
+                item=migration_item,number=1,schema_version=schema_v1,
+                display_name="Synthetic v1 model",properties={"publication":"draft"},
                 created_by=self.writer)
-            item.current_revision=promoted
-            item.save(update_fields=["current_revision"])
-            record_catalog_event(item=item,revision=promoted,actor=self.writer,
-                                 action="schema_migrated")
+            migration_item.current_revision=mig_old
+            migration_item.save(update_fields=["current_revision"])
+            record_catalog_event(item=migration_item,revision=mig_old,
+                                 actor=self.writer,action="created")
+            mig_new=CatalogRevision.objects.create(
+                item=migration_item,number=2,schema_version=schema_v2,
+                display_name="Synthetic v2 model",properties={"publication":"draft"},
+                created_by=self.writer)
+            migration_item.current_revision=mig_new
+            migration_item.save(update_fields=["current_revision"])
+            record_catalog_event(item=migration_item,revision=mig_new,
+                                 actor=self.writer,action="schema_migrated")
             migrated=ProductionMigrationReceipt.objects.create(
-            item=item,source_revision=new,target_revision=promoted,actor=self.writer,
-            candidate_id="candidate-01",migration_key="synthetic",
-            migration_sha256="0"*64,app_commit="1"*40,
-            recovery_id="synthetic-private-recovery-ref",
-            recovery_manifest_sha256="2"*64,approved_report_sha256="3"*64)
+                item=migration_item,source_revision=mig_old,
+                target_revision=mig_new,actor=self.writer,
+                candidate_id="candidate-01",migration_key="synthetic",
+                migration_sha256="0"*64,app_commit="1"*40,
+                recovery_id="synthetic-private-recovery-ref",
+                recovery_manifest_sha256="2"*64,approved_report_sha256="3"*64)
         self._as_auditor()
         imported=self.client.get(BASE+"/import:"+str(event.pk))
         self.assertEqual(imported.status_code,200,imported.content)
@@ -219,7 +232,7 @@ class GovernanceAuditTests(ActivityFeedTests.__bases__[0]):
         self.assertIn("display_name",[x["field"] for x in imported.json()["changes"]])
         promoted=self.client.get(BASE+"/migration:"+str(migrated.pk))
         self.assertEqual(promoted.status_code,200,promoted.content)
-        self.assertEqual(promoted.json()["event"]["object_id"],model["id"])
+        self.assertEqual(promoted.json()["event"]["object_id"],migration_item.public_id)
         self.assertNotIn("synthetic-private-recovery-ref",promoted.content.decode())
         self.assertEqual(len(self.client.get(BASE+"?source=import").json()["results"]),1)
         self.assertEqual(len(self.client.get(BASE+"?source=migration").json()["results"]),1)
