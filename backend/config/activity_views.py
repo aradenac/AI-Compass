@@ -17,6 +17,7 @@ from django.views.decorators.http import require_GET
 
 from .auth_views import active_identity, json_no_store
 from .models import CatalogAuditEvent, UserAccessAuditEvent
+from .governance_audit_services import catalog_summary
 
 CATALOG_TYPES = frozenset({"model", "provider", "harness", "framework", "task"})
 MAX_EVENTS = 1000
@@ -85,22 +86,8 @@ def _parse(request, perms):
 
 
 def _catalog(event):
-    revision = event.revision
-    item = event.item
-    return {
-        "id": str(event.id),
-        "occurred_at": event.created_at.isoformat(),
-        "actor": event.actor.get_username(),
-        "actor_roles_at_event": None,  # Not captured by historical audit source.
-        "business_unit": None,         # No BU ACL or attribution exists yet.
-        "operation": event.action,
-        "object_type": item.type_slug,
-        "object_id": item.public_id,
-        "object_name": revision.display_name,
-        "revision": f"r{revision.number:03d}",
-        "revision_id": str(revision.id),
-        "outcome": "succeeded",  # Events are inserted in committed transactions.
-    }
+    # Activity and Governance Audit share exactly one original committed event.
+    return catalog_summary(event)
 
 
 def _access(event):
