@@ -43,6 +43,7 @@ const sandbox={window:{},fetch:async(url,options)=>{
   assert.equal(options.cache,"no-store");
   return {ok:true,json:async()=>({results:[]})};
 }};
+vm.runInNewContext(fs.readFileSync("shared-workgroup.js","utf8"),sandbox,{filename:"shared-workgroup.js"});
 vm.runInNewContext(script,sandbox,{filename:"server-recommendations.js"});
 const ui=sandbox.window.AICompassServerRecommendations.mount(root,()=>"csrf",String);
 ui.setAccess(false,false,false);
