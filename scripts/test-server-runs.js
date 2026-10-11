@@ -19,7 +19,7 @@ for(const text of [
   'session-new-settings',
   'data-new-component',
   '"sessions/"+encodeURIComponent(s.id)+"/close","POST"',
-  'expected_revision:s.revision',
+  'payload.expected_revision=session.revision',
   'api("runs/"+encodeURIComponent(run.id))',
   'api("runs?campaign_id="+encodeURIComponent(row.id))',
   'produced_outputs',
