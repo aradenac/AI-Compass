@@ -1698,7 +1698,7 @@ function dialogCase(task,fromCase){
  '<input type="hidden" name="parentCaseId" value="'+E(from?.id||"")+'">'+
  (from?'<div class="span2 note">Forked from '+E(from.title)+' (v'+E(from.version)+'). Its parent remains unchanged.</div>':"")+
  field("title","Test Case title",from?from.title+" · new challenge":"TC · New challenge","","full")+
- versionField+window.AICompassWorkgroup.renderCaseFields(from||{},["objective","inputs","dod"]),"","Create Test Case");
+ versionField+window.AICompassWorkgroup.renderCaseFields(from||{}),"","Create Test Case");
 }
 function comboComponentOptions(type,chosen){
 return [["","Select "+type]].concat(db.components.filter(function(c){return c.type===type&&c.status!=="retired";}).map(function(c){return[c.id,c.name+(c.version?" · "+c.version:"")+(c.accessible?"":" (not accessible)")];}));
@@ -2403,7 +2403,7 @@ openModal("Benchmark evidence · "+r.id,html,foot);
 function detailsCase(id){
 var c=rec("cases",id);if(!c||(!canEdit()&&c.status!=="published"))return;var t=rec("tasks",c.task),parent=rec("cases",c.parentCaseId),rs=db.runs.filter(function(r){return r.case===c.id;});
 var html=window.AICompassWorkgroup.renderCaseDetail(c,"demo",{
- taskName:t?.name||"",fields:["objective","inputs","dod"]
+ taskName:t?.name||""
 })+'<hr class="divider"><h3>Recorded benchmark runs</h3>'+
 simpleTable(["Solution","Observed quality","Publication",""],rs.map(function(r){
  return '<tr>'+td(E(rec("solutions",r.solution)?.name||r.solution))+
@@ -3062,7 +3062,8 @@ if(kind==="task"||kind==="taskEdit"){
  var chosenVersion=parentCase?nextForkVersion(parentCase):req(d.version,"Version");
  var c={id:next("c"),task:d.task,parentCaseId:parentCase?.id||null,
   title:req(d.title,"Title"),version:chosenVersion,objective:req(d.objective,"Objective"),
-  inputs:d.inputs,dod:req(d.dod,"Definition of Done"),status:"published"};
+  inputs:d.inputs,constraints:d.constraints||"",expected_outputs:d.expected_outputs||"",
+  environment:d.environment||"",dod:req(d.dod,"Definition of Done"),status:"published"};
  db.cases.push(c);ui.page="testdesign";ui.testTab="cases";
  event("Test Case",(parentCase?"Forked ":"Added ")+c.title+" v"+c.version);
 
