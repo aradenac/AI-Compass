@@ -175,6 +175,8 @@ jobs:
         run: docker compose exec -T api python manage.py test config.test_release_readiness -v 2
       - name: Verify chronological public/internal Feedback, immutable corrections and evidence privacy
         run: docker compose exec -T api python manage.py test config.test_discussions -v 2
+      - name: Verify Task-scoped Campaign Evaluation Matrix, stable cells and historical Run pins
+        run: docker compose exec -T api python manage.py test config.test_campaign_matrix -v 2
       - name: Verify immutable Server campaigns, transitions and historical method context
         run: docker compose exec -T api python manage.py test config.test_campaigns -v 2
       - name: Verify enterprise accessibility, versioned offer snapshots and pricing safeguards
