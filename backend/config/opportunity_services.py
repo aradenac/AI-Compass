@@ -80,10 +80,8 @@ def _inputs(data):
             raise InvalidOpportunity("Expected real Task ID")
         if kind not in ("benchmark","forecast") or not isinstance(ident,str) or len(ident)>120:
             raise InvalidOpportunity("Invalid candidate kind or ID")
-        if not ident.startswith("sol-" if kind=="benchmark" else "frc-"):
-            # The forecast HRID prefix is resolved by the persisted record too.
-            if kind=="benchmark" or not ident.startswith("for-"):
-                raise InvalidOpportunity("Candidate ID must match its evidence class")
+        if not ident.startswith("sol-" if kind=="benchmark" else "fct-"):
+            raise InvalidOpportunity("Candidate ID must match its evidence class")
         if "forecast_id" in c and (kind!="benchmark" or
                 not isinstance(c["forecast_id"],str) or not
                 c["forecast_id"].startswith(("frc-","for-"))):
