@@ -357,6 +357,9 @@ def modify(*, actor, public_id, data, action=None):
             "owner","method_definition","fixed_task","fixed_task_revision",
             "guide","guide_revision","framework","framework_revision").get(revision=old)
         props=dict(old.properties)
+        # A publication is an event on one immutable campaign revision, never
+        # inherited by later working revisions or automatically republished.
+        props.pop("publication_event", None)
         state=props["status"]
         if action:
             if action=="archive":
@@ -381,8 +384,16 @@ def modify(*, actor, public_id, data, action=None):
                     props["review_scope"]="partial" if counts["outstanding"] else "full"
                 elif "partial_review" in data:
                     raise InvalidCampaign("partial_review applies only when closing a matrix campaign")
-                if action=="publish" and previous.case_pins.count()==0:
-                    raise InvalidTransition("Cannot publish a campaign without Test Cases")
+                if action=="publish":
+                    event=data.get("_publication_event")
+                    if not isinstance(event,dict) or event.get("kind")!="publish" or not event.get("runs"):
+                        raise InvalidTransition("Publish requires validated selected Runs")
+                    props["publication_event"]=event
+                elif action=="unpublish":
+                    event=data.get("_publication_event")
+                    if not isinstance(event,dict) or event.get("kind")!="revoke":
+                        raise InvalidTransition("Unpublish requires an explicit revocation decision")
+                    props["publication_event"]=event
                 props["status"]=ACTIONS[action][1]
             ctx=_snapshot_context({},actor,previous)
             ctx["pricing_pins"]=prepare_selections(None,ctx,previous)
@@ -436,6 +447,7 @@ def serialize(item, rev=None):
         "method_definition_id":str(snap.method_definition_id),
         "method_definition":snap.method_definition.json_schema,
         "status":revision.properties["status"], "archived":revision.properties["archived"],
+        "effective_publication":_serialized_publication(item, revision),
         "task_id":snap.fixed_task.item.public_id if snap.fixed_task_id else None,
         "task_revision_id":str(snap.fixed_task_revision_id) if snap.fixed_task_revision_id else None,
         "guide_id":snap.guide.public_id if snap.guide_id else None,
@@ -466,3 +478,15 @@ def serialize(item, rev=None):
         "created_by":revision.created_by.get_username(),
         "compatibility":compatibility_for_revision(item,revision),
     }
+
+
+def _serialized_publication(item, revision):
+    """Historical as-of pointer, with no draft Run content disclosed."""
+    from .publication_services import effective
+    row = effective(item, revision.number)
+    if row is None:
+        return None
+    return {"revision": row["campaign_revision"],
+            "revision_id": row["campaign_revision_id"],
+            "included_runs": len(row["runs"]),
+            "coverage": row["coverage"]}
