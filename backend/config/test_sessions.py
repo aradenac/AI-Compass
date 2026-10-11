@@ -341,3 +341,95 @@ class BenchmarkSessionTests(TestCase):
                 SessionCheckpointEvidence.objects.filter(checkpoint=cp).delete()
         self.assertEqual(self.client.get("/api/v1/sessions/"+one["id"]+"/checkpoints/2")
                          .json()["evidence"][0]["sha256"],link["sha256"])
+    def test_composed_guide_follows_session_pins_and_history(self):
+        module=create_guide(actor=self.editor,name="Provider installation",
+                            properties={"text":"Install pinned dependency"})
+        revise_guide(actor=self.editor,public_id=self.guide.public_id,
+            expected_revision="r001",properties={"recipe":{
+                "required":["os","model","provider","harness"],
+                "applies_to":{"os":"ubuntu"},
+                "modules":[{"id":module.public_id,"revision":"r001",
+                            "applies_to":{"os":"ubuntu"}}]}})
+        campaign=self.campaign(mode="solution_centred")
+        ses=self.create_session(campaign)
+        path="/api/v1/sessions/"+ses["id"]+"/guide"
+        self.assertFalse(self.client.get(path).json()["ready"])
+        saved=self.call("/api/v1/sessions/"+ses["id"]+"/setup",{
+            "expected_revision":"r001",
+            "environment":{"os":"ubuntu","model":"untrusted-user-value"},
+            "notes":"Needed manual authentication workaround"},"PATCH")
+        self.assertEqual(saved.status_code,200,saved.content)
+        response=self.client.get(path)
+        self.assertEqual(response.status_code,200,response.content)
+        guide=response.json()
+        self.assertTrue(guide["ready"],guide)
+        self.assertEqual(guide["configuration"]["model"],self.catalog["model"].public_id)
+        self.assertEqual(guide["sections"][0]["text"],"Install pinned dependency")
+        self.assertEqual(guide["deviations"]["notes"],"Needed manual authentication workaround")
+        revise_guide(actor=self.editor,public_id=module.public_id,
+            expected_revision="r001",properties={"text":"Changed current documentation"})
+        self.assertEqual(self.client.get(path).json()["sections"][0]["text"],
+                         "Install pinned dependency")
+        reader=Client();reader.force_login(self.reader)
+        self.assertEqual(reader.get(path).status_code,200)
+        maint=Client();maint.force_login(self.maint)
+        self.assertEqual(maint.get(path).status_code,403)
+
+    def test_framework_setup_explicit_wiring_is_required(self):
+        module=create_guide(actor=self.editor,name="Framework runtime",
+                            properties={"text":"Install framework"})
+        revise_guide(actor=self.editor,public_id=self.guide.public_id,
+            expected_revision="r001",properties={"recipe":{
+                "required":["os","framework","participants"],
+                "modules":[{"id":module.public_id,"revision":"r001"}]}})
+        campaign=self.campaign(framework=True)
+        ses=self.create_session(campaign)
+        saved=self.call("/api/v1/sessions/"+ses["id"]+"/setup",{
+            "expected_revision":"r001","environment":{"os":"ubuntu"}},"PATCH")
+        self.assertEqual(saved.status_code,200,saved.content)
+        rendered=self.client.get("/api/v1/sessions/"+ses["id"]+"/guide")
+        self.assertEqual(rendered.status_code,200,rendered.content)
+        self.assertFalse(rendered.json()["ready"])
+        self.assertIn({"kind":"missing_variant","group":"framework_wiring"},
+                      rendered.json()["missing"])
+        self.assertEqual(len(rendered.json()["configuration"]["participants"]),1)
+
+    def test_multi_participant_framework_requires_all_exact_guide_sections(self):
+        data={"name":"Composite campaign","objective":"Test composite setup",
+              "mode":"task_centred","task_id":self.task.item.public_id,
+              "test_case_ids":[self.case.item.public_id],
+              "framework_id":self.framework.public_id,
+              "participants":[{
+                "label":label,"role":role,
+                "component_ids":{k:v.public_id for k,v in self.catalog.items()},
+                "configuration_version":"1","settings":{}
+              } for label,role in (("A","Researcher"),("B","Reviewer"))]}
+        created=self.call("/api/v1/campaigns",data)
+        self.assertEqual(created.status_code,201,created.content)
+        camp=created.json()
+        started=self.call("/api/v1/campaigns/"+camp["id"]+"/actions/start",
+                          {"expected_revision":"r001"})
+        self.assertEqual(started.status_code,200,started.content)
+        campaign=started.json()["campaign"]
+        ids=[x["id"] for x in campaign["participants"]]
+        modules=[create_guide(actor=self.editor,name="Module "+name,
+                              properties={"text":"Pinned "+name}) for name in ("A","B","Wiring")]
+        names=["participant:"+ids[0],"participant:"+ids[1],"framework_wiring"]
+        guide=create_guide(actor=self.editor,name="Orchestrated documented workflow",
+                           properties={"text":"End-to-end verification","recipe":{
+                               "required":["os","framework","participants"],
+                               "modules":[{"id":g.public_id,"revision":"r001","group":group}
+                                          for g,group in zip(modules,names)]}})
+        session=self.create_session(campaign,{
+            "guide_id":guide.public_id,"selected_participant_ids":ids})
+        path="/api/v1/sessions/"+session["id"]
+        saved=self.call(path+"/setup",{
+            "expected_revision":"r001","environment":{"os":"ubuntu"}},"PATCH")
+        self.assertEqual(saved.status_code,200,saved.content)
+        rendered=self.client.get(path+"/guide")
+        self.assertEqual(rendered.status_code,200,rendered.content)
+        self.assertTrue(rendered.json()["ready"],rendered.json())
+        self.assertEqual(len(rendered.json()["configuration"]["participants"]),2)
+        self.assertEqual(len(rendered.json()["sections"]),4)
+        self.assertEqual(rendered.json()["sections"][-1]["text"],"End-to-end verification")
+

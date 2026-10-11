@@ -734,6 +734,10 @@ function publicRunRecord(run){
   copy.initialSetup.installationGuideId="";
   copy.initialSetup.installationGuideSnapshot=null;
  }
+ if(copy.initialSetup){
+  copy.initialSetup.installationRecipeModules=(copy.initialSetup.installationRecipeModules||[])
+   .filter(function(m){return m.snapshot?.status==="published";});
+ }
  if(copy.campaignSnapshot){
   copy.campaignSnapshot.watchIds=publicWatchLinks(copy.campaignSnapshot.watchIds);
   copy.campaignSnapshot.watchSnapshots=(copy.campaignSnapshot.watchSnapshots||[]).filter(function(w){return publicWatchLinks([w.id]).length;});
@@ -1634,6 +1638,8 @@ field("title","Title",g?.title||"","text","full")+
 selectField("solution","Related measured AI Solution (optional)",[["","Reusable / unassigned"]].concat(db.solutions.map(function(x){return[x.id,x.name];})),g?.solution||"")+
 field("body","Installation instructions (optional with URL)",g?.body||"","textarea","full")+
 field("url","Setup/reference URL (optional with text)",g?.url||"","url","full")+
+ '<div class="span2 muted small">Optional offline Demo recipe: reuse guide IDs and pinned revisions (r001, r002…). This is not an OS compatibility validation.</div>'+
+ field("recipe","Composable recipe (JSON; optional)",g?.recipe?JSON.stringify(g.recipe,null,2):"","textarea","full")+
 selectField("framework","Related Framework (optional)",[["","Reusable / no Framework"]].concat(db.components.filter(function(x){return x.type==="framework";}).map(function(x){return[x.id,x.name];})),g?.framework||"",true),id,g?"Save document":"Create document");
 }
 function watchSourceRow(i,e){
@@ -2130,7 +2136,14 @@ forecastPanel+(r.initialSetup?'<h3 style="margin:17px 0 8px">Step-by-step experi
  (r.initialSetup.installationGuideSnapshot?.url&&validSetupUrl(r.initialSetup.installationGuideSnapshot.url)?
  ' · <a href="'+E(r.initialSetup.installationGuideSnapshot.url)+'" target="_blank" rel="noopener noreferrer">Open setup reference ↗</a>':""):
  "Unpublished reference")+'</p>'+
-'<p class="small" style="margin-top:8px"><strong>Setup notes:</strong> '+E(r.initialSetup.setupNotes)+'</p></div>'+
+'<p class="small" style="margin-top:8px"><strong>Setup notes:</strong> '+E(r.initialSetup.setupNotes)+'</p>'+
+ ((r.initialSetup.installationRecipeModules||[]).length?
+  '<p class="small"><strong>Frozen reusable module versions:</strong></p>'+
+  (r.initialSetup.installationRecipeModules||[]).filter(function(p){return canEdit()||p.snapshot?.status==="published";})
+   .map(function(p){return '<details><summary>'+E(p.snapshot.title)+' · '+E(p.revision)+'</summary>'+
+    '<pre class="text-block" style="white-space:pre-wrap">'+E(p.snapshot.body||"")+'</pre>'+
+    '<p class="small">'+E(p.snapshot.url||"")+'</p></details>';}).join(""):"")+
+ '</div>'+
 ((r.initialSetup.inputDocuments||r.initialSetup.providedSkills)?'<div class="note" style="margin-top:7px"><strong>Legacy interaction input summary (not installation):</strong><p class="small">Documents: '+E(r.initialSetup.inputDocuments||"—")+'</p><p class="small">Skills/options: '+E(r.initialSetup.providedSkills||"—")+'</p></div>':"")+
 simpleTable(["Iteration / date-time","Human effort","Agent runtime","Action & observations"],(r.interactions||[]).map(function(v,i){
  return '<tr>'+td('Iteration '+(i+1)+'<div class="muted small">'+E(v.at)+'</div>')+td(v.humanMinutes+' min')+
@@ -2153,13 +2166,62 @@ var html='<div class="row-between">'+badge(c.status)+' '+badge("v"+c.version)+'<
 if(parent)html='<div class="note" style="margin-bottom:12px"><strong>Forked from:</strong> '+linkAction(parent.title+" (v"+parent.version+")","caseDetail",parent.id)+'</div>'+html;
 openModal(c.title,html,btn("Close","close","","")+(canEdit()?btn("Fork new challenge","forkCase",c.id,"")+(ui.page==="benchmark"?btn("Run this TC","newRunForCase",c.id,"primary"):""):""));
 }
+function demoGuideRevision(id,number){
+ var guide=rec("guides",id),history=db.revisions.filter(function(x){
+  return x.type==="Guide"&&x.objectId===id;
+ });
+ if(!guide||!/^r[0-9]{3,9}$/.test(number||""))return null;
+ var index=Number(number.slice(1))-1;
+ if(index===history.length)return guide;
+ if(index<0||index>history.length)return null;
+ return history[index]?.before||null;
+}
+function demoPinnedModuleSnapshots(guide){
+ if(!guide?.recipe||!Array.isArray(guide.recipe.modules))return [];
+ var seen=new Set();
+ return guide.recipe.modules.map(function(pin){
+  if(!pin||typeof pin.id!=="string"||typeof pin.revision!=="string")return null;
+  var key=pin.id+"@"+pin.revision;
+  if(seen.has(key))return null;
+  seen.add(key);
+  var pinned=demoGuideRevision(pin.id,pin.revision);
+  return pinned?{id:pin.id,revision:pin.revision,
+   snapshot:JSON.parse(JSON.stringify(pinned))}:null;
+ }).filter(Boolean);
+}
+function demoComposedGuide(g){
+ var recipe=g.recipe;if(!recipe||!Array.isArray(recipe.modules))return "";
+ var seen=new Set(),sections=[],missing=[];
+ recipe.modules.forEach(function(pin){
+  if(!pin||typeof pin.id!=="string"||typeof pin.revision!=="string"){
+   missing.push("Malformed module pin");return;
+  }
+  var key=pin.id+"@"+pin.revision;
+  if(seen.has(key))return;
+  seen.add(key);
+  var module=demoGuideRevision(pin.id,pin.revision);
+  if(!module||(module.status!=="published"&&!canEdit())){
+   missing.push("Unavailable pinned module "+key);return;
+  }
+  sections.push('<details style="margin:9px 0"><summary>'+E(module.title)+' · '+E(pin.revision)+
+   '</summary><pre class="text-block" style="white-space:pre-wrap">'+E(module.body||"")+
+   '</pre>'+(module.url&&validSetupUrl(module.url)?'<p class="small">'+E(module.url)+'</p>':"")+'</details>');
+ });
+ if(g.framework&&!recipe.modules.some(function(m){return m?.group==="framework_wiring";}))
+  missing.push("Framework wiring and handoff verification not documented");
+ if(!sections.length)missing.push("No pinned reusable module resolved");
+ return '<div class="note" style="margin-top:14px"><strong>Reusable Setup Modules · offline Demo</strong>'+
+ '<p class="small">Revision-pinned preview, not a validation of exact OS or setup applicability.</p>'+
+ (missing.length?'<p class="small">Missing coverage: '+E(missing.join("; "))+'</p>':"")+
+ sections.join("")+'</div>';
+}
 function detailsGuide(id){
  var g=rec("guides",id);if(!g||(!canEdit()&&g.status!=="published"))return;
  var source=String(g.url||"").trim(),safeUrl=validSetupUrl(source);
  var body='<div class="row-between"><div>'+badge(g.type)+' '+badge(g.status)+'</div><span class="muted small">Last update: '+E(g.date)+' · '+E(actor(g.owner))+'</span></div>'+
  (g.body?'<pre class="text-block" style="margin-top:18px;white-space:pre-wrap;font-family:inherit">'+E(g.body)+'</pre>':'<p class="muted small" style="margin-top:16px">Instructions supplied as an external reference.</p>')+
  (source&&safeUrl?'<p style="margin-top:14px"><strong>Setup reference: </strong><a href="'+E(source)+'" target="_blank" rel="noopener noreferrer">'+E(source)+'</a></p>':"")+
- (g.framework?'<p class="small"><strong>Framework:</strong> '+E(rec("components",g.framework)?.name||"Unknown")+'</p>':"");
+ (g.framework?'<p class="small"><strong>Framework:</strong> '+E(rec("components",g.framework)?.name||"Unknown")+'</p>':"")+demoComposedGuide(g);
  openModal(g.title,body,btn("Close","close","","")+(canEdit()?btn("Edit document","editGuide",id,"")+(g.status==="draft"?btn("Publish document","publishGuide",id,"primary"):""):""));
 }
 function feedbackThreadMarkup(id){
@@ -2357,6 +2419,7 @@ var r={id:next("r"),campaignId:c.id,sessionId:t.id,case:tc.id,solution:sol?.id||
  artifacts:d.outputDocuments||"",notes:d.qualityAssessment||d.additionalNotes||"",owner:currentUser,
  initialSetup:JSON.parse(JSON.stringify({startedAt:t.startedAt,setupMinutes:t.setupMinutes,
  installationGuideId:t.installationGuideId||"",installationGuideSnapshot:t.installationGuideSnapshot||null,
+  installationRecipeModules:t.installationRecipeModules||[],
  setupNotes:t.setupNotes,configuration:setup.configuration})),
  interactions:JSON.parse(JSON.stringify(interactions)),
  resultDetails:{qualityAssessment:d.qualityAssessment||"",utilityAssessment:d.utilityAssessment||"",
@@ -2484,6 +2547,7 @@ if(!guide||guide.type!=="Installation"){toast("Select an installation guide.");r
   participantSnapshot:participant?JSON.parse(JSON.stringify(participant)):null,
   startedAt:d.startedAt,setupMinutes:Number(d.setupMinutes),
   installationGuideId:guide.id,installationGuideSnapshot:JSON.parse(JSON.stringify(guide)),
+   installationRecipeModules:demoPinnedModuleSnapshots(guide),
   setupNotes:d.setupNotes||"",solutionSetup:cfg,forecastSnapshot:home.forecastId&&!collaborative?JSON.parse(JSON.stringify(rec("proposals",home.forecastId)||null)):null,interactions:[],runId:"",createdBy:currentUser};
  db.campaignTrials.push(session);event("Trial","Started "+chosenCase.title+" in "+home.title,true);
  persist();campaignTrialInteraction(session.id);return;
@@ -2597,7 +2661,17 @@ if(kind==="task"||kind==="taskEdit"){
  if(!String(d.body||"").trim()&&!String(d.url||"").trim()){toast("Provide guide text and/or a URL.");return;}
  if(!validSetupUrl(d.url)){toast("Guide URL must use HTTP or HTTPS.");return;}
  if(d.framework&&rec("components",d.framework)?.type!=="framework"){toast("Select a valid Framework.");return;}
- Object.assign(g,{title:req(d.title,"Title"),type:d.type,status:d.status,
+ var recipe=null;
+ if(d.type==="Installation"&&String(d.recipe||"").trim()){
+  try{
+   recipe=JSON.parse(d.recipe);
+   if(!recipe||typeof recipe!=="object"||!Array.isArray(recipe.modules)||
+      recipe.modules.length>128||recipe.modules.some(function(m){
+        return !m||typeof m.id!=="string"||!/^r[0-9]{3,9}$/.test(m.revision||"");
+      }))throw Error("Modules must pin guide IDs and revisions");
+  }catch(error){toast("Invalid composable recipe: "+error.message);return;}
+ }
+ Object.assign(g,{title:req(d.title,"Title"),type:d.type,status:d.status,recipe:recipe,
   framework:d.type==="Installation"?d.framework||"":"",solution:d.type==="Installation"&&d.framework?"":d.solution||"",
   body:d.body||"",url:d.url||"",owner:currentUser,date:new Date().toISOString().slice(0,10)});
  if(!id)db.guides.push(g);else revision("Guide",id,prevGuide,g);ui.page="knowledge";event("Guide",(id?"Updated":"Created")+" "+g.type.toLowerCase()+": "+g.title,g.status!=="published");

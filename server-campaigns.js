@@ -153,10 +153,17 @@
             source?(source.component_ids||{})[k]:null,true)+'</select></label>';
         }).join("")+'</div>'+
         '<label>Reusable Setup Guide<select name="guide_id">'+options(guides,source?source.guide_id:null,true)+'</select></label>'+
+        '<label>Recipe preview environment (JSON)<textarea name="preview_environment">{}</textarea></label>'+
+        '<button type="button" id="campaign-preview-guide">Preview selected guide</button>'+
+        '<pre id="campaign-guide-preview" class="muted small" style="white-space:pre-wrap"></pre>'+
         '<div><button type="button" id="campaign-inline-guide">+ Create reusable Setup Guide</button></div>'+
         '<div id="campaign-guide-form" hidden><label>Guide title<input name="guide_name" maxlength="160"></label>'+
         '<label>Setup procedure text<textarea name="guide_text"></textarea></label>'+
         '<label>HTTP(S) guide URL<input name="guide_url" maxlength="2048"></label>'+
+        '<label>Reusable pinned modules (Ctrl/Command to select)<select name="guide_modules" multiple size="5">'+
+        guides.map(function(g){return '<option value="'+esc(g.id)+'">'+esc(g.name)+' · '+esc(g.revision)+'</option>';}).join("")+
+        '</select></label>'+
+        '<label>Recipe JSON (optional: OS/runtime applicability, dependencies, variants)<textarea name="guide_recipe" rows="7"></textarea></label>'+
         '<button type="button" id="campaign-save-guide">Save Guide to knowledge base</button></div>'+
         '<section id="campaign-pricing" class="server-card"></section>'+ 
         '<label>Linked Test Cases (Ctrl/Command to select multiple)'+
@@ -273,6 +280,35 @@
       form.elements.method_version.addEventListener("change",showMethod);
       syncMode();
       el("#campaign-cancel").addEventListener("click",function(){target.hidden=true;});
+      el("#campaign-preview-guide").addEventListener("click",async function(){
+        var output=el("#campaign-guide-preview"),button=this;button.disabled=true;
+        try{
+          var guide=guides.find(function(g){return g.id===form.elements.guide_id.value;});
+          if(!guide)throw Error("Select a registered guide");
+          var configuration=JSON.parse(form.elements.preview_environment.value||"{}");
+          if(!configuration||Array.isArray(configuration)||typeof configuration!=="object")
+            throw Error("Environment must be a JSON object");
+          if(form.elements.framework_id.value){
+            readParticipants();
+            configuration.framework=form.elements.framework_id.value;
+            configuration.participants=workingParticipants.map(function(p){
+              return {id:p.id||"planned",model:p.component_ids.model,
+                provider:p.component_ids.provider,harness:p.component_ids.harness,
+                configuration_version:p.configuration_version};
+            });
+          }else{
+            ["model","provider","harness"].forEach(function(k){
+              if(form.elements[k]&&form.elements[k].value)
+                configuration[k]=form.elements[k].value;
+            });
+          }
+          var result=await api("guides/render","POST",{
+            guide_id:guide.id,revision:guide.revision,configuration:configuration});
+          output.textContent=(result.ready?"Declared coverage matched":"Missing or ambiguous coverage")+
+            "\n"+JSON.stringify({missing:result.missing,sections:result.sections},null,2);
+        }catch(error){output.textContent="Unable to preview: "+error.message;}
+        finally{button.disabled=false;}
+      });
       el("#campaign-inline-guide").addEventListener("click",function(){
         el("#campaign-guide-form").hidden=false;
       });
@@ -281,6 +317,20 @@
         try{
           var props={},txt=form.elements.guide_text.value.trim(),url=form.elements.guide_url.value.trim();
           if(txt)props.text=txt;if(url)props.url=url;
+          var chosen=Array.from(form.elements.guide_modules.selectedOptions).map(function(x){
+            return guides.find(function(g){return g.id===x.value;});
+          }).filter(Boolean);
+          var raw=form.elements.guide_recipe.value.trim();
+          if(raw||chosen.length){
+            var recipe=raw?JSON.parse(raw):{modules:[],required:[]};
+            if(!recipe||Array.isArray(recipe)||typeof recipe!=="object"||
+               !Array.isArray(recipe.modules))throw Error("Recipe must have a modules array");
+            chosen.forEach(function(g){
+              if(!recipe.modules.some(function(m){return m.id===g.id&&m.revision===g.revision;}))
+                recipe.modules.push({id:g.id,revision:g.revision});
+            });
+            props.recipe=recipe;
+          }
           var saved=await api("guides","POST",{name:form.elements.guide_name.value,properties:props});
           guides.push(saved);
           form.elements.guide_id.innerHTML=options(guides,saved.id,true);

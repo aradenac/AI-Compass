@@ -75,10 +75,12 @@ function mount(root,api,escapeHtml){
         ...(row.mode==="task_centred"&&!row.framework_id?
           ["model","provider","harness"].map(function(k){return api("catalog/"+k);}):[]),
         ...(row.mode==="task_centred"&&!row.framework_id&&
-            row.pricing_policy==="offer_revisions_v1"?[api("pricing/offers")]:[])
+            row.pricing_policy==="offer_revisions_v1"?[api("pricing/offers")]:[]),
+        api("guides")
       ]);
       if(current!==ticket||!canRead)return;
-      var result=results[0],runs=results[1].results||[],catalogResults=results.slice(2);
+      var result=results[0],runs=results[1].results||[],catalogResults=results.slice(2),
+          knownGuides=results[results.length-1].results||[];
       var offered=(row.mode==="task_centred"&&!row.framework_id&&
         row.pricing_policy==="offer_revisions_v1")?(catalogResults[3].results||[]):[];
       var offersByComponent=function(component){
@@ -104,7 +106,8 @@ function mount(root,api,escapeHtml){
             return option(id,id,false);}).join("")+'</select></label>'+
           '<label>Setup Guide<select id="session-new-guide">'+
           option("","No guide",!row.guide_id)+
-          (row.guide_id?option(row.guide_id,row.guide_id,true):"")+'</select></label>'+
+          knownGuides.map(function(g){return option(g.id,g.name+" · "+g.revision,g.id===row.guide_id);}).join("")+
+          '</select></label>'+
           (row.framework_id?
             '<label>Framework participants (one or more)<select id="session-new-participants" multiple size="4">'+
             (row.participants||[]).map(function(p){return option(p.id,p.label+" · "+p.role,true);}).join("")+
@@ -233,6 +236,9 @@ function mount(root,api,escapeHtml){
       '<pre id="session-method-json" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre>'+
       '<p>'+s.evidence.length+' pinned evidence link(s), unchanged SHA-256 hashes.</p></details>'+
       '<fieldset id="session-setup"><legend>1. Installation and environment · explicit save</legend>'+
+      '<p class="muted small">Guide previews use the frozen configuration and the last saved environment. Save changes before inspecting.</p>'+
+      '<button type="button" id="session-show-guide">Show original pinned Setup Guide</button>'+
+      '<div id="session-rendered-guide" role="status"></div>'+
       '<label>Installation started at<input type="datetime-local" name="started_at" value="'+
         esc(timeValue(state.setup.started_at))+'"></label>'+
       '<label>Human installation duration (minutes; blank = unknown)<input type="number" step="any" min="0" name="installation_duration_minutes" value="'+
@@ -334,6 +340,28 @@ function mount(root,api,escapeHtml){
         '<button type="button" id="session-close-run">Close as permanent Run</button></fieldset>':
         !s.individual_setup?'<p class="muted small">This legacy draft lacks a pinned AI setup and cannot be closed. Start a new session with explicit components.</p>':'');
     $("#session-method-json").textContent=JSON.stringify(s.method_descriptor,null,2);
+    $("#session-show-guide").addEventListener("click",async function(){
+      var display=$("#session-rendered-guide"),button=this;button.disabled=true;
+      display.textContent="Resolving immutable guide…";
+      try{
+        var result=await api("sessions/"+encodeURIComponent(s.id)+"/guide");
+        var html='<p>'+(result.ready?"Declared setup coverage complete":
+          "Coverage incomplete or not validated")+'</p>'+
+          '<pre style="white-space:pre-wrap;overflow-wrap:anywhere">'+
+          esc(JSON.stringify(result.missing,null,2))+'</pre>';
+        (result.sections||[]).forEach(function(section){
+          html+='<details open><summary>'+esc(section.name)+' · '+esc(section.revision)+'</summary>'+
+            '<pre style="white-space:pre-wrap;overflow-wrap:anywhere">'+esc(section.text||"")+'</pre>'+
+            '<p>'+esc(section.url||"")+'</p></details>';
+        });
+        html+='<h5>Original configuration</h5><pre style="white-space:pre-wrap;overflow-wrap:anywhere">'+
+          esc(JSON.stringify(result.configuration,null,2))+'</pre>';
+        html+='<h5>Recorded deviations</h5><pre style="white-space:pre-wrap;overflow-wrap:anywhere">'+
+          esc(JSON.stringify(result.deviations,null,2))+'</pre>';
+        display.innerHTML=html;
+      }catch(error){display.textContent="Pinned guide unavailable: "+error.message;}
+      finally{button.disabled=false;}
+    });
     if(canWrite&&state.status!=="closed"){
       $("#session-lifecycle").addEventListener("click",function(){
         var action=state.status==="paused"?"resume":"pause";

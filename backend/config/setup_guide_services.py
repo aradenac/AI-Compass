@@ -47,6 +47,14 @@ def _validate(properties, schema):
                 parts.username is not None or parts.password is not None or
                 port == 0 or url.startswith(("http:///","https:///"))):
             raise InvalidModel("Guide URL must be absolute HTTP(S) without embedded credentials")
+    if result.get("recipe") is None or result.get("recipe") == "":
+        result.pop("recipe", None)
+    if "recipe" in result:
+        from .setup_composition import SetupCompositionError, validate_recipe
+        try:
+            validate_recipe(result["recipe"])
+        except SetupCompositionError as exc:
+            raise InvalidModel(str(exc)) from exc
     return result
 
 

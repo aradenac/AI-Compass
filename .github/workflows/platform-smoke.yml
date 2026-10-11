@@ -161,6 +161,8 @@ jobs:
         run: docker compose exec -T api python manage.py test config.test_test_cases -v 2
       - name: Verify reusable text and URL guides, immutable history and permissions
         run: docker compose exec -T api python manage.py test config.test_setup_guides -v 2
+      - name: Verify composable revision-pinned guides, variants, Framework session and RBAC
+        run: docker compose exec -T api python manage.py test config.test_setup_composition config.test_setup_recipe_views -v 2
       - name: Verify canonical Research Sources and revision-pinned Technology Watch
         run: docker compose exec -T api python manage.py test config.test_watch -v 2
       - name: Verify theoretical Forecast lifecycle, immutable predictions and campaign validation
@@ -195,6 +197,8 @@ jobs:
         run: node scripts/test-server-sessions.js
       - name: Verify Server-only campaign UI regression
         run: node scripts/test-server-campaigns.js
+      - name: Verify composable guide historical Demo render and integrated Server workflow
+        run: node scripts/test-composable-guides.js
       - name: Run backend, persistence and backup/restore checks
         run: bash scripts/smoke-platform.sh
       - name: Verify DB-only recovery manifest flags uncovered evidence files
