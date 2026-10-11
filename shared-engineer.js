@@ -320,10 +320,11 @@ function mount(container,provider,mode){
       '<h4>Published editorial context</h4>'+notes+
       '<h4>Published contextual Workgroup updates / discussions</h4>'+
       (row.published_updates||[]).map(function(u){
-        return '<p>'+safe(u.title)+' · '+safe(u.context_id)+
-          (mode==="server"?' · <a href="/api/v1/discussions/'+
-             encodeURIComponent(u.id)+'" target="_blank" rel="noopener">Read public discussion (JSON)</a>':'')+
-          '</p>';
+        return '<details><summary>'+safe(u.title)+' · '+safe(u.context_id)+'</summary>'+
+          '<p>'+safe(u.summary||u.body||"Published contextual discussion reference")+'</p>'+
+          (mode==="server"?' <a href="/api/v1/discussions/'+
+             encodeURIComponent(u.id)+'" target="_blank" rel="noopener noreferrer">Advanced: original authorized discussion source</a>':'')+
+          '</details>';
       }).join("")+
       '<h4>Other measured Tasks</h4>'+
       (row.other_tasks||[]).map(function(t){return '<button type="button" data-engineer-other="'+safe(t.id)+
