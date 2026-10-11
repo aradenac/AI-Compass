@@ -127,7 +127,10 @@ def compose(recipe, revisions, configuration):
             missing.append({"kind": "dependency", "module": list(key)})
             return
         if not _matches(entry.get("applies_to", {}), configuration):
-            missing.append({"kind": "inapplicable", "module": list(key)})
+            # Unselected alternative variants are expected; ungrouped required
+            # modules must instead report precise incompatibility.
+            if not entry.get("group"):
+                missing.append({"kind": "inapplicable", "module": list(key)})
             return
         group = entry.get("group")
         if group:
