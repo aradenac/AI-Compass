@@ -2,7 +2,7 @@
 
 > **Reference:** Product/domain specification maintained with the implemented application. The delivery tracker and outstanding UX acceptance work are maintained in the [implementation plan](future-evolutions/implementation-plan.md).
 
-> **Status (2026-10-10):** Owner-approved specification, first implementation via [FUT-05 #79](https://github.com/aradenac/AI-Compass/issues/79). The actual usage-meter and automatic cost calculator remain FUT-09; this specification describes both and must not be read as a claim that FUT-09 is delivered.  
+> **Contract:** Versioned enterprise accessibility, pricing offers, billable meters, pinned selection and deterministic reference costs.
 > **Discussion date:** 2026-10-10  
 > **Areas:** Technology Catalog, Benchmark Workspace, Test Runs, Results Explorer, economic analyses.  
 > **Related:** [Product Definition](product-definition.md) · [Technology Catalog Server](technology-catalog-server.md) · [Individual Benchmark Runs](individual-benchmark-runs-server.md) · [Benchmark Workflow](benchmark-workflow.md) · [Platform Architecture & Data Governance](platform-architecture-and-data-governance.md) · [Campaign Evaluation Matrix](campaign-evaluation-matrix.md)
@@ -225,7 +225,7 @@ This feature does **not** implement corporate invoicing, prepaid credit-wallet r
 
 It remains separate from the future [Composable Setup Guides](composable-setup-guides.md) and [Data Governance Audit Explorer](data-governance-audit-explorer.md), while reusing shared versioning and business permission foundations.
 
-**This document captures the agreed future feature and impact assessment. It is not a claim that the APIs, pricing calculation engine, or publication/readiness UI already exist.**
+**This document specifies the versioned pricing, usage-meter and publication integration contract and its acceptance criteria.**
 
 ## 13. Harmonized integration contract — selected offer drives the Run
 
