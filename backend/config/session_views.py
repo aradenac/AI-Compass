@@ -167,6 +167,26 @@ def update_step(request,public_id,step_key):
         "evidence_link_ids","schema_version","current_step"},step_key=step_key)
 
 
+@require_http_methods(["PATCH"])
+@csrf_protect
+@never_cache
+@capability("business_write")
+def update_metering(request,public_id):
+    return _change(request,public_id,"metering",{"consumption"})
+
+
+@require_http_methods(["PATCH"])
+@csrf_protect
+@never_cache
+@capability("business_write")
+def update_results(request,public_id):
+    return _change(request,public_id,"results",{
+        "outcome","quality_score","quality_evaluation","information_utility_score",
+        "information_utility_evaluation","tokens_count","tokens_multiplier",
+        "cost_mode","cost_eur","human_review_minutes","human_correction_minutes",
+        "produced_outputs","notes","extensions","evidence_link_ids"})
+
+
 @require_POST
 @csrf_protect
 @never_cache
