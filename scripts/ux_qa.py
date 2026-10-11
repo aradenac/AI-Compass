@@ -178,6 +178,7 @@ def capture(page, directory, name):
 
 def demo_journey(browser, demo_url, artifacts, role, label, viewport):
     context = browser.new_context(viewport=viewport, reduced_motion="reduce")
+    context.tracing.start(screenshots=True, snapshots=True, sources=True)
     page = context.new_page()
     page.set_default_timeout(12000)
     errors = []
@@ -198,11 +199,13 @@ def demo_journey(browser, demo_url, artifacts, role, label, viewport):
         if errors:
             raise AssertionError("Demo JS runtime error(s): " + "; ".join(errors[:3]))
     finally:
+        context.tracing.stop(path=str(artifacts / ("demo-" + label + "-" + str(viewport["width"]) + ".zip")))
         context.close()
 
 
 def server_journey(browser, base_url, creds, artifacts, role, viewport):
     context = browser.new_context(viewport=viewport, reduced_motion="reduce")
+    context.tracing.start(screenshots=True, snapshots=True, sources=True)
     page = context.new_page()
     page.set_default_timeout(15000)
     errors = []
@@ -238,6 +241,7 @@ def server_journey(browser, base_url, creds, artifacts, role, viewport):
         count = page.locator(selectors).filter(visible=True).count()
         return {"visible_legacy_domains": count, "legacy_stack_observed": count > 1}
     finally:
+        context.tracing.stop(path=str(artifacts / ("server-" + role + "-" + str(viewport["width"]) + ".zip")))
         context.close()
 
 
