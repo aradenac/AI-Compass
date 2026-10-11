@@ -124,8 +124,10 @@ class OpportunityTests(IndividualRunTests.__bases__[0]):
         denied=reader.post(BASE,json.dumps(value),content_type="application/json")
         self.assertEqual(denied.status_code,403)
         self.client.force_login(self.editor)
-        for endpoint in (BASE,BASE+"/candidates",BASE+"/preview"):
+        for endpoint in (BASE,BASE+"/candidates"):
             self.assertEqual(self.client.get(endpoint).status_code,403)
+        self.assertEqual(self.client.get(BASE+"/preview").status_code,405)
+        self.assertEqual(self.request(self.client,self.token,BASE+"/preview",value).status_code,403)
         self.client.force_login(self.maint)
         self.assertEqual(self.client.get(BASE).status_code,403)
         self.assertEqual(Client().get(BASE).status_code,401)
