@@ -2,7 +2,7 @@
 
 > **Reference:** Product/domain specification maintained with the implemented application. The delivery tracker and outstanding UX acceptance work are maintained in the [implementation plan](future-evolutions/implementation-plan.md).
 
-> **Status:** Proposed cross-platform feature — product decisions and preliminary impact, not an implementation claim.  
+> **Contract:** Read-only governance view of committed business and administrative changes, authorized original revisions and source-scoped diffs.
 > **Discussed:** 2026-10-10  
 > **Area:** Maintenance & Governance / Audit & Changes  
 > **Scope:** All persistent business objects and relevant administrative changes in AI Compass.  
