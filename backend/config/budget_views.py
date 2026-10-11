@@ -64,7 +64,13 @@ def options(request):
             "profiles": [{"id": p.public_id, "kind": p.kind,
                           "name": p.revisions.order_by("-number").first().name}
                          for p in profiles],
-            "candidates": [dict(c, components=({"root:" + k: getattr(s, k).public_id for k in ("model", "provider", "harness")} if s else {}))\n                for c in candidates() for s in [ForecastSnapshot.objects.select_related(\n                    "model", "provider", "harness").filter(\n                        revision__item__public_id=c["candidate_id"],\n                        revision__item__type_slug="forecast",\n                        revision__item__current_revision_id__isnull=False).first()\n                    if c["kind"] == "forecast" else None]],
+            "candidates": [dict(c, components=({"root:" + k: getattr(s, k).public_id for k in ("model", "provider", "harness")} if s else {}))
+                for c in candidates() for s in [ForecastSnapshot.objects.select_related(
+                    "model", "provider", "harness").filter(
+                        revision__item__public_id=c["candidate_id"],
+                        revision__item__type_slug="forecast",
+                        revision__item__current_revision_id__isnull=False).first()
+                    if c["kind"] == "forecast" else None]],
             "targets": [deployment_status(t, private=False) for t in targets
                         if t.kind == "benchmark"],
             "offers": [{"id": x.public_id,
