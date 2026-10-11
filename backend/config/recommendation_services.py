@@ -152,8 +152,10 @@ def _write_snapshot(revision,inputs,reviewer=None,reviewed_at=None):
         revision=revision,task=task,task_revision=task_revision,
         solution=solution,solution_revision=solution_revision,evaluation=evaluation,
         reviewed_by=reviewer,reviewed_at=reviewed_at)
+    from .run_lifecycle_services import last
     RecommendationRunPin.objects.bulk_create([
-        RecommendationRunPin(snapshot=snap,run=r) for r in runs
+        RecommendationRunPin(snapshot=snap,run=r,acknowledged_amendment=last(r))
+        for r in runs
     ])
     return snap
 
@@ -312,12 +314,32 @@ def serialize(item,rev=None,reader=False):
     snap=RecommendationSnapshot.objects.select_related(
         "task__item","solution__item","evaluation__revision__item","reviewed_by").get(revision=rev)
     pinned=list(snap.run_pins.select_related("run__session__method_definition").order_by("id"))
+
+    from .publication_services import effective_ids
+    from .run_lifecycle_services import state as run_state, last as last_amendment
+    active=effective_ids(kind="individual")
+    stale_ids=[]
+    unavailable=[]
     links=[]
     for entry in pinned:
         run=entry.run
+        current=run_state(run)
+        amended=last_amendment(run)
+        if run.public_id not in active or current["status"]=="withdrawn":
+            unavailable.append(run.public_id)
+            stale_ids.append(run.public_id)
+            if reader:
+                # Public descriptions may point to the editorial decision but
+                # must never reveal an unpublished or withdrawn original Run.
+                links.append({"kind":"individual","status":"unavailable"})
+                continue
+        if (amended.pk if amended else None)!=entry.acknowledged_amendment_id:
+            stale_ids.append(run.public_id)
         links.append({
             "id":run.public_id,"uuid":str(run.pk),"kind":"individual",
-            "outcome":run.outcome,"metrics":run.metrics,
+            "outcome":current["outcome"],"metrics":current["metrics"],
+            "effective_revision":current["revision"],
+            "status":current["status"],
             "method_id":str(run.session.method_definition_id),
             "experimental_method_version":run.session.method_definition.version,
             "evidence":[{"id":str(p.evidence_id),"sha256":p.evidence.blob_id}
@@ -334,6 +356,10 @@ def serialize(item,rev=None,reader=False):
             alert_rev=last_live
             alert_snap=RecommendationSnapshot.objects.get(revision=last_live)
     alert=_new_evidence(item,alert_rev,alert_snap)
+    # Editorial publication remains historically available, but never qualifies
+    # as current measured suitability if source membership/acknowledgement changed.
+    if stale_ids:
+        alert.update(review_needed=True,reason="source_evidence_changed")
     return {
         "id":item.public_id,"revision":f"r{rev.number:03d}","revision_id":str(rev.pk),
         "name":rev.display_name,"properties":rev.properties,
@@ -344,7 +370,13 @@ def serialize(item,rev=None,reader=False):
         "evaluation_id":snap.evaluation.revision.item.public_id if snap.evaluation else None,
         "evaluation_revision":f"r{snap.evaluation.revision.number:03d}" if snap.evaluation else None,
         "evaluation_revision_id":str(snap.evaluation_id) if snap.evaluation else None,
-        "run_refs":links,"reviewed_by":snap.reviewed_by.get_username() if snap.reviewed_by else None,
+        "run_refs":links,
+        "eligible_for_current_suitability":not stale_ids and
+            bool(pinned) and all(x.run.public_id in active for x in pinned),
+        "stale_run_count":len(set(stale_ids)),
+        "unavailable_source_count":len(unavailable),
+        "evidence_freshness":"stale" if stale_ids else "current",
+        "reviewed_by":snap.reviewed_by.get_username() if snap.reviewed_by else None,
         "reviewed_at":snap.reviewed_at.isoformat() if snap.reviewed_at else None,
         "created_by":rev.created_by.get_username(),
         "created_at":rev.created_at.isoformat(),
