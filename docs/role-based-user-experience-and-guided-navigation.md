@@ -2,7 +2,7 @@
 
 > **Reference:** Product/domain specification maintained with the implemented application. The delivery tracker and outstanding UX acceptance work are maintained in the [implementation plan](future-evolutions/implementation-plan.md).
 
-> **Status (2026-10-10):** Product-owner-approved product/UX specification with bounded delivery [FUT-03 #77](https://github.com/aradenac/AI-Compass/issues/77) and [FUT-04 #78](https://github.com/aradenac/AI-Compass/issues/78). This document continues to specify future Engineer/Management and evaluation UX owned by later FUT issues; do not assume all described features are implemented.  
+> **Contract:** Normative role-aware experiences, progressive disclosure, contextual navigation, shared component behavior, unsaved work and cross-persona acceptance criteria.
 > **Decision context:** October 2026 refinement.  
 > **Primary scope:** Role-adapted application entry points; one Workgroup knowledge-map/navigation hub; personalized engineer discovery; management entry point; independent governance entry; solution details; contextual navigation, breadcrumbs, steppers, local unsaved drafts and pragmatic concurrent editing.  
 > **Separate future proposal:** [OS Compatibility & User Environment](os-compatibility-and-user-environment.md). This UX proposal **consumes** OS compatibility information; it does not define its technical catalog schema.  
@@ -352,7 +352,7 @@ No automatic field-level merge; no cross-user shared unsaved drafts; no WebSocke
 
 - **Data Health:** broken/missing/obsolete records, structured quality checks and maintenance triage.
 - **Schema & Migrations:** compatibility and permitted previews/executions where existing rights and controls allow.
-- **Data Governance Audit:** passive, permission-filtered recorded changes, exact revisions and diff inspection, as described by its separate future feature.
+- **Data Governance Audit:** passive, permission-filtered recorded changes, exact revisions and diff inspection, as provided by the committed-change Audit & Changes workspace.
 - **Users & Access:** AI Compass accounts and RBAC, **only** for user administrators with explicit grants; not external Provider credentials.
 - **Integrity & Recovery / Platform Operations:** existing authorized backup, integrity, restore-test and operational summaries; production operations require their independent privileged controls.
 
@@ -377,7 +377,7 @@ Data Maintainer **must not automatically** gain Workgroup business editing, publ
 | **Maintenance landing** | Low | Repackage authorized existing tools; retain independent routes and permissions. |
 | **Security / Demo parity** | Cross-cutting | Server-side permission checks, publication visibility, CSRF, independent modes and smoke coverage. |
 
-**Dependencies do not authorize automatic implementation:** DAP beyond DAP-01, composed Guides and OS Compatibility are future plans; UI should gracefully handle features not yet implemented and avoid claiming future capabilities already exist. No feature can be moved to the approved implementation backlog without its own plan/decision.
+**Dependency discipline:** Reuse authoritative domain models and actual permissions for OS compatibility, Guides, workloads, access and historical evidence. Preserve fail-closed states and do not fabricate source values.
 
 ## 13. Recommended UX validation journeys
 
