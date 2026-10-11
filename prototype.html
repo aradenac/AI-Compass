@@ -1456,29 +1456,19 @@ function nextForkVersion(parent){
  while(used.has(prefix+suffix))suffix++;
  return prefix+suffix;
 }
-function caseBranchTree(tc,visible,visited){
- if(visited.has(tc.id))return "";
- visited.add(tc.id);
- var rs=db.runs.filter(function(r){return r.case===tc.id&&r.status==="published";});
- var children=visible.filter(function(x){return x.parentCaseId===tc.id&&x.id!==tc.id;}).sort(function(a,b){return String(a.version).localeCompare(String(b.version),undefined,{numeric:true});});
- return '<div class="case-tree-item"><div class="case-main"><div class="case-meta">'+linkAction(tc.title,"caseDetail",tc.id)+
- '<span class="case-version">v'+E(tc.version)+'</span>'+(tc.parentCaseId?'<span class="muted small">Fork</span>':'')+'</div>'+
- '<div class="case-subtitle">'+E(tc.objective)+' · '+rs.length+' published run(s)</div></div>'+btn("Inspect","caseDetail",tc.id,"sm")+'</div>'+
- (children.length?'<div class="case-branch">'+children.map(function(c){return caseBranchTree(c,visible,visited);}).join("")+'</div>':"");
-}
 function caseRegistry(){
- var visible=db.cases.filter(function(c){return canEdit()||c.status==="published";}),visited=new Set();
- var groups=Array.from(new Set(visible.map(function(c){return c.task;}))).map(function(taskId){
-  var task=rec("tasks",taskId),items=visible.filter(function(c){return c.task===taskId;});
-  var roots=items.filter(function(c){return !c.parentCaseId||!items.some(function(p){return p.id===c.parentCaseId;})||c.parentCaseId===c.id;});
-  var tree=roots.map(function(c){return caseBranchTree(c,items,visited);}).join("");
-  tree+=items.filter(function(c){return !visited.has(c.id);}).map(function(c){return caseBranchTree(c,items,visited);}).join("");
-  return '<section><div class="case-tree-task"><strong>'+E(task?.name||"Unknown task")+'</strong>'+
-   '<span class="muted small"> · '+items.length+' Test Case(s)</span></div>'+tree+'</section>';
- }).join("");
+ var visible=db.cases.filter(function(c){return canEdit()||c.status==="published";});
+ var publishedRunCounts={};
+ visible.forEach(function(c){publishedRunCounts[c.id]=0;});
+ db.runs.filter(function(r){return r.status==="published";}).forEach(function(r){
+   if(Object.prototype.hasOwnProperty.call(publishedRunCounts,r.case))publishedRunCounts[r.case]++;
+ });
  return '<p class="muted small" style="margin-bottom:14px">Test Cases are grouped by engineering task and fork lineage. Each fork inherits its task and receives a new version without rewriting the source or its evidence.</p>'+
- (groups||'<div class="empty">No Test Cases defined.</div>');
+ window.AICompassWorkgroup.renderCases(visible,db.tasks,{
+   mode:"demo",canWrite:canEdit(),publishedRunCounts:publishedRunCounts
+ });
 }
+
 function comparisonMatrix(){
 var mode=ui.matrix||"task",target=ui.matrixTarget;if(mode==="task"&&!rec("tasks",target))target="t5";if(mode==="solution"&&!rec("solutions",target))target="s1";
 var targetOpts=mode==="task"?db.tasks.filter(function(t){return db.cases.some(function(c){return descendants(t.id).includes(c.task);});}).map(function(t){return opt(t.id,t.name,target);}):db.solutions.filter(visibleSolution).map(function(s){return opt(s.id,s.name,target);});
