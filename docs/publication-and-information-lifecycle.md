@@ -4,7 +4,7 @@
 
 ## Problem and principles
 
-AI Compass is an evolving evidence repository: a Campaign/Run can be published, an original measurement can later be found wrong, a Run can be withdrawn, a published Campaign can be reopened, and a published object or evidence attachment may ultimately require deletion.
+AI Compass is an evolving evidence repository: a Campaign/Run can be published, an original measurement can later be found wrong, a Run can be withdrawn, a published Campaign can be reopened, and published objects may evolve through new immutable versions.
 
 The requirements are **both**:
 - **Reliable current information:** a corrected or revoked source must promptly stop contaminating live Results Explorer, measured comparisons, automatic Task ↔ AI Solution ranking, current Recommendations context, Profitability/Opportunities, Deployment projections, Resource/Budget calculations and other dependent published views.
@@ -24,7 +24,6 @@ This specification concerns *domain lifecycle* and resulting consistency. Govern
 6. A **valid failed-DoD experiment** can be published as negative evidence; it must never automatically become a positive recommendation.
 7. Published read projections must apply **current authorized corrections/revocations**, even if their original publication snapshots remain historically inspectable.
 8. Referenced evidence files are never blindly unlinked or erased just because one business object is hidden or archived.
-9. **Physical purge is an independently privileged Maintenance/Governance operation**: administrable, previewable, policy-driven, auditable and conservatively garbage-collected.
 10. "Orphan" is a provable domain/storage condition, **not** merely "nobody has linked to this meaningful standalone catalog object yet." Preserve all necessary current, historical and legal references.
 11. Source revisions/evidence are owned once; affected domain projections are derived, invalidated and recomputed through consistent shared rules.
 12. All changes respect RBAC, original evidence access controls, published/draft visibility and the permanent Server vs Demo separation.
@@ -39,9 +38,6 @@ This specification concerns *domain lifecycle* and resulting consistency. Govern
 | **Republish a Campaign** | Atomically move to a new published **eligible subset** after checks; new content becomes available | Earlier publication membership/snapshots remain | Existing review/publish rights, documentary and evidence rules |
 | **Withdraw a single published Run** | **Immediately exclude** that Run from all current public results/scores/ranking and all projections using active evidence | Historical Run and withdrawal event/reason remain restricted to permitted historical views | Explicit authorized Run-level withdrawal; neither silently deletes its Campaign nor other Runs |
 | **Unpublish / recall whole Campaign** | Withdraw its current published membership; other campaigns may continue supporting shared AI Solutions | Historical publication/decision and source evidence preserved | Existing authorized Campaign unpublish semantics extended to read models |
-| **Archive / logically delete an object** | Hide from current discovery/ordinary references; retain necessary tombstone/historical links | Original IDs are never reused; referenced history and audits retained | Domain policy; reject unsafe operations or safely retire link visibility |
-| **Manual physical purge** | Content already logically withdrawn, and no protected required references remain (or an approved exceptional erasure plan supplies safe redaction/tombstones) | Minimal lawful/auditable deletion proof, never orphan live FKs | Privileged maintenance policy/checklist; preview + safety gates |
-| **Policy-based automatic purge** | No user-visible broken data; only **eligible** items outside retention grace | Audit each purge decision/aggregate batch and failure | Authorized and enabled administrator policy; scheduled safe worker + recheck |
 
 **Subtle but required distinction:** a published Campaign has a **frozen publication snapshot**, whereas a **current effective published view** is its authorized still-active published membership filtered through later corrections and revocations. The historical snapshot says *what was announced then*; the effective projection says *what can be trusted and used now*. Ordinary public readers must never bypass a withdrawal by querying an older "historical" endpoint; any historic access is permission-filtered and prominently labeled, subject to revocation/erasure policy.
 
