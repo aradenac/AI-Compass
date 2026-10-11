@@ -434,10 +434,13 @@
       add("Hypothesis and expected benefit",p.hypothesis||p.summary);
       add("Potential activities",p.potential);
       add("Assumptions",p.assumptions);
+      add("Notes",p.notes);
       add("Review state",p.review_state||record.status);
       add("Visibility",p.visibility||record.publication);
     }else {
       add("Source / reference",p.url||p.source);
+      add("Original claim / observation",p.claim);
+      add("Citation / publication",p.citation);
       add("Assessment",p.assessment);
       add("Uncertainty and limitations",p.limitations);
       add("Confidence",p.confidence);
