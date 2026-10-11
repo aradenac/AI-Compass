@@ -59,7 +59,9 @@ def render_recipe(request):
             if source is not None:
                 snapshots[(mid, mr)] = {
                     "name": source.display_name, "properties": source.properties}
-        rendered = compose(spec, snapshots, cfg)
+        from .setup_recipe_services import from_revision
+        rendered = from_revision(recipe_revision, cfg,
+                                 require_wiring=bool(cfg.get("framework")))
         rendered["recipe"] = {"id": gid, "revision": rev, "revision_id": str(recipe_revision.pk)}
         return json_no_store(rendered)
     except (SetupCompositionError, InvalidModel, ValueError, TypeError) as exc:
