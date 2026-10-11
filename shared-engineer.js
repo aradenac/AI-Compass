@@ -173,7 +173,7 @@ function mount(container,provider,mode){
         var other=t.configurations.filter(function(x){return x.suitability!=="supported_observation";});
         var expanded=opened[t.id]!==false;
         var children=render(t.id,depth+1,seen.concat(t.id));
-        var content='<div style="margin-left:min('+Math.min(depth*15,210)+'px, 12vw)">'+
+        var content='<div style="margin-left:12px">'+
           '<div class="server-model-toolbar"><button type="button" data-engineer-expand="'+safe(t.id)+
           '" aria-expanded="'+expanded+'">'+(expanded?"−":"+")+'</button>'+
           '<strong>'+safe(t.name)+'</strong>'+
