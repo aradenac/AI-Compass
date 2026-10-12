@@ -808,19 +808,27 @@ def server_journey(browser, base_url, creds, artifacts, role, viewport):
             corrected.wait_for(state="visible", timeout=20000)
             if "Corrected discussion body text" not in corrected.inner_text():
                 raise AssertionError("Server correction did not update the shared thread")
-            # Immutable history keeps the superseded original wording.
+            # Immutable history keeps the superseded original wording, rendered
+            # through the shared revision-history reader.
             corrected.locator('button[data-action="history"]').first.click()
             history = page.locator("#discussion-history")
             history.wait_for(state="visible", timeout=15000)
+            revision_reader = history.locator(
+                '[data-shared-revision-history="discussions"][data-revision-mode="server"]')
+            revision_reader.wait_for(state="visible", timeout=15000)
+            revisions = revision_reader.locator("[data-shared-revision]")
+            if revisions.count() < 2:
+                raise AssertionError(
+                    "Server revision history did not use the shared reader")
             # The revised bodies live inside collapsed <details>; expand the
             # retained revisions before asserting their immutable content.
-            history.locator("details").first.wait_for(state="visible", timeout=15000)
-            for summary in history.locator("details summary").all():
+            for summary in revision_reader.locator("details summary").all():
                 summary.click()
-            if "Original discussion body text" not in history.inner_text():
+            reader_text = revision_reader.inner_text()
+            if "Original discussion body text" not in reader_text:
                 raise AssertionError(
                     "Server correction history lost the original superseded body")
-            if "UX-R04 shared correction reason" not in history.inner_text():
+            if "UX-R04 shared correction reason" not in reader_text:
                 raise AssertionError("Server correction history lost the retained reason")
             assert_no_horizontal_overflow(page)
             capture(page, artifacts,

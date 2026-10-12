@@ -749,6 +749,37 @@
       '</div>';
   }
 
+  /* One revision-history reader: every retained revision of a corrected record,
+   * the wording it superseded and why. Historical revisions are immutable and
+   * always shown, never collapsed away or replaced by the current value. */
+  function renderRevisionHistory(revisions, options) {
+    options=options||{};
+    var mode=domainMode(options.mode);
+    if(!Array.isArray(revisions))throw Error("Authorized revision history required");
+    return '<div class="shared-revision-history" data-shared-revision-history="'+
+      escape(options.domain||"discussions")+'" data-revision-mode="'+escape(mode)+'">'+
+      (options.heading?'<h3>'+escape(options.heading)+'</h3>':"")+
+      (revisions.length?revisions.map(function(entry){
+        if(!entry||entry.revision==null||!String(entry.revision).trim())
+          throw Error("Revision entry requires its exact revision");
+        var visibility=String(entry.visibility||"public");
+        if(!["public","internal"].includes(visibility))
+          throw Error("Unsupported revision visibility");
+        var meta=[entry.by,entry.at,visibility]
+          .filter(function(value){return value!=null&&value!=="";}).map(escape);
+        return '<details data-shared-revision="'+escape(entry.revision)+
+          '" data-revision-visibility="'+escape(visibility)+'"><summary>'+
+          escape(entry.revision)+(meta.length?' · '+meta.join(' · '):"")+'</summary>'+
+          '<p class="shared-revision-body" style="white-space:pre-wrap;overflow-wrap:anywhere">'+
+          escape(entry.body==null?"":entry.body)+'</p>'+
+          '<p class="shared-revision-reason">Reason: '+
+          escape(entry.reason||"Original message")+'</p></details>';
+      }).join(""):'<p class="muted" data-shared-revision-empty>'+
+        escape(options.emptyText||"No retained revision yet.")+'</p>')+
+      (options.notice?'<p class="muted small">'+escape(options.notice)+'</p>':"")+
+      '</div>';
+  }
+
   function renderDomainStatus(options) {
     options=options||{};
     var mode=domainMode(options.mode),state=options.state;
@@ -1341,6 +1372,7 @@
     renderMatrixDecisionFields:renderMatrixDecisionFields,
     renderDomainFields:renderDomainFields,renderDomainDetail:renderDomainDetail,
     renderDomainStatus:renderDomainStatus,renderStepper:renderStepper,renderThread:renderThread,
+    renderRevisionHistory:renderRevisionHistory,
     CAMPAIGN_LIFECYCLE:CAMPAIGN_LIFECYCLE,campaignLifecycleSteps:campaignLifecycleSteps,
     LIFECYCLE_ACTION_LABELS:LIFECYCLE_ACTION_LABELS,
     RUN_KINDS:RUN_KINDS,renderMeasuredRunDetail:renderMeasuredRunDetail,

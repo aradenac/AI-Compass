@@ -409,6 +409,43 @@ const recommendationSource2=fs.readFileSync("server-recommendations.js","utf8");
 assert(!/"(Submit|Publish|Withdraw|New draft|Original history)/.test(recommendationSource2),
   "Server Recommendations must not hard-code lifecycle wording instead of the shared labels");
 
+/* One revision-history reader: every retained revision, its superseded wording
+   and its reason, immutable and escaped, identical in both modes. */
+const revisions=[
+  {revision:"r001",by:"ana",at:"2026-10-11T09:00",visibility:"public",
+   body:"Original <script>alert(1)</script> wording",reason:""},
+  {revision:"r002",by:"ana",at:"2026-10-11T10:00",visibility:"internal",
+   body:"Corrected wording",reason:"Tone & <scope>"}
+];
+const historyHtml=ui.renderRevisionHistory(revisions,{mode:"server",domain:"discussions",
+  heading:"Immutable message history · msg-1"});
+assert(historyHtml.includes('data-shared-revision-history="discussions"'));
+assert(historyHtml.includes('data-revision-mode="server"'));
+assert(historyHtml.includes("Immutable message history · msg-1"));
+assert.equal((historyHtml.match(/data-shared-revision=/g)||[]).length,2,
+  "Every retained revision must stay in the history");
+assert(historyHtml.includes('data-shared-revision="r001"')&&historyHtml.includes("Original"));
+assert(!historyHtml.includes("<script>alert(1)</script>")&&historyHtml.includes("&lt;script&gt;"));
+assert(historyHtml.includes("Tone &amp; &lt;scope&gt;"),"The correction reason must be escaped");
+assert(historyHtml.includes("Reason: Original message"),
+  "A revision without a reason keeps the explicit original-message default");
+assert(historyHtml.includes('data-revision-visibility="internal"'));
+const historyDemo=ui.renderRevisionHistory(revisions,{mode:"demo",domain:"discussions"});
+const historyServer=ui.renderRevisionHistory(revisions,{mode:"server",domain:"discussions"});
+assert.equal(historyDemo.replace(/demo/g,"MODE"),historyServer.replace(/server/g,"MODE"),
+  "Equivalent revisions must render the same reader in both modes");
+assert(ui.renderRevisionHistory([],{mode:"demo",emptyText:"No revision retained."})
+  .includes("No revision retained."));
+const historyNote=ui.renderRevisionHistory(revisions,{mode:"server",domain:"discussions",
+  notice:"Historical revisions are never rewritten."});
+assert(historyNote.includes("Historical revisions are never rewritten."));
+assert.throws(()=>ui.renderRevisionHistory([{revision:""}],{mode:"server"}),
+  /exact revision/);
+assert.throws(()=>ui.renderRevisionHistory([{revision:"r1",visibility:"secret"}],{mode:"server"}),
+  /Unsupported revision visibility/);
+assert.throws(()=>ui.renderRevisionHistory("nope",{mode:"server"}),/history required/);
+assert.throws(()=>ui.renderRevisionHistory([],{mode:null}),/Explicit Demo or Server/);
+
 /* Shared loading/error/denied presentation. */
 assert(ui.renderDomainStatus({mode:"demo",state:"loading",message:"Loading fictional Demo…"})
   .includes('role="status"'));
@@ -422,7 +459,8 @@ const page=fs.readFileSync("prototype.html","utf8");
 const servers={
   "server-watch.js":["WATCH_SOURCE_FIELDS","WATCH_ENTRY_FIELDS"],
   "server-forecasts.js":["FORECAST_FIELDS"],
-  "server-discussions.js":["FEEDBACK_THREAD_FIELDS","FEEDBACK_REPLY_FIELDS","renderThread("],
+  "server-discussions.js":["FEEDBACK_THREAD_FIELDS","FEEDBACK_REPLY_FIELDS","renderThread(",
+    "renderRevisionHistory("],
   "server-recommendations.js":["RECOMMENDATION_FIELDS"],
   "server-results.js":["EVALUATION_FIELDS","renderMeasuredRunDetail(","renderObservationMatrix("],
   "server-guides.js":["GUIDE_RECIPE_FIELDS"],

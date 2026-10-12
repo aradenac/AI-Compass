@@ -227,13 +227,12 @@ function mount(root,csrf,escapeHtml){
     area.textContent="Loading retained revision history…";
     try{
       var data=await api("discussions/messages/"+encodeURIComponent(identifier)+"/revisions");
-      area.innerHTML='<h3>Immutable message history · '+esc(identifier)+'</h3>'+
+      area.innerHTML=window.AICompassWorkgroup.renderRevisionHistory(
         (data.revisions||[]).map(function(r){
-          return '<details><summary>'+esc(r.revision)+' · '+esc(r.revision_by)+
-            ' · '+esc(r.revision_at)+' · '+esc(r.visibility)+'</summary>'+
-            '<p style="white-space:pre-wrap;overflow-wrap:anywhere">'+esc(r.body)+'</p>'+
-            '<p>Reason: '+esc(r.edit_reason||"Original message")+'</p></details>';
-        }).join("");
+          return {revision:r.revision,by:r.revision_by,at:r.revision_at,
+            visibility:r.visibility,body:r.body,reason:r.edit_reason};
+        }),{mode:"server",domain:"discussions",
+          heading:"Immutable message history · "+identifier});
     }catch(err){area.hidden=true;status("History unavailable: "+err.message,true);}
   }
   async function upload(form){
