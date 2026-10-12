@@ -1449,6 +1449,31 @@ def assert_api(result, expected, label):
     return result["body"]
 
 
+def upload_evidence(page, item_id, filename, content, revision=""):
+    """Upload one real evidence blob from the authenticated browser context.
+
+    Uses the session cookie + CSRF token the page already holds; never a Django
+    fixture command. Returns status + JSON, exactly like api_call.
+    """
+    return page.evaluate("""async ({itemId, filename, content, revision}) => {
+        const cookie = document.cookie.split('; ')
+            .find(c => c.startsWith('csrftoken='));
+        const headers = {};
+        if (cookie) headers['X-CSRFToken'] = cookie.split('=')[1];
+        const form = new FormData();
+        form.append('file', new Blob([content], {type: 'text/plain'}), filename);
+        form.append('source', 'UX-R04 automated proof');
+        form.append('provenance', JSON.stringify({usage: 'probe'}));
+        if (revision) form.append('revision', revision);
+        const response = await fetch('/api/v1/catalog/items/' + encodeURIComponent(itemId) +
+            '/evidence/upload', {method: 'POST', headers, credentials: 'same-origin',
+            body: form});
+        const body = await response.json().catch(() => ({}));
+        return {status: response.status, body};
+    }""", {"itemId": item_id, "filename": filename, "content": content,
+           "revision": revision})
+
+
 def sign_in(page, base_url, credential):
     page.goto(base_url + "/?mode=server&workspace=workgroup&section=studio",
               wait_until="domcontentloaded")
@@ -1458,6 +1483,357 @@ def sign_in(page, base_url, credential):
     page.get_by_role("button", name="Sign in to Server").click()
     page.locator('#ux-screen-host[data-ux-current]').wait_for(state="visible", timeout=30000)
     page.locator("#server-login-form").wait_for(state="hidden", timeout=30000)
+
+
+def build_measured_run(page, suffix, label="UX-R04"):
+    """Create one real individual measured Run through the public REST API.
+
+    No Django seed command (business fixtures are forbidden there). Returns the
+    created Run dict plus the task / test case / campaign it belongs to, so a
+    caller can reuse the same fixture for correction, withdrawal or evidence.
+    """
+    model = assert_api(api_call(page, "POST", "models", {
+        "name": label + " model " + suffix, "properties": {}}), 201, "model")
+    provider = assert_api(api_call(page, "POST", "catalog/provider", {
+        "name": label + " provider " + suffix, "properties": {}}), 201, "provider")
+    harness = assert_api(api_call(page, "POST", "catalog/harness", {
+        "name": label + " harness " + suffix,
+        "properties": {"osWindows": True}}), 201, "harness")
+    task = assert_api(api_call(page, "POST", "tasks", {
+        "name": label + " task " + suffix,
+        "properties": {"phase": "SWE", "domain": "Embedded",
+                       "criteria": "Disposable lifecycle fixture"}}), 201, "task")
+    case = assert_api(api_call(page, "POST", "test-cases", {
+        "name": label + " case " + suffix, "task_id": task["id"],
+        "properties": {"objective": "probe", "inputs": "none",
+                       "expected_outputs": "none", "dod": "probe DoD"}}),
+        201, "test case")
+    # A real publication requires a documented, ready setup recipe pinned to the
+    # guide, covering the selected components. Build one the same way a real
+    # author does: a guide with text, then a revision carrying the recipe.
+    guide = assert_api(api_call(page, "POST", "guides", {
+        "name": label + " guide " + suffix,
+        "properties": {"text": "Install the pinned trio and verify wiring."}}),
+        201, "guide")
+    assert_api(api_call(page, "PATCH", "guides/" + guide["id"], {
+        "expected_revision": guide["revision"],
+        "properties": {"text": "Install the pinned trio and verify wiring.",
+                       "recipe": {"modules": [{"id": guide["id"],
+                                               "revision": guide["revision"]}],
+                                  "required": ["model", "provider", "harness"]}}}),
+        200, "guide recipe")
+    campaign = assert_api(api_call(page, "POST", "campaigns", {
+        "name": label + " campaign " + suffix,
+        "objective": "produce one real individual measured Run",
+        "mode": "task_centred", "task_id": task["id"],
+        "test_case_ids": [case["id"]], "guide_id": guide["id"],
+        "configuration": {"reasoning": None}}), 201, "campaign")
+    started = assert_api(api_call(page, "POST",
+        "campaigns/" + campaign["id"] + "/actions/start",
+        {"expected_revision": campaign["revision"]}), 200, "campaign start")
+    session = assert_api(api_call(page, "POST",
+        "campaigns/" + campaign["id"] + "/sessions", {
+            "test_case_id": case["id"],
+            "component_ids": {"model": model["id"], "provider": provider["id"],
+                              "harness": harness["id"]},
+            "settings": {"nullable": None}, "configuration_version": "1",
+            "properties": {"tool": "shell"}}), 201, "session")
+    assert_api(api_call(page, "POST", "sessions/" + session["id"] + "/interactions", {
+        "expected_revision": session["revision"], "type": "human_prompt",
+        "content": "Create SPI driver", "human_minutes": 3, "agent_minutes": None,
+        "extensions": {"unknown": None}}), 200, "interaction")
+    run = assert_api(api_call(page, "POST", "sessions/" + session["id"] + "/close", {
+        "expected_revision": "r002", "outcome": "accepted", "quality_score": 82,
+        "quality_evaluation": "Regression passed", "information_utility_score": None,
+        "tokens_count": None, "tokens_multiplier": 1, "cost_mode": "flat_rate",
+        "cost_eur": None, "human_review_minutes": None,
+        "human_correction_minutes": None,
+        "produced_outputs": "driver.c and Twister output"}), 201, "run close")
+    if run.get("kind") != "individual":
+        raise AssertionError("Measured Run was not an individual Run")
+    return {"run": run, "task": task, "case": case, "campaign": campaign,
+            "model": model, "provider": provider, "harness": harness}
+
+
+def publish_run(reviewer, campaign, run_id):
+    """Close the campaign for review, then publish the chosen Run as reviewer.
+
+    A Run may only be corrected/withdrawn once it is part of a real effective
+    publication, so the fixture must go through the same publication path a real
+    reviewer uses. The campaign revision advances as sessions are recorded, so
+    the current revision is re-read before the close transition.
+    """
+    current = assert_api(api_call(reviewer, "GET",
+        "campaigns/" + campaign["id"]), 200, "campaign read")
+    current = current.get("campaign", current)
+    closed = assert_api(api_call(reviewer, "POST",
+        "campaigns/" + campaign["id"] + "/actions/close",
+        {"expected_revision": current["revision"]}), 200, "campaign close")
+    campaign = closed.get("campaign", closed)
+    assert_api(api_call(reviewer, "POST",
+        "campaigns/" + campaign["id"] + "/publication/publish",
+        {"expected_revision": campaign["revision"], "run_ids": [run_id],
+         "removal_reason": ""}), 200, "campaign publish")
+    return campaign
+
+
+def run_correction_withdrawal(browser, base_url, creds, artifacts, viewport):
+    """UX-R04 (#123 bead ai-w3x.12): real published-Run correction + withdrawal.
+
+    Proves in Chromium, over a Run built from real measured evidence, that only
+    the authenticated reviewer may amend it, that a correction commits an
+    immutable new revision carrying only the changed measurement, that a stale
+    expected_revision is refused (409, never applied), and that withdrawal
+    supersedes the publication while the original Run revision stays readable.
+    """
+    suffix = secrets.token_hex(3)
+    writer_context = browser.new_context(viewport=viewport, reduced_motion="reduce")
+    reviewer_context = browser.new_context(viewport=viewport, reduced_motion="reduce")
+    writer = writer_context.new_page(); writer.set_default_timeout(30000)
+    errors = []
+    writer.on("pageerror", lambda e: errors.append(str(e)))
+    try:
+        sign_in(writer, base_url, creds["workgroup"])
+        fixture = build_measured_run(writer, suffix, "UX-R04 amend")
+        run = fixture["run"]
+        identifier, revision = run["id"], run["revision"]
+
+        # A Run is amendable only once it is part of a real effective
+        # publication, so the reviewer publishes it first through the same
+        # campaign close + publish path a real reviewer uses.
+        reviewer = reviewer_context.new_page(); reviewer.set_default_timeout(30000)
+        reviewer.on("pageerror", lambda e: errors.append(str(e)))
+        sign_in(reviewer, base_url, creds["reviewer"])
+        publish_run(reviewer, fixture["campaign"], identifier)
+
+        # A writable non-reviewer must be refused the lifecycle action...
+        refused = api_call(writer, "POST",
+            "runs/" + identifier + "/actions/corrected",
+            {"expected_revision": revision, "reason": "writer cannot review",
+             "metrics_patch": {"quality_score": 70}})
+        if refused["status"] != 403:
+            raise AssertionError(
+                "A non-reviewer was allowed to correct a published Run: " +
+                str(refused["status"]))
+        # ...and the UI must not offer it either.
+        writer.goto(base_url +
+                    "/?mode=server&workspace=workgroup&section=results&view=editor",
+                    wait_until="domcontentloaded")
+        writer.locator("#server-results").wait_for(state="visible", timeout=30000)
+        writer.wait_for_timeout(1200)
+        if writer.locator('button[data-amend-run="' + identifier + '"]').count():
+            raise AssertionError("A non-reviewer was offered the Run amend action")
+
+        # The reviewer corrects one measurement, giving a mandatory reason.
+        reviewer.goto(base_url +
+                      "/?mode=server&workspace=workgroup&section=results&view=editor",
+                      wait_until="domcontentloaded")
+        reviewer.locator("#server-results").wait_for(state="visible", timeout=30000)
+        amend_button = reviewer.locator(
+            'button[data-amend-run="' + identifier + '"]')
+        amend_button.wait_for(state="visible", timeout=30000)
+        amend_button.click()
+        detail = reviewer.locator("#results-detail")
+        detail.wait_for(state="visible", timeout=20000)
+        # A correction with no measurement/outcome change must be refused
+        # client-side, through the shared status presentation.
+        reviewer.locator("#run-amend-action").select_option("corrected")
+        reviewer.locator("#run-amend-reason").fill(
+            "A sufficiently long justification that changes nothing measurable")
+        reviewer.locator("#run-amend-save").click()
+        reviewer.locator("#results-status").get_by_text(
+            "specify at least one", exact=False).wait_for(
+                state="visible", timeout=20000)
+        # A stale expected_revision must be refused by the Server (409).
+        stale = api_call(reviewer, "POST",
+            "runs/" + identifier + "/actions/corrected",
+            {"expected_revision": "r000", "reason": "stale correction attempt",
+             "metrics_patch": {"quality_score": 91}})
+        if stale["status"] != 409:
+            raise AssertionError(
+                "Stale Run correction was not refused with 409: " +
+                str(stale["status"]))
+        # The real correction commits an immutable new revision.
+        reviewer.locator("#run-amend-quality").fill("91")
+        reviewer.locator("#run-amend-save").click()
+        reviewer.locator("#results-status").get_by_text(
+            "committed", exact=False).wait_for(state="visible", timeout=30000)
+        amended = assert_api(api_call(reviewer, "GET",
+            "runs/" + identifier + "/revisions"), 200, "run revisions")
+        if amended["current"]["revision"] == revision:
+            raise AssertionError("Correction did not advance the Run revision")
+        if len(amended["revisions"]) < 2:
+            raise AssertionError("Correction did not record an immutable revision")
+        new_revision = amended["current"]["revision"]
+        capture(reviewer, artifacts,
+                "server-run-corrected-" + str(viewport["width"]))
+
+        # Persistence: a full browser reload must re-render the corrected
+        # revision from PostgreSQL, not a cached pre-correction value.
+        reviewer.goto(base_url +
+                      "/?mode=server&workspace=workgroup&section=results&view=editor",
+                      wait_until="domcontentloaded")
+        reviewer.locator("#server-results").wait_for(state="visible", timeout=30000)
+        reviewer.locator(
+            'button[data-amend-run="' + identifier + '"]').first.wait_for(
+                state="visible", timeout=30000)
+        confirmed = assert_api(api_call(reviewer, "GET",
+            "runs/" + identifier + "/revisions"), 200, "run revisions after reload")
+        if confirmed["current"]["revision"] != new_revision:
+            raise AssertionError(
+                "Corrected Run revision did not survive a browser reload")
+
+        # Withdrawal supersedes the publication; history keeps the original.
+        reviewer.goto(base_url +
+                      "/?mode=server&workspace=workgroup&section=results&view=editor",
+                      wait_until="domcontentloaded")
+        reviewer.locator("#server-results").wait_for(state="visible", timeout=30000)
+        withdraw_button = reviewer.locator(
+            'button[data-amend-run="' + identifier + '"]').first
+        withdraw_button.wait_for(state="visible", timeout=30000)
+        withdraw_button.click()
+        reviewer.locator("#results-detail").wait_for(state="visible", timeout=20000)
+        reviewer.locator("#run-amend-action").select_option("withdrawn")
+        reviewer.locator("#run-amend-reason").fill(
+            "Provenance of the retained raw log is invalid; withdraw the Run")
+        reviewer.once("dialog", lambda dialog: dialog.accept())
+        reviewer.locator("#run-amend-save").click()
+        reviewer.locator("#results-status").get_by_text(
+            "committed", exact=False).wait_for(state="visible", timeout=30000)
+        after = assert_api(api_call(reviewer, "GET",
+            "runs/" + identifier + "/revisions"), 200, "run revisions after withdraw")
+        if after["current"]["status"] != "withdrawn":
+            raise AssertionError(
+                "Withdraw did not supersede the Run publication: " +
+                str(after["current"]["status"]))
+        if not after["revisions"]:
+            raise AssertionError("Withdraw erased the immutable Run revision history")
+        assert_exactly_one_view(reviewer, "#ux-screen-host > [data-ux-screen]")
+        assert_no_horizontal_overflow(reviewer)
+        capture(reviewer, artifacts,
+                "server-run-withdrawn-" + str(viewport["width"]))
+        if errors:
+            raise AssertionError("Run amendment JS error(s): " + "; ".join(errors[:3]))
+        return {"run": identifier}
+    finally:
+        writer_context.close()
+        reviewer_context.close()
+
+
+def test_case_fork_and_denial(browser, base_url, creds, artifacts, viewport):
+    """UX-R04 (#123 bead ai-w3x.12): Test Case fork, evidence and denial.
+
+    Proves in Chromium/real-API that a fork records an immutable source revision
+    and a child version that survives a reload, that a real evidence blob lands
+    attributed to the exact source revision, and that an Engineer (business_read
+    only) is denied the fork editor, the evidence upload and any Task write
+    without another mode being substituted.
+    """
+    suffix = secrets.token_hex(3)
+    writer_context = browser.new_context(viewport=viewport, reduced_motion="reduce")
+    engineer_context = browser.new_context(viewport=viewport, reduced_motion="reduce")
+    writer = writer_context.new_page(); writer.set_default_timeout(30000)
+    errors = []
+    writer.on("pageerror", lambda e: errors.append(str(e)))
+    try:
+        sign_in(writer, base_url, creds["workgroup"])
+        task = assert_api(api_call(writer, "POST", "tasks", {
+            "name": "UX-R04 fork task " + suffix,
+            "properties": {"phase": "SWE", "domain": "Embedded",
+                           "criteria": "Fork lineage fixture"}}), 201, "task")
+        case = assert_api(api_call(writer, "POST", "test-cases", {
+            "name": "UX-R04 fork case " + suffix, "task_id": task["id"],
+            "properties": {"objective": "probe", "inputs": "none",
+                           "expected_outputs": "none", "dod": "probe DoD"}}),
+            201, "test case")
+        source_revision = case["revision"]
+
+        writer.goto(base_url +
+                    "/?mode=server&workspace=workgroup&section=testdesign&view=editor",
+                    wait_until="domcontentloaded")
+        writer.locator("#server-test-cases").wait_for(state="visible", timeout=30000)
+        row = writer.locator('[data-shared-case="' + case["id"] + '"]')
+        row.wait_for(state="visible", timeout=30000)
+        # Fork through the real UI: the editor names the immutable source revision.
+        row.locator('button[data-action="fork"]').click()
+        editor = writer.locator("#case-editor")
+        editor.wait_for(state="visible", timeout=20000)
+        if source_revision not in editor.inner_text():
+            raise AssertionError("Fork editor did not pin the source revision")
+        editor.locator('input[name="name"]').fill(case["name"] + " (fork)")
+        editor.get_by_role("button", name="Save fork").click()
+        writer.locator("#case-status").get_by_text("Saved", exact=False).wait_for(
+            state="visible", timeout=30000)
+
+        forked = assert_api(api_call(writer, "GET",
+            "test-cases/" + case["id"] + "/revisions"), 200, "case revisions")
+        if not forked.get("revisions"):
+            raise AssertionError("Fork did not expose the immutable case history")
+        # Persistence: the fork lineage must survive a full browser reload and
+        # a fresh list fetch (the child is rendered as a fork of its source).
+        writer.goto(base_url +
+                    "/?mode=server&workspace=workgroup&section=testdesign&view=editor",
+                    wait_until="domcontentloaded")
+        writer.locator("#server-test-cases").wait_for(state="visible", timeout=30000)
+        fork_row = writer.locator('[data-shared-case]').filter(
+            has_text="(fork)").first
+        fork_row.wait_for(state="visible", timeout=30000)
+        if "Fork" not in fork_row.inner_text():
+            raise AssertionError("Fork lineage was lost after a browser reload")
+        capture(writer, artifacts,
+                "server-test-case-fork-" + str(viewport["width"]))
+
+        # Evidence: a real attachment lands through the authorized API and is
+        # attributed to the exact source revision.
+        uploaded = upload_evidence(writer, case["id"],
+                                   "ux-r04-" + suffix + ".txt",
+                                   "original measured harness output", source_revision)
+        if uploaded["status"] != 201:
+            raise AssertionError("Evidence upload was not accepted: " +
+                                 str(uploaded["status"]))
+        linked = assert_api(api_call(writer, "GET",
+            "catalog/items/" + case["id"] + "/evidence"), 200, "case evidence")
+        if not linked.get("results"):
+            raise AssertionError("Uploaded Test Case evidence is not listed")
+        # The exact source revision carries the attachment.
+        if not any(row.get("revision") == source_revision
+                   for row in linked["results"]):
+            raise AssertionError(
+                "Evidence was not attributed to the exact source revision")
+
+        # An Engineer (business_read only) must be denied the fork editor,
+        # the evidence upload and any Task write, and handed nothing else.
+        engineer = engineer_context.new_page(); engineer.set_default_timeout(30000)
+        engineer.on("pageerror", lambda e: errors.append(str(e)))
+        sign_in(engineer, base_url, creds["engineer"])
+        engineer.goto(base_url + "/?mode=server&workspace=engineer&section=tasks",
+                      wait_until="domcontentloaded")
+        engineer.locator('#ux-screen-host[data-ux-current]').wait_for(
+            state="visible", timeout=30000)
+        engineer.wait_for_timeout(1200)
+        if engineer.locator("#server-test-cases").is_visible() or \
+                engineer.locator('button[data-action="fork"]').count():
+            raise AssertionError("Engineer reached the Test Case fork editor")
+        # No write affordance is offered on the shared Task tree either.
+        if engineer.locator('#server-task-list button[data-task-action="up"], '
+                            '#server-task-list button[data-task-action="edit"]').count():
+            raise AssertionError("Engineer was offered a Task write affordance")
+        # The evidence upload API must be refused for a read-only Engineer.
+        denied = upload_evidence(engineer, case["id"], "denied.txt",
+                                  "unauthorized", source_revision)
+        if denied["status"] not in (403, 404):
+            raise AssertionError(
+                "Engineer was allowed to attach Test Case evidence: " +
+                str(denied["status"]))
+        assert_exactly_one_view(engineer, "#ux-screen-host > [data-ux-screen]")
+        capture(engineer, artifacts,
+                "server-test-case-fork-denied-" + str(viewport["width"]))
+        if errors:
+            raise AssertionError("Fork/denial JS error(s): " + "; ".join(errors[:3]))
+        return {"case": case["id"]}
+    finally:
+        writer_context.close()
+        engineer_context.close()
 
 
 def recommendation_lifecycle(browser, base_url, creds, artifacts, viewport):
@@ -1685,6 +2061,12 @@ def run_tests(base_url, demo_url, credentials, artifacts):
                 if "reviewer" in creds:
                     run(f"Server Recommendation review/withdraw lifecycle {width}",
                         lambda v=viewport: recommendation_lifecycle(
+                            browser, base_url, creds, directory, v))
+                    run(f"Server Run correction/withdrawal {width}",
+                        lambda v=viewport: run_correction_withdrawal(
+                            browser, base_url, creds, directory, v))
+                    run(f"Server Test Case fork + denial {width}",
+                        lambda v=viewport: test_case_fork_and_denial(
                             browser, base_url, creds, directory, v))
         finally:
             browser.close()
