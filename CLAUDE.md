@@ -4,7 +4,7 @@ For the agent. Complements `AGENTS.md` (authoritative on *what* to build:
 scope, invariants, acceptance). This file governs *how* to track work.
 Applies to every task in this project, not to any one in-flight effort.
 On resuming (new session, after compaction), re-ground on beads + git — not on
-chat history: see §7.
+chat history: see §8.
 
 ## 1. Track all work in beads
 - Use beads (`bd`) as the sole tracker; store in `.beads/`, shared across sessions.
@@ -53,7 +53,12 @@ GitHub issue — the agent never merges and never closes issues (AGENTS.md).
 history appended below it. Update it *before you stop*, not on a schedule —
 always before a long/irreversible operation. Fresh-accurate > stale-complete.
 
-## 4. Prioritize per a plan agreed with the user
+## 4. On review, mirror GitHub comments into beads; never re-do handled ones
+- When a PR is under review: read its GitHub review comments (`gh pr view <n> --comments`, `gh api repos/{owner}/{repo}/pulls/<n>/comments`), then update beads so it reflects the remaining work: **reopen** closed issues whose fix is challenged, add notes/comments, and **create child issues** (`bd create --parent <id>`) for new required corrections. Link each to its source comment (`--external-ref gh-<n>#<comment-id>` or the comment URL) so its origin is recoverable.
+- A review comment already represented in beads MUST NOT be handled twice. Beads is the *sole* record of review work: before acting on a comment, match it against the open issues and their notes; if it is already tracked, neither duplicate it nor re-apply the fix — proceed via that issue.
+- The backlog must represent exactly the remaining review work: nothing missing, nothing already done.
+
+## 5. Prioritize per a plan agreed with the user
 - Ordering is agreed with the user, not self-assigned. Encode: `bd priority <id> <n>`
   (0 critical … 4 backlog) + `bd link`/`--deps`.
 - The current order is defined in `AGENTS.md` and the live implementation ledger —
@@ -62,7 +67,7 @@ always before a long/irreversible operation. Fresh-accurate > stale-complete.
 - No re-ordering without new user agreement. On change (blocker/evidence/decision),
   note the new order + reason on affected issues first.
 
-## 5. Consult the backlog regularly; converge on the final solution
+## 6. Consult the backlog regularly; converge on the final solution
 - Backlog = working memory of intent. Consult at session start, before picking
   next task, after each checkpoint (`bd ready`, `bd list --status open`,
   `bd show <id>`). Don't rely on chat history/recollection.
@@ -72,7 +77,7 @@ always before a long/irreversible operation. Fresh-accurate > stale-complete.
 - On divergence (finding contradicts issue, issue stale, acceptance ambiguous):
   stop, record a note, reconcile the issue first.
 
-## 6. On any doubt, prompt the user for arbitration
+## 7. On any doubt, prompt the user for arbitration
 - Any uncertainty that could change the outcome — ambiguous scope, conflicting
   specs, real trade-offs, flaky/nondeterministic result, data-loss/invariant
   risk, decision not covered by the plan — MUST prompt the user. Don't guess,
@@ -81,7 +86,7 @@ always before a long/irreversible operation. Fresh-accurate > stale-complete.
 - Distinct from a **status** request: status ⇒ report from beads/GitHub and
   **stop**; don't ask for arbitration or resume work.
 
-## 7. Resuming a long task (surviving context loss / compaction)
+## 8. Resuming a long task (surviving context loss / compaction)
 - **The ledger is a claim, not the truth** — verify it against reality before
   acting (`git log --oneline origin..HEAD`, `git status`); a stale note is worse
   than none because it's believed.
@@ -100,4 +105,8 @@ bd note <id> "2026-10-12: <progress/decision/problem/trade-off>"
 bd comment <id>             # discrete entry
 bd update <id> --status in_progress
 bd priority <id> 1
+bd reopen <id>                                   # review challenges a closed fix (§4)
+bd create <child> -t task --parent <epic-id>     # new required correction (§4)
+gh pr view <n> --comments                        # read PR review comments (§4)
+gh api repos/{owner}/{repo}/pulls/<n>/comments   # line-level review comments (§4)
 ```
