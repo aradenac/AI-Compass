@@ -43,35 +43,6 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;b
 .daily-info{background:#f5f8fc;border-radius:9px;padding:12px;font-size:12px;color:#496078}
 @media(max-width:1250px){.daily-board{grid-template-columns:repeat(4,minmax(245px,1fr));}}
 
-/* Interactive task organizer */
-.organizer-intro{margin:0 0 16px}.organizer-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,315px),1fr));gap:14px;align-items:start}
-.organizer-section{min-width:0;background:white;border:1px solid var(--line);border-radius:13px;padding:12px;box-shadow:var(--shadow)}
-.organizer-section-top{border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:12px;padding:7px 5px 12px;margin-bottom:8px}
-.organizer-section-top h3{font-size:15px;line-height:1.35}.organizer-section-top .eyebrow{margin:0 0 3px;display:block}
-.organizer-node{min-width:0}.organizer-children{margin-left:15px;border-left:1px dashed #d6deed;padding-left:7px}
-.organizer-node-row{min-width:0;display:flex;align-items:center;gap:3px;border-radius:7px;padding:4px 2px;background:#fff;border:1px solid transparent;min-height:38px}
-.organizer-node-row:hover{background:#f6f9ff}.organizer-node-row.selected{border-color:#c5d7fb;background:#f1f5ff}
-.organizer-node-row.drop-inside{outline:2px solid #4b78d8;outline-offset:-2px;background:#ebf2ff}
-.organizer-handle,.organizer-mini,.organizer-expander{border:0;background:none;color:#7a8aa3;padding:3px;min-width:23px;min-height:24px;border-radius:5px;flex-shrink:0}
-.organizer-handle{font-size:20px;cursor:grab;color:#697c9c;touch-action:none}.organizer-handle:active{cursor:grabbing}
-.organizer-mini:hover,.organizer-expander:hover,.organizer-handle:hover{background:#e8eff9;color:#3159d7}
-.organizer-node-title{min-width:0;flex:1;background:none;border:0;text-align:left;color:#263a56;padding:5px 2px;font-weight:620;overflow-wrap:anywhere;font-size:12px}
-.organizer-node-title:hover{color:var(--blue);text-decoration:underline}
-.organizer-node-count{font-size:10px;color:#91a0b6;white-space:nowrap}
-.organizer-drop{height:9px;border-radius:7px;margin:2px 0;position:relative;background:transparent;border:1px dashed transparent}
-.organizer-drop span{display:none;pointer-events:none}
-.organizer-drop.drop-active{height:36px;border:2px dashed #4a79db;background:#edf3ff;color:#3356a7;display:flex;align-items:center;justify-content:center;font-size:11px}
-.organizer-drop.drop-active span{display:inline}
-.organizer-root-drop{margin-bottom:4px}.organizer-root-drop .organizer-drop{height:16px}
-.organizer-top-form{max-width:640px;margin-bottom:17px}
-.inline-task-form{background:#f6f9ff;border:1px solid #d6e2f6;border-radius:9px;padding:13px;margin:8px 2px}
-.inline-task-form .field label{font-size:10px}.inline-task-form .form-grid{gap:9px}.inline-task-form textarea{min-height:64px}
-.organizer-handle.dragging{opacity:.35}
-.organizing-drag .organizer-drop{height:22px;border:1px dashed #cbdaf3;background:#f4f7ff;display:flex;align-items:center;justify-content:center;color:#7183a4;font-size:10px}
-.organizing-drag .organizer-drop span{display:inline}
-.organizing-drag .organizer-drop.drop-active{height:36px;border:2px dashed #4a79db;background:#e9f1ff;color:#3159d7}
-.organizing-drag .organizer-node-row{border:1px dashed #dae4f4}
-@media(max-width:780px){.organizer-grid{grid-template-columns:1fr}.organizer-node-row{flex-wrap:nowrap}.organizer-mini{min-width:21px}.organizer-intro{font-size:12px}}
 
 .component-lane .list{max-height:620px;overflow:auto}.component-lane .list-row{align-items:flex-start}.component-lane .list-row p{margin-top:7px}.component-lane .card-head h2{font-size:19px}
 
@@ -643,7 +614,7 @@ if(!initialWorkspace && db.users.some(function(u){return u.id===currentUser&&u.r
   initialPage="studio";
 var ui={page:initialPage,task:"t5",solution:"s1",solutionView:"solutions",bench:"runs",matrix:"task",
  matrixTarget:"t5",filters:{},expanded:{},modal:"",detail:"",
- selectedCompare:["s1","s2","s3"],adminTab:"queue",taskView:"browse",
+ selectedCompare:["s1","s2","s3"],adminTab:"queue",
  editingTask:"",inlineDraft:null,draggedTask:""};
 function user(){return db.users.find(function(x){return x.id===currentUser;});}
 function canEdit(){return !!user()&&user().role==="workgroup";}
@@ -1155,133 +1126,7 @@ var latest=section("What changed",eventList(db.events.slice(0,5)),btn("Full feed
 var champions=section("Recently evaluated solutions",'<div class="list">'+db.solutions.filter(function(s){return sRuns(s.id).length;}).map(function(s){var st=solutionStats(s.id);return {s:s,st:st};}).sort(function(a,b){return b.st.count-a.st.count;}).slice(0,5).map(function(o){return '<div class="list-row"><div>'+linkAction(o.s.name,"solution",o.s.id)+'<div class="muted small">'+E(o.s.harness)+' · '+o.st.count+' runs</div></div><span class="score">'+o.st.score+'/100</span></div>';}).join("")+'</div>');
 return heading("Decision workspace","Find the right AI for the work","One shared evidence base for technology watch, repeatable experiments, engineer guidance and management reporting.",btn("Explore tasks","nav","tasks","primary")+btn("Benchmark lab","nav","benchmark"))+overview+'<div class="grid g2" style="margin-top:18px">'+quickest+latest+champions+section("How this prototype works",'<div class="note"><strong>Try different roles.</strong> Engineers submit feedback. Workgroup members define cases, record runs and publish recommendations. Management reviews coverage and value. Every action writes to localStorage.</div><hr class="divider"><h3>Suggested end-to-end journey</h3><p class="muted small" style="margin-top:7px">Task → common Test Case → compare solutions → inspect run evidence → file feedback → workgroup triage → new TC → run → publish → updated recommendation.</p><div class="inline-actions" style="margin-top:16px">'+btn("Switch user","switch","","sm")+btn("Export all records","export","","sm")+'</div>')+'</div>';
 }
-function taskNodeMatches(id){
-var q=(ui.filters.taskSearch||"").toLowerCase(),phase=ui.filters.taskPhase||"all";
-return descendants(id).some(function(key){var t=rec("tasks",key);return t&&(!q||(t.name+" "+t.desc+" "+t.domain+" "+t.phase).toLowerCase().includes(q))&&(phase==="all"||String(t.phase).includes(phase));});
-}
 
-/* Task organizer: inline editing, ordered sections, and native HTML5 drag & drop. */
-function siblingOrder(parent){return children(parent||null);}
-function isValidTaskMove(id,parent,before){
- var task=rec("tasks",id),target=parent?rec("tasks",parent):null;
- if(!task||(parent&&!target)||id===parent||descendants(id).includes(parent))return false;
- if(before&&(before===id||!rec("tasks",before)||rec("tasks",before).parent!==(parent||null)))return false;
- return true;
-}
-function moveTaskNode(id,parent,before){
- if(!canEdit())return false;
- parent=parent||null;before=before||"";
- if(!isValidTaskMove(id,parent,before))return false;
- var item=rec("tasks",id),oldParent=item.parent||null,oldPosition=siblingOrder(oldParent).findIndex(function(x){return x.id===id;});
- var sourceSiblings=siblingOrder(oldParent).filter(function(x){return x.id!==id;});
- var destination=(oldParent===parent?sourceSiblings:siblingOrder(parent).slice());
- var insertAt=before?destination.findIndex(function(x){return x.id===before;}):destination.length;
- if(insertAt<0)return false;
- if(oldParent===parent&&oldPosition===insertAt)return false;
- var beforeRecord=JSON.parse(JSON.stringify(item));
- item.parent=parent;destination.splice(insertAt,0,item);
- if(oldParent!==parent)sourceSiblings.forEach(function(x,i){x.order=i;});
- destination.forEach(function(x,i){x.order=i;});
- revision("Task",id,beforeRecord,item);
- ui.expanded[parent||""]=true;ui.task=id;
- event("Task","Reorganized "+item.name+" under "+(parent?(rec("tasks",parent)?.name||"unknown"):"root sections"));
- persist();return true;
-}
-function inlineTaskFields(task,parent,mode){
- var existing=mode==="edit",values=task||{},excluded=existing?descendants(task.id):[],
- options=[["","Top-level section"]].concat(db.tasks.filter(function(t){return !excluded.includes(t.id);}).map(function(t){return[t.id,ancestors(t.id).map(function(a){return a.name;}).join(" / ")];}));
- var name=E(values.name||""),id=E(values.id||"");
- return '<form class="inline-task-form" data-inline-task="'+E(mode)+'" data-task-id="'+id+'" data-new-parent="'+E(parent||"")+'">'+
- '<div class="form-grid">'+
- field("name","Node name",values.name||"","text","full")+
- selectField("parent","Parent / section (alternative to dragging)",options,existing?values.parent||"":parent||"",true)+
- field("phase","Engineering phase",values.phase||"SWE")+
- field("domain","Domain / specialty",values.domain||"Engineering")+
- field("baseline","Engineer baseline (minutes)",values.baseline||0,"number")+
- selectField("status","Lifecycle",[["active","Active"],["retired","Retired"]],values.status||"active")+
- field("desc","Description",values.desc||"","textarea","full")+
- field("criteria","DoD and evaluation expectations",values.criteria||"","textarea","full")+
- '</div><div class="inline-actions" style="justify-content:flex-end;margin-top:11px"><button type="button" class="btn sm" data-act="organizeCancel">Cancel</button>'+
- '<button type="submit" class="btn sm primary">'+(existing?"Save changes":"Create node")+'</button></div></form>';
-}
-function taskDropZone(parent,before,label){
- return '<div class="organizer-drop" data-drop-parent="'+E(parent||"")+'" data-drop-before="'+E(before||"")+'" aria-label="'+E(label||"Drop task here")+'"><span>Drop here · '+E(label||"reorder")+'</span></div>';
-}
-function taskOrganizerNode(task,depth){
- var isEditing=ui.editingTask===task.id,hasKids=children(task.id).length>0,expanded=ui.expanded[task.id]!==false;
- var kids=children(task.id);
- var self=taskDropZone(task.parent,task.id,"insert before "+task.name)+
- '<div class="organizer-node" data-organizer-id="'+E(task.id)+'"><div class="organizer-node-row'+(ui.task===task.id?' selected':'')+'" data-drop-inside="'+E(task.id)+'">'+
- '<button class="organizer-handle" type="button" draggable="true" data-task-drag="'+E(task.id)+'" title="Drag to move or reorder" aria-label="Drag '+E(task.name)+'">⠿</button>'+
- '<button class="organizer-expander" data-act="expand" data-id="'+E(task.id)+'" aria-label="Expand / collapse">'+(hasKids?(expanded?"▾":"▸"):"·")+'</button>'+
- '<button class="organizer-node-title" data-act="organizeSelect" data-id="'+E(task.id)+'">'+E(task.name)+'</button>'+
- (task.status==="retired"?badge("retired"):"")+
- '<span class="organizer-node-count">'+db.cases.filter(function(c){return c.task===task.id;}).length+' TC</span>'+
- '<button class="organizer-mini" data-act="organizeUp" data-id="'+E(task.id)+'" title="Move up" aria-label="Move '+E(task.name)+' up">↑</button>'+
- '<button class="organizer-mini" data-act="organizeDown" data-id="'+E(task.id)+'" title="Move down" aria-label="Move '+E(task.name)+' down">↓</button>'+
- '<button class="organizer-mini" data-act="organizeAddChild" data-id="'+E(task.id)+'" title="Add child" aria-label="Add child to '+E(task.name)+'">＋</button>'+
- '<button class="organizer-mini" data-act="organizeEdit" data-id="'+E(task.id)+'" title="Edit in place" aria-label="Edit '+E(task.name)+'">✎</button>'+
- '</div>'+
- (isEditing?inlineTaskFields(task,task.parent,"edit"):"")+
- (ui.inlineDraft&&ui.inlineDraft.parent===task.id?inlineTaskFields(null,task.id,"create"):"")+
- (expanded?'<div class="organizer-children">'+kids.map(function(x){return taskOrganizerNode(x,depth+1);}).join("")+taskDropZone(task.id,"",hasKids?"append under "+task.name:"make child of "+task.name)+'</div>':"")+
- '</div>';
- return self;
-}
-function taskOrganizerPage(){
- var roots=children(null),sections=roots.map(function(t){
- return '<section class="organizer-section">'+
- '<div class="organizer-section-top">'+
- '<div><span class="eyebrow">Section</span><h3>'+E(t.name)+'</h3><span class="muted small">'+descendants(t.id).length+' nodes · '+db.cases.filter(function(c){return descendants(t.id).includes(c.task);}).length+' test cases</span></div>'+
- '<div class="inline-actions"><button class="organizer-mini" data-act="organizeEdit" data-id="'+E(t.id)+'" title="Edit section">✎</button><button class="organizer-mini" data-act="organizeAddChild" data-id="'+E(t.id)+'" title="Add task">＋</button></div></div>'+
- taskOrganizerNode(t,0)+'</section>';
- }).join("");
- return '<div class="organizer-intro note">Drag a node using <strong>⠿</strong>. Drop <strong>on another node</strong> to make it a child, or <strong>on a separator</strong> to reorder between siblings. You can also edit a node directly, choose a different parent, or use ↑/↓. Existing Test Cases and historical runs keep their IDs and original experimental snapshots.</div>'+
- (ui.inlineDraft&&ui.inlineDraft.parent===null?'<section class="card organizer-top-form"><h3>New top-level section</h3>'+inlineTaskFields(null,null,"create")+'</section>':"")+
- '<div class="organizer-root-drop">'+taskDropZone(null,roots[0]?.id||"","move to first top-level section")+'</div>'+
- '<div class="organizer-grid">'+sections+'</div>'+
- '<div class="organizer-root-drop">'+taskDropZone(null,"","append top-level section")+'</div>';
-}
-function taskOrganizerReorder(id,direction){
- var t=rec("tasks",id);if(!t)return false;
- var siblings=siblingOrder(t.parent),i=siblings.findIndex(function(x){return x.id===id;});
- if(direction==="up"&&i>0)return moveTaskNode(id,t.parent,siblings[i-1].id);
- if(direction==="down"&&i<siblings.length-1)return moveTaskNode(id,t.parent,siblings[i+2]?.id||"");
- return false;
-}
-function saveInlineTask(form){
- if(!canEdit())return false;
- var d=formValue(form),mode=form.dataset.inlineTask,id=form.dataset.taskId||"",parent=d.parent||null,old=rec("tasks",id);
- var name=String(d.name||"").trim();
- if(!name){toast("Task name is required.");return false;}
- if(mode==="edit"){
-  if(!old)return false;
-  if(parent&&descendants(id).includes(parent)){toast("Cannot move a task into itself or a descendant.");return false;}
-  var previous=JSON.parse(JSON.stringify(old));
-  Object.assign(old,{name:name,phase:d.phase||"",domain:d.domain||"",baseline:toNum(d.baseline),status:d.status||"active",desc:d.desc||"",criteria:d.criteria||""});
-  if(JSON.stringify(previous)!==JSON.stringify(old))revision("Task",id,previous,old);
-  if((old.parent||null)!==parent)moveTaskNode(id,parent,"");
-  event("Task","Updated task in place: "+old.name);
-  ui.task=id;ui.editingTask="";
- }else{
-  var node={id:next("t"),parent:parent,name:name,phase:d.phase||"SWE",domain:d.domain||"Engineering",baseline:toNum(d.baseline),status:d.status||"active",desc:d.desc||"",criteria:d.criteria||"",order:siblingOrder(parent).length};
-  db.tasks.push(node);
-  event("Task","Added task in place: "+node.name);
-  ui.task=node.id;ui.expanded[parent||""]=true;ui.inlineDraft=null;
- }
- persist();render();toast("Task hierarchy saved in this browser.");return true;
-}
-function dropTaskOn(id,parent,before){
- if(!canEdit())return false;
- var ok=moveTaskNode(id,parent,before);
- if(ok){ui.inlineDraft=null;ui.editingTask="";render();toast("Task moved. Benchmarks remain linked to the same task IDs.");}
- else toast("Move not possible: invalid target or unchanged position.");
- return ok;
-}
-
-function treeHtml(parent,level){
-return db.tasks.filter(function(t){return t.parent===parent&&taskNodeMatches(t.id);}).map(function(t){var has=children(t.id).length>0,expanded=!!ui.filters.taskSearch||ui.expanded[t.id]!==false,n=db.cases.filter(function(c){return descendants(t.id).includes(c.task);}).length,f=db.proposals.filter(function(p){return forecastVisible(p)&&descendants(t.id).includes(p.task);}).length;return '<div><div style="display:flex;align-items:center;padding-left:'+(level*15)+'px"><button class="tree-row'+(ui.task===t.id?' selected':'')+'" data-act="task" data-id="'+E(t.id)+'"><span class="tree-chevron">'+(has?(expanded?"▾":"▸"):"·")+'</span><span>'+E(t.name)+'</span><span class="tree-num">'+n+' TC'+(f?' · '+f+' forecast':'')+'</span></button>'+(has?'<button class="btn sm ghost" aria-label="Expand or collapse '+E(t.name)+'" data-act="expand" data-id="'+E(t.id)+'">'+(expanded?"−":"+")+'</button>':"")+'</div>'+(has&&expanded?treeHtml(t.id,level+1):"")+'</div>';}).join("");
-}
 function taskEvidence(id){
 var rs=runsForTask(id,true),cases=db.cases.filter(function(c){return descendants(id).includes(c.task);}),solutions=db.solutions.filter(function(s){return rs.some(function(r){return r.solution===s.id;});});
 var rows=solutions.map(function(s){var own=rs.filter(function(r){return r.solution===s.id;}),stats=solutionStats(s.id,own),total=cases.length,tested=new Set(own.map(function(r){return r.case;})).size;return '<tr>'+td(linkAction(s.name,"solution",s.id))+td('<span class="score'+(stats.score<75?' low':stats.score<85?' mid':'')+'">'+stats.score+'/100</span>')+td(stats.accept+"%")+td(tested+"/"+total+" cases")+td(stats.effort+" min")+td(money(stats.cost))+td(btn("Runs","benchSolution",s.id,"sm"))+'</tr>';});
@@ -3374,7 +3219,7 @@ if(kind==="task"||kind==="taskEdit"){
 ui.modal="";persist();render();toast("Changes saved in this browser.");
 }catch(ex){if(ex.message!=="form validation")throw ex;}
 }
-document.addEventListener("submit",function(ev){if(ev.target.matches(".feedback-reply-form")){ev.preventDefault();handleFeedbackReply(ev.target);return;}if(ev.target.matches(".inline-task-form")){ev.preventDefault();saveInlineTask(ev.target);return;}if(ev.target.matches("#modalForm")){ev.preventDefault();handleForm(ev.target);}});
+document.addEventListener("submit",function(ev){if(ev.target.matches(".feedback-reply-form")){ev.preventDefault();handleFeedbackReply(ev.target);return;}if(ev.target.matches("#modalForm")){ev.preventDefault();handleForm(ev.target);}});
 document.addEventListener("input",function(ev){
  if(updateMetricControl(ev.target))return;
  if(ev.target?.name==="tokenCount")tokenPreview(ev.target.closest("form"));
@@ -3487,12 +3332,6 @@ if(act==="exportActivityCsv"){exportActivity("csv");return;}
 if(act==="import"){if(!editable())return;document.getElementById("importFile").click();return;}
 if(act==="newTask"){dialogTask(id);return;}
 if(act==="editTask"){dialogTask("",id);return;}
-if(act==="organizeToggle"){if(!canEdit())return;ui.taskView=ui.taskView==="organize"?"browse":"organize";ui.editingTask="";ui.inlineDraft=null;render();return;}
-if(act==="organizeAddRoot"){if(!canEdit())return;ui.inlineDraft={parent:null};ui.editingTask="";render();return;}
-if(act==="organizeAddChild"){if(!canEdit())return;ui.inlineDraft={parent:id};ui.editingTask="";ui.expanded[id]=true;render();return;}
-if(act==="organizeEdit"||act==="organizeSelect"){if(!canEdit())return;ui.task=id;ui.editingTask=id;ui.inlineDraft=null;render();return;}
-if(act==="organizeCancel"){ui.editingTask="";ui.inlineDraft=null;render();return;}
-if(act==="organizeUp"||act==="organizeDown"){if(!canEdit())return;var moved=taskOrganizerReorder(id,act==="organizeUp"?"up":"down");if(moved){render();toast("Task order updated.");}else toast("Already at the edge of this section.");return;}
 if(act==="solutionTab"){ui.solutionView=id;render();return;}
 if(act==="newComponent"){dialogComponent();return;}
 if(act==="newComponentType"){dialogComponent("",id);return;}
@@ -3566,48 +3405,6 @@ if(ev.target&&ev.target.id==="importFile"){
 }
 });
 
-/* Drag only by the dedicated handle; explicitly separated drop zones allow
-   reparenting, inserting before a sibling and moving sections at root level. */
-function taskDropTarget(element){
- if(!element||!element.closest)return null;
- return element.closest("[data-drop-parent], [data-drop-inside]");
-}
-function resetTaskDropStyle(){
- if(!document.querySelectorAll)return;
- document.querySelectorAll(".organizer-drop.drop-active, .organizer-node-row.drop-inside").forEach(function(el){el.classList.remove("drop-active","drop-inside");});
-}
-document.addEventListener("dragstart",function(ev){
- var handle=ev.target&&ev.target.closest&&ev.target.closest("[data-task-drag]");
- if(!handle||!canEdit()||ui.taskView!=="organize")return;
- ui.draggedTask=handle.dataset.taskDrag;
- if(ev.dataTransfer){ev.dataTransfer.effectAllowed="move";ev.dataTransfer.setData("text/plain",ui.draggedTask);}
- handle.classList.add("dragging");
- var app=document.getElementById("app");if(app&&app.classList)app.classList.add("organizing-drag");
-});
-document.addEventListener("dragover",function(ev){
- if(!ui.draggedTask||!canEdit()||ui.taskView!=="organize")return;
- var target=taskDropTarget(ev.target);if(!target)return;
- var parent=target.hasAttribute("data-drop-inside")?target.dataset.dropInside:(target.dataset.dropParent||null),
-     before=target.hasAttribute("data-drop-inside")?"":target.dataset.dropBefore||"";
- if(!isValidTaskMove(ui.draggedTask,parent,before))return;
- ev.preventDefault();
- if(ev.dataTransfer)ev.dataTransfer.dropEffect="move";
- resetTaskDropStyle();target.classList.add(target.hasAttribute("data-drop-inside")?"drop-inside":"drop-active");
-});
-document.addEventListener("drop",function(ev){
- if(!ui.draggedTask||!canEdit()||ui.taskView!=="organize")return;
- var target=taskDropTarget(ev.target),dragId=ui.draggedTask;
- if(!target){ui.draggedTask="";resetTaskDropStyle();var app=document.getElementById("app");if(app&&app.classList)app.classList.remove("organizing-drag");return;}
- ev.preventDefault();
- var parent=target.hasAttribute("data-drop-inside")?target.dataset.dropInside:target.dataset.dropParent||null,
-     before=target.hasAttribute("data-drop-inside")?"":target.dataset.dropBefore||"";
- ui.draggedTask="";resetTaskDropStyle();var app=document.getElementById("app");if(app&&app.classList)app.classList.remove("organizing-drag");
- dropTaskOn(dragId,parent,before);
-});
-document.addEventListener("dragend",function(){
- ui.draggedTask="";resetTaskDropStyle();var app=document.getElementById("app");if(app&&app.classList)app.classList.remove("organizing-drag");
- if(document.querySelectorAll)document.querySelectorAll(".organizer-handle.dragging").forEach(function(el){el.classList.remove("dragging");});
-});
 document.addEventListener("keydown",function(ev){
  if(ev.key==="Escape"&&ui.modal&&!modalContainsForm())closeModal();
 });
