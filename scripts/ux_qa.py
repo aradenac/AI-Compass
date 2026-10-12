@@ -226,6 +226,24 @@ def demo_journey(browser, demo_url, artifacts, role, label, viewport):
                 raise AssertionError("Shared Test Case detail lacks semantic heading")
             page.get_by_role("dialog").get_by_role("button", name="Close dialog").click()
 
+            # UX-R04: Recommendation detail is the same shared component as Server.
+            page.locator('[data-act="nav"][data-id="recommendations"]').click()
+            rec_card = page.locator(
+                '.shared-business-list[data-business-domain="recommendations"] '
+                '[data-business-record]').first
+            rec_card.wait_for(state="visible", timeout=20000)
+            rec_card.locator('button[data-act="recommendationDetail"]').click()
+            rec_detail = page.locator(
+                '[data-shared-domain-detail="recommendations"][data-domain-mode="demo"]')
+            rec_detail.wait_for(state="visible", timeout=20000)
+            if "authenticated Server-only" not in rec_detail.inner_text():
+                raise AssertionError(
+                    "Demo recommendation detail lacks the intentional Server-only model gap notice")
+            assert_no_horizontal_overflow(page)
+            capture(page, artifacts,
+                    "demo-shared-recommendation-detail-" + str(viewport["width"]))
+            page.get_by_role("dialog").get_by_role("button", name="Close dialog").click()
+
         if role == "u1":
             # Real Demo form -> local save -> same semantic Guide read view.
             page.locator('[data-act="nav"][data-id="knowledge"]').click()
@@ -610,6 +628,19 @@ def server_journey(browser, base_url, creds, artifacts, role, viewport):
                 assert_no_horizontal_overflow(page)
                 if domain in ("guides", "campaigns"):
                     capture(page, artifacts, "server-shared-" + domain + "-" + str(viewport["width"]))
+                if domain == "recommendations":
+                    history = page.locator('#rec-list button[data-action="history"]')
+                    if history.count():
+                        history.first.click()
+                        rec_detail = page.locator(
+                            '[data-shared-domain-detail="recommendations"][data-domain-mode="server"]')
+                        rec_detail.wait_for(state="visible", timeout=20000)
+                        if "Immutable, attributable publication history" not in rec_detail.inner_text():
+                            raise AssertionError(
+                                "Server recommendation detail does not use the shared projector")
+                        assert_no_horizontal_overflow(page)
+                        capture(page, artifacts,
+                                "server-shared-recommendation-detail-" + str(viewport["width"]))
 
         if role == "workgroup":
             # Real Server write must remain persisted and revision-addressable.

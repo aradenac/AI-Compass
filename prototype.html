@@ -1372,6 +1372,29 @@ var s=rec("solutions",id);if(!s||!visibleSolution(s))return;var rs=sRuns(id),sta
 var html='<div class="grid g2">'+stat("Published runs",stats.count,cases.size+" distinct test cases")+stat("Mean result",stats.count?stats.score+"/100":"Unknown",stats.count?stats.accept+"% accepted":"No controlled evidence")+'</div><hr class="divider"><div class="tags">'+badge(s.accessible?"Accessible":"Not accessible")+badge(s.maturity)+badge(s.publication)+'</div>'+(s.publication==="superseded"||s.publication==="retired"?'<div class="note warn" style="margin-top:13px">Historical recommendation only. '+(s.supersededBy?"Suggested successor: "+linkAction(rec("solutions",s.supersededBy)?.name||"Unknown","solution",s.supersededBy):"No successor designated.")+'</div>':"")+'<p class="muted small" style="margin-top:12px">Last reviewed: '+E(s.lastReviewed||"Not recorded")+'</p><p style="margin-top:13px">'+E(s.description)+'</p><h3 style="margin:18px 0 8px">Recommended use</h3><div class="callout">'+E(s.recommendation)+'</div><h3 style="margin:17px 0 8px">Configuration snapshot</h3><pre class="code">'+E(s.config)+'</pre><h3 style="margin:16px 0 7px">Capabilities</h3><p>'+E(s.skills)+'</p><h3 style="margin:16px 0 7px">Limitations</h3><p class="muted">'+E(s.limitations)+'</p><h3 style="margin:18px 0 8px">Benchmark evidence</h3>'+simpleTable(["Case","Score","Accepted","Evidence"],rs.map(function(r){return '<tr>'+td(E(rec("cases",r.case)?.title||r.case))+td('<span class="score">'+r.score+'</span>')+td(badge(r.accepted?"Accepted":"Failed"))+td(btn("Inspect","runDetail",r.id,"sm"))+'</tr>';}))+(canEdit()?'<div class="inline-actions" style="margin-top:15px">'+btn("Edit solution","editSolution",id,"sm")+btn("Update recommendation","editRecommendation",id,"sm")+btn("Plan campaign with solution","newRunForSolution",id,"primary sm")+'</div>':'');
 openModal(s.name,html);
 }
+function recommendationDetail(id){
+var s=rec("solutions",id);if(!s||!visibleSolution(s))return;
+var st=solutionStats(s.id);
+var projection={
+ title:s.name,
+ identity:[s.id,s.publication||"draft","Last reviewed: "+(s.lastReviewed||"not recorded")],
+ sections:[
+  {label:"Recommendation",value:s.recommendation||"Not yet qualified; no official usage guidance."},
+  {label:"Limitations",value:s.limitations||""},
+  {label:"Benchmark evidence",value:st.count?(st.score+"/100 mean over "+st.count+" published Run(s), "+st.accept+"% accepted"):"No controlled evidence"},
+  {label:"Declared price band",value:s.cost||"Unknown"}
+ ],
+ notices:[
+  (s.publication==="superseded"||s.publication==="retired")?
+   ("Historical recommendation only"+(s.supersededBy?" \u00b7 suggested successor: "+(rec("solutions",s.supersededBy)?.name||"Unknown"):"")):"",
+  "Demo keeps recommendation edits in local storage; the immutable review/withdraw workflow is authenticated Server-only."
+ ],
+ links:[]
+};
+openModal("Recommendation detail",
+ window.AICompassWorkgroup.renderDomainDetail(projection,{mode:"demo",domain:"recommendations"}),
+ '<button type="button" data-act="solution" data-id="'+E(s.id)+'">Open full solution detail</button>');
+}
 function recommendationsPage(){
 var solutions=db.solutions.filter(function(s){return visibleSolution(s);});
 var rows=solutions.map(function(s){
@@ -1380,7 +1403,7 @@ var rows=solutions.map(function(s){
    facts:[s.model,s.harness,s.accessible?"Accessible":"Not accessible",s.maturity,
      st.count?st.score+"/100 · "+st.count+" runs":"Unbenchmarked"].concat(
        s.supersededBy?["Successor: "+(rec("solutions",s.supersededBy)?.name||"Unknown")]:[]),
-   actions:[{label:"Inspect solution",attributes:{"data-act":"solution","data-id":s.id}}].concat(
+   actions:[{label:"Recommendation detail",attributes:{"data-act":"recommendationDetail","data-id":s.id}}].concat(
      canEdit()?[{label:"Revise",attributes:{"data-act":"editRecommendation","data-id":s.id}}]:[])
  };
 });
@@ -3491,6 +3514,7 @@ if(act==="repeatRun"){
 if(act==="newSolution"){dialogSolution();return;}
 if(act==="editSolution"){dialogSolution(id);return;}
 if(act==="editRecommendation"){dialogRecommendation(id);return;}
+if(act==="recommendationDetail"){recommendationDetail(id);return;}
 if(act==="newFeedback"){if(!canEdit())dialogFeedback();return;}
 if(act==="newGuide"){dialogGuide();return;}
 if(act==="editGuide"){dialogGuide(id);return;}
