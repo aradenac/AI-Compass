@@ -300,16 +300,14 @@ function mount(root,csrf,escapeHtml){
     try{
       var history=await api("evaluations/"+encodeURIComponent(row.id)+"/revisions");
       if(!enabled||ticket!==version)return;
-      node.innerHTML='<h3>'+esc(row.name)+' · immutable interpretation history</h3>'+
+      node.innerHTML=window.AICompassWorkgroup.renderRevisionHistory(
         (history.revisions||[]).map(function(v){
-          return '<details><summary>'+esc(v.revision)+' · '+esc(v.created_by)+
-            ' · '+esc(v.properties.comparability)+
-            ' · '+esc(v.scoring_method.version)+' (scoring method version)</summary>'+
-            '<pre style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></details>';
-        }).join("");
-      node.querySelectorAll("details pre").forEach(function(pre,i){
-        pre.textContent=JSON.stringify(history.revisions[i],null,2);
-      });
+          return {revision:v.revision,by:v.created_by,
+            body:JSON.stringify(v,null,2),
+            reason:"Retained interpretation · comparability "+v.properties.comparability+
+              " · scoring method version "+v.scoring_method.version};
+        }),{mode:"server",domain:"evaluations",
+          heading:row.name+" · immutable interpretation history"});
     }catch(err){status("Evaluation history unavailable: "+err.message,true);}
   }
 

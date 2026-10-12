@@ -182,11 +182,11 @@ function mount(root,csrf,escapeHtml){
       ]);
       if(!active||seq!==ticket)return;
       area.innerHTML=window.AICompassWorkgroup.renderKnowledgeDetail(row,{domain:kind==="sources"?"sources":"watch",mode:"server"})+
-        '<h4>Immutable history</h4>'+
-        (histories[0].revisions||[]).map(function(r){
-          return '<details><summary>'+esc(r.revision)+' · '+esc(r.created_at)+
-            ' · '+esc(r.created_by)+'</summary><pre style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></details>';
-        }).join("")+
+        window.AICompassWorkgroup.renderRevisionHistory(
+          (histories[0].revisions||[]).map(function(r){
+            return {revision:r.revision,by:r.created_by,at:r.created_at,
+              body:JSON.stringify(r,null,2),reason:"Retained "+kind+" revision"};
+          }),{mode:"server",domain:kind==="sources"?"sources":"watch",heading:"Immutable history"})+
         '<h4>Original document attachments</h4>'+
         (histories[1].results||[]).map(function(link){
           return '<p>'+esc(link.original_filename||link.filename)+' · '+esc(link.blob_sha256||link.sha256)+
@@ -194,9 +194,6 @@ function mount(root,csrf,escapeHtml){
         }).join("")+
         (writer?'<label>Attach original PDF / reference file<input type="file" id="watch-upload"></label>'+
           '<button type="button" id="watch-upload-button">Attach original bytes to current revision</button>':'');
-      area.querySelectorAll("details pre").forEach(function(pre,index){
-        pre.textContent=JSON.stringify(histories[0].revisions[index],null,2);
-      });
       if(writer)$("#watch-upload-button").addEventListener("click",async function(){
         var input=$("#watch-upload"),file=input.files&&input.files[0];if(!file)return note("Select a document.",true);
         var form=new FormData();

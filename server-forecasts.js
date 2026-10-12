@@ -184,14 +184,11 @@ function mount(root,csrf,escapeHtml){
       var result=await api("forecasts/"+encodeURIComponent(f.id)+"/revisions");
       if(!enabled||current!==ticket)return;
       node.innerHTML=window.AICompassWorkgroup.renderKnowledgeDetail(f,{domain:"forecasts",mode:"server"})+
-        '<h4>Immutable theoretical revisions</h4>'+
-        (result.revisions||[]).map(function(v){
-          return '<details><summary>'+esc(v.revision)+' · '+esc(v.status)+' · '+esc(v.created_by)+
-            '</summary><pre style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></details>';
-        }).join("");
-      node.querySelectorAll("details pre").forEach(function(pre,i){
-        pre.textContent=JSON.stringify(result.revisions[i],null,2);
-      });
+        window.AICompassWorkgroup.renderRevisionHistory(
+          (result.revisions||[]).map(function(v){
+            return {revision:v.revision,by:v.created_by,at:v.status,
+              body:JSON.stringify(v,null,2),reason:"Retained theoretical revision"};
+          }),{mode:"server",domain:"forecasts",heading:"Immutable theoretical revisions"});
     }catch(err){status("History unavailable: "+err.message,true);}
   }
   function lifecycle(f){

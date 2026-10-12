@@ -784,17 +784,15 @@
         ]);
         if(!allowed||run!==ticket)return;
         var versions=result[0].revisions,links=result[1].results||[];
-        target.innerHTML='<h3>'+esc(row.name)+' · original campaign revisions</h3>'+
-          '<p>'+links.length+' immutable evidence link(s) from the shared evidence store.</p>'+
+        target.innerHTML=window.AICompassWorkgroup.renderRevisionHistory(
           versions.map(function(r){
-            return '<details><summary>'+esc(r.revision)+' · '+esc(r.created_at)+
-              ' · '+esc(r.created_by)+' · '+esc(r.status)+(r.archived?' (archived)':'')+
-              '</summary><pre style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></details>';
-          }).join("")+
+            return {revision:r.revision,by:r.created_by,at:r.created_at,
+              body:JSON.stringify(r,null,2),
+              reason:"Retained campaign revision · "+r.status+(r.archived?" (archived)":"")};
+          }),{mode:"server",domain:"campaigns",
+            heading:row.name+" · original campaign revisions"})+
+          '<p>'+links.length+' immutable evidence link(s) from the shared evidence store.</p>'+
           '<button type="button" id="campaign-close-detail">Close details</button>';
-        target.querySelectorAll("details pre").forEach(function(node,i){
-          node.textContent=JSON.stringify(versions[i],null,2);
-        });
         el("#campaign-close-detail").addEventListener("click",function(){target.hidden=true;});
       }catch(error){if(allowed&&run===ticket)target.textContent="History unavailable: "+error.message;}
     }
