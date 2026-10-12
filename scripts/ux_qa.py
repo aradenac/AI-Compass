@@ -1471,8 +1471,13 @@ def recommendation_lifecycle(browser, base_url, creds, artifacts, viewport):
     non-reviewer is never offered the transition.
     """
     suffix = secrets.token_hex(3)
-    context = browser.new_context(viewport=viewport, reduced_motion="reduce")
-    writer = context.new_page()
+    # The writer and the reviewer are different real identities: they must not
+    # share a BrowserContext, whose cookie jar is the session. One context per
+    # persona keeps their Server sessions independent, exactly as two operators
+    # in two browsers would be.
+    writer_context = browser.new_context(viewport=viewport, reduced_motion="reduce")
+    reviewer_context = browser.new_context(viewport=viewport, reduced_motion="reduce")
+    writer = writer_context.new_page()
     writer.set_default_timeout(30000)
     errors = []
     writer.on("pageerror", lambda e: errors.append(str(e)))
@@ -1560,7 +1565,7 @@ def recommendation_lifecycle(browser, base_url, creds, artifacts, viewport):
             raise AssertionError("A non-reviewer was offered a review transition")
 
         # --- The reviewer publishes with an explicit justification ----------
-        reviewer = context.new_page()
+        reviewer = reviewer_context.new_page()
         reviewer.set_default_timeout(30000)
         reviewer.on("pageerror", lambda e: errors.append(str(e)))
         sign_in(reviewer, base_url, creds["reviewer"])
@@ -1626,7 +1631,8 @@ def recommendation_lifecycle(browser, base_url, creds, artifacts, viewport):
             raise AssertionError("Recommendation lifecycle JS error(s): " + "; ".join(errors[:3]))
         return {"recommendation": record["id"], "run": run["id"]}
     finally:
-        context.close()
+        writer_context.close()
+        reviewer_context.close()
 
 
 def run_tests(base_url, demo_url, credentials, artifacts):
