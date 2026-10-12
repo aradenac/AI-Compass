@@ -1059,8 +1059,34 @@ if(catalogRoot)window.AICompassSharedCatalog.mount(catalogRoot,demoDomain,{mode:
 }
 function login(){document.getElementById("app").innerHTML='<div class="login-wall"><div class="login-box"><div class="row"><div class="brand-mark">✦</div><div><h1>AI Compass</h1><p class="muted">Interactive product workflow prototype</p></div></div><p class="lead">Select a simulated account to explore role-specific journeys. No password or server authentication is used; all data stays in this browser.</p><div class="login-users">'+db.users.map(function(u){return '<button class="login-user" data-act="login" data-id="'+E(u.id)+'"><span class="avatar">'+E(u.initials)+'</span><span><strong>'+E(u.name)+'</strong><span class="tiny-role">'+E(u.role)+' · '+E(u.bu)+'</span></span></button>';}).join("")+'</div><hr class="divider"><div class="row-between"><span class="muted small">Mock accounts · no real security · shared local data</span>'+btn("Reset demo dataset","reset","","sm")+'</div></div></div>';}
 function modal(){if(!ui.modal)return "";return '<div class="modal-backdrop" id="backdrop"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="dialog-title"><div class="modal-header"><h2 id="dialog-title">'+E(ui.modalTitle||"Details")+'</h2><button class="x" data-act="close" aria-label="Close dialog">×</button></div><div class="modal-body">'+(ui.modalBody||"")+'</div>'+(ui.modalFooter?'<div class="modal-footer">'+ui.modalFooter+'</div>':"")+'</div></div>';}
-function openModal(title,body,footer){ui.modal="shown";ui.modalTitle=title;ui.modalBody=body;ui.modalFooter=footer||"";render();}
-function closeModal(){ui.modal="";render();}
+/* Keyboard and dialog contract: remember which control opened the dialog so
+ * focus returns there on close, and move focus into the dialog on open. */
+function modalOpenerIdentity(node){
+ if(!node||!node.dataset)return null;
+ var act=node.dataset.act||"",domId=node.id||"";
+ if(!act&&!domId)return null;
+ return {act:act,id:node.dataset.id||"",domId:domId};
+}
+function restoreModalOpener(opener){
+ if(!opener)return;
+ var target=opener.domId?document.getElementById(opener.domId):null;
+ if(!target&&opener.act)target=document.querySelector('[data-act="'+opener.act+'"][data-id="'+(opener.id||"")+'"]');
+ if(!target&&opener.act)target=document.querySelector('[data-act="'+opener.act+'"]');
+ if(target&&typeof target.focus==="function")target.focus();
+}
+function openModal(title,body,footer){
+ // Only the first open of a dialog chain records the trigger: re-rendering an
+ // open dialog must not overwrite the control focus will return to.
+ if(ui.modal!=="shown")ui.modalOpener=modalOpenerIdentity(document.activeElement);
+ ui.modal="shown";ui.modalTitle=title;ui.modalBody=body;ui.modalFooter=footer||"";render();
+ var dialog=document.getElementById("backdrop");
+ var closer=dialog&&dialog.querySelector(".x");
+ if(closer&&typeof closer.focus==="function")closer.focus();
+}
+function closeModal(){
+ var opener=ui.modalOpener;ui.modalOpener=null;ui.modal="";render();
+ restoreModalOpener(opener);
+}
 function modalContainsForm(){
  // Detect the rendered form rather than a specific form ID, including forms in detail modals.
  var backdrop=document.getElementById("backdrop");
@@ -2495,17 +2521,17 @@ function demoComposedGuide(g){
   if(!module||(module.status!=="published"&&!canEdit())){
    missing.push("Unavailable pinned module "+key);return;
   }
-  sections.push('<details style="margin:9px 0"><summary>'+E(module.title)+' · '+E(pin.revision)+
-   '</summary><pre class="text-block" style="white-space:pre-wrap">'+E(module.body||"")+
-   '</pre>'+(module.url&&validSetupUrl(module.url)?'<p class="small">'+E(module.url)+'</p>':"")+'</details>');
+  sections.push({name:module.title,revision:pin.revision,text:module.body||"",
+   url:validSetupUrl(module.url)?module.url:""});
  });
  if(g.framework&&!recipe.modules.some(function(m){return m?.group==="framework_wiring";}))
   missing.push("Framework wiring and handoff verification not documented");
  if(!sections.length)missing.push("No pinned reusable module resolved");
- return '<div class="note" style="margin-top:14px"><strong>Reusable Setup Modules · offline Demo</strong>'+
- '<p class="small">Revision-pinned preview, not a validation of exact OS or setup applicability.</p>'+
- (missing.length?'<p class="small">Missing coverage: '+E(missing.join("; "))+'</p>':"")+
- sections.join("")+'</div>';
+ return window.AICompassWorkgroup.renderComposedSetup({title:g.title,revision:g.version,
+  ready:!missing.length,missing:missing,sections:sections},
+  {mode:"demo",domain:"guides",
+   notice:"Reusable Setup Modules · offline Demo. Revision-pinned preview, not a validation "+
+    "of exact OS or setup applicability."});
 }
 function detailsGuide(id){
  var g=rec("guides",id);if(!g||(!canEdit()&&g.status!=="published"))return;

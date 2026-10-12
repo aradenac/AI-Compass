@@ -211,15 +211,14 @@
             throw Error("Configuration must be a JSON object");
           var result=await request(csrf,"/render","POST",{
             guide_id:item.id,revision:item.revision,configuration:configuration});
-          var markup='<p>'+(result.ready?"All declared modules applicable":"Incomplete or ambiguous recipe")+'</p>'+
-            '<pre style="white-space:pre-wrap;overflow-wrap:anywhere">'+
-            escapeHtml(JSON.stringify(result.missing,null,2))+'</pre>';
-          result.sections.forEach(function(section){
-            markup+='<details open><summary>'+escapeHtml(section.name)+' · '+escapeHtml(section.revision)+'</summary>'+
-              '<pre style="white-space:pre-wrap;overflow-wrap:anywhere">'+escapeHtml(section.text||"")+'</pre>'+
-              '<p>'+escapeHtml(section.url||"")+'</p></details>';
-          });
-          output.innerHTML=markup;
+          output.innerHTML=window.AICompassWorkgroup.renderComposedSetup({
+            title:item.name,revision:item.revision,ready:result.ready,
+            missing:(result.missing||[]).map(function(entry){
+              return typeof entry==="string"?entry:JSON.stringify(entry);}),
+            sections:(result.sections||[]).map(function(section){
+              return {name:section.name,revision:section.revision,
+                text:section.text,url:section.url};})
+          },{mode:"server",domain:"guides"});
         }catch(error){output.textContent="Unable to render: "+error.message;}
         finally{button.disabled=false;}
       });

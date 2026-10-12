@@ -756,6 +756,49 @@
       '" data-status-mode="'+escape(mode)+'" role="'+(alert?"alert":"status")+'">'+
       escape(options.message||"")+'</p>';
   }
+  /* One composed-setup reader: pinned module revisions resolved for one exact
+   * configuration, the remaining coverage gaps stated explicitly, and no claim
+   * that a recipe was validated for an OS or runtime it never declared. */
+  function renderComposedSetup(projection, options) {
+    options=options||{};
+    var mode=domainMode(options.mode);
+    if(!projection||typeof projection!=="object"||Array.isArray(projection))
+      throw Error("Authorized composed-setup projection required");
+    if(!String(projection.title||"").trim())
+      throw Error("Composed setup requires the source record title");
+    var sections=projection.sections||[],missing=projection.missing||[];
+    if(!Array.isArray(sections))throw Error("Composed setup sections must be a list");
+    if(!Array.isArray(missing))throw Error("Composed setup gaps must be a list");
+    var safeUrl=function(url){return /^https?:\/\/[^\s<>]+$/i.test(String(url||"").trim());};
+    return '<section class="shared-composed-setup" data-shared-composed-setup="'+
+      escape(options.domain||"guides")+'" data-composed-mode="'+escape(mode)+
+      '" data-composed-ready="'+(projection.ready===false?"false":"true")+'">'+
+      '<h4>Composed setup · '+escape(projection.title)+
+      (projection.revision?' · '+escape(projection.revision):"")+'</h4>'+
+      '<p class="small" data-composed-readiness>'+(projection.ready===false?
+        "Incomplete or ambiguous recipe — declared coverage is not satisfied.":
+        "All declared modules are applicable for this configuration.")+'</p>'+
+      '<div data-composed-gaps>'+(missing.length?
+        '<p class="small">Missing coverage: '+missing.map(escape).join('; ')+'</p>':
+        '<p class="small">No declared coverage gap reported by the source.</p>')+'</div>'+
+      sections.filter(function(section){
+        return section&&(section.name||section.revision||section.text);}).map(function(section){
+        var url=String(section.url||"").trim();
+        return '<details class="shared-composed-section" open><summary>'+
+          escape(section.name||section.revision||"Module")+
+          (section.revision?' · '+escape(section.revision):"")+'</summary>'+
+          (section.text?'<pre class="text-block" style="white-space:pre-wrap">'+
+            escape(section.text)+'</pre>':"")+
+          (safeUrl(url)?'<p class="small"><a target="_blank" rel="noopener noreferrer" href="'+
+            escape(url)+'">'+escape(url)+'</a></p>':
+            url?'<p class="muted small">Unsupported URL — link withheld.</p>':"")+
+          '</details>';}).join("")+
+      '<p class="muted small">'+escape(options.notice||
+        "Revision-pinned preview: it does not validate exact OS, runtime or setup "+
+        "applicability, and unknown coverage is never assumed.")+'</p>'+
+      '</section>';
+  }
+
   /* One observation matrix (Task × candidate or Test Case × Solution): the
    * same rows, columns, observation counts and record routing in both modes.
    * Missing comparisons stay explicitly unknown; nothing is averaged here. */
@@ -1297,6 +1340,7 @@
     LIFECYCLE_ACTION_LABELS:LIFECYCLE_ACTION_LABELS,
     RUN_KINDS:RUN_KINDS,renderMeasuredRunDetail:renderMeasuredRunDetail,
     renderObservationMatrix:renderObservationMatrix,
+    renderComposedSetup:renderComposedSetup,
     campaignLifecycleActionKeys:campaignLifecycleActionKeys,
     renderLifecycleActions:renderLifecycleActions,
     WATCH_SOURCE_FIELDS:WATCH_SOURCE_FIELDS,WATCH_ENTRY_FIELDS:WATCH_ENTRY_FIELDS,

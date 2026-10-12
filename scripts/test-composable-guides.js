@@ -20,10 +20,14 @@ const db={guides:[
     modules:[{id:"g-core",revision:"r001"},{id:"g-core",revision:"r001"}]}}
 ],revisions:[{type:"Guide",objectId:"g-core",
   before:{id:"g-core",title:"Original module",status:"published",body:"ORIGINAL"}}]};
-const sandbox={db,rec:(type,id)=>db[type]?.find(x=>x.id===id),
+// The Demo composition uses the shared composed-setup component, which the
+// real page loads before the inline script.
+const sandbox={window:{},Map,Set,db,rec:(type,id)=>db[type]?.find(x=>x.id===id),
   E:s=>String(s).replaceAll("&","&amp;").replaceAll("<","&lt;")
       .replaceAll(">","&gt;"),canEdit:()=>false,
   validSetupUrl:url=>String(url).startsWith("https://")};
+vm.runInNewContext(fs.readFileSync("shared-workgroup.js","utf8"),sandbox,
+  {filename:"shared-workgroup.js"});
 vm.runInNewContext(code,sandbox,{filename:"demo-composition.js"});
 assert.equal(sandbox.demoGuideRevision("g-core","r001").body,"ORIGINAL");
 assert.equal(sandbox.demoGuideRevision("g-core","r002").body,"NEW");

@@ -478,6 +478,22 @@ def demo_journey(browser, demo_url, artifacts, role, label, viewport):
                 raise AssertionError("Shared Demo matrix rendered no evaluation cell")
             if not page.locator('[data-shared-stepper][data-stepper-mode="demo"]').count():
                 raise AssertionError("Demo campaign lifecycle does not use the shared stepper")
+            # Dialog contract: closing returns focus to the control that opened
+            # the dialog, in Demo and Server alike.
+            page.get_by_role("dialog").get_by_role("button", name="Close dialog").click()
+            opened_by = page.evaluate(
+                "() => document.activeElement && document.activeElement.dataset "
+                "? (document.activeElement.dataset.act || '') : ''")
+            if opened_by != "campaignDetail":
+                raise AssertionError(
+                    "Focus did not return to the dialog trigger: " + str(opened_by))
+            page.locator(
+                '[data-business-domain="campaigns"] [data-business-record]'
+            ).filter(has_text="planned").first.locator(
+                'button[data-act="campaignDetail"]').click()
+            page.get_by_role("dialog").wait_for(state="visible", timeout=20000)
+            matrix = page.locator('[data-shared-matrix][data-matrix-mode="demo"]')
+            matrix.wait_for(state="visible", timeout=20000)
             demo_lifecycle = page.locator(
                 '[data-shared-lifecycle="campaigns"][data-lifecycle-mode="demo"]')
             demo_lifecycle.wait_for(state="visible", timeout=20000)
@@ -679,6 +695,12 @@ def server_journey(browser, base_url, creds, artifacts, role, viewport):
                 raise AssertionError("Backdrop/Escape unexpectedly dismissed the form or lost draft")
             dialog.get_by_role("button", name="Close dialog").click()
             dialog.wait_for(state="hidden")
+            # The shared shell returns focus to the editor trigger on close.
+            if page.evaluate("() => document.activeElement ? document.activeElement.id : ''") != "case-new":
+                raise AssertionError(
+                    "Server editor did not restore focus to its trigger: " +
+                    str(page.evaluate(
+                        "() => document.activeElement ? document.activeElement.id : ''")))
             if role == "workgroup":
                 # Real persisted Test Design round-trip: UI Task creation -> TC
                 # save -> same shared presenter after a full browser reload.
