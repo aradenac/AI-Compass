@@ -161,6 +161,37 @@ assert.throws(()=>ui.renderThread([{id:"x",attachments:[{href:"https://evil.exam
 assert.throws(()=>ui.renderThread([{id:"x"}],{mode:"server",actions:()=>({})}),
   /Invalid thread message actions/);
 
+/* One measured-Run presentation: provenance marker, recorded metrics only,
+   and an explicit refusal to substitute a pinned original. */
+const measured=ui.renderMeasuredRunDetail({id:"run-1",kind:"individual",revision:"r004",
+  outcome:"DoD accepted",title:"Driver challenge",taskName:"Driver integration",
+  testCaseName:"Driver challenge",testCaseRevision:"r002",
+  metrics:[{label:"Quality /100",value:94,hint:"rubric"},
+    {label:"Cost EUR",value:null},{label:"Human time (minutes)",value:""}]},{mode:"server"});
+assert(measured.includes('data-run-provenance="measured"'));
+assert(measured.includes("MEASURED RUN")&&!measured.includes("THEORETICAL"));
+assert(measured.includes("<strong>94</strong>"));
+assert(!measured.includes("Cost EUR")&&!measured.includes("Human time"),
+  "Unknown metrics must stay unknown, never rendered as zero");
+assert(measured.includes("pinned r002"));
+const theoretical=ui.renderMeasuredRunDetail({id:"forecast-1",kind:"theoretical",
+  status:"staged",title:"Projected setup"},{mode:"demo"});
+assert(theoretical.includes('data-run-provenance="theoretical"'));
+assert(theoretical.includes("THEORETICAL")&&theoretical.includes("never measured"));
+const mismatched=ui.renderMeasuredRunDetail({id:"run-1",kind:"individual",revision:"r004",
+  outcome:"DoD accepted",title:"Run",metrics:[{label:"Quality /100",value:94}]},
+  {mode:"server",pinnedRevision:"r999"});
+assert(mismatched.includes("data-run-pin-mismatch"));
+assert(!mismatched.includes("<strong>94</strong>"),
+  "A mismatched pinned revision must not show current metrics");
+assert.throws(()=>ui.renderMeasuredRunDetail({id:"x",kind:"wat"},{mode:"demo"}),
+  /Unsupported Run kind/);
+assert.throws(()=>ui.renderMeasuredRunDetail({},{mode:"demo"}),/stable public ID/);
+assert.throws(()=>ui.renderMeasuredRunDetail({id:"x",metrics:{}},{mode:"demo"}),
+  /metrics must be a list/);
+assert.throws(()=>ui.renderMeasuredRunDetail({id:"x",links:[{href:"https://evil.example"}]},
+  {mode:"server"}),/same-origin/);
+
 /* One campaign lifecycle presentation, mapped by each mode. */
 const mid=ui.campaignLifecycleSteps("in_progress");
 assert.equal(mid.map(s=>s.state).join(","),"done,current,todo,todo");
@@ -236,7 +267,7 @@ const servers={
   "server-forecasts.js":["FORECAST_FIELDS"],
   "server-discussions.js":["FEEDBACK_THREAD_FIELDS","FEEDBACK_REPLY_FIELDS","renderThread("],
   "server-recommendations.js":["RECOMMENDATION_FIELDS"],
-  "server-results.js":["EVALUATION_FIELDS"],
+  "server-results.js":["EVALUATION_FIELDS","renderMeasuredRunDetail("],
   "server-guides.js":["GUIDE_RECIPE_FIELDS"],
   "server-sessions.js":["renderStepper("],
   "server-campaigns.js":["renderCampaignMatrix","renderStepper","campaignLifecycleBar","renderLifecycleActions("],

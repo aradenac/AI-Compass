@@ -174,3 +174,30 @@ table.shared-matrix-grid tbody th { font-weight:650; }
   cursor:pointer;
 }
 .shared-lifecycle button:focus-visible { outline:3px solid #4b6ad4; outline-offset:2px; }
+
+/* One measured-Run presentation for Demo and Server. */
+.shared-run-detail {
+  border:1px solid #dce4ef;
+  border-radius:12px;
+  background:#fff;
+  padding:16px;
+  margin:12px 0;
+  overflow-wrap:anywhere;
+}
+.shared-run-detail h3 { margin:6px 0; }
+.shared-run-metrics {
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+  gap:10px;
+  margin:12px 0;
+}
+.shared-run-metrics > div {
+  border:1px solid #e3e8f0;
+  border-radius:10px;
+  padding:10px;
+  background:#fafbfe;
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
+.shared-run-metrics strong { font-size:18px; }

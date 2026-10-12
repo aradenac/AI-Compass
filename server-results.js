@@ -123,29 +123,32 @@ function mount(root,csrf,escapeHtml){
         context.innerHTML='<p role="alert" class="ux-history-warning">Run not present in this authorized Results projection. Check the applied filters, publication scope and account permissions; no other version is substituted.</p>';
       }else{
         var revision=selected.revision||selected.run_revision||"";
-        var mismatch=pinned && (!revision || revision!==pinned);
         var metrics=selected.kind==="forecast"?selected.predicted_metrics:selected.metrics||{};
-        context.innerHTML='<section class="ux-context-detail" aria-label="Measured Run context">'+
-          '<h3>'+esc(selected.kind==="forecast"?"Theoretical Forecast":"Measured Run")+
-          ' · '+esc(selected.id)+'</h3><p>'+esc(selected.outcome||selected.status||"")+
-          ' · Task '+esc(selected.task_id)+' · Candidate '+esc(selected.candidate)+'</p>'+
-          (mismatch?'<p role="alert" class="ux-history-warning">Requested historical revision '+
-             esc(pinned)+' is not verifiable from this results projection. Do not treat current metrics as the pinned original.</p>':
-            '<dl class="ux-context-properties"><dt>Quality</dt><dd>'+format(metrics.quality_score)+
-            '</dd><dt>Cost EUR</dt><dd>'+format(metrics.cost_eur||metrics.ai_cost_eur)+
-            '</dd><dt>Human time (minutes)</dt><dd>'+
-              format(metrics.human_total_minutes||metrics.human_minutes)+
-            '</dd></dl>')+
-          '<p>'+(selected.kind!=="forecast"?
-          '<a href="'+esc(window.AICompassContext.route("server","engineer","home",{
-            task:selected.task_id,solution:selected.solution_id||selected.candidate
-          }))+'">Related measured AI Solution</a> · ':"")+
-          (writer&&selected.campaign_id?'<a href="'+esc(window.AICompassContext.route("server","workgroup","benchmark",{
-            record:selected.campaign_id
-          }))+'">Related Campaign</a>':'')+'</p>'+
-          (selected.detail?'<details class="ux-advanced-source"><summary>Advanced: open authorized original Run record</summary>'+
-            '<a href="'+esc(selected.detail)+'" target="_blank" rel="noopener noreferrer">Open original API source</a></details>':'')+
-          '</section>';
+        // One shared measured-Run presentation; unknown fields stay unknown.
+        var links=[];
+        if(selected.kind!=="forecast")links.push({label:"Related measured AI Solution",
+          href:window.AICompassContext.route("server","engineer","home",{
+            task:selected.task_id,solution:selected.solution_id||selected.candidate})});
+        if(writer&&selected.campaign_id)links.push({label:"Related Campaign",
+          href:window.AICompassContext.route("server","workgroup","benchmark",{
+            record:selected.campaign_id})});
+        context.innerHTML=window.AICompassWorkgroup.renderMeasuredRunDetail({
+          id:selected.id,
+          kind:selected.kind==="forecast"?"theoretical":"individual",
+          revision:revision,outcome:selected.outcome||selected.status,
+          title:(selected.candidate||selected.id)+" · "+selected.task_id,
+          taskName:selected.task_id,configurationLabel:selected.candidate,
+          metrics:[
+            {label:"Quality /100",value:metrics.quality_score},
+            {label:"Cost EUR",value:metrics.cost_eur!=null?metrics.cost_eur:metrics.ai_cost_eur},
+            {label:"Human time (minutes)",
+             value:metrics.human_total_minutes!=null?metrics.human_total_minutes:metrics.human_minutes}
+          ],
+          links:links
+        },{mode:"server",pinnedRevision:pinned})+
+          (selected.detail?'<details class="ux-advanced-source"><summary>Advanced: open authorized '+
+            'original Run record</summary><a href="'+esc(selected.detail)+'" target="_blank" '+
+            'rel="noopener noreferrer">Open original API source</a></details>':"");
       }
     }else context.replaceChildren();
     node.innerHTML='<p><strong>'+esc(data.view==="task"?"Task × candidate":"Candidate × task")+

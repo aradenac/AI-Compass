@@ -286,8 +286,30 @@ def demo_journey(browser, demo_url, artifacts, role, label, viewport):
                 raise AssertionError("Forecast review bar lost its theoretical provenance notice")
             capture(page, artifacts, "demo-shared-forecast-lifecycle-" + str(viewport["width"]))
             page.get_by_role("dialog").get_by_role("button", name="Close dialog").click()
+            # The measured-Run detail is the shared presentation in both modes.
+            page.locator('[data-act="nav"][data-id="results"]').click()
+            runs_tab = page.locator('[data-act="resultsTab"][data-id="runs"]')
+            if runs_tab.count():
+                runs_tab.first.click()
+            run_button = page.locator('button[data-act="runDetail"]').first
+            run_button.wait_for(state="visible", timeout=20000)
+            run_button.click()
+            run_detail = page.locator('[data-shared-run-detail][data-run-mode="demo"]')
+            run_detail.wait_for(state="visible", timeout=20000)
+            if run_detail.get_attribute("data-run-provenance") != "measured":
+                raise AssertionError("A measured Demo Run is not presented as measured evidence")
+            if "MEASURED RUN" not in run_detail.inner_text():
+                raise AssertionError("Shared measured-Run detail lost its provenance marker")
+            if run_detail.locator(".shared-run-metrics > div").count() == 0:
+                raise AssertionError("Shared measured-Run detail shows no recorded metric")
+            if run_detail.locator("[data-run-pin-mismatch]").count():
+                raise AssertionError("A verifiable Demo Run was reported as a revision mismatch")
+            capture(page, artifacts, "demo-shared-run-detail-" + str(viewport["width"]))
+            page.get_by_role("dialog").get_by_role("button", name="Close dialog").click()
             # Decimal metrics remain valid while negative measurements are
             # refused: the historical Demo number contract, shared with Server.
+            page.locator('[data-act="nav"][data-id="watch"]').click()
+            page.locator('[data-act="newForecast"]').first.wait_for(state="visible", timeout=20000)
             page.locator('[data-act="newForecast"]').first.click()
             forecast_dialog = page.get_by_role("dialog")
             forecast_dialog.wait_for(state="visible")

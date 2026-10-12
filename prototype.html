@@ -2367,15 +2367,27 @@ var forecastPanel=expectation?
 '<p class="small">Expected engineer time '+expectation.humanMinutes+' min · measured human effort '+effort(r)+' min</p>'+
 '<p class="small">Deviation from projected setup: '+E(r.forecastDeviation||"No deviations declared")+'</p>'+
 '<p class="small">Pinned forecast rationale: '+E(expectation.rationale)+'</p></div>':"";
-var html='<div class="row-between"><div>'+badge(r.status)+" "+badge(r.accepted?"DoD accepted":"DoD failed")+'</div><span class="muted small">'+E(r.date)+' · '+E(actor(r.owner))+'</span></div>'+
-'<h3 style="margin:15px 0 5px">'+E(c?.title||r.case)+' × '+E(r.frameworkAggregate?(r.frameworkSnapshot?.name||"Framework")+" collaborative workflow":s?.name||r.solution)+'</h3><p class="muted small">'+E(t?.name||"")+' · Test Case v'+E(c?.version||"Unknown")+'</p>'+
+/* UX-R04: the measured-Run identity, provenance and core metrics are the
+ * shared presentation; the Demo-only analysis blocks stay below. */
+var runProjection={
+ id:r.id,kind:r.frameworkAggregate?"framework":"individual",
+ outcome:r.accepted?"DoD accepted":"DoD failed",
+ title:E(c?.title||r.case)+' × '+E(r.frameworkAggregate?(r.frameworkSnapshot?.name||"Framework")+" collaborative workflow":s?.name||r.solution),
+ taskName:t?.name||"",testCaseName:c?.title||r.case,
+ testCaseRevision:c?.version?"v"+c.version:"",
+ metrics:[{label:"Quality rubric /100",value:r.score,
+   hint:r.accepted?"Mandatory criteria accepted":"Mandatory criteria failed"},
+  {label:"AI / tool spend",value:r.costMode==="flat"?"Flat-rate":r.costMode==="unknown"?"Unknown":money(r.cost),
+   hint:r.tokens===null||r.tokens===undefined?"Tokens unknown":fmt(r.tokens)+" total tokens"},
+  {label:"Human effort (minutes)",value:effort(r),
+   hint:baseline?baseline+" min baseline":"Baseline unavailable"}],
+ notices:[(r.status||"")+" · recorded "+E(r.date||"")+" · owner "+E(actor(r.owner))]};
+var html=window.AICompassWorkgroup.renderMeasuredRunDetail(runProjection,{mode:"demo"})+
 (r.frameworkAggregate?'<div class="note warn" style="margin:12px 0"><strong>Composite Framework outcome.</strong> Quality, utility, duration and cost describe the coordinated workflow; they must not be interpreted as per-participant scores.</div>'+
  '<h3 style="margin:13px 0 7px">Jointly executed participants</h3>'+
  (r.campaignSnapshot?.frameworkWorkflow?'<p class="small text-block">'+E(r.campaignSnapshot.frameworkWorkflow)+'</p>':"")+
  '<div class="list">'+
  (r.frameworkParticipantsSnapshots||[]).map(function(p){return '<div class="list-row"><div><strong>'+E(p.label)+'</strong><p class="small">'+["model","provider","harness"].map(function(k){return E(rec("components",p[k])?.name||p[k]);}).join(" / ")+'</p><p class="muted small">'+E(p.configuration||"")+'</p></div></div>';}).join("")+'</div>':"")+
-'<div class="grid g3" style="margin-top:17px">'+stat("Quality rubric",r.score+"/100",r.accepted?"Mandatory criteria accepted":"Mandatory criteria failed")+stat("AI / tool spend",r.costMode==="flat"?"Flat-rate":r.costMode==="unknown"?"Unknown":money(r.cost),
-r.tokens===null||r.tokens===undefined?"Tokens unknown":fmt(r.tokens)+" total tokens")+stat("Human effort",effort(r)+" min",(baseline?baseline+" min baseline":"Baseline unavailable"))+'</div>'+
 '<div class="card tight" style="margin-top:14px">'+bar("Preparation",baseline?100*r.prep/baseline:0,r.prep+" min")+bar("Steering",baseline?100*r.steer/baseline:0,r.steer+" min")+bar("Review",baseline?100*r.review/baseline:0,r.review+" min")+bar("Corrections",baseline?100*r.correction/baseline:0,r.correction+" min")+'</div>'+
 '<h3 style="margin:16px 0 7px">Original task taxonomy / inherited context</h3><div class="tags">'+(r.taskContextSnapshot||[]).map(function(x){return badge(x.name);}).join("")+'</div><h3 style="margin:16px 0 7px">Test context & acceptance</h3><p class="text-block">'+E(c?.objective||"")+'</p><div class="callout" style="margin:10px 0">Inputs: '+E(c?.inputs||"")+'<hr class="divider">Definition of Done: '+E(c?.dod||"")+'</div>'+
 '<div class="grid g2" style="margin-top:12px">'+stat("Information utility / density",r.utility+"/100","Declared usefulness of relevant/correct/actionable information")+stat("Agent runtime",displayMinutes(r.duration),"Sum of logged agent durations")+'</div><h3 style="margin:16px 0 7px">Observed side effects</h3><pre class="code">'+E(r.sideEffects||"None recorded")+'</pre><h3 style="margin:16px 0 7px">Pinned configuration / version at run time</h3><pre class="code">'+E(r.frameworkAggregate?r.initialSetup?.configuration||"":s?.config||"")+'</pre>'+

@@ -756,6 +756,58 @@
       '" data-status-mode="'+escape(mode)+'" role="'+(alert?"alert":"status")+'">'+
       escape(options.message||"")+'</p>';
   }
+  /* One measured-Run presentation: identity, provenance and only the metrics
+   * the authorized source actually recorded. Unknown values stay unknown and a
+   * theoretical forecast is never presented as a measured Run. */
+  var RUN_KINDS=Object.freeze(["individual","framework","theoretical"]);
+  function renderMeasuredRunDetail(projection, options) {
+    options=options||{};
+    var mode=domainMode(options.mode);
+    if(!projection||typeof projection!=="object"||Array.isArray(projection))
+      throw Error("Authorized Run projection required");
+    if(!projection.id)throw Error("Run projection requires its stable public ID");
+    var kind=String(projection.kind||"individual");
+    if(!RUN_KINDS.includes(kind))throw Error("Unsupported Run kind");
+    var theoretical=kind==="theoretical"||projection.theoretical===true;
+    var revision=projection.revision?String(projection.revision):"";
+    var pinned=options.pinnedRevision?String(options.pinnedRevision):"";
+    var mismatch=!!pinned&&(!revision||revision!==pinned);
+    if(!Array.isArray(projection.metrics||[]))throw Error("Run metrics must be a list");
+    var metrics=(projection.metrics||[]).filter(function(metric){
+      return metric&&metric.label&&metric.value!==null&&metric.value!==undefined&&
+        String(metric.value)!=="";});
+    var identity=[projection.id,revision,projection.outcome||projection.status]
+      .filter(function(value){return value!=null&&value!=="";}).map(escape);
+    var context=[projection.taskName||projection.taskId,projection.testCaseName||projection.testCaseId,
+      projection.testCaseRevision?"pinned "+projection.testCaseRevision:"",
+      projection.configurationLabel].filter(function(value){return value!=null&&value!=="";}).map(escape);
+    return '<article class="shared-run-detail" data-shared-run-detail="'+escape(kind)+
+      '" data-run-mode="'+escape(mode)+'" data-run-provenance="'+
+      (theoretical?"theoretical":"measured")+'">'+
+      '<p class="muted small"><span class="tag '+(theoretical?"purple":"green")+'">'+
+      (theoretical?"THEORETICAL — never measured":"MEASURED RUN")+'</span> '+
+      identity.join(' · ')+'</p>'+
+      '<h3>'+escape(projection.title||projection.testCaseName||projection.id)+'</h3>'+
+      (context.length?'<p class="muted small">'+context.join(' · ')+'</p>':"")+
+      (mismatch?
+        '<p role="alert" class="ux-history-warning" data-run-pin-mismatch>Requested historical '+
+        'revision '+escape(pinned)+' cannot be verified from this projection. The current '+
+        'metrics are not substituted for the pinned original.</p>':
+        (metrics.length?'<div class="shared-run-metrics">'+metrics.map(function(metric){
+          return '<div><span class="muted small">'+escape(metric.label)+'</span><strong>'+
+            escape(metric.value)+'</strong>'+
+            (metric.hint?'<span class="muted small">'+escape(metric.hint)+'</span>':"")+'</div>';
+        }).join("")+'</div>':'<p class="muted" data-run-metrics-unknown>No metric was recorded '+
+          'for this Run; unknown values are not estimated.</p>'))+
+      '<p class="muted small">'+(theoretical?
+        "A theoretical forecast is a projection, never measured Run evidence.":
+        "Metrics come from the recorded Run; unavailable fields stay unknown.")+'</p>'+
+      (projection.links||[]).map(function(link){return '<p>'+recordLink(link)+'</p>';}).join("")+
+      (projection.notices||[]).filter(function(value){return value!=null&&value!=="";})
+        .map(function(value){return '<p class="muted small">'+escape(value)+'</p>';}).join("")+
+      '</article>';
+  }
+
   /* One review/publication action bar: the reviewer or writer sees the same
    * labels and ordering in both modes; each mode supplies only the transitions
    * its own authorization and business rules permit. */
@@ -1143,6 +1195,7 @@
     renderDomainStatus:renderDomainStatus,renderStepper:renderStepper,renderThread:renderThread,
     CAMPAIGN_LIFECYCLE:CAMPAIGN_LIFECYCLE,campaignLifecycleSteps:campaignLifecycleSteps,
     LIFECYCLE_ACTION_LABELS:LIFECYCLE_ACTION_LABELS,
+    RUN_KINDS:RUN_KINDS,renderMeasuredRunDetail:renderMeasuredRunDetail,
     campaignLifecycleActionKeys:campaignLifecycleActionKeys,
     renderLifecycleActions:renderLifecycleActions,
     WATCH_SOURCE_FIELDS:WATCH_SOURCE_FIELDS,WATCH_ENTRY_FIELDS:WATCH_ENTRY_FIELDS,
