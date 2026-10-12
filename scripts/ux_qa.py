@@ -544,6 +544,70 @@ def demo_journey(browser, demo_url, artifacts, role, label, viewport):
             capture(page, artifacts,
                     "demo-shared-campaign-matrix-decided-" + str(viewport["width"]))
             page.get_by_role("dialog").get_by_role("button", name="Close dialog").click()
+        if role == "u1":
+            # UX-R04: the Feedback conversation is the shared renderThread
+            # component, with explicit public/internal visibility.
+            page.locator('[data-act="nav"][data-id="feedback"]').click()
+            fb_card = page.locator(
+                '[data-business-domain="feedback"] [data-business-record]').filter(
+                    has_text="Router context failure").first
+            fb_card.wait_for(state="visible", timeout=20000)
+            fb_card.locator('button[data-act="feedbackDetail"]').first.click()
+            thread = page.locator('[data-shared-thread="demo"]')
+            thread.wait_for(state="visible", timeout=20000)
+            if thread.locator('[data-message-id]').count() == 0:
+                raise AssertionError("Shared Demo feedback thread rendered no message")
+            page.get_by_role("dialog").wait_for(state="visible", timeout=20000)
+            if "chronological history" not in page.get_by_role("dialog").inner_text().lower():
+                raise AssertionError("Shared Demo thread lost its chronological-history heading")
+            # An internal reply posted through the shared field component is
+            # tagged INTERNAL · workgroup only in the same presentation.
+            reply_form = page.locator(".feedback-reply-form")
+            reply_form.locator('select[name="visibility"]').select_option("internal")
+            reply_form.locator('textarea[name="reply"]').fill(
+                "UX-R04 internal workgroup-only Demo note")
+            reply_form.get_by_role("button", name="Post reply").click()
+            thread = page.locator('[data-shared-thread="demo"]')
+            thread.wait_for(state="visible", timeout=20000)
+            internal = thread.locator('[data-message-visibility="internal"]')
+            if internal.count() == 0:
+                raise AssertionError("Internal Demo reply did not render as internal")
+            if "INTERNAL · workgroup only" not in internal.last.inner_text():
+                raise AssertionError("Internal Demo reply lost its visibility tag")
+            assert_no_horizontal_overflow(page)
+            capture(page, artifacts, "demo-shared-feedback-thread-" + str(viewport["width"]))
+            page.get_by_role("dialog").get_by_role("button", name="Close dialog").click()
+            # UX-R04: the composed pinned-module setup reader is the shared
+            # renderComposedSetup component. The Demo seed has no recipe guide,
+            # so one is authored locally with a pinned module (explicit coverage
+            # gap: Demo has no framework wiring) and re-inspected.
+            page.locator('[data-act="nav"][data-id="knowledge"]').click()
+            page.locator('[data-act="newGuide"]').first.click()
+            gdialog = page.get_by_role("dialog")
+            gdialog.wait_for(state="visible")
+            gdialog.locator('select[name="type"]').select_option("Installation")
+            gdialog.locator('input[name="title"]').fill("UX-R04 composed setup Demo guide")
+            gdialog.locator('textarea[name="body"]').fill("Composed setup Demo instructions")
+            gdialog.locator('textarea[name="recipe"]').fill(
+                '{"modules":[{"id":"g2","revision":"r009"}]}')
+            gdialog.get_by_role("button", name="Create document").click()
+            gcard = page.locator('[data-business-domain="guides"] [data-business-record]').filter(
+                has_text="UX-R04 composed setup Demo guide").first
+            gcard.wait_for(state="visible", timeout=20000)
+            gcard.locator('button[data-act="guideDetail"]').click()
+            composed = page.locator(
+                '[data-shared-composed-setup][data-composed-mode="demo"]')
+            composed.wait_for(state="visible", timeout=20000)
+            gaps = composed.locator("[data-composed-gaps]").inner_text().lower()
+            if "missing coverage" not in gaps:
+                raise AssertionError(
+                    "Shared Demo composed setup did not state its coverage gap: " + gaps)
+            if composed.get_attribute("data-composed-ready") != "false":
+                raise AssertionError(
+                    "Demo composed setup with an unsupplied framework claimed readiness")
+            assert_no_horizontal_overflow(page)
+            capture(page, artifacts, "demo-shared-composed-setup-" + str(viewport["width"]))
+            page.get_by_role("dialog").get_by_role("button", name="Close dialog").click()
         if errors:
             raise AssertionError("Demo JS runtime error(s): " + "; ".join(errors[:3]))
     finally:
@@ -675,8 +739,93 @@ def server_journey(browser, base_url, creds, artifacts, role, viewport):
                     raise AssertionError("Server Guide content missing: " + expected)
             page.locator("#guide-history details").first.wait_for(state="visible")
             capture(page, artifacts, "server-shared-guide-detail-" + str(viewport["width"]))
+            # UX-R04: the composed pinned-module reader is the same shared
+            # renderComposedSetup component. A real recipe guide is created and
+            # rendered through the read-only applicability inspector; the
+            # un-supplied module revision stays an explicit coverage gap.
+            recipe_guide = "UX-R04 composed setup guide " + secrets.token_hex(3)
+            page.locator("#guide-add").click()
+            form = page.locator("#guide-editor form.guide-form")
+            form.wait_for(state="visible", timeout=12000)
+            rfields = form.locator('[data-shared-guide-fields="server"]')
+            rfields.locator('input[name="name"]').fill(recipe_guide)
+            rfields.locator('textarea[name="text"]').fill("Composed setup controller text")
+            form.locator('textarea[name="recipe_spec"]').fill(
+                '{"modules":[{"id":"gui-0000000000000000","revision":"r001"}]}')
+            form.locator('button[type="submit"]').click()
+            rcard = page.locator('[data-business-domain="guides"] [data-business-record]').filter(
+                has_text=recipe_guide).first
+            rcard.wait_for(state="visible", timeout=30000)
+            rcard.locator('button[data-action="preview"]').click()
+            page.locator("#guide-render-now").wait_for(state="visible", timeout=15000)
+            page.locator("#guide-render-now").click()
+            composed = page.locator(
+                '#guide-render-result [data-shared-composed-setup][data-composed-mode="server"]')
+            composed.wait_for(state="visible", timeout=20000)
+            gaps = composed.locator("[data-composed-gaps]").inner_text().lower()
+            if "missing coverage" not in gaps:
+                raise AssertionError(
+                    "Shared Server composed setup did not state its coverage gap: " + gaps)
+            if composed.get_attribute("data-composed-ready") != "false":
+                raise AssertionError(
+                    "Server composed setup with an unresolved pin claimed readiness")
+            assert_no_horizontal_overflow(page)
+            capture(page, artifacts, "server-shared-composed-setup-" + str(viewport["width"]))
         if role == "workgroup":
-            # Create a real Watch hypothesis without inventing external evidence.
+            # UX-R04: real Server feedback thread through the shared renderThread
+            # component, with a correction that keeps the superseded body in an
+            # immutable revision history.
+            page.goto(base_url + "/?mode=server&workspace=workgroup&section=feedback&view=editor",
+                      wait_until="domcontentloaded")
+            page.locator("#discussion-new").wait_for(state="visible", timeout=30000)
+            page.locator("#discussion-new").click()
+            compose = page.locator("#discussion-compose form")
+            compose.wait_for(state="visible", timeout=15000)
+            thread_title = "UX-R04 discussion " + secrets.token_hex(3)
+            compose.locator('input[name="title"]').fill(thread_title)
+            compose.locator('textarea[name="body"]').fill("Original discussion body text")
+            compose.get_by_role("button", name="Publish feedback").click()
+            thread = page.locator('#discussion-messages [data-shared-thread="server"]')
+            thread.wait_for(state="visible", timeout=30000)
+            if thread.locator("[data-message-id]").count() == 0:
+                raise AssertionError("Shared Server thread rendered no message")
+            capture(page, artifacts, "server-shared-feedback-thread-" + str(viewport["width"]))
+            first_message = thread.locator("[data-message-id]").first
+            first_id = first_message.get_attribute("data-message-id")
+            first_message.locator('button[data-action="correct"]').first.click()
+            correction = page.locator("#discussion-correction-form")
+            correction.wait_for(state="visible", timeout=15000)
+            correction.locator('textarea[name="body"]').fill("Corrected discussion body text")
+            correction.locator('textarea[name="edit_reason"]').fill(
+                "UX-R04 shared correction reason")
+            correction.get_by_role("button", name="Append correction revision").click()
+            corrected_body = page.locator(
+                '#discussion-messages [data-shared-thread="server"]').get_by_text(
+                    "Corrected discussion body text")
+            corrected_body.first.wait_for(state="visible", timeout=30000)
+            thread = page.locator('#discussion-messages [data-shared-thread="server"]')
+            corrected = thread.locator(f'[data-message-id="{first_id}"]').first
+            corrected.wait_for(state="visible", timeout=20000)
+            if "Corrected discussion body text" not in corrected.inner_text():
+                raise AssertionError("Server correction did not update the shared thread")
+            # Immutable history keeps the superseded original wording.
+            corrected.locator('button[data-action="history"]').first.click()
+            history = page.locator("#discussion-history")
+            history.wait_for(state="visible", timeout=15000)
+            # The revised bodies live inside collapsed <details>; expand the
+            # retained revisions before asserting their immutable content.
+            history.locator("details").first.wait_for(state="visible", timeout=15000)
+            for summary in history.locator("details summary").all():
+                summary.click()
+            if "Original discussion body text" not in history.inner_text():
+                raise AssertionError(
+                    "Server correction history lost the original superseded body")
+            if "UX-R04 shared correction reason" not in history.inner_text():
+                raise AssertionError("Server correction history lost the retained reason")
+            assert_no_horizontal_overflow(page)
+            capture(page, artifacts,
+                    "server-shared-discussion-correction-" + str(viewport["width"]))
+        if role == "workgroup":
             page.goto(base_url + "/?mode=server&workspace=workgroup&section=watch&view=editor",
                       wait_until="domcontentloaded")
             page.locator("#watch-add-entry").wait_for(state="visible", timeout=30000)
