@@ -169,6 +169,56 @@ assert.throws(()=>ui.renderObservationMatrix({columnLabels:[{key:"a",label:"A"}]
 assert.throws(()=>ui.renderObservationMatrix({columnLabels:[]},{mode:"wat"}),
   /mode required/);
 
+/* One composed pinned-module reader: identical sections and readiness in both
+   modes, only authorized sections, explicit coverage gaps and a fail-closed
+   URL policy that never links an unsupported scheme. */
+const composed=ui.renderComposedSetup({title:"Driver setup",revision:"r003",ready:true,
+  sections:[{name:"OS baseline",revision:"r002",text:"kernel 6.6",
+    url:"https://docs.example/os"},
+   {name:"Toolchain",revision:"r007",url:"ftp://legacy.example/toolchain"},
+   {name:"Runtime",revision:"r011",text:"no link"}],
+  missing:[]},{mode:"server",domain:"guides"});
+assert(composed.includes('data-shared-composed-setup="guides"'));
+assert(composed.includes('data-composed-mode="server"')&&composed.includes('data-composed-ready="true"'));
+assert(composed.includes("Composed setup · Driver setup · r003"));
+assert(composed.includes("All declared modules are applicable for this configuration."));
+assert(composed.includes("No declared coverage gap reported by the source."));
+assert.equal((composed.match(/data-shared-composed-section|shared-composed-section/g)||[]).length,3);
+assert(composed.includes('href="https://docs.example/os"'));
+assert(composed.includes("Unsupported URL — link withheld."),
+  "An unsupported scheme must never become a link");
+assert(!composed.includes("ftp://legacy.example/toolchain<"),"The withheld URL must not be linked");
+assert(composed.includes("Revision-pinned preview"),
+  "The standing applicability notice must survive composition");
+const incomplete=ui.renderComposedSetup({title:"Driver setup",ready:false,
+  sections:[{name:"OS baseline",revision:"r002"}],
+  missing:["Runtime <unpinned>","OS baseline r009"]},{mode:"demo",domain:"guides"});
+assert(incomplete.includes('data-composed-ready="false"'));
+assert(incomplete.includes("Incomplete or ambiguous recipe"));
+assert(incomplete.includes("Missing coverage: Runtime &lt;unpinned&gt;; OS baseline r009"),
+  "Every declared coverage gap must be listed and escaped");
+assert(!incomplete.includes("Runtime <unpinned>"));
+const composedDemo=ui.renderComposedSetup({title:"Driver setup",revision:"r003",ready:false,
+  sections:[{name:"OS baseline",revision:"r002",text:"kernel 6.6"}],
+  missing:["Runtime r999"]},{mode:"demo",domain:"guides"});
+const composedServer=ui.renderComposedSetup({title:"Driver setup",revision:"r003",ready:false,
+  sections:[{name:"OS baseline",revision:"r002",text:"kernel 6.6"}],
+  missing:["Runtime r999"]},{mode:"server",domain:"guides"});
+assert.equal(composedDemo.replace(/demo/g,"MODE"),composedServer.replace(/server/g,"MODE"),
+  "Equivalent composed setups must render the same reader in both modes");
+const emptyComposed=ui.renderComposedSetup({title:"Empty",sections:[{}],missing:[]},
+  {mode:"server",domain:"guides"});
+assert(!emptyComposed.includes("shared-composed-section"),
+  "A section with no name/revision/text must not render an empty block");
+assert.throws(()=>ui.renderComposedSetup({sections:[]},{mode:"server"}),
+  /source record title/);
+assert.throws(()=>ui.renderComposedSetup({title:"x",sections:{}},{mode:"server"}),
+  /sections must be a list/);
+assert.throws(()=>ui.renderComposedSetup({title:"x",missing:"gap"},{mode:"server"}),
+  /gaps must be a list/);
+assert.throws(()=>ui.renderComposedSetup(null,{mode:"server"}),/projection required/);
+assert.throws(()=>ui.renderComposedSetup({title:"x"},{mode:null}),/Explicit Demo or Server/);
+
 /* Numeric metrics keep the historical Demo field contract: fractions are
    valid and negative measurements are refused (review regression). */
 const numeric=ui.renderDomainFields(ui.FORECAST_FIELDS,{aiCost:"0.50",humanMinutes:"12.5"},'demo');
@@ -321,6 +371,43 @@ assert(demoBar.indexOf("Close full plan")<demoBar.indexOf("Archive campaign"),
 assert(!demoBar.includes("Request rework"),"Offered transitions must match the status");
 assert.throws(()=>ui.renderLifecycleActions([{key:"start",attributes:{"data-act":"x"}}],
   {mode:"demo",domain:"watch"}),/Unknown lifecycle domain labels/);
+
+/* Drift guard: the offered action label must carry the exact canonical wording
+   pinned here (not merely agree with the frozen object it was read from), and
+   no mode can offer a key outside that vocabulary — the wording drift already
+   flagged in server-recommendations.js must never reappear. */
+const PINNED_LIFECYCLE_LABELS={
+  forecasts:{stage:"Stage forecast",review:"Mark reviewed",publish:"Publish as theoretical",
+    unpublish:"Unpublish",rework:"Request rework",fork:"Create new revision"},
+  recommendations:{submit:"Submit for review",publish:"Review and publish",
+    unpublish:"Withdraw publication",revise:"New draft revision",history:"Original history / evidence"},
+  campaigns:{start:"Start / open campaign",close:"Close full plan",
+    close_partial:"Close partial review",rework:"Request rework",
+    publish:"Review / publish selected Runs",reopen:"Reopen",
+    unpublish:"Unpublish to review",archive:"Archive campaign",restore:"Restore archive"}
+};
+for(const [domain,vocab] of Object.entries(PINNED_LIFECYCLE_LABELS)) {
+  assert.equal(Object.keys(ui.LIFECYCLE_ACTION_LABELS[domain]).sort().join(","),
+    Object.keys(vocab).sort().join(","), domain+" lifecycle vocabulary drifted");
+  for(const [key,label] of Object.entries(vocab)) {
+    assert.equal(ui.LIFECYCLE_ACTION_LABELS[domain][key],label,
+      domain+"."+key+" canonical wording drifted from '"+label+"'");
+    const rendered=ui.renderLifecycleActions([{key:key,attributes:{"data-action":key}}],
+      {mode:"server",domain:domain});
+    assert(rendered.includes(">"+label+"</button>"),"Offered "+domain+" "+key+
+      " must render its canonical wording '"+label+"'");
+    assert(rendered.includes('data-action="'+key+'"'),
+      "Offered "+domain+" action "+key+" must keep its delegated attribute");
+    assert(!rendered.includes(">Submit</button>")||domain!=="recommendations"||key==="submit",
+      "A drifted Recommendation wording must not be offered");
+  }
+  assert.throws(()=>ui.renderLifecycleActions([{key:"invented_action",attributes:{}}],
+    {mode:"server",domain:domain}),/Unknown lifecycle action key/,
+    domain+" must refuse a lifecycle key outside the frozen vocabulary");
+}
+const recommendationSource2=fs.readFileSync("server-recommendations.js","utf8");
+assert(!/"(Submit|Publish|Withdraw|New draft|Original history)/.test(recommendationSource2),
+  "Server Recommendations must not hard-code lifecycle wording instead of the shared labels");
 
 /* Shared loading/error/denied presentation. */
 assert(ui.renderDomainStatus({mode:"demo",state:"loading",message:"Loading fictional Demo…"})
