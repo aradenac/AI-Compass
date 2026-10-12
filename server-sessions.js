@@ -320,15 +320,16 @@ function mount(root,api,escapeHtml){
           '<label>Status<select name="status">'+
              ["pending","in_progress","done"].map(function(x){
                return option(x,x,values.status===x);}).join("")+'</select></label>'+
-          fields.map(function(f){
-            var v=(values.values||{})[f.key],type=f.type||"text";
-            var key=esc(f.key),label=esc(f.label||f.key);
-            if(type==="boolean")return '<label>'+label+'<input type="checkbox" data-step-field="'+key+'" data-type="boolean"'+
-              (v===true?' checked':'')+'></label>';
-            if(type==="number")return '<label>'+label+'<input type="number" step="any" data-step-field="'+key+
-              '" data-type="number" value="'+esc(v)+'"></label>';
-            return '<label>'+label+'<textarea data-step-field="'+key+'" data-type="text">'+esc(v)+'</textarea></label>';
-          }).join("")+
+          // Same shared field presentation as every other domain; the fields
+          // themselves still come from the frozen method definition.
+          window.AICompassWorkgroup.renderDomainFields(
+            fields.map(function(f){
+              return {key:f.key,label:f.label||f.key,
+                kind:f.type==="boolean"?"checkbox":f.type==="number"?"number":"textarea",
+                rows:3,min:f.type==="number"?null:undefined};}),
+            fields.reduce(function(accumulator,f){
+              accumulator[f.key]=(values.values||{})[f.key];return accumulator;},{}),
+            "server",{idPrefix:"session-step-"+step.key})+
           '<label>Step notes<textarea name="notes">'+esc(values.notes||"")+'</textarea></label>'+
           '<label>Human step duration, minutes (blank = unknown)<input type="number" min="0" step="any" name="duration_minutes" value="'+
            esc(values.duration_minutes) +'"></label>'+
@@ -547,10 +548,11 @@ function mount(root,api,escapeHtml){
         button.addEventListener("click",function(){
           var f=button.closest("[data-session-step]"),values={};
           try{
-            f.querySelectorAll("[data-step-field]").forEach(function(field){
-              if(field.dataset.type==="boolean")values[field.dataset.stepField]=field.checked;
-              else if(field.dataset.type==="number")values[field.dataset.stepField]=field.value===""?null:Number(field.value);
-              else values[field.dataset.stepField]=field.value;
+            f.querySelectorAll("[data-shared-field] input, [data-shared-field] textarea, "+
+              "[data-shared-field] select").forEach(function(field){
+              if(field.type==="checkbox")values[field.name]=field.checked;
+              else if(field.type==="number")values[field.name]=field.value===""?null:Number(field.value);
+              else values[field.name]=field.value;
             });
             submit("sessions/"+encodeURIComponent(s.id)+"/steps/"+encodeURIComponent(button.dataset.saveStep),
               "PATCH",{status:f.querySelector('[name="status"]').value,

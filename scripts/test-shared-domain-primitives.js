@@ -243,6 +243,25 @@ assert.throws(()=>ui.renderMeasuredRunDetail({id:"x",metrics:{}},{mode:"demo"}),
 assert.throws(()=>ui.renderMeasuredRunDetail({id:"x",links:[{href:"https://evil.example"}]},
   {mode:"server"}),/same-origin/);
 
+/* Descriptor-driven step fields and the unbounded numeric opt-out. */
+assert.equal(ui.renderDomainFields([{key:"m",label:"M",kind:"number",min:null}],
+  {m:"-3"},"server").includes("min="),false,
+  "min:null must leave a descriptor-driven measurement unbounded");
+assert(ui.renderDomainFields([{key:"m",label:"M",kind:"number"}],{},"server")
+  .includes('min="0"'),"metrics keep their non-negative default");
+assert(ui.renderDomainFields([{key:"flag",label:"Flag",kind:"checkbox"}],{flag:true},"server")
+  .includes("checked"),"a boolean descriptor field stays a checked checkbox");
+const sessionSource=fs.readFileSync("server-sessions.js","utf8");
+assert(sessionSource.includes("renderDomainFields(")&&
+  !sessionSource.includes("data-step-field"),
+  "Server step fields must use the shared field primitive");
+assert.equal(typeof ui.LIFECYCLE_ACTION_LABELS.recommendations,"object");
+assert.equal(ui.LIFECYCLE_ACTION_LABELS.recommendations.unpublish,"Withdraw publication");
+const recommendationSource=fs.readFileSync("server-recommendations.js","utf8");
+for(const key of ["submit","publish","unpublish","revise","history"])
+  assert(recommendationSource.includes("lifecycle."+key),
+    "Recommendation "+key+" must use the canonical shared wording");
+
 /* One campaign lifecycle presentation, mapped by each mode. */
 const mid=ui.campaignLifecycleSteps("in_progress");
 assert.equal(mid.map(s=>s.state).join(","),"done,current,todo,todo");

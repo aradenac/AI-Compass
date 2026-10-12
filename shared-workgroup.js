@@ -607,7 +607,6 @@
           id=escape(options.idPrefix||"shared")+"-"+escape(mode)+"-"+escape(name),
           attrs=(entry.maxlength?' maxlength="'+escape(entry.maxlength)+'"':"")+
             (domainFieldRequired(entry,mode)?" required":"")+
-            (entry.min!==undefined?' min="'+escape(entry.min)+'"':"")+
             (domainFieldPlaceholder(entry,mode)?
               ' placeholder="'+escape(domainFieldPlaceholder(entry,mode))+'"':"");
       var control;
@@ -645,8 +644,11 @@
         // Numeric metrics keep the historical Demo contract: fractions are
         // valid (step="any") and negative measurements are refused (min="0").
         if(kind==="number")attrs+=' step="'+escape(entry.step||"any")+'"'+
-          (entry.min===undefined?' min="0"':"")+
-          (entry.max===undefined?"":' max="'+escape(entry.max)+'"');
+          // min="0" is the historical Demo metric contract; an explicit
+          // min:null keeps an unbounded descriptor-driven measurement.
+          (entry.min===undefined?' min="0"':entry.min===null?"":
+            ' min="'+escape(entry.min)+'"')+
+          (entry.max==null?"":' max="'+escape(entry.max)+'"');
         control='<input id="'+id+'" name="'+escape(name)+'" type="'+
           escape(kind==="number"?"number":"text")+'" value="'+escape(value)+'"'+attrs+'>';
       }
@@ -958,6 +960,9 @@
     forecasts:Object.freeze({stage:"Stage forecast",review:"Mark reviewed",
       publish:"Publish as theoretical",unpublish:"Unpublish",rework:"Request rework",
       fork:"Create new revision"}),
+    recommendations:Object.freeze({submit:"Submit for review",
+      publish:"Review and publish",unpublish:"Withdraw publication",
+      revise:"New draft revision",history:"Original history / evidence"}),
     campaigns:Object.freeze({start:"Start / open campaign",close:"Close full plan",
       close_partial:"Close partial review",rework:"Request rework",
       publish:"Review / publish selected Runs",reopen:"Reopen",

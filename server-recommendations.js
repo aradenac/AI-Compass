@@ -90,18 +90,21 @@ function mount(root,csrf,escapeHtml){
     var shown=recommendations.filter(function(x){
       return (!task||x.task_id===task)&&(!solution||x.solution_id===solution);
     });
+    // Canonical transition wording comes from the shared lifecycle labels so a
+    // future Demo workflow cannot drift from the authenticated Server.
+    var lifecycle=window.AICompassWorkgroup.LIFECYCLE_ACTION_LABELS.recommendations;
     $("#rec-list").innerHTML=window.AICompassWorkgroup.renderRecords(shown.map(function(r){
       var p=r.properties||{},actions=[
-        {label:"Original history / evidence",
+        {label:lifecycle.history,
          attributes:{"data-recommendation":r.id,"data-action":"history"}}
       ];
-      if(writer)actions.push({label:"New draft revision",
+      if(writer)actions.push({label:lifecycle.revise,
         attributes:{"data-recommendation":r.id,"data-action":"edit"}});
-      if(writer&&r.state==="draft")actions.push({label:"Submit for review",
+      if(writer&&r.state==="draft")actions.push({label:lifecycle.submit,
         attributes:{"data-recommendation":r.id,"data-action":"submit"}});
-      if(reviewer&&r.state==="in_review")actions.push({label:"Review and publish",
+      if(reviewer&&r.state==="in_review")actions.push({label:lifecycle.publish,
         attributes:{"data-recommendation":r.id,"data-action":"publish"}});
-      if(reviewer&&r.state!=="unpublished")actions.push({label:"Withdraw publication",
+      if(reviewer&&r.state!=="unpublished")actions.push({label:lifecycle.unpublish,
         attributes:{"data-recommendation":r.id,"data-action":"unpublish"}});
       var notices=[];
       if(r.review_needed)notices.push("Review required: "+r.reason+". "+

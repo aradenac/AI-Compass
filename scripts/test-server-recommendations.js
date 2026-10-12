@@ -17,11 +17,16 @@ assert(fs.readFileSync("compose.yaml","utf8").includes(
 assert(fs.readFileSync("staging/compose.yaml","utf8").includes(
   "../server-recommendations.js:/srv/frontend/server-recommendations.js:ro"));
 assert(!script.includes("localStorage")&&!script.includes("sessionStorage"));
+// Transition wording is canonical in the shared labels, not duplicated here.
+const sharedLabels=fs.readFileSync("shared-workgroup.js","utf8");
+for(const label of ["Submit for review","Review and publish","Withdraw publication",
+  "New draft revision","Original history / evidence"])
+  assert(sharedLabels.includes(label),"Missing canonical transition label "+label);
 for(const required of ["Knowledge & Collaboration","review_needed",
   "contradictory_run_ids","real persisted","evidence","publish","unpublish",
   "expected_revision","evaluation_revision","run_ids",
   'credentials:"same-origin"',"X-CSRFToken","/revisions",
-  "New draft revision","no Demo data imported"]){
+  "lifecycle.revise","LIFECYCLE_ACTION_LABELS.recommendations","no Demo data imported"]){
   assert(script.includes(required),"Missing recommendation workflow "+required);
 }
 const nodes=new Map();
