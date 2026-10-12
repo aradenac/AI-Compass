@@ -9,7 +9,11 @@ function mount(root,csrf,escapeHtml){
   function esc(s){return escapeHtml(s==null?"":String(s));}
   function status(message,error){
     var node=$("#results-status");
-    if(node){node.textContent=message;node.className=error?"server-status server-error":"server-status";}
+    if(node){
+      node.className=error?"server-status server-error":"server-status";
+      node.innerHTML=window.AICompassWorkgroup.renderDomainStatus({
+        mode:"server",state:error?"error":"ok",message:message==null?"":String(message)});
+    }
   }
   function option(value,label,selected){
     return '<option value="'+esc(value)+'"'+(selected?" selected":"")+'>'+esc(label)+'</option>';
@@ -119,49 +123,61 @@ function mount(root,csrf,escapeHtml){
         context.innerHTML='<p role="alert" class="ux-history-warning">Run not present in this authorized Results projection. Check the applied filters, publication scope and account permissions; no other version is substituted.</p>';
       }else{
         var revision=selected.revision||selected.run_revision||"";
-        var mismatch=pinned && (!revision || revision!==pinned);
         var metrics=selected.kind==="forecast"?selected.predicted_metrics:selected.metrics||{};
-        context.innerHTML='<section class="ux-context-detail" aria-label="Measured Run context">'+
-          '<h3>'+esc(selected.kind==="forecast"?"Theoretical Forecast":"Measured Run")+
-          ' · '+esc(selected.id)+'</h3><p>'+esc(selected.outcome||selected.status||"")+
-          ' · Task '+esc(selected.task_id)+' · Candidate '+esc(selected.candidate)+'</p>'+
-          (mismatch?'<p role="alert" class="ux-history-warning">Requested historical revision '+
-             esc(pinned)+' is not verifiable from this results projection. Do not treat current metrics as the pinned original.</p>':
-            '<dl class="ux-context-properties"><dt>Quality</dt><dd>'+format(metrics.quality_score)+
-            '</dd><dt>Cost EUR</dt><dd>'+format(metrics.cost_eur||metrics.ai_cost_eur)+
-            '</dd><dt>Human time (minutes)</dt><dd>'+
-              format(metrics.human_total_minutes||metrics.human_minutes)+
-            '</dd></dl>')+
-          '<p>'+(selected.kind!=="forecast"?
-          '<a href="'+esc(window.AICompassContext.route("server","engineer","home",{
-            task:selected.task_id,solution:selected.solution_id||selected.candidate
-          }))+'">Related measured AI Solution</a> · ':"")+
-          (writer&&selected.campaign_id?'<a href="'+esc(window.AICompassContext.route("server","workgroup","benchmark",{
-            record:selected.campaign_id
-          }))+'">Related Campaign</a>':'')+'</p>'+
-          (selected.detail?'<details class="ux-advanced-source"><summary>Advanced: open authorized original Run record</summary>'+
-            '<a href="'+esc(selected.detail)+'" target="_blank" rel="noopener noreferrer">Open original API source</a></details>':'')+
-          '</section>';
+        // One shared measured-Run presentation; unknown fields stay unknown.
+        var links=[];
+        if(selected.kind!=="forecast")links.push({label:"Related measured AI Solution",
+          href:window.AICompassContext.route("server","engineer","home",{
+            task:selected.task_id,solution:selected.solution_id||selected.candidate})});
+        if(writer&&selected.campaign_id)links.push({label:"Related Campaign",
+          href:window.AICompassContext.route("server","workgroup","benchmark",{
+            record:selected.campaign_id})});
+        context.innerHTML=window.AICompassWorkgroup.renderMeasuredRunDetail({
+          id:selected.id,
+          kind:selected.kind==="forecast"?"theoretical":"individual",
+          revision:revision,outcome:selected.outcome||selected.status,
+          title:(selected.candidate||selected.id)+" · "+selected.task_id,
+          taskName:selected.task_id,configurationLabel:selected.candidate,
+          metrics:[
+            {label:"Quality /100",value:metrics.quality_score},
+            {label:"Cost EUR",value:metrics.cost_eur!=null?metrics.cost_eur:metrics.ai_cost_eur},
+            {label:"Human time (minutes)",
+             value:metrics.human_total_minutes!=null?metrics.human_total_minutes:metrics.human_minutes}
+          ],
+          links:links
+        },{mode:"server",pinnedRevision:pinned})+
+          (selected.detail?'<details class="ux-advanced-source"><summary>Advanced: open authorized '+
+            'original Run record</summary><a href="'+esc(selected.detail)+'" target="_blank" '+
+            'rel="noopener noreferrer">Open original API source</a></details>':"");
       }
     }else context.replaceChildren();
-    node.innerHTML='<p><strong>'+esc(data.view==="task"?"Task × candidate":"Candidate × task")+
-      '</strong> · '+esc(data.counts.individual_runs)+' individual Run(s) · '+
-      esc(data.counts.composite_workflows)+' composite workflow(s) · '+
-      esc(data.counts.theoretical_forecasts)+' THEORETICAL forecast(s)</p>'+
-      (groups.length?'<table><thead><tr><th>'+esc(data.row_axis)+'</th><th>'+
-        esc(data.column_axis)+'</th><th>Source records</th></tr></thead><tbody>'+
-        groups.map(function(row){
-          return row.columns.map(function(col){
-            return '<tr><td>'+esc(row.key)+'</td><td>'+esc(col.key)+'</td><td>'+
-              esc(col.observations)+' · '+col.observation_ids.map(esc).join(", ")+'</td></tr>';
-          }).join("");
-        }).join("")+'</tbody></table>':
-        '<p>No persisted results in this filter. Empty is not a failed Test Case.</p>')+
-      '<p class="muted small">'+esc(data.scoring_policy)+'</p>';
-    node.querySelectorAll("table").forEach(function(table){
-      table.style.width="100%";
-      table.style.overflowWrap="anywhere";
+    // One shared observation matrix; only the authorized projection differs.
+    var columnLabels=[];
+    groups.forEach(function(row){
+      row.columns.forEach(function(col){
+        if(!columnLabels.some(function(entry){return entry.key===col.key;}))
+          columnLabels.push({key:col.key,label:col.key});
+      });
     });
+    node.innerHTML=window.AICompassWorkgroup.renderObservationMatrix({
+      rowAxis:data.row_axis,columnAxis:data.column_axis,columnLabels:columnLabels,
+      counts:[
+        {label:"individual Run(s)",value:data.counts.individual_runs},
+        {label:"composite workflow(s)",value:data.counts.composite_workflows},
+        {label:"THEORETICAL forecast(s)",value:data.counts.theoretical_forecasts}],
+      policy:data.scoring_policy,
+      rows:groups.map(function(row){
+        return {key:row.key,label:row.key,
+          columns:row.columns.map(function(col){
+            return {key:col.key,observations:col.observations,
+              hint:col.observations+" record(s)",
+              ids:(col.observation_ids||[]).map(function(identifier){
+                return {id:identifier,label:identifier,
+                  href:window.AICompassContext.route("server","workgroup","results",
+                    {record:identifier})};})};})};}),
+      notices:["Empty is not a failed Test Case, and missing comparisons stay unknown."]
+    },{mode:"server",domain:"results",
+       emptyText:"No persisted results in this filter. Empty is not a failed Test Case."});
     $("#results-rows").innerHTML=window.AICompassWorkgroup.renderRecords(
       (data.results||[]).map(function(r){
         var forecast=r.kind==="forecast",metrics=(forecast?r.predicted_metrics:r.metrics)||{};
@@ -242,18 +258,15 @@ function mount(root,csrf,escapeHtml){
     area.innerHTML='<h3>'+(row?"Reinterpret · append revision":"New")+" saved evaluation</h3>"+
       '<p class="muted small">The scoring method is descriptive comparison v1 (no invented averages). Each measured Run and experimental protocol is pinned permanently.</p>'+
       '<form id="evaluation-form">'+
-      '<label>Evaluation title<input name="name" maxlength="160" required value="'+esc(row&&row.name||"")+'"></label>'+
-      '<label>Original measured Run IDs<textarea name="run_ids" required>'+esc(existing.join("\n"))+'</textarea></label>'+
+      window.AICompassWorkgroup.renderDomainFields(
+        window.AICompassWorkgroup.EVALUATION_FIELDS,{
+          name:row&&row.name||"",run_ids:existing.join("\n"),
+          assessment:p.assessment||"inconclusive",notes:p.notes||"",
+          limitations:p.limitations||"",
+          selected_metrics:(row&&row.scoring_config||{}).selected_metrics||METRICS
+        },"server",{idPrefix:"evaluation",choices:{selected_metrics:METRICS.map(function(metric){
+          return [metric,metric];})}})+
       '<p class="muted small">Paste run-* IDs, one per line. Do not paste forecast-*; theoretical predictions are not measured runs.</p>'+
-      '<label>Interpretation<select name="assessment">'+
-      ["inconclusive","supported","unsupported"].map(function(x){
-        return option(x,x,p.assessment===x);}).join("")+'</select></label>'+
-      '<label>Notes<textarea name="notes">'+esc(p.notes||"")+'</textarea></label>'+
-      '<label>Limitations<textarea name="limitations">'+esc(p.limitations||"")+'</textarea></label>'+
-      '<label>Measured metric fields to inspect<select name="selected_metrics" multiple size="6">'+
-      METRICS.map(function(k){
-        return option(k,k,!row||(row.scoring_config.selected_metrics||[]).includes(k));
-      }).join("")+'</select></label>'+
       '<p class="muted small">Unknown/unavailable fields and mixed experimental methods are reported automatically. Selecting a newer method creates a new revision.</p>'+
       '<button type="submit">Save immutable evaluation revision</button>'+
       '<button type="button" id="evaluation-cancel">Cancel</button></form>';
@@ -287,16 +300,14 @@ function mount(root,csrf,escapeHtml){
     try{
       var history=await api("evaluations/"+encodeURIComponent(row.id)+"/revisions");
       if(!enabled||ticket!==version)return;
-      node.innerHTML='<h3>'+esc(row.name)+' · immutable interpretation history</h3>'+
+      node.innerHTML=window.AICompassWorkgroup.renderRevisionHistory(
         (history.revisions||[]).map(function(v){
-          return '<details><summary>'+esc(v.revision)+' · '+esc(v.created_by)+
-            ' · '+esc(v.properties.comparability)+
-            ' · '+esc(v.scoring_method.version)+' (scoring method version)</summary>'+
-            '<pre style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></details>';
-        }).join("");
-      node.querySelectorAll("details pre").forEach(function(pre,i){
-        pre.textContent=JSON.stringify(history.revisions[i],null,2);
-      });
+          return {revision:v.revision,by:v.created_by,
+            body:JSON.stringify(v,null,2),
+            reason:"Retained interpretation · comparability "+v.properties.comparability+
+              " · scoring method version "+v.scoring_method.version};
+        }),{mode:"server",domain:"evaluations",
+          heading:row.name+" · immutable interpretation history"});
     }catch(err){status("Evaluation history unavailable: "+err.message,true);}
   }
 

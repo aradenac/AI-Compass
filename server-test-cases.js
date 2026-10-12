@@ -150,16 +150,16 @@
         target.innerHTML=window.AICompassWorkgroup.renderCaseDetail(row,"server")+
           '<p>Task revision at creation: '+escapeHtml(row.task_revision_at_creation)+
           ' · Immutable fork source revision: '+escapeHtml(row.fork_source_revision_id||"none")+'</p>'+
-          '<h4>Immutable revision history</h4>'+
-          revisions.map(function(x){return '<details><summary>'+escapeHtml(x.revision)+
-            ' · '+escapeHtml(x.created_by)+' · '+escapeHtml(x.created_at)+'</summary><pre '+
-            'style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></details>';}).join("")+
+          window.AICompassWorkgroup.renderRevisionHistory(
+            revisions.map(function(x){
+              return {revision:x.revision, by:x.created_by, at:x.created_at,
+                body:JSON.stringify(x.properties,null,2),
+                reason:"Retained Test Case revision"};
+            }),{mode:"server",domain:"cases",heading:"Immutable revision history"})+
           '<h4>Original evidence attachments</h4><p>'+escapeHtml(evidence.length)+
           ' attachment(s) linked through the shared evidence store.</p>'+
           '<p class="muted small">Uploads use the existing authorized evidence API; '+
           'each object and version retains its original blob hashes.</p>';
-        var blocks=target.querySelectorAll("details pre");
-        revisions.forEach(function(x,i){blocks[i].textContent=JSON.stringify(x.properties,null,2);});
       }catch(error){
         if(allowed&&generation===ticket&&el("#case-detail"))
           el("#case-detail").textContent="History unavailable: "+error.message;

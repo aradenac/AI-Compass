@@ -6,7 +6,7 @@ from django.test import TestCase, Client
 from .catalog_services import create_component, revise_component
 from .identity import ensure_roles
 from .task_services import create_task
-from .test_case_services import create as create_case
+from .test_case_services import create as create_case, revise as revise_case
 from .models import CampaignSnapshot, BenchmarkSession, SessionSolutionPin
 
 BASE="/api/v1/campaigns"
@@ -119,6 +119,35 @@ class EvaluationMatrixTests(TestCase):
         hist=self.client.get(self.path+"/matrix?revision=r004")
         self.assertEqual(next(x for x in hist.json()["cells"] if x["id"]==second)
                          ["decision"],"waived")
+
+    def test_cells_expose_the_pinned_test_case_revision_of_the_displayed_plan(self):
+        """A client must open the evaluated Test Case revision, never the current one."""
+        self.add()
+        matrix=self.matrix()
+        first=matrix["revision"]
+        revisions={cell["test_case_id"]:cell["test_case_revision"]
+                   for cell in matrix["cells"]}
+        self.assertEqual(set(revisions),{case.item.public_id for case in self.cases})
+        for revision in revisions.values():
+            self.assertRegex(revision,r"^r\d{3}$")
+        # Revising a Test Case must not change what an existing plan referenced.
+        target=self.cases[0]
+        current=self.client.get(
+            f"/api/v1/test-cases/{target.item.public_id}").json()["revision"]
+        revise_case(actor=self.writer,public_id=target.item.public_id,
+               expected_revision=current,
+               properties={"objective":"Revised after the plan was frozen",
+                           "dod":"New acceptance criteria"})
+        after=self.matrix()
+        self.assertEqual(next(cell["test_case_revision"] for cell in after["cells"]
+                              if cell["test_case_id"]==target.item.public_id),
+                         revisions[target.item.public_id])
+        # A historical plan revision keeps the pins of that exact revision.
+        historical=self.client.get(self.path+f"/matrix?revision={first}")
+        self.assertEqual(historical.status_code,200,historical.content)
+        for cell in historical.json()["cells"]:
+            self.assertEqual(cell["test_case_revision"],revisions[cell["test_case_id"]])
+        self.assertTrue(all(cell["test_case_revision"] for cell in after["cells"]))
 
     def test_two_tasks_no_global_cartesian_and_reopen(self):
         self.add(label="Driver")

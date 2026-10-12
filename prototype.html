@@ -43,35 +43,6 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;b
 .daily-info{background:#f5f8fc;border-radius:9px;padding:12px;font-size:12px;color:#496078}
 @media(max-width:1250px){.daily-board{grid-template-columns:repeat(4,minmax(245px,1fr));}}
 
-/* Interactive task organizer */
-.organizer-intro{margin:0 0 16px}.organizer-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,315px),1fr));gap:14px;align-items:start}
-.organizer-section{min-width:0;background:white;border:1px solid var(--line);border-radius:13px;padding:12px;box-shadow:var(--shadow)}
-.organizer-section-top{border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:12px;padding:7px 5px 12px;margin-bottom:8px}
-.organizer-section-top h3{font-size:15px;line-height:1.35}.organizer-section-top .eyebrow{margin:0 0 3px;display:block}
-.organizer-node{min-width:0}.organizer-children{margin-left:15px;border-left:1px dashed #d6deed;padding-left:7px}
-.organizer-node-row{min-width:0;display:flex;align-items:center;gap:3px;border-radius:7px;padding:4px 2px;background:#fff;border:1px solid transparent;min-height:38px}
-.organizer-node-row:hover{background:#f6f9ff}.organizer-node-row.selected{border-color:#c5d7fb;background:#f1f5ff}
-.organizer-node-row.drop-inside{outline:2px solid #4b78d8;outline-offset:-2px;background:#ebf2ff}
-.organizer-handle,.organizer-mini,.organizer-expander{border:0;background:none;color:#7a8aa3;padding:3px;min-width:23px;min-height:24px;border-radius:5px;flex-shrink:0}
-.organizer-handle{font-size:20px;cursor:grab;color:#697c9c;touch-action:none}.organizer-handle:active{cursor:grabbing}
-.organizer-mini:hover,.organizer-expander:hover,.organizer-handle:hover{background:#e8eff9;color:#3159d7}
-.organizer-node-title{min-width:0;flex:1;background:none;border:0;text-align:left;color:#263a56;padding:5px 2px;font-weight:620;overflow-wrap:anywhere;font-size:12px}
-.organizer-node-title:hover{color:var(--blue);text-decoration:underline}
-.organizer-node-count{font-size:10px;color:#91a0b6;white-space:nowrap}
-.organizer-drop{height:9px;border-radius:7px;margin:2px 0;position:relative;background:transparent;border:1px dashed transparent}
-.organizer-drop span{display:none;pointer-events:none}
-.organizer-drop.drop-active{height:36px;border:2px dashed #4a79db;background:#edf3ff;color:#3356a7;display:flex;align-items:center;justify-content:center;font-size:11px}
-.organizer-drop.drop-active span{display:inline}
-.organizer-root-drop{margin-bottom:4px}.organizer-root-drop .organizer-drop{height:16px}
-.organizer-top-form{max-width:640px;margin-bottom:17px}
-.inline-task-form{background:#f6f9ff;border:1px solid #d6e2f6;border-radius:9px;padding:13px;margin:8px 2px}
-.inline-task-form .field label{font-size:10px}.inline-task-form .form-grid{gap:9px}.inline-task-form textarea{min-height:64px}
-.organizer-handle.dragging{opacity:.35}
-.organizing-drag .organizer-drop{height:22px;border:1px dashed #cbdaf3;background:#f4f7ff;display:flex;align-items:center;justify-content:center;color:#7183a4;font-size:10px}
-.organizing-drag .organizer-drop span{display:inline}
-.organizing-drag .organizer-drop.drop-active{height:36px;border:2px dashed #4a79db;background:#e9f1ff;color:#3159d7}
-.organizing-drag .organizer-node-row{border:1px dashed #dae4f4}
-@media(max-width:780px){.organizer-grid{grid-template-columns:1fr}.organizer-node-row{flex-wrap:nowrap}.organizer-mini{min-width:21px}.organizer-intro{font-size:12px}}
 
 .component-lane .list{max-height:620px;overflow:auto}.component-lane .list-row{align-items:flex-start}.component-lane .list-row p{margin-top:7px}.component-lane .card-head h2{font-size:19px}
 
@@ -643,7 +614,7 @@ if(!initialWorkspace && db.users.some(function(u){return u.id===currentUser&&u.r
   initialPage="studio";
 var ui={page:initialPage,task:"t5",solution:"s1",solutionView:"solutions",bench:"runs",matrix:"task",
  matrixTarget:"t5",filters:{},expanded:{},modal:"",detail:"",
- selectedCompare:["s1","s2","s3"],adminTab:"queue",taskView:"browse",
+ selectedCompare:["s1","s2","s3"],adminTab:"queue",
  editingTask:"",inlineDraft:null,draggedTask:""};
 function user(){return db.users.find(function(x){return x.id===currentUser;});}
 function canEdit(){return !!user()&&user().role==="workgroup";}
@@ -1059,8 +1030,34 @@ if(catalogRoot)window.AICompassSharedCatalog.mount(catalogRoot,demoDomain,{mode:
 }
 function login(){document.getElementById("app").innerHTML='<div class="login-wall"><div class="login-box"><div class="row"><div class="brand-mark">✦</div><div><h1>AI Compass</h1><p class="muted">Interactive product workflow prototype</p></div></div><p class="lead">Select a simulated account to explore role-specific journeys. No password or server authentication is used; all data stays in this browser.</p><div class="login-users">'+db.users.map(function(u){return '<button class="login-user" data-act="login" data-id="'+E(u.id)+'"><span class="avatar">'+E(u.initials)+'</span><span><strong>'+E(u.name)+'</strong><span class="tiny-role">'+E(u.role)+' · '+E(u.bu)+'</span></span></button>';}).join("")+'</div><hr class="divider"><div class="row-between"><span class="muted small">Mock accounts · no real security · shared local data</span>'+btn("Reset demo dataset","reset","","sm")+'</div></div></div>';}
 function modal(){if(!ui.modal)return "";return '<div class="modal-backdrop" id="backdrop"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="dialog-title"><div class="modal-header"><h2 id="dialog-title">'+E(ui.modalTitle||"Details")+'</h2><button class="x" data-act="close" aria-label="Close dialog">×</button></div><div class="modal-body">'+(ui.modalBody||"")+'</div>'+(ui.modalFooter?'<div class="modal-footer">'+ui.modalFooter+'</div>':"")+'</div></div>';}
-function openModal(title,body,footer){ui.modal="shown";ui.modalTitle=title;ui.modalBody=body;ui.modalFooter=footer||"";render();}
-function closeModal(){ui.modal="";render();}
+/* Keyboard and dialog contract: remember which control opened the dialog so
+ * focus returns there on close, and move focus into the dialog on open. */
+function modalOpenerIdentity(node){
+ if(!node||!node.dataset)return null;
+ var act=node.dataset.act||"",domId=node.id||"";
+ if(!act&&!domId)return null;
+ return {act:act,id:node.dataset.id||"",domId:domId};
+}
+function restoreModalOpener(opener){
+ if(!opener)return;
+ var target=opener.domId?document.getElementById(opener.domId):null;
+ if(!target&&opener.act)target=document.querySelector('[data-act="'+opener.act+'"][data-id="'+(opener.id||"")+'"]');
+ if(!target&&opener.act)target=document.querySelector('[data-act="'+opener.act+'"]');
+ if(target&&typeof target.focus==="function")target.focus();
+}
+function openModal(title,body,footer){
+ // Only the first open of a dialog chain records the trigger: re-rendering an
+ // open dialog must not overwrite the control focus will return to.
+ if(ui.modal!=="shown")ui.modalOpener=modalOpenerIdentity(document.activeElement);
+ ui.modal="shown";ui.modalTitle=title;ui.modalBody=body;ui.modalFooter=footer||"";render();
+ var dialog=document.getElementById("backdrop");
+ var closer=dialog&&dialog.querySelector(".x");
+ if(closer&&typeof closer.focus==="function")closer.focus();
+}
+function closeModal(){
+ var opener=ui.modalOpener;ui.modalOpener=null;ui.modal="";render();
+ restoreModalOpener(opener);
+}
 function modalContainsForm(){
  // Detect the rendered form rather than a specific form ID, including forms in detail modals.
  var backdrop=document.getElementById("backdrop");
@@ -1129,133 +1126,7 @@ var latest=section("What changed",eventList(db.events.slice(0,5)),btn("Full feed
 var champions=section("Recently evaluated solutions",'<div class="list">'+db.solutions.filter(function(s){return sRuns(s.id).length;}).map(function(s){var st=solutionStats(s.id);return {s:s,st:st};}).sort(function(a,b){return b.st.count-a.st.count;}).slice(0,5).map(function(o){return '<div class="list-row"><div>'+linkAction(o.s.name,"solution",o.s.id)+'<div class="muted small">'+E(o.s.harness)+' · '+o.st.count+' runs</div></div><span class="score">'+o.st.score+'/100</span></div>';}).join("")+'</div>');
 return heading("Decision workspace","Find the right AI for the work","One shared evidence base for technology watch, repeatable experiments, engineer guidance and management reporting.",btn("Explore tasks","nav","tasks","primary")+btn("Benchmark lab","nav","benchmark"))+overview+'<div class="grid g2" style="margin-top:18px">'+quickest+latest+champions+section("How this prototype works",'<div class="note"><strong>Try different roles.</strong> Engineers submit feedback. Workgroup members define cases, record runs and publish recommendations. Management reviews coverage and value. Every action writes to localStorage.</div><hr class="divider"><h3>Suggested end-to-end journey</h3><p class="muted small" style="margin-top:7px">Task → common Test Case → compare solutions → inspect run evidence → file feedback → workgroup triage → new TC → run → publish → updated recommendation.</p><div class="inline-actions" style="margin-top:16px">'+btn("Switch user","switch","","sm")+btn("Export all records","export","","sm")+'</div>')+'</div>';
 }
-function taskNodeMatches(id){
-var q=(ui.filters.taskSearch||"").toLowerCase(),phase=ui.filters.taskPhase||"all";
-return descendants(id).some(function(key){var t=rec("tasks",key);return t&&(!q||(t.name+" "+t.desc+" "+t.domain+" "+t.phase).toLowerCase().includes(q))&&(phase==="all"||String(t.phase).includes(phase));});
-}
 
-/* Task organizer: inline editing, ordered sections, and native HTML5 drag & drop. */
-function siblingOrder(parent){return children(parent||null);}
-function isValidTaskMove(id,parent,before){
- var task=rec("tasks",id),target=parent?rec("tasks",parent):null;
- if(!task||(parent&&!target)||id===parent||descendants(id).includes(parent))return false;
- if(before&&(before===id||!rec("tasks",before)||rec("tasks",before).parent!==(parent||null)))return false;
- return true;
-}
-function moveTaskNode(id,parent,before){
- if(!canEdit())return false;
- parent=parent||null;before=before||"";
- if(!isValidTaskMove(id,parent,before))return false;
- var item=rec("tasks",id),oldParent=item.parent||null,oldPosition=siblingOrder(oldParent).findIndex(function(x){return x.id===id;});
- var sourceSiblings=siblingOrder(oldParent).filter(function(x){return x.id!==id;});
- var destination=(oldParent===parent?sourceSiblings:siblingOrder(parent).slice());
- var insertAt=before?destination.findIndex(function(x){return x.id===before;}):destination.length;
- if(insertAt<0)return false;
- if(oldParent===parent&&oldPosition===insertAt)return false;
- var beforeRecord=JSON.parse(JSON.stringify(item));
- item.parent=parent;destination.splice(insertAt,0,item);
- if(oldParent!==parent)sourceSiblings.forEach(function(x,i){x.order=i;});
- destination.forEach(function(x,i){x.order=i;});
- revision("Task",id,beforeRecord,item);
- ui.expanded[parent||""]=true;ui.task=id;
- event("Task","Reorganized "+item.name+" under "+(parent?(rec("tasks",parent)?.name||"unknown"):"root sections"));
- persist();return true;
-}
-function inlineTaskFields(task,parent,mode){
- var existing=mode==="edit",values=task||{},excluded=existing?descendants(task.id):[],
- options=[["","Top-level section"]].concat(db.tasks.filter(function(t){return !excluded.includes(t.id);}).map(function(t){return[t.id,ancestors(t.id).map(function(a){return a.name;}).join(" / ")];}));
- var name=E(values.name||""),id=E(values.id||"");
- return '<form class="inline-task-form" data-inline-task="'+E(mode)+'" data-task-id="'+id+'" data-new-parent="'+E(parent||"")+'">'+
- '<div class="form-grid">'+
- field("name","Node name",values.name||"","text","full")+
- selectField("parent","Parent / section (alternative to dragging)",options,existing?values.parent||"":parent||"",true)+
- field("phase","Engineering phase",values.phase||"SWE")+
- field("domain","Domain / specialty",values.domain||"Engineering")+
- field("baseline","Engineer baseline (minutes)",values.baseline||0,"number")+
- selectField("status","Lifecycle",[["active","Active"],["retired","Retired"]],values.status||"active")+
- field("desc","Description",values.desc||"","textarea","full")+
- field("criteria","DoD and evaluation expectations",values.criteria||"","textarea","full")+
- '</div><div class="inline-actions" style="justify-content:flex-end;margin-top:11px"><button type="button" class="btn sm" data-act="organizeCancel">Cancel</button>'+
- '<button type="submit" class="btn sm primary">'+(existing?"Save changes":"Create node")+'</button></div></form>';
-}
-function taskDropZone(parent,before,label){
- return '<div class="organizer-drop" data-drop-parent="'+E(parent||"")+'" data-drop-before="'+E(before||"")+'" aria-label="'+E(label||"Drop task here")+'"><span>Drop here · '+E(label||"reorder")+'</span></div>';
-}
-function taskOrganizerNode(task,depth){
- var isEditing=ui.editingTask===task.id,hasKids=children(task.id).length>0,expanded=ui.expanded[task.id]!==false;
- var kids=children(task.id);
- var self=taskDropZone(task.parent,task.id,"insert before "+task.name)+
- '<div class="organizer-node" data-organizer-id="'+E(task.id)+'"><div class="organizer-node-row'+(ui.task===task.id?' selected':'')+'" data-drop-inside="'+E(task.id)+'">'+
- '<button class="organizer-handle" type="button" draggable="true" data-task-drag="'+E(task.id)+'" title="Drag to move or reorder" aria-label="Drag '+E(task.name)+'">⠿</button>'+
- '<button class="organizer-expander" data-act="expand" data-id="'+E(task.id)+'" aria-label="Expand / collapse">'+(hasKids?(expanded?"▾":"▸"):"·")+'</button>'+
- '<button class="organizer-node-title" data-act="organizeSelect" data-id="'+E(task.id)+'">'+E(task.name)+'</button>'+
- (task.status==="retired"?badge("retired"):"")+
- '<span class="organizer-node-count">'+db.cases.filter(function(c){return c.task===task.id;}).length+' TC</span>'+
- '<button class="organizer-mini" data-act="organizeUp" data-id="'+E(task.id)+'" title="Move up" aria-label="Move '+E(task.name)+' up">↑</button>'+
- '<button class="organizer-mini" data-act="organizeDown" data-id="'+E(task.id)+'" title="Move down" aria-label="Move '+E(task.name)+' down">↓</button>'+
- '<button class="organizer-mini" data-act="organizeAddChild" data-id="'+E(task.id)+'" title="Add child" aria-label="Add child to '+E(task.name)+'">＋</button>'+
- '<button class="organizer-mini" data-act="organizeEdit" data-id="'+E(task.id)+'" title="Edit in place" aria-label="Edit '+E(task.name)+'">✎</button>'+
- '</div>'+
- (isEditing?inlineTaskFields(task,task.parent,"edit"):"")+
- (ui.inlineDraft&&ui.inlineDraft.parent===task.id?inlineTaskFields(null,task.id,"create"):"")+
- (expanded?'<div class="organizer-children">'+kids.map(function(x){return taskOrganizerNode(x,depth+1);}).join("")+taskDropZone(task.id,"",hasKids?"append under "+task.name:"make child of "+task.name)+'</div>':"")+
- '</div>';
- return self;
-}
-function taskOrganizerPage(){
- var roots=children(null),sections=roots.map(function(t){
- return '<section class="organizer-section">'+
- '<div class="organizer-section-top">'+
- '<div><span class="eyebrow">Section</span><h3>'+E(t.name)+'</h3><span class="muted small">'+descendants(t.id).length+' nodes · '+db.cases.filter(function(c){return descendants(t.id).includes(c.task);}).length+' test cases</span></div>'+
- '<div class="inline-actions"><button class="organizer-mini" data-act="organizeEdit" data-id="'+E(t.id)+'" title="Edit section">✎</button><button class="organizer-mini" data-act="organizeAddChild" data-id="'+E(t.id)+'" title="Add task">＋</button></div></div>'+
- taskOrganizerNode(t,0)+'</section>';
- }).join("");
- return '<div class="organizer-intro note">Drag a node using <strong>⠿</strong>. Drop <strong>on another node</strong> to make it a child, or <strong>on a separator</strong> to reorder between siblings. You can also edit a node directly, choose a different parent, or use ↑/↓. Existing Test Cases and historical runs keep their IDs and original experimental snapshots.</div>'+
- (ui.inlineDraft&&ui.inlineDraft.parent===null?'<section class="card organizer-top-form"><h3>New top-level section</h3>'+inlineTaskFields(null,null,"create")+'</section>':"")+
- '<div class="organizer-root-drop">'+taskDropZone(null,roots[0]?.id||"","move to first top-level section")+'</div>'+
- '<div class="organizer-grid">'+sections+'</div>'+
- '<div class="organizer-root-drop">'+taskDropZone(null,"","append top-level section")+'</div>';
-}
-function taskOrganizerReorder(id,direction){
- var t=rec("tasks",id);if(!t)return false;
- var siblings=siblingOrder(t.parent),i=siblings.findIndex(function(x){return x.id===id;});
- if(direction==="up"&&i>0)return moveTaskNode(id,t.parent,siblings[i-1].id);
- if(direction==="down"&&i<siblings.length-1)return moveTaskNode(id,t.parent,siblings[i+2]?.id||"");
- return false;
-}
-function saveInlineTask(form){
- if(!canEdit())return false;
- var d=formValue(form),mode=form.dataset.inlineTask,id=form.dataset.taskId||"",parent=d.parent||null,old=rec("tasks",id);
- var name=String(d.name||"").trim();
- if(!name){toast("Task name is required.");return false;}
- if(mode==="edit"){
-  if(!old)return false;
-  if(parent&&descendants(id).includes(parent)){toast("Cannot move a task into itself or a descendant.");return false;}
-  var previous=JSON.parse(JSON.stringify(old));
-  Object.assign(old,{name:name,phase:d.phase||"",domain:d.domain||"",baseline:toNum(d.baseline),status:d.status||"active",desc:d.desc||"",criteria:d.criteria||""});
-  if(JSON.stringify(previous)!==JSON.stringify(old))revision("Task",id,previous,old);
-  if((old.parent||null)!==parent)moveTaskNode(id,parent,"");
-  event("Task","Updated task in place: "+old.name);
-  ui.task=id;ui.editingTask="";
- }else{
-  var node={id:next("t"),parent:parent,name:name,phase:d.phase||"SWE",domain:d.domain||"Engineering",baseline:toNum(d.baseline),status:d.status||"active",desc:d.desc||"",criteria:d.criteria||"",order:siblingOrder(parent).length};
-  db.tasks.push(node);
-  event("Task","Added task in place: "+node.name);
-  ui.task=node.id;ui.expanded[parent||""]=true;ui.inlineDraft=null;
- }
- persist();render();toast("Task hierarchy saved in this browser.");return true;
-}
-function dropTaskOn(id,parent,before){
- if(!canEdit())return false;
- var ok=moveTaskNode(id,parent,before);
- if(ok){ui.inlineDraft=null;ui.editingTask="";render();toast("Task moved. Benchmarks remain linked to the same task IDs.");}
- else toast("Move not possible: invalid target or unchanged position.");
- return ok;
-}
-
-function treeHtml(parent,level){
-return db.tasks.filter(function(t){return t.parent===parent&&taskNodeMatches(t.id);}).map(function(t){var has=children(t.id).length>0,expanded=!!ui.filters.taskSearch||ui.expanded[t.id]!==false,n=db.cases.filter(function(c){return descendants(t.id).includes(c.task);}).length,f=db.proposals.filter(function(p){return forecastVisible(p)&&descendants(t.id).includes(p.task);}).length;return '<div><div style="display:flex;align-items:center;padding-left:'+(level*15)+'px"><button class="tree-row'+(ui.task===t.id?' selected':'')+'" data-act="task" data-id="'+E(t.id)+'"><span class="tree-chevron">'+(has?(expanded?"▾":"▸"):"·")+'</span><span>'+E(t.name)+'</span><span class="tree-num">'+n+' TC'+(f?' · '+f+' forecast':'')+'</span></button>'+(has?'<button class="btn sm ghost" aria-label="Expand or collapse '+E(t.name)+'" data-act="expand" data-id="'+E(t.id)+'">'+(expanded?"−":"+")+'</button>':"")+'</div>'+(has&&expanded?treeHtml(t.id,level+1):"")+'</div>';}).join("");
-}
 function taskEvidence(id){
 var rs=runsForTask(id,true),cases=db.cases.filter(function(c){return descendants(id).includes(c.task);}),solutions=db.solutions.filter(function(s){return rs.some(function(r){return r.solution===s.id;});});
 var rows=solutions.map(function(s){var own=rs.filter(function(r){return r.solution===s.id;}),stats=solutionStats(s.id,own),total=cases.length,tested=new Set(own.map(function(r){return r.case;})).size;return '<tr>'+td(linkAction(s.name,"solution",s.id))+td('<span class="score'+(stats.score<75?' low':stats.score<85?' mid':'')+'">'+stats.score+'/100</span>')+td(stats.accept+"%")+td(tested+"/"+total+" cases")+td(stats.effort+" min")+td(money(stats.cost))+td(btn("Runs","benchSolution",s.id,"sm"))+'</tr>';});
@@ -1288,7 +1159,6 @@ return heading("Explore","Engineering task hierarchy",
  '<div id="server-task-list"></div><section id="server-task-editor" hidden></section>' +
  '<pre id="server-task-history" hidden></pre></section>' +
  '<section class="card" style="margin-top:16px">'+details+'</section>';
-return heading("Explore","Engineering task hierarchy","An evolving, arbitrary-depth tree. Test Cases are experimental challenges attached to tasks, not branches of the taxonomy.",(canEdit()?btn(ui.taskView==="organize"?"✓ Done organizing":"↗ Organize tree","organizeToggle","","primary")+(ui.taskView==="organize"?btn("+ Root section","organizeAddRoot","",""):btn("+ New task node","newTask",t.id,"")):""))+(canEdit()&&ui.taskView==="organize"?taskOrganizerPage():'<div class="split"><section class="card"><div class="card-head"><h2>Task taxonomy</h2>'+badge(db.tasks.length+" nodes")+'</div><div class="filters"><input class="input" data-filter="taskSearch" placeholder="Find task, domain, specialty…" value="'+E(ui.filters.taskSearch||"")+'"><select data-filter="taskPhase">'+[["all","All activities"],["SWE","Software / SWE"],["SYS","Systems / SYS"],["Support","Support"]].map(function(x){return opt(x[0],x[1],ui.filters.taskPhase||"all");}).join("")+'</select></div><div class="tree">'+treeHtml(null,0)+'</div><p class="helper">Select a node to view its DoD, descendants, attached TCs and evaluated solutions.</p></section><section class="card">'+details+'</section></div>');
 }
 function solutionCard(s){
 var stats=solutionStats(s.id),checked=ui.selectedCompare.includes(s.id);
@@ -1346,6 +1216,29 @@ var s=rec("solutions",id);if(!s||!visibleSolution(s))return;var rs=sRuns(id),sta
 var html='<div class="grid g2">'+stat("Published runs",stats.count,cases.size+" distinct test cases")+stat("Mean result",stats.count?stats.score+"/100":"Unknown",stats.count?stats.accept+"% accepted":"No controlled evidence")+'</div><hr class="divider"><div class="tags">'+badge(s.accessible?"Accessible":"Not accessible")+badge(s.maturity)+badge(s.publication)+'</div>'+(s.publication==="superseded"||s.publication==="retired"?'<div class="note warn" style="margin-top:13px">Historical recommendation only. '+(s.supersededBy?"Suggested successor: "+linkAction(rec("solutions",s.supersededBy)?.name||"Unknown","solution",s.supersededBy):"No successor designated.")+'</div>':"")+'<p class="muted small" style="margin-top:12px">Last reviewed: '+E(s.lastReviewed||"Not recorded")+'</p><p style="margin-top:13px">'+E(s.description)+'</p><h3 style="margin:18px 0 8px">Recommended use</h3><div class="callout">'+E(s.recommendation)+'</div><h3 style="margin:17px 0 8px">Configuration snapshot</h3><pre class="code">'+E(s.config)+'</pre><h3 style="margin:16px 0 7px">Capabilities</h3><p>'+E(s.skills)+'</p><h3 style="margin:16px 0 7px">Limitations</h3><p class="muted">'+E(s.limitations)+'</p><h3 style="margin:18px 0 8px">Benchmark evidence</h3>'+simpleTable(["Case","Score","Accepted","Evidence"],rs.map(function(r){return '<tr>'+td(E(rec("cases",r.case)?.title||r.case))+td('<span class="score">'+r.score+'</span>')+td(badge(r.accepted?"Accepted":"Failed"))+td(btn("Inspect","runDetail",r.id,"sm"))+'</tr>';}))+(canEdit()?'<div class="inline-actions" style="margin-top:15px">'+btn("Edit solution","editSolution",id,"sm")+btn("Update recommendation","editRecommendation",id,"sm")+btn("Plan campaign with solution","newRunForSolution",id,"primary sm")+'</div>':'');
 openModal(s.name,html);
 }
+function recommendationDetail(id){
+var s=rec("solutions",id);if(!s||!visibleSolution(s))return;
+var st=solutionStats(s.id);
+var projection={
+ title:s.name,
+ identity:[s.id,s.publication||"draft","Last reviewed: "+(s.lastReviewed||"not recorded")],
+ sections:[
+  {label:"Recommendation",value:s.recommendation||"Not yet qualified; no official usage guidance."},
+  {label:"Limitations",value:s.limitations||""},
+  {label:"Benchmark evidence",value:st.count?(st.score+"/100 mean over "+st.count+" published Run(s), "+st.accept+"% accepted"):"No controlled evidence"},
+  {label:"Declared price band",value:s.cost||"Unknown"}
+ ],
+ notices:[
+  (s.publication==="superseded"||s.publication==="retired")?
+   ("Historical recommendation only"+(s.supersededBy?" \u00b7 suggested successor: "+(rec("solutions",s.supersededBy)?.name||"Unknown"):"")):"",
+  "Demo keeps recommendation edits in local storage; the immutable review/withdraw workflow is authenticated Server-only."
+ ],
+ links:[]
+};
+openModal("Recommendation detail",
+ window.AICompassWorkgroup.renderDomainDetail(projection,{mode:"demo",domain:"recommendations"}),
+ '<button type="button" data-act="solution" data-id="'+E(s.id)+'">Open full solution detail</button>');
+}
 function recommendationsPage(){
 var solutions=db.solutions.filter(function(s){return visibleSolution(s);});
 var rows=solutions.map(function(s){
@@ -1354,7 +1247,7 @@ var rows=solutions.map(function(s){
    facts:[s.model,s.harness,s.accessible?"Accessible":"Not accessible",s.maturity,
      st.count?st.score+"/100 · "+st.count+" runs":"Unbenchmarked"].concat(
        s.supersededBy?["Successor: "+(rec("solutions",s.supersededBy)?.name||"Unknown")]:[]),
-   actions:[{label:"Inspect solution",attributes:{"data-act":"solution","data-id":s.id}}].concat(
+   actions:[{label:"Recommendation detail",attributes:{"data-act":"recommendationDetail","data-id":s.id}}].concat(
      canEdit()?[{label:"Revise",attributes:{"data-act":"editRecommendation","data-id":s.id}}]:[])
  };
 });
@@ -1494,7 +1387,29 @@ var targetOpts=mode==="task"?db.tasks.filter(function(t){return db.cases.some(fu
 var controls='<div class="filters"><label class="small">Benchmark perspective</label><select data-filter="matrixMode">'+opt("task","Task → compare solutions",mode)+opt("solution","Solution → compare tasks",mode)+'</select><select data-filter="matrixTarget">'+targetOpts.join("")+'</select></div>';
 var cs=mode==="task"?db.cases.filter(function(c){return descendants(target).includes(c.task);}):db.cases.filter(function(c){return db.runs.some(function(r){return r.case===c.id&&r.solution===target&&r.status==="published";});});
 var cols=mode==="task"?db.solutions.filter(function(s){return visibleSolution(s)&&db.runs.some(function(r){return r.solution===s.id&&cs.some(function(c){return c.id===r.case;})&&r.status==="published";});}):[rec("solutions",target)].filter(function(s){return s&&visibleSolution(s);});
-var matrix=cs.length?simpleTable(["Common test case / task"].concat(cols.map(function(s){return s.name;})),cs.map(function(c){return '<tr>'+td(linkAction(c.title,"caseDetail",c.id)+'<div class="muted small">'+E(rec("tasks",c.task)?.name||"")+'</div>')+cols.map(function(s){var rs=db.runs.filter(function(r){return r.case===c.id&&r.solution===s.id&&r.status==="published";});return td(rs.length?'<span class="score'+(avg(rs.map(function(x){return x.score;}))<75?' low':'')+'">'+Math.round(avg(rs.map(function(x){return x.score;})))+'/100</span><div class="muted small">'+rs.length+' run(s)</div>':'<span class="muted">Not tested</span>');}).join("")+'</tr>';}).concat([ '<tr>'+td("<strong>Coverage</strong>")+cols.map(function(s){return td(db.cases.filter(function(c){return cs.some(function(x){return x.id===c.id;})&&db.runs.some(function(r){return r.case===c.id&&r.solution===s.id&&r.status==="published";});}).length+"/"+cs.length+" cases");}).join("")+'</tr>' ])):'<div class="empty">No matching published evidence yet.</div>';
+var matrix=cs.length?window.AICompassWorkgroup.renderObservationMatrix({
+ rowAxis:"Common test case / task",columnAxis:"AI Solution",
+ columnLabels:cols.map(function(s){return {key:s.id,label:s.name};}),
+ counts:[{label:"published Run(s) in scope",value:db.runs.filter(function(r){
+   return r.status==="published"&&cs.some(function(c){return c.id===r.case;});}).length}],
+ rows:cs.map(function(c){
+  return {key:c.id,label:c.title,detail:rec("tasks",c.task)?.name||"",
+   rowAction:{label:"Open Test Case",attributes:{"data-act":"caseDetail","data-id":c.id}},
+   columns:cols.map(function(sv){
+    var rs=db.runs.filter(function(r){return r.case===c.id&&r.solution===sv.id&&r.status==="published";});
+    if(!rs.length)return {key:sv.id,observations:0};
+    var score=Math.round(avg(rs.map(function(x){return x.score;})));
+    return {key:sv.id,observations:rs.length,value:score+"/100",
+     tone:score<75?"low":score<85?"mid":"",hint:rs.length+" run(s)",
+     ids:rs.map(function(r){return {id:r.id,action:{label:"Run "+r.id,
+      attributes:{"data-act":"runDetail","data-id":r.id}}};})};})};}),
+ footerRow:{label:"Coverage",columns:cols.map(function(sv){
+  return {key:sv.id,value:db.cases.filter(function(c){
+    return cs.some(function(x){return x.id===c.id;})&&db.runs.some(function(r){
+      return r.case===c.id&&r.solution===sv.id&&r.status==="published";});}).length+"/"+cs.length+" cases"};})},
+ notices:["Scores summarize observed results only. Missing comparisons are unknown, not zero. "+
+  "For audited comparison, open each run and inspect its context and Definition of Done."]
+},{mode:"demo",domain:"results",emptyRowText:"Not tested"}):'<div class="empty">No matching published evidence yet.</div>';
 return controls+'<div class="note" style="margin-bottom:16px"><strong>'+E(mode==="task"?"Task-centric benchmark":"Solution-centric benchmark")+'</strong> · '+E(mode==="task"?"Same task and test cases, multiple solutions. Compare common cases, not unequal portfolios.":"One solution across tasks and concrete cases; reveal its actual coverage.")+'</div>'+matrix+'<p class="helper">Scores summarize observed results only. Missing comparisons are unknown, not zero. For audited comparison, open each run and inspect its context and DoD.</p>';
 }
 
@@ -1591,15 +1506,15 @@ function dialogResearch(id,watchId){
 if(!canEdit())return;
 var e=rec("researchEvidence",id),w=rec("watch",watchId);
 openForm(e?"Edit external evidence":"Register literature or performance estimate",e?"researchEdit":"research",
-field("title","Source / assessment title",e?.title||"","text","full")+
-selectField("type","Evidence category",[["Independent benchmark","Independent benchmark"],["Vendor claim","Provider/vendor claim"],["Research paper","Research paper"],["Expert estimate","Workgroup estimate"],["Other","Other literature"]],e?.type||"Independent benchmark")+
-selectField("confidence","Confidence",[["low","Low / unverified"],["medium","Medium"],["high","High"]],e?.confidence||"low")+
-selectField("publication","Source visibility",[["draft","Workgroup only"],["published","Published / shareable"]],e?.publication||"published")+
-selectField("signal","Related technology watch signal",[["","None"]].concat(db.watch.map(function(x){return[x.id,x.title];})),e?.signal||watchId||"")+
-selectField("component","Related catalog component",[["","Not linked"]].concat(db.components.map(function(x){return[x.id,x.type+": "+x.name];})),e?.component||w?.component||"")+
-field("source","Source URL, publication or citation",e?.source||"","text","full")+
-field("assessment","Findings, claimed performance and/or predictions",e?.assessment||"","textarea","full")+
-field("limitations","Methodology, uncertainty and assumptions",e?.limitations||"","textarea","full"),id,e?"Save evidence":"Register source");
+window.AICompassWorkgroup.renderDomainFields(window.AICompassWorkgroup.WATCH_SOURCE_FIELDS,{
+ title:e?.title||"",assessment:e?.assessment||"",source:e?.source||"",
+ type:e?.type||"Independent benchmark",confidence:e?.confidence||"low",
+ publication:e?.publication||"published",signal:e?.signal||watchId||"",
+ component:e?.component||w?.component||"",limitations:e?.limitations||""
+},"demo",{idPrefix:"research",choices:{
+ signal:db.watch.map(function(x){return [x.id,x.title];}),
+ component:db.components.map(function(x){return [x.id,x.type+": "+x.name];})}}),
+id,e?"Save evidence":"Register source");
 }
 function feedbackPage(){
 var search=(ui.filters.feedbackSearch||"").toLowerCase();
@@ -1767,18 +1682,21 @@ field("tags","Tags (comma separated)",s?.tags.join(", ")||"","text","full"),id,e
 function dialogRecommendation(id){
 var s=rec("solutions",id);if(!s)return;
 openForm("Publish / revise solution recommendation","recommendation",'<div class="span2 note"><strong>'+E(s.name)+'</strong><br>Publication does not erase historic experimental evidence. Decision changes are recorded in the activity feed.</div>'+
-field("recommendation","Recommendation / suitable usage",s.recommendation,"textarea","full")+
-field("limitations","Limitations and conditions",s.limitations,"textarea","full")+
-selectField("supersededBy","Replacement / successor solution",[["","No successor selected"]].concat(db.solutions.filter(function(x){return x.id!==id;}).map(function(x){return [x.id,x.name];})),s.supersededBy||"",true)+
-selectField("publication","Record publication status",[["draft","Draft"],["published","Published"],["superseded","Superseded"],["retired","Retired"]],s.publication),id,"Save recommendation");
+window.AICompassWorkgroup.renderDomainFields(window.AICompassWorkgroup.RECOMMENDATION_FIELDS,{
+ recommendation:s.recommendation||"",limitations:s.limitations||"",
+ supersededBy:s.supersededBy||"",publication:s.publication||"draft"
+},"demo",{idPrefix:"recommendation",choices:{supersededBy:db.solutions.filter(function(x){
+ return x.id!==id;}).map(function(x){return [x.id,x.name];})}}),
+id,"Save recommendation");
 }
 function dialogFeedback(){
 if(canEdit())return;
 openForm("Submit feedback, an idea or a need","feedback",
-selectField("type","Contribution type",[["Experience","Real-use feedback"],["Idea","New idea"],["Need","Missing capability / unmet need"]],"Experience")+
-selectField("target","Related task or solution",[["","General / unspecified"]].concat(db.tasks.filter(function(t){return t.baseline>0;}).map(function(t){return[t.id,"Task: "+t.name];})).concat(db.solutions.filter(visibleSolution).map(function(s){return[s.id,"Solution: "+s.name];})),"")+
-field("title","Short title","","text","full")+
-field("body","Context, observations and proposal","","textarea","full"),"","Submit feedback");
+window.AICompassWorkgroup.renderDomainFields(window.AICompassWorkgroup.FEEDBACK_THREAD_FIELDS,
+ {title:"",type:"Experience",target:"",body:""},"demo",{idPrefix:"feedback",
+ choices:{target:db.tasks.filter(function(t){return t.baseline>0;}).map(function(t){return[t.id,"Task: "+t.name];})
+  .concat(db.solutions.filter(visibleSolution).map(function(s){return[s.id,"Solution: "+s.name];}))}}),
+"","Submit feedback");
 }
 function dialogGuide(id){
 var g=rec("guides",id);
@@ -1819,12 +1737,19 @@ function dialogForecast(id,watchId,taskId){
 if(!canEdit())return;
 var p=rec("proposals",id),chosen=p?.watchIds|| (watchId?[watchId]:[]),task=p?rec("tasks",p.task):null,refs=p?.componentRefs||{};
 var inputs='<div class="span2 note">This is a <strong>theoretical configuration</strong>: expected outcomes from watch evidence, not observed performance. Its sources, assumptions and task scope must be explicit. Saving creates a draft, not a publication.</div>'+
-field("name","Forecast configuration name",p?.name||"","text","full")+
-selectField("task","Engineering task receiving this expected performance",[["","Select task"]].concat(db.tasks.filter(function(t){return t.baseline>0;}).map(function(t){return[t.id,t.name];})),p?.task||taskId||"",true)+
+window.AICompassWorkgroup.renderDomainFields(window.AICompassWorkgroup.FORECAST_FIELDS,{
+ name:p?.name||"",task:p?.task||taskId||"",
+ modelComponent:refs.model||"",providerComponent:refs.provider||"",harnessComponent:refs.harness||"",
+ config:p?.config||"",quality:p?.quality??"",acceptance:p?.acceptance??"",autonomy:p?.autonomy??"",
+ humanMinutes:p?.humanMinutes??"",aiCost:p?.aiCost??"",confidence:p?.confidence||"low",
+ rationale:p?.rationale||"",uncertainty:p?.uncertainty||"",
+ hourlyRate:p?.hourlyRate??60,revision:p?.revision||"1.0",reviewNotes:p?.reviewNotes||""
+},"demo",{idPrefix:"forecast",blankLabels:{task:"Select task"},choices:{
+ task:db.tasks.filter(function(t){return t.baseline>0;}).map(function(t){return[t.id,t.name];}),
+ modelComponent:comboComponentOptions("model"),providerComponent:comboComponentOptions("provider"),
+ harnessComponent:comboComponentOptions("harness")}})+
 '<div class="span2"><strong>Supporting watch signals (select one or more)</strong><p class="muted small">Multiple hypotheses and their external sources may support the same forecast.</p><div class="watch-link-list">'+forecastReferenceRows(db.watch,chosen)+'</div></div>'+
-selectField("modelComponent","Model (theoretical)",comboComponentOptions("model"),refs.model||"",true)+
-selectField("providerComponent","Provider (theoretical)",comboComponentOptions("provider"),refs.provider||"",true)+
-selectField("harnessComponent","Harness (theoretical)",comboComponentOptions("harness"),refs.harness||"",true)+'<details class="span2" style="margin:4px 0 11px"><summary class="pointer small"><strong>Component missing?</strong> Register model/provider/harness here (optional)</summary>'+
+ '<details class="span2" style="margin:4px 0 11px"><summary class="pointer small"><strong>Component missing?</strong> Register model/provider/harness here (optional)</summary>'+
 '<div class="note" style="margin:9px 0">These will be added as unverified items to Technology Catalog when this forecast is saved; the Watch Entry remains independent.</div><div class="form-grid">'+
 field("newModel","New model name (overrides selection)","")+
 field("newModelVersion","Model version","Unverified")+
@@ -1832,20 +1757,17 @@ field("newProvider","New provider name (overrides selection)","")+
 field("newProviderVersion","Provider version","Unverified")+
 field("newHarness","New harness name (overrides selection)","")+
 field("newHarnessVersion","Harness version","Unverified")+'</div></details>'+
-field("config","Assumed configuration, tools, versions and constraints",p?.config||"","textarea","full")+
-'<div class="span2"><h3>Predicted outcomes — NOT benchmark results</h3><p class="muted small">Scores are workgroup estimates (0–100); AI cost and engineer time refer to a hypothetical accepted-result attempt, not an observed run.</p></div>'+
-field("quality","Estimated quality /100",p?.quality??"","number")+
-field("acceptance","Estimated DoD acceptance (%)",p?.acceptance??"","number")+
-field("autonomy","Estimated agent autonomy /100",p?.autonomy??"","number")+
-field("humanMinutes","Estimated human involvement (minutes)",p?.humanMinutes??"","number")+
-field("aiCost","Expected model & tooling cost (€)",p?.aiCost??"","number")+
-field("hourlyRate","Assumed engineer hourly cost (€)",p?.hourlyRate??60,"number")+
-selectField("confidence","Confidence level",[["low","Low"],["medium","Medium"],["high","High"]],p?.confidence||"low")+
-field("revision","Projection revision",p?.revision||"1.0")+
-field("rationale","Inference and justification: why these metrics?",p?.rationale||"","textarea","full")+
-field("uncertainty","Uncertainty, caveats, what still needs validation",p?.uncertainty||"","textarea","full")+
-field("reviewNotes","Reviewer notes (recorded for future review)",p?.reviewNotes||"","textarea","full");
+ '<div class="span2 note warn">The predicted outcomes above are workgroup estimates (0–100) and NOT benchmark results. AI cost and engineer time refer to a hypothetical accepted-result attempt, not an observed run.</div>';
 openForm(p?"Edit theoretical forecast":"Draft theoretical configuration","forecast",inputs,id||"",p?"Save forecast":"Create draft forecast");
+}
+/* UX-R04: one guided-execution step presentation for Demo and Server. */
+function demoRunStepStepper(trial){
+ var step=Number(trial&&trial.step)||3;
+ var steps=[{key:3,label:"Installation & setup"},{key:4,label:"Timed interactions"},
+  {key:5,label:"Outcome, artifacts & metrics"}];
+ return '<div class="span2">'+window.AICompassWorkgroup.renderStepper(steps.map(function(s){
+  return {label:s.label,state:s.key<step?"done":s.key===step?"current":"todo"};}),
+  {mode:"demo",domain:"session"})+'</div>';
 }
 function watchVisibleForPublication(id){var w=rec("watch",id);return !!w&&w.publication==="published"&&watchEvidence(id).some(function(e){return e.publication==="published";});}
 function forecastValidity(p){
@@ -1894,21 +1816,27 @@ sources.map(function(e){return '<div class="list-row"><div><strong>'+E(e.title)+
 '<h3 style="margin:15px 0 6px">Review</h3><p class="muted small">'+E(p.reviewNotes||"Not reviewed yet")+'</p>'+
 (p.linkedSolution?'<div class="note">A measured AI solution was later created from this hypothesis: '+linkAction(rec("solutions",p.linkedSolution)?.name||p.linkedSolution,"solution",p.linkedSolution)+'</div>':"")+
 '<div class="note" style="margin-top:12px">Publishing a theoretical forecast never turns its estimated scores into measured benchmark results.</div>';
-var footer=btn("Close","close","","")+(canEdit()?btn("Compare evidence","forecastCompare",id,"")+(p.status!=="published"?btn("Edit","editForecast",id,""):"")+
-(p.status==="draft"?btn("Stage forecast","stageForecast",id,"primary"):p.status==="staged"?btn("Mark reviewed","reviewForecast",id,"primary"):p.status==="reviewed"?btn("Publish as theoretical","publishForecast",id,"primary"):btn("Create new revision","forkForecast",id,"primary")):"");
+var lifecycle=[];
+if(canEdit()){
+ if(p.status==="draft")lifecycle.push({key:"stage",attributes:{"data-act":"stageForecast","data-id":id}});
+ else if(p.status==="staged")lifecycle.push({key:"review",attributes:{"data-act":"reviewForecast","data-id":id}});
+ else if(p.status==="reviewed")lifecycle.push({key:"publish",attributes:{"data-act":"publishForecast","data-id":id}});
+ else lifecycle.push({key:"fork",attributes:{"data-act":"forkForecast","data-id":id}});
+}
+html+=window.AICompassWorkgroup.renderLifecycleActions(lifecycle,{mode:"demo",domain:"forecasts",
+ notice:"Current "+p.status+" · publishing a theoretical forecast never turns its estimates into measured results."});
+var footer=btn("Close","close","","")+(canEdit()?btn("Compare evidence","forecastCompare",id,"")+(p.status!=="published"?btn("Edit","editForecast",id,""):""):"");
 openModal("Theoretical configuration · "+p.name,html,footer);
 }
 function dialogWatch(id){
 if(!canEdit())return;
 var w=rec("watch",id),linked=w?sourceIdsForWatch(w.id):[];
 var body='<div class="span2 note">A Watch Entry records a reasoned hypothesis. Reuse sources from the shared evidence library or create new citations here; one source can support several hypotheses.</div>'+
-field("title","Signal or hypothesis title",w?.title||"","text","full")+
-selectField("kind","Technology theme",[["Model","Model"],["Provider","Provider"],["Harness","Harness"],["Configuration","Configuration / combination"],["Tool","Tools and integrations"],["Research","Research finding"]],w?.kind||"Configuration")+
-selectField("status","Evidence collection status",[["watching","Under review"],["pending","Collecting evidence"],["reviewed","Documented"]],w?.status||"watching")+
-selectField("publication","Watch evidence visibility",[["draft","Workgroup only — Draft"],["published","Published to readers"]],w?.publication||"draft")+
-field("hypothesis","Reasoned hypothesis / intuition",w?.hypothesis||w?.summary||"","textarea","full")+
-field("assumptions","Assumptions and conditions for engineering use",w?.assumptions||"","textarea","full")+
-field("potential","Expected benefit / engineering activities to investigate",w?.potential||"","textarea","full")+
+window.AICompassWorkgroup.renderDomainFields(window.AICompassWorkgroup.WATCH_ENTRY_FIELDS,{
+ title:w?.title||"",kind:w?.kind||"Configuration",status:w?.status||"watching",
+ publication:w?.publication||"draft",hypothesis:w?.hypothesis||w?.summary||"",
+ assumptions:w?.assumptions||"",potential:w?.potential||""
+},"demo",{idPrefix:"watch"})+
 '<div class="span2"><div class="row-between"><strong>Supporting evidence library</strong>'+badge(db.researchEvidence.length+" reusable sources")+'</div>'+
 '<p class="muted small" style="margin:8px 0">Search and select existing citations. Every reference is stored once and can be linked to multiple Watch Entries.</p>'+librarySourcePicker(linked)+
 '<details class="watch-new-source" style="margin-top:12px"><summary class="pointer small"><strong>+ Register a new source</strong></summary>'+
@@ -2193,7 +2121,7 @@ guidedField("tariffPlan","Selected fictional offer, frozen before execution (JSO
  '{"revision":"r001","currency":"EUR","lines":[{"source_key":"root:model","charge_id":"input","charge_type":"variable","meter":"input_tokens","unit_size":1000000,"rate":"2.5"},{"source_key":"root:harness","charge_id":"seat","charge_type":"fixed","period":"seat_month","rate":"20"}]}',
  "textarea","full","This offline example offer is fictional and revisioned, never a current vendor quote. Required consumption counters will be generated from its variable charge lines.")+
 guidedField("setupNotes","Installation deviations / deployment environment (optional)","","textarea","full","Record OS, machine, deviations from the selected guide and environment constraints. If validating a Technology Watch forecast, document deviations from its proposed configuration here.");
-openForm("Step 3 · Installation & setup","campaignTrialSetup",fields,campaignId,"Save setup → interactions");
+openForm("Step 3 · Installation & setup","campaignTrialSetup",demoRunStepStepper({step:3})+fields,campaignId,"Save setup → interactions");
 }
 function campaignTrialInteraction(id){
 var t=rec("campaignTrials",id),c=t&&rec("campaigns",t.campaign);
@@ -2214,7 +2142,7 @@ guidedField("promptUpdate","Prompt / instructions given during this interaction 
 guidedField("inputDocuments","Documents / inputs supplied at this interaction (optional)","","textarea","full","Include versioned paths or references to actual files introduced or changed at this point, not files merely installed.")+
 guidedField("providedSkills","Skills or options activated at this interaction (optional)","","textarea","full","Record any context or agent skill introduced, tool permission changes or configuration toggles during the experiment.")+
 guidedField("artifacts","Intermediate outputs / evidence references (optional)","","textarea","full","Intermediate files, trace links, screenshots or logs, not final deliverables.");
-openForm("Step 4 · Timed interactions","campaignInteraction",fields,id,"Save interaction & add another");
+openForm("Step 4 · Timed interactions","campaignInteraction",demoRunStepStepper({step:4})+fields,id,"Save interaction & add another");
 ui.modalFooter=btn("Back to campaign","openCampaign",t.campaign,"")+
 btn("Finish interactions → results","campaignFinishIterations",id,"primary")+
 '<button class="btn" type="submit" form="modalForm">+ Save interaction</button>';render();
@@ -2255,7 +2183,7 @@ durationField("correctionMinutes","Final human correction duration (minutes)",0,
 '<div class="span2"><h3>Produced outputs</h3></div>'+
 guidedField("outputDocuments","Produced outputs — documents, code, reports, artifacts, paths or links",t.pendingResults?.outputDocuments||"","textarea","full","List the final deliverables and their references/versions. This is the canonical output-evidence field; do not re-enter the same outputs elsewhere.")+
 guidedField("additionalNotes","Additional notes (optional)",t.pendingResults?.additionalNotes||"","textarea","full","Only supplementary observations not already captured in the two metric evaluations or the produced outputs.");
-openForm("Step 5 · Results, artifacts & metrics","campaignTrialOutcome",fields,id,"Close Test Case execution");
+openForm("Step 5 · Results, artifacts & metrics","campaignTrialOutcome",demoRunStepStepper({step:5})+fields,id,"Close Test Case execution");
 }
 function campaignReviewForm(id){
 var c=rec("campaigns",id);if(!canEdit()||!c||c.stage!=="review")return;
@@ -2354,15 +2282,27 @@ var forecastPanel=expectation?
 '<p class="small">Expected engineer time '+expectation.humanMinutes+' min · measured human effort '+effort(r)+' min</p>'+
 '<p class="small">Deviation from projected setup: '+E(r.forecastDeviation||"No deviations declared")+'</p>'+
 '<p class="small">Pinned forecast rationale: '+E(expectation.rationale)+'</p></div>':"";
-var html='<div class="row-between"><div>'+badge(r.status)+" "+badge(r.accepted?"DoD accepted":"DoD failed")+'</div><span class="muted small">'+E(r.date)+' · '+E(actor(r.owner))+'</span></div>'+
-'<h3 style="margin:15px 0 5px">'+E(c?.title||r.case)+' × '+E(r.frameworkAggregate?(r.frameworkSnapshot?.name||"Framework")+" collaborative workflow":s?.name||r.solution)+'</h3><p class="muted small">'+E(t?.name||"")+' · Test Case v'+E(c?.version||"Unknown")+'</p>'+
+/* UX-R04: the measured-Run identity, provenance and core metrics are the
+ * shared presentation; the Demo-only analysis blocks stay below. */
+var runProjection={
+ id:r.id,kind:r.frameworkAggregate?"framework":"individual",
+ outcome:r.accepted?"DoD accepted":"DoD failed",
+ title:E(c?.title||r.case)+' × '+E(r.frameworkAggregate?(r.frameworkSnapshot?.name||"Framework")+" collaborative workflow":s?.name||r.solution),
+ taskName:t?.name||"",testCaseName:c?.title||r.case,
+ testCaseRevision:c?.version?"v"+c.version:"",
+ metrics:[{label:"Quality rubric /100",value:r.score,
+   hint:r.accepted?"Mandatory criteria accepted":"Mandatory criteria failed"},
+  {label:"AI / tool spend",value:r.costMode==="flat"?"Flat-rate":r.costMode==="unknown"?"Unknown":money(r.cost),
+   hint:r.tokens===null||r.tokens===undefined?"Tokens unknown":fmt(r.tokens)+" total tokens"},
+  {label:"Human effort (minutes)",value:effort(r),
+   hint:baseline?baseline+" min baseline":"Baseline unavailable"}],
+ notices:[(r.status||"")+" · recorded "+E(r.date||"")+" · owner "+E(actor(r.owner))]};
+var html=window.AICompassWorkgroup.renderMeasuredRunDetail(runProjection,{mode:"demo"})+
 (r.frameworkAggregate?'<div class="note warn" style="margin:12px 0"><strong>Composite Framework outcome.</strong> Quality, utility, duration and cost describe the coordinated workflow; they must not be interpreted as per-participant scores.</div>'+
  '<h3 style="margin:13px 0 7px">Jointly executed participants</h3>'+
  (r.campaignSnapshot?.frameworkWorkflow?'<p class="small text-block">'+E(r.campaignSnapshot.frameworkWorkflow)+'</p>':"")+
  '<div class="list">'+
  (r.frameworkParticipantsSnapshots||[]).map(function(p){return '<div class="list-row"><div><strong>'+E(p.label)+'</strong><p class="small">'+["model","provider","harness"].map(function(k){return E(rec("components",p[k])?.name||p[k]);}).join(" / ")+'</p><p class="muted small">'+E(p.configuration||"")+'</p></div></div>';}).join("")+'</div>':"")+
-'<div class="grid g3" style="margin-top:17px">'+stat("Quality rubric",r.score+"/100",r.accepted?"Mandatory criteria accepted":"Mandatory criteria failed")+stat("AI / tool spend",r.costMode==="flat"?"Flat-rate":r.costMode==="unknown"?"Unknown":money(r.cost),
-r.tokens===null||r.tokens===undefined?"Tokens unknown":fmt(r.tokens)+" total tokens")+stat("Human effort",effort(r)+" min",(baseline?baseline+" min baseline":"Baseline unavailable"))+'</div>'+
 '<div class="card tight" style="margin-top:14px">'+bar("Preparation",baseline?100*r.prep/baseline:0,r.prep+" min")+bar("Steering",baseline?100*r.steer/baseline:0,r.steer+" min")+bar("Review",baseline?100*r.review/baseline:0,r.review+" min")+bar("Corrections",baseline?100*r.correction/baseline:0,r.correction+" min")+'</div>'+
 '<h3 style="margin:16px 0 7px">Original task taxonomy / inherited context</h3><div class="tags">'+(r.taskContextSnapshot||[]).map(function(x){return badge(x.name);}).join("")+'</div><h3 style="margin:16px 0 7px">Test context & acceptance</h3><p class="text-block">'+E(c?.objective||"")+'</p><div class="callout" style="margin:10px 0">Inputs: '+E(c?.inputs||"")+'<hr class="divider">Definition of Done: '+E(c?.dod||"")+'</div>'+
 '<div class="grid g2" style="margin-top:12px">'+stat("Information utility / density",r.utility+"/100","Declared usefulness of relevant/correct/actionable information")+stat("Agent runtime",displayMinutes(r.duration),"Sum of logged agent durations")+'</div><h3 style="margin:16px 0 7px">Observed side effects</h3><pre class="code">'+E(r.sideEffects||"None recorded")+'</pre><h3 style="margin:16px 0 7px">Pinned configuration / version at run time</h3><pre class="code">'+E(r.frameworkAggregate?r.initialSetup?.configuration||"":s?.config||"")+'</pre>'+
@@ -2448,17 +2388,17 @@ function demoComposedGuide(g){
   if(!module||(module.status!=="published"&&!canEdit())){
    missing.push("Unavailable pinned module "+key);return;
   }
-  sections.push('<details style="margin:9px 0"><summary>'+E(module.title)+' · '+E(pin.revision)+
-   '</summary><pre class="text-block" style="white-space:pre-wrap">'+E(module.body||"")+
-   '</pre>'+(module.url&&validSetupUrl(module.url)?'<p class="small">'+E(module.url)+'</p>':"")+'</details>');
+  sections.push({name:module.title,revision:pin.revision,text:module.body||"",
+   url:validSetupUrl(module.url)?module.url:""});
  });
  if(g.framework&&!recipe.modules.some(function(m){return m?.group==="framework_wiring";}))
   missing.push("Framework wiring and handoff verification not documented");
  if(!sections.length)missing.push("No pinned reusable module resolved");
- return '<div class="note" style="margin-top:14px"><strong>Reusable Setup Modules · offline Demo</strong>'+
- '<p class="small">Revision-pinned preview, not a validation of exact OS or setup applicability.</p>'+
- (missing.length?'<p class="small">Missing coverage: '+E(missing.join("; "))+'</p>':"")+
- sections.join("")+'</div>';
+ return window.AICompassWorkgroup.renderComposedSetup({title:g.title,revision:g.version,
+  ready:!missing.length,missing:missing,sections:sections},
+  {mode:"demo",domain:"guides",
+   notice:"Reusable Setup Modules · offline Demo. Revision-pinned preview, not a validation "+
+    "of exact OS or setup applicability."});
 }
 function detailsGuide(id){
  var g=rec("guides",id);if(!g||(!canEdit()&&g.status!=="published"))return;
@@ -2474,14 +2414,18 @@ function detailsGuide(id){
 function feedbackThreadMarkup(id){
 var msgs=db.feedbackMessages.filter(function(m){return m.feedback===id&&(canEdit()||m.visibility==="public");})
  .sort(function(a,b){return a.date.localeCompare(b.date)||a.id.localeCompare(b.id);});
-var list=msgs.map(function(m){
-return '<div class="feedback-message"><div class="row-between"><div class="row"><strong>'+E(actor(m.author))+'</strong> '+
-badge(m.visibility==="internal"?"INTERNAL · workgroup only":"PUBLIC")+'</div><span class="muted small">'+E(m.date.replace("T"," ").slice(0,19))+'</span></div>'+
-'<div class="text-block small" style="margin-top:8px">'+E(m.body)+'</div></div>';}).join("")||'<p class="muted small">No replies yet.</p>';
-var compose='<form class="feedback-reply-form" data-feedback="'+E(id)+'"><div class="row-between"><strong>Reply to the conversation</strong>'+
-(canEdit()?'<select name="visibility" aria-label="Visibility"><option value="public">Public response</option><option value="internal">Internal workgroup note</option></select>':
-'<input type="hidden" name="visibility" value="public">')+'</div>'+
-'<textarea name="reply" required placeholder="Write a reply…" rows="3"></textarea><div class="right" style="margin-top:8px"><button class="btn sm primary" type="submit">Post reply</button></div></form>';
+var list=window.AICompassWorkgroup.renderThread(msgs.map(function(m){
+ return {id:m.id,author:actor(m.author),at:m.date.replace("T"," ").slice(0,19),
+  visibility:m.visibility==="internal"?"internal":"public",body:m.body};}),
+ {mode:"demo",emptyText:"No replies yet."});
+var compose='<form class="feedback-reply-form" data-feedback="'+E(id)+'">'+
+'<div class="row-between"><strong>Reply to the conversation</strong></div>'+
+window.AICompassWorkgroup.renderDomainFields(window.AICompassWorkgroup.FEEDBACK_REPLY_FIELDS,
+ {visibility:"public",reply:""},"demo",{idPrefix:"feedback-reply",
+ locked:canEdit()?{}:{visibility:"public"},
+ choices:{visibility:[["public","Public response"],
+  ...(canEdit()?[["internal","Internal workgroup note"]]:[])]}})+
+'<div class="right" style="margin-top:8px"><button class="btn sm primary" type="submit">Post reply</button></div></form>';
 return '<section class="feedback-thread"><h3 style="margin-bottom:11px">Conversation · chronological history</h3>'+
 '<p class="muted small" style="margin-bottom:11px">Public and internal replies appear in their actual order. Private notes are visible only to workgroup members.</p>'+
 '<div class="feedback-messages">'+list+'</div>'+compose+'</section>';
@@ -2520,36 +2464,58 @@ function demoMatrixStatus(c,cell){
   "not_selected":closed.length?"evaluated":trials.some(function(t){return t.status!=="completed";})?
   "in_progress":"pending",runs:closed,attempts:trials};
 }
+/* UX-R04: the Demo adapter only supplies authorized fictional rows and routing.
+ * The grid, counters, cell detail and decision fields come from the shared
+ * Workgroup matrix component used by the authenticated Server too. */
+function demoCampaignPlanRevision(c){
+ var records=db.revisions.filter(function(x){return x.type==="Campaign plan"&&x.objectId===c.id;});
+ return "r"+String(Math.max(1,records.length+1)).padStart(3,"0");
+}
+function demoMatrixProjection(c){
+ var plan=c.matrixPlan||{configurations:[],cells:[]},
+  configurations=plan.configurations||[],cells=plan.cells||[];
+ var taskIds=Array.from(new Set(configurations.map(function(x){return x.taskId;})));
+ var caseIds=Array.from(new Set(cells.map(function(x){return x.caseId;})));
+ return {revision:demoCampaignPlanRevision(c),
+  tasks:taskIds.map(function(id){var t=rec("tasks",id);return {id:id,name:t?.name||id};}),
+  testCases:caseIds.map(function(id){var tc=rec("cases",id);
+   return {id:id,name:tc?.title||id,revision:tc?.version?"version "+tc.version:""};}),
+  configurations:configurations.map(function(cfg){
+   return {id:cfg.id,taskId:cfg.taskId,label:cfg.label,kind:cfg.frameworkId?"framework":"individual"};}),
+  cells:cells.map(function(cell){
+   var state=demoMatrixStatus(c,cell);
+   return {id:cell.id,configurationId:cell.configurationId,testCaseId:cell.caseId,
+    status:state.state,decision:cell.decision,
+    testCaseAction:{label:"Open Test Case context",
+     attributes:{"data-act":"caseDetail","data-id":cell.caseId}},
+    activeAttempts:state.attempts.filter(function(trial){return trial.status!=="completed";}).length,
+    runs:state.runs.map(function(run){return {id:run.id,
+     kind:run.frameworkAggregate?"framework":"individual",
+     outcome:run.accepted?"DoD accepted":"DoD failed",
+     action:{label:"Open measured Run",attributes:{"data-act":"runDetail","data-id":run.id}}}}),
+    waiver:cell.waiver?{reason:cell.waiver.reason,actor:actor(cell.waiver.actor),
+     at:cell.waiver.at||""}:null,
+    introducedRevision:cell.introducedRevision||""};})};
+}
 function demoMatrixMarkup(c){
- var plan=c.matrixPlan;if(!plan)return '<div class="note"><strong>Evaluation Matrix:</strong> not configured for this legacy Demo campaign.'+
+ if(!c.matrixPlan)return '<div class="note"><strong>Evaluation Matrix:</strong> not configured for this legacy Demo campaign.'+
  (canEdit()?btn("+ Plan Task × configuration evaluations","campaignMatrixAdd",c.id,"sm"):"")+'</div>';
- var byId=Object.fromEntries(plan.configurations.map(function(x){return[x.id,x];}));
- var stats={candidates:plan.cells.length,pending:0,in_progress:0,evaluated:0,waived:0,not_selected:0};
- plan.cells.forEach(function(cell){stats[demoMatrixStatus(c,cell).state]++;});
- var tasks=Array.from(new Set(plan.configurations.map(function(x){return x.taskId;})));
- return '<div class="card tight" style="margin-top:14px"><h3>Campaign Evaluation Matrix</h3>'+
- '<p class="small">Candidate cells: '+stats.candidates+' · Evaluated: '+stats.evaluated+
- ' · Pending: '+stats.pending+' · In Progress: '+stats.in_progress+' · Waived: '+stats.waived+
- ' · Not Selected: '+stats.not_selected+'</p>'+
- '<p class="small"><strong>Full plan: '+(stats.pending+stats.in_progress?"outstanding":"complete")+
- '</strong>. Failed DoD Runs count as completed attempts, not successful outcomes. Waivers and non-selection are not evidence.</p>'+
- tasks.map(function(taskId){
-  var configs=plan.configurations.filter(function(x){return x.taskId===taskId;}),
-   cells=plan.cells.filter(function(x){return byId[x.configurationId]?.taskId===taskId;}),
-   caseIds=Array.from(new Set(cells.map(function(x){return x.caseId;})));
-  return '<h4>'+E(rec("tasks",taskId)?.name||taskId)+'</h4><div style="overflow-x:auto"><table style="width:100%"><thead><tr><th>Test Case</th>'+
-   configs.map(function(cfg){return '<th>'+E(cfg.label)+'</th>';}).join("")+'</tr></thead><tbody>'+
-   caseIds.map(function(id){return '<tr><th>'+E(rec("cases",id)?.title||id)+'</th>'+
-    configs.map(function(cfg){var cell=cells.find(function(x){return x.caseId===id&&x.configurationId===cfg.id;});
-     if(!cell)return '<td>—</td>';
-     var state=demoMatrixStatus(c,cell);
-     return '<td'+(state.state==="not_selected"?' style="opacity:.55"':"")+'>'+
-      badge(state.state)+' <span class="small">'+state.runs.length+' run(s)</span>'+
-      (cell.waiver?'<p class="small">Waiver: '+E(cell.waiver.reason)+'</p>':"")+
-      (canEdit()?btn("Decision","campaignMatrixDecision",c.id+"|"+cell.id,"sm"):"")+'</td>';
-    }).join("")+'</tr>';}).join("")+'</tbody></table></div>';
- }).join("")+
- (canEdit()?btn("+ Add Task configuration","campaignMatrixAdd",c.id,"sm primary"):"")+'</div>';
+ var editable=canEdit()&&["planned","active"].includes(c.stage);
+ return window.AICompassWorkgroup.renderCampaignMatrix(demoMatrixProjection(c),{
+  mode:"demo",canDecide:editable,
+  cellAttributes:function(cell){return {"data-act":"campaignMatrixCell","data-id":c.id+"|"+cell.id};},
+  footer:editable?btn("+ Add Task configuration","campaignMatrixAdd",c.id,"sm primary"):""});
+}
+function dialogDemoMatrixCell(id){
+ var parts=String(id).split("|"),c=rec("campaigns",parts[0]),cellId=parts[1];
+ if(!c||!c.matrixPlan||!c.matrixPlan.cells.some(function(x){return x.id===cellId;}))return;
+ var editable=canEdit()&&["planned","active"].includes(c.stage),projection=demoMatrixProjection(c);
+ var detail=window.AICompassWorkgroup.renderMatrixCellDetail(projection,cellId,{mode:"demo"});
+ var form=editable?'<form id="modalForm" data-form="matrixDecision" data-id="'+E(id)+
+  '"><div class="form-grid">'+
+  window.AICompassWorkgroup.renderMatrixDecisionFields(projection,cellId,"demo")+'</div></form>':"";
+ openModal("Evaluation cell",detail+form,'<button class="btn" data-act="close">Close dialog</button>'+
+  (editable?'<button class="btn primary" type="submit" form="modalForm">Save decision</button>':""));
 }
 function dialogDemoMatrixAdd(id){
  var c=rec("campaigns",id);if(!c||!canEdit()||!["planned","active"].includes(c.stage))return;
@@ -2569,27 +2535,20 @@ function dialogDemoMatrixAdd(id){
  '<div class="span2 note">All available Test Cases for the selected Task will initially be selected. You can deselect or waive cells individually; completed Runs remain immutable.</div>',
  id,"Add evaluation column");
 }
-function dialogDemoMatrixDecision(id){
- var pair=id.split("|"),c=rec("campaigns",pair[0]),
- cell=c?.matrixPlan?.cells.find(function(x){return x.id===pair[1];});
- if(!c||!cell||!canEdit()||!["planned","active"].includes(c.stage))return;
- openForm("Evaluation decision","matrixDecision",
- selectField("decision","Decision",[["selected","Selected / Pending"],["not_selected","Not Selected"],["waived","Waived"]],
- cell.decision)+
- field("reason","Waiver explanation (required only when waived)","","textarea","full")+
- '<p class="span2 muted small">Waiver is a deliberate release from an existing obligation, not a failed Test Run.</p>',
- id,"Save decision");
-}
 function detailsCampaign(id){
 var c=rec("campaigns",id);if(!c||c.archived||(!canEdit()&&c.stage!=="published"))return;
 var trials=db.campaignTrials.filter(function(t){return t.campaign===id;}),runs=campaignRuns(c),
  setup=c.solutionSetup||{};
+var lifecycle={planned:"planned",active:"in_progress",review:"under_review",published:"published"}[c.stage||"planned"];
 var head='<div class="row-between"><div class="tags">'+badge(campaignStatusLabel(c))+' '+badge(c.frameworkId?"Framework / multiple participants":c.mode==="solution_scope"?"One fixed AI setup":"Fixed task / multiple solutions")+'</div><span class="muted small">Owner: '+E(actor(c.owner))+'</span></div>'+
 '<h3 style="margin:13px 0 7px">'+E(c.title)+'</h3><p class="text-block">'+E(c.purpose)+'</p>'+
 '<p class="muted small" style="margin-top:8px">'+E(c.notes||"")+'</p>'+
 (c.setupGuideId&&rec("guides",c.setupGuideId)&&(canEdit()||rec("guides",c.setupGuideId).status==="published")?
  '<p class="small" style="margin-top:9px"><strong>Setup guide:</strong> '+linkAction(rec("guides",c.setupGuideId).title,"guideDetail",c.setupGuideId)+'</p>':
  '<p class="muted small" style="margin-top:9px">Setup guide: '+(c.setupGuideId?"Not publicly available":"Not linked yet")+'</p>')+
+(lifecycle?window.AICompassWorkgroup.renderStepper(
+  window.AICompassWorkgroup.campaignLifecycleSteps(lifecycle),
+  {mode:"demo",domain:"campaign"}):"")+
 '<div class="note" style="margin-top:12px">Step 1: Campaign scope and goal → Step 2: Test Cases → Step 3: Setup → Step 4: Timed interactions → Step 5: Outcome & metrics → Close for review.</div>'+
 '<div class="tags" style="margin-top:12px">'+badge((c.watchIds||[]).length+" technology signals")+' '+badge(c.caseIds.length+" Test Cases")+' '+badge(runs.length+" runs")+' '+badge(trials.filter(function(t){return t.status!=="completed";}).length+" active sessions")+'</div>';
 head+='<h3 style="margin:13px 0 6px">Linked technology signals</h3>'+
@@ -2623,10 +2582,27 @@ var body=head+demoMatrixMarkup(c)+'<h3 style="margin:18px 0 10px">Test Cases in 
 '<div class="list">'+(cases||'<p class="muted small">No Test Cases yet. Add a new one or attach an existing challenge.</p>')+'</div>'+
 (c.stage==="active"?'<div class="inline-actions" style="margin:11px 0">'+btn("+ New Test Case","campaignNewCase",id,"sm primary")+btn("Attach existing Test Case","campaignAttachCase",id,"sm")+'</div>':"")+
 '<h3 style="margin:19px 0 8px">Experiment sessions</h3><div class="list">'+(trialList||'<div class="empty">No sessions recorded</div>')+'</div>'+review;
-var actions=btn("Close","close","","")+(canEdit()&&ui.page==="benchmark"?btn("Edit campaign","editCampaign",id,"")+
-(c.stage==="planned"?btn("Open campaign","campaignActivate",id,"primary"):c.stage==="active"?btn("Close full plan","campaignClose",id,"primary")+
-  (c.matrixPlan?btn("Partial review","campaignClosePartial",id,""):""):c.stage==="review"?btn("Record review","campaignReview",id,"primary"):"")+
-(c.stage==="published"?btn("Unpublish → review","campaignUnpublish",id,""):"")+(c.stage!=="active"?btn("Reopen","campaignReopen",id,""):"")+btn("Delete / archive","campaignDelete",id,""):"");
+/* UX-R04: the offered lifecycle transitions and their labels are the shared
+ * campaign presentation; Demo keeps its own fictional persistence. */
+var stageKey={planned:"planned",active:"in_progress",review:"under_review",
+ published:"published"}[c.stage||"planned"]||"planned";
+var demoLifecycleActions=canEdit()?window.AICompassWorkgroup.campaignLifecycleActionKeys(
+  c.archived?"archived":stageKey).filter(function(key){
+   if(key==="close_partial"&&!c.matrixPlan)return false;
+   // Demo records the review decision (publish or rework) in one review step.
+   return !(stageKey==="under_review"&&key==="rework");
+  }).map(function(key){
+   var act={start:"campaignActivate",close:"campaignClose",close_partial:"campaignClosePartial",
+    publish:"campaignReview",reopen:"campaignReopen",unpublish:"campaignUnpublish",
+    archive:"campaignDelete",restore:"campaignRestore"}[key];
+   return {key:key,attributes:{"data-act":act,"data-id":id}};}):[];
+// Keep the shared lifecycle bar visible in the modal footer, exactly as the
+// Server keeps it next to the campaign detail it belongs to.
+var actions=window.AICompassWorkgroup.renderLifecycleActions(demoLifecycleActions,{mode:"demo",
+ domain:"campaigns",
+ notice:"Lifecycle changes create a new campaign revision; published evidence stays immutable."})+
+ btn("Close","close","","")+(canEdit()&&ui.page==="benchmark"?
+ btn("Edit campaign","editCampaign",id,""):"");
 openModal("Benchmark campaign",body,actions);
 }
 function detailsWatch(id){
@@ -3243,7 +3219,7 @@ if(kind==="task"||kind==="taskEdit"){
 ui.modal="";persist();render();toast("Changes saved in this browser.");
 }catch(ex){if(ex.message!=="form validation")throw ex;}
 }
-document.addEventListener("submit",function(ev){if(ev.target.matches(".feedback-reply-form")){ev.preventDefault();handleFeedbackReply(ev.target);return;}if(ev.target.matches(".inline-task-form")){ev.preventDefault();saveInlineTask(ev.target);return;}if(ev.target.matches("#modalForm")){ev.preventDefault();handleForm(ev.target);}});
+document.addEventListener("submit",function(ev){if(ev.target.matches(".feedback-reply-form")){ev.preventDefault();handleFeedbackReply(ev.target);return;}if(ev.target.matches("#modalForm")){ev.preventDefault();handleForm(ev.target);}});
 document.addEventListener("input",function(ev){
  if(updateMetricControl(ev.target))return;
  if(ev.target?.name==="tokenCount")tokenPreview(ev.target.closest("form"));
@@ -3329,7 +3305,7 @@ if(act==="addFrameworkParticipant"){
 }
 if(act==="removeFrameworkParticipant"){b.closest("[data-framework-participant]")?.remove();return;}
 if(act==="campaignMatrixAdd"){dialogDemoMatrixAdd(id);return;}
-if(act==="campaignMatrixDecision"){dialogDemoMatrixDecision(id);return;}
+if(act==="campaignMatrixCell"){dialogDemoMatrixCell(id);return;}
 if(act==="campaignDetail"){detailsCampaign(id);return;}
 if(act==="campaignPeek"){campaignSummary(id);return;}
 if(act==="openCampaign"){ui.page="benchmark";ui.modal="";render();detailsCampaign(id);return;}
@@ -3356,12 +3332,6 @@ if(act==="exportActivityCsv"){exportActivity("csv");return;}
 if(act==="import"){if(!editable())return;document.getElementById("importFile").click();return;}
 if(act==="newTask"){dialogTask(id);return;}
 if(act==="editTask"){dialogTask("",id);return;}
-if(act==="organizeToggle"){if(!canEdit())return;ui.taskView=ui.taskView==="organize"?"browse":"organize";ui.editingTask="";ui.inlineDraft=null;render();return;}
-if(act==="organizeAddRoot"){if(!canEdit())return;ui.inlineDraft={parent:null};ui.editingTask="";render();return;}
-if(act==="organizeAddChild"){if(!canEdit())return;ui.inlineDraft={parent:id};ui.editingTask="";ui.expanded[id]=true;render();return;}
-if(act==="organizeEdit"||act==="organizeSelect"){if(!canEdit())return;ui.task=id;ui.editingTask=id;ui.inlineDraft=null;render();return;}
-if(act==="organizeCancel"){ui.editingTask="";ui.inlineDraft=null;render();return;}
-if(act==="organizeUp"||act==="organizeDown"){if(!canEdit())return;var moved=taskOrganizerReorder(id,act==="organizeUp"?"up":"down");if(moved){render();toast("Task order updated.");}else toast("Already at the edge of this section.");return;}
 if(act==="solutionTab"){ui.solutionView=id;render();return;}
 if(act==="newComponent"){dialogComponent();return;}
 if(act==="newComponentType"){dialogComponent("",id);return;}
@@ -3382,6 +3352,7 @@ if(act==="repeatRun"){
 if(act==="newSolution"){dialogSolution();return;}
 if(act==="editSolution"){dialogSolution(id);return;}
 if(act==="editRecommendation"){dialogRecommendation(id);return;}
+if(act==="recommendationDetail"){recommendationDetail(id);return;}
 if(act==="newFeedback"){if(!canEdit())dialogFeedback();return;}
 if(act==="newGuide"){dialogGuide();return;}
 if(act==="editGuide"){dialogGuide(id);return;}
@@ -3434,48 +3405,6 @@ if(ev.target&&ev.target.id==="importFile"){
 }
 });
 
-/* Drag only by the dedicated handle; explicitly separated drop zones allow
-   reparenting, inserting before a sibling and moving sections at root level. */
-function taskDropTarget(element){
- if(!element||!element.closest)return null;
- return element.closest("[data-drop-parent], [data-drop-inside]");
-}
-function resetTaskDropStyle(){
- if(!document.querySelectorAll)return;
- document.querySelectorAll(".organizer-drop.drop-active, .organizer-node-row.drop-inside").forEach(function(el){el.classList.remove("drop-active","drop-inside");});
-}
-document.addEventListener("dragstart",function(ev){
- var handle=ev.target&&ev.target.closest&&ev.target.closest("[data-task-drag]");
- if(!handle||!canEdit()||ui.taskView!=="organize")return;
- ui.draggedTask=handle.dataset.taskDrag;
- if(ev.dataTransfer){ev.dataTransfer.effectAllowed="move";ev.dataTransfer.setData("text/plain",ui.draggedTask);}
- handle.classList.add("dragging");
- var app=document.getElementById("app");if(app&&app.classList)app.classList.add("organizing-drag");
-});
-document.addEventListener("dragover",function(ev){
- if(!ui.draggedTask||!canEdit()||ui.taskView!=="organize")return;
- var target=taskDropTarget(ev.target);if(!target)return;
- var parent=target.hasAttribute("data-drop-inside")?target.dataset.dropInside:(target.dataset.dropParent||null),
-     before=target.hasAttribute("data-drop-inside")?"":target.dataset.dropBefore||"";
- if(!isValidTaskMove(ui.draggedTask,parent,before))return;
- ev.preventDefault();
- if(ev.dataTransfer)ev.dataTransfer.dropEffect="move";
- resetTaskDropStyle();target.classList.add(target.hasAttribute("data-drop-inside")?"drop-inside":"drop-active");
-});
-document.addEventListener("drop",function(ev){
- if(!ui.draggedTask||!canEdit()||ui.taskView!=="organize")return;
- var target=taskDropTarget(ev.target),dragId=ui.draggedTask;
- if(!target){ui.draggedTask="";resetTaskDropStyle();var app=document.getElementById("app");if(app&&app.classList)app.classList.remove("organizing-drag");return;}
- ev.preventDefault();
- var parent=target.hasAttribute("data-drop-inside")?target.dataset.dropInside:target.dataset.dropParent||null,
-     before=target.hasAttribute("data-drop-inside")?"":target.dataset.dropBefore||"";
- ui.draggedTask="";resetTaskDropStyle();var app=document.getElementById("app");if(app&&app.classList)app.classList.remove("organizing-drag");
- dropTaskOn(dragId,parent,before);
-});
-document.addEventListener("dragend",function(){
- ui.draggedTask="";resetTaskDropStyle();var app=document.getElementById("app");if(app&&app.classList)app.classList.remove("organizing-drag");
- if(document.querySelectorAll)document.querySelectorAll(".organizer-handle.dragging").forEach(function(el){el.classList.remove("dragging");});
-});
 document.addEventListener("keydown",function(ev){
  if(ev.key==="Escape"&&ui.modal&&!modalContainsForm())closeModal();
 });

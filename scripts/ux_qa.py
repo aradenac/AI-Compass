@@ -12,6 +12,7 @@ Only synthetic, isolated CI accounts are used. Never run provisioning on product
 import argparse
 import json
 import os
+import re
 from pathlib import Path
 import secrets
 import subprocess
@@ -47,10 +48,25 @@ def provision(output):
         subprocess.run(command, input=password + "\n", text=True, stdout=subprocess.DEVNULL,
                        check=True)
         users[label] = {"username": name, "password": password}
+    # A dedicated publication reviewer (not part of the role-journey loop) is
+    # required to exercise the Server-only Recommendation review/withdraw
+    # lifecycle, which no writer role may perform. It also carries the
+    # Contributor grant because the Workgroup shell only routes a business
+    # screen to a persona holding business_write; the reviewer capability alone
+    # is what the publication transitions require, and it still denies every
+    # ordinary write the lifecycle does not need.
+    name = "uxqa-reviewer-" + secrets.token_hex(3)
+    password = secrets.token_urlsafe(30)
+    subprocess.run(["docker", "compose", "exec", "-T", "api", "python", "manage.py",
+                    "bootstrap_identity", "--username", name,
+                    "--role", "contributor", "--role", "reviewer",
+                    "--password-stdin"], input=password + "\n", text=True,
+                   stdout=subprocess.DEVNULL, check=True)
+    users["reviewer"] = {"username": name, "password": password}
     descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
         json.dump(users, handle)
-    print("Created five disposable, independent, randomized role fixtures (credentials not logged).")
+    print("Created disposable, independent, randomized role fixtures (credentials not logged).")
 
 
 def assert_exactly_one_view(page, selector):
@@ -225,6 +241,24 @@ def demo_journey(browser, demo_url, artifacts, role, label, viewport):
                 raise AssertionError("Shared Test Case detail lacks semantic heading")
             page.get_by_role("dialog").get_by_role("button", name="Close dialog").click()
 
+            # UX-R04: Recommendation detail is the same shared component as Server.
+            page.locator('[data-act="nav"][data-id="recommendations"]').click()
+            rec_card = page.locator(
+                '.shared-business-list[data-business-domain="recommendations"] '
+                '[data-business-record]').first
+            rec_card.wait_for(state="visible", timeout=20000)
+            rec_card.locator('button[data-act="recommendationDetail"]').click()
+            rec_detail = page.locator(
+                '[data-shared-domain-detail="recommendations"][data-domain-mode="demo"]')
+            rec_detail.wait_for(state="visible", timeout=20000)
+            if "authenticated Server-only" not in rec_detail.inner_text():
+                raise AssertionError(
+                    "Demo recommendation detail lacks the intentional Server-only model gap notice")
+            assert_no_horizontal_overflow(page)
+            capture(page, artifacts,
+                    "demo-shared-recommendation-detail-" + str(viewport["width"]))
+            page.get_by_role("dialog").get_by_role("button", name="Close dialog").click()
+
         if role == "u1":
             # Real Demo form -> local save -> same semantic Guide read view.
             page.locator('[data-act="nav"][data-id="knowledge"]').click()
@@ -274,6 +308,75 @@ def demo_journey(browser, demo_url, artifacts, role, label, viewport):
             forecast_detail.wait_for(state="visible")
             if "never measured" not in forecast_detail.inner_text().lower():
                 raise AssertionError("Forecast missing explicit theoretical provenance")
+            # The same shared review/publication bar, with the canonical labels
+            # used by the authenticated Server, inside the Forecast detail.
+            lifecycle = page.locator(
+                '[data-shared-lifecycle="forecasts"][data-lifecycle-mode="demo"]')
+            lifecycle.wait_for(state="visible", timeout=20000)
+            if lifecycle.locator("button").count() == 0:
+                raise AssertionError("Demo forecast detail exposes no permitted transition")
+            if "never turns its estimates into measured results" not in lifecycle.inner_text():
+                raise AssertionError("Forecast review bar lost its theoretical provenance notice")
+            capture(page, artifacts, "demo-shared-forecast-lifecycle-" + str(viewport["width"]))
+            page.get_by_role("dialog").get_by_role("button", name="Close dialog").click()
+            # The measured-Run detail is the shared presentation in both modes.
+            page.locator('[data-act="nav"][data-id="results"]').click()
+            runs_tab = page.locator('[data-act="resultsTab"][data-id="runs"]')
+            if runs_tab.count():
+                runs_tab.first.click()
+            # The comparison matrix is the same shared component as Server's.
+            matrix_tab = page.locator('[data-act="resultsTab"][data-id="matrix"]')
+            if matrix_tab.count():
+                matrix_tab.first.click()
+                demo_matrix = page.locator(
+                    '[data-shared-observation-matrix][data-observation-mode="demo"]')
+                demo_matrix.wait_for(state="visible", timeout=20000)
+                if demo_matrix.locator('[data-observation-row]').count() == 0:
+                    raise AssertionError("Demo comparison matrix rendered no row")
+                if demo_matrix.locator('[data-observation-label]').count() == 0:
+                    raise AssertionError("Demo comparison matrix rendered no column")
+                if not demo_matrix.locator('[data-observation-empty]').count():
+                    raise AssertionError(
+                        "Demo comparison matrix no longer marks unobserved cells explicitly")
+                capture(page, artifacts,
+                        "demo-shared-observation-matrix-" + str(viewport["width"]))
+            runs_tab = page.locator('[data-act="resultsTab"][data-id="runs"]')
+            if runs_tab.count():
+                runs_tab.first.click()
+            run_button = page.locator('button[data-act="runDetail"]').first
+            run_button.wait_for(state="visible", timeout=20000)
+            run_button.click()
+            run_detail = page.locator('[data-shared-run-detail][data-run-mode="demo"]')
+            run_detail.wait_for(state="visible", timeout=20000)
+            if run_detail.get_attribute("data-run-provenance") != "measured":
+                raise AssertionError("A measured Demo Run is not presented as measured evidence")
+            if "MEASURED RUN" not in run_detail.inner_text():
+                raise AssertionError("Shared measured-Run detail lost its provenance marker")
+            if run_detail.locator(".shared-run-metrics > div").count() == 0:
+                raise AssertionError("Shared measured-Run detail shows no recorded metric")
+            if run_detail.locator("[data-run-pin-mismatch]").count():
+                raise AssertionError("A verifiable Demo Run was reported as a revision mismatch")
+            capture(page, artifacts, "demo-shared-run-detail-" + str(viewport["width"]))
+            page.get_by_role("dialog").get_by_role("button", name="Close dialog").click()
+            # Decimal metrics remain valid while negative measurements are
+            # refused: the historical Demo number contract, shared with Server.
+            page.locator('[data-act="nav"][data-id="watch"]').click()
+            page.locator('[data-act="newForecast"]').first.wait_for(state="visible", timeout=20000)
+            page.locator('[data-act="newForecast"]').first.click()
+            forecast_dialog = page.get_by_role("dialog")
+            forecast_dialog.wait_for(state="visible")
+            cost = forecast_dialog.locator('input[name="aiCost"]')
+            cost.fill("0.5")
+            if not cost.evaluate("el => el.validity.valid && !el.validity.stepMismatch"):
+                raise AssertionError("Fractional Demo metric was rejected by native validation")
+            cost.fill("-1")
+            if cost.evaluate("el => el.validity.valid"):
+                raise AssertionError("Negative Demo metric passed native validation")
+            cost.fill("0.5")
+            if forecast_dialog.locator('input[name="hourlyRate"]').evaluate(
+                    "el => el.getAttribute('step')") != "any":
+                raise AssertionError("Demo numeric fields lost their fractional step")
+            capture(page, artifacts, "demo-shared-fractional-metric-" + str(viewport["width"]))
             page.get_by_role("dialog").get_by_role("button", name="Close dialog").click()
         if role == "u1":
             # The actual Demo form must honor the same NFR modal contract.
@@ -376,6 +479,150 @@ def demo_journey(browser, demo_url, artifacts, role, label, viewport):
                 raise AssertionError("Management original as-of state is missing")
             assert_no_horizontal_overflow(page)
             capture(page, artifacts, "demo-management-inspector-" + str(viewport["width"]))
+        if role == "u1":
+            # UX-R04: the Demo Campaign matrix is the shared component, and one
+            # real fictional decision is recorded through the shared form.
+            page.locator('[data-act="nav"][data-id="benchmark"]').click()
+            card = page.locator(
+                '[data-business-domain="campaigns"] [data-business-record]'
+            ).filter(has_text="planned").first
+            card.wait_for(state="visible", timeout=20000)
+            card.locator('button[data-act="campaignDetail"]').click()
+            dialog = page.get_by_role("dialog")
+            dialog.wait_for(state="visible", timeout=20000)
+            add = dialog.locator('button[data-act="campaignMatrixAdd"]')
+            if add.count():
+                add.first.click()
+                form = page.locator("#modalForm")
+                form.wait_for(state="visible", timeout=20000)
+                form.locator('input[name="label"]').fill("UX-R04 shared Demo configuration")
+                for name in ("model", "provider", "harness"):
+                    select = form.locator(f'select[name="{name}"]')
+                    values = [value for value in select.locator("option").evaluate_all(
+                        "options => options.map(option => option.value)") if value]
+                    if not values:
+                        raise AssertionError(
+                            "Demo lacks fictional catalog components for " + name)
+                    select.select_option(values[0])
+                page.get_by_role("button", name="Add evaluation column").click()
+            matrix = page.locator('[data-shared-matrix][data-matrix-mode="demo"]')
+            matrix.wait_for(state="visible", timeout=20000)
+            if matrix.locator("[data-shared-matrix-cell]").count() == 0:
+                raise AssertionError("Shared Demo matrix rendered no evaluation cell")
+            if not page.locator('[data-shared-stepper][data-stepper-mode="demo"]').count():
+                raise AssertionError("Demo campaign lifecycle does not use the shared stepper")
+            # Dialog contract: closing returns focus to the control that opened
+            # the dialog, in Demo and Server alike.
+            page.get_by_role("dialog").get_by_role("button", name="Close dialog").click()
+            opened_by = page.evaluate(
+                "() => document.activeElement && document.activeElement.dataset "
+                "? (document.activeElement.dataset.act || '') : ''")
+            if opened_by != "campaignDetail":
+                raise AssertionError(
+                    "Focus did not return to the dialog trigger: " + str(opened_by))
+            page.locator(
+                '[data-business-domain="campaigns"] [data-business-record]'
+            ).filter(has_text="planned").first.locator(
+                'button[data-act="campaignDetail"]').click()
+            page.get_by_role("dialog").wait_for(state="visible", timeout=20000)
+            matrix = page.locator('[data-shared-matrix][data-matrix-mode="demo"]')
+            matrix.wait_for(state="visible", timeout=20000)
+            demo_lifecycle = page.locator(
+                '[data-shared-lifecycle="campaigns"][data-lifecycle-mode="demo"]')
+            demo_lifecycle.wait_for(state="visible", timeout=20000)
+            demo_labels = sorted(demo_lifecycle.locator("button").all_inner_texts())
+            # Canonical labels shared with the authenticated Server for a
+            # planned campaign: start and archive, in the same wording.
+            expected_labels = sorted(["Start / open campaign", "Archive campaign"])
+            if demo_labels != expected_labels:
+                raise AssertionError(
+                    "Demo planned campaign transitions are not canonical: " + str(demo_labels))
+            assert_no_horizontal_overflow(page)
+            capture(page, artifacts, "demo-shared-campaign-matrix-" + str(viewport["width"]))
+            matrix.locator("[data-shared-matrix-cell] button").first.click()
+            cell = page.locator('[data-matrix-cell-detail][data-matrix-mode="demo"]')
+            cell.wait_for(state="visible", timeout=20000)
+            if "never measured evidence" not in cell.inner_text().lower():
+                raise AssertionError("Shared Demo matrix cell lost its evidence provenance notice")
+            decision_form = page.locator("#modalForm")
+            decision_form.locator('select[name="decision"]').select_option("waived")
+            decision_form.locator('textarea[name="reason"]').fill(
+                "UX-R04 Demo waiver recorded through the shared decision form")
+            page.get_by_role("button", name="Save decision").click()
+            matrix = page.locator('[data-shared-matrix][data-matrix-mode="demo"]')
+            matrix.wait_for(state="visible", timeout=20000)
+            matrix_text = matrix.inner_text()
+            if "Waived: 1" not in matrix_text:
+                raise AssertionError("Shared Demo matrix did not apply the waiver")
+            if "UX-R04 Demo waiver recorded" not in matrix_text:
+                raise AssertionError("Shared Demo matrix lost the recorded waiver reason")
+            capture(page, artifacts,
+                    "demo-shared-campaign-matrix-decided-" + str(viewport["width"]))
+            page.get_by_role("dialog").get_by_role("button", name="Close dialog").click()
+        if role == "u1":
+            # UX-R04: the Feedback conversation is the shared renderThread
+            # component, with explicit public/internal visibility.
+            page.locator('[data-act="nav"][data-id="feedback"]').click()
+            fb_card = page.locator(
+                '[data-business-domain="feedback"] [data-business-record]').filter(
+                    has_text="Router context failure").first
+            fb_card.wait_for(state="visible", timeout=20000)
+            fb_card.locator('button[data-act="feedbackDetail"]').first.click()
+            thread = page.locator('[data-shared-thread="demo"]')
+            thread.wait_for(state="visible", timeout=20000)
+            if thread.locator('[data-message-id]').count() == 0:
+                raise AssertionError("Shared Demo feedback thread rendered no message")
+            page.get_by_role("dialog").wait_for(state="visible", timeout=20000)
+            if "chronological history" not in page.get_by_role("dialog").inner_text().lower():
+                raise AssertionError("Shared Demo thread lost its chronological-history heading")
+            # An internal reply posted through the shared field component is
+            # tagged INTERNAL · workgroup only in the same presentation.
+            reply_form = page.locator(".feedback-reply-form")
+            reply_form.locator('select[name="visibility"]').select_option("internal")
+            reply_form.locator('textarea[name="reply"]').fill(
+                "UX-R04 internal workgroup-only Demo note")
+            reply_form.get_by_role("button", name="Post reply").click()
+            thread = page.locator('[data-shared-thread="demo"]')
+            thread.wait_for(state="visible", timeout=20000)
+            internal = thread.locator('[data-message-visibility="internal"]')
+            if internal.count() == 0:
+                raise AssertionError("Internal Demo reply did not render as internal")
+            if "INTERNAL · workgroup only" not in internal.last.inner_text():
+                raise AssertionError("Internal Demo reply lost its visibility tag")
+            assert_no_horizontal_overflow(page)
+            capture(page, artifacts, "demo-shared-feedback-thread-" + str(viewport["width"]))
+            page.get_by_role("dialog").get_by_role("button", name="Close dialog").click()
+            # UX-R04: the composed pinned-module setup reader is the shared
+            # renderComposedSetup component. The Demo seed has no recipe guide,
+            # so one is authored locally with a pinned module (explicit coverage
+            # gap: Demo has no framework wiring) and re-inspected.
+            page.locator('[data-act="nav"][data-id="knowledge"]').click()
+            page.locator('[data-act="newGuide"]').first.click()
+            gdialog = page.get_by_role("dialog")
+            gdialog.wait_for(state="visible")
+            gdialog.locator('select[name="type"]').select_option("Installation")
+            gdialog.locator('input[name="title"]').fill("UX-R04 composed setup Demo guide")
+            gdialog.locator('textarea[name="body"]').fill("Composed setup Demo instructions")
+            gdialog.locator('textarea[name="recipe"]').fill(
+                '{"modules":[{"id":"g2","revision":"r009"}]}')
+            gdialog.get_by_role("button", name="Create document").click()
+            gcard = page.locator('[data-business-domain="guides"] [data-business-record]').filter(
+                has_text="UX-R04 composed setup Demo guide").first
+            gcard.wait_for(state="visible", timeout=20000)
+            gcard.locator('button[data-act="guideDetail"]').click()
+            composed = page.locator(
+                '[data-shared-composed-setup][data-composed-mode="demo"]')
+            composed.wait_for(state="visible", timeout=20000)
+            gaps = composed.locator("[data-composed-gaps]").inner_text().lower()
+            if "missing coverage" not in gaps:
+                raise AssertionError(
+                    "Shared Demo composed setup did not state its coverage gap: " + gaps)
+            if composed.get_attribute("data-composed-ready") != "false":
+                raise AssertionError(
+                    "Demo composed setup with an unsupplied framework claimed readiness")
+            assert_no_horizontal_overflow(page)
+            capture(page, artifacts, "demo-shared-composed-setup-" + str(viewport["width"]))
+            page.get_by_role("dialog").get_by_role("button", name="Close dialog").click()
         if errors:
             raise AssertionError("Demo JS runtime error(s): " + "; ".join(errors[:3]))
     finally:
@@ -407,6 +654,18 @@ def server_journey(browser, base_url, creds, artifacts, role, viewport):
             page.locator("#server-workgroup-home").wait_for(state="visible", timeout=20000)
         elif role == "engineer":
             page.locator("#server-engineer").wait_for(state="visible", timeout=20000)
+            # Fail closed: a workgroup-only write surface must never render for
+            # the Engineer persona, and no other mode may be substituted.
+            page.goto(base_url + "/?mode=server&workspace=workgroup&section=testdesign",
+                      wait_until="domcontentloaded")
+            page.locator('#ux-screen-host[data-ux-current]').wait_for(state="visible", timeout=25000)
+            page.wait_for_timeout(1500)
+            if page.locator("#case-new").count() or page.locator("#server-test-cases").is_visible():
+                raise AssertionError("Engineer persona reached the Workgroup Test Case editor")
+            assert_exactly_one_view(page, "#ux-screen-host > [data-ux-screen]")
+            if not page.locator("#server-engineer").is_visible():
+                raise AssertionError("Unauthorized Workgroup section did not fall back closed")
+            capture(page, artifacts, "server-engineer-denied-" + str(viewport["width"]))
         elif role == "management":
             page.locator("#server-management-insights").wait_for(state="visible", timeout=20000)
         elif role == "maintenance":
@@ -448,6 +707,19 @@ def server_journey(browser, base_url, creds, artifacts, role, viewport):
                 assert_no_horizontal_overflow(page)
                 if domain in ("guides", "campaigns"):
                     capture(page, artifacts, "server-shared-" + domain + "-" + str(viewport["width"]))
+                if domain == "recommendations":
+                    history = page.locator('#rec-list button[data-action="history"]')
+                    if history.count():
+                        history.first.click()
+                        rec_detail = page.locator(
+                            '[data-shared-domain-detail="recommendations"][data-domain-mode="server"]')
+                        rec_detail.wait_for(state="visible", timeout=20000)
+                        if "Immutable, attributable publication history" not in rec_detail.inner_text():
+                            raise AssertionError(
+                                "Server recommendation detail does not use the shared projector")
+                        assert_no_horizontal_overflow(page)
+                        capture(page, artifacts,
+                                "server-shared-recommendation-detail-" + str(viewport["width"]))
 
         if role == "workgroup":
             # Real Server write must remain persisted and revision-addressable.
@@ -482,8 +754,101 @@ def server_journey(browser, base_url, creds, artifacts, role, viewport):
                     raise AssertionError("Server Guide content missing: " + expected)
             page.locator("#guide-history details").first.wait_for(state="visible")
             capture(page, artifacts, "server-shared-guide-detail-" + str(viewport["width"]))
+            # UX-R04: the composed pinned-module reader is the same shared
+            # renderComposedSetup component. A real recipe guide is created and
+            # rendered through the read-only applicability inspector; the
+            # un-supplied module revision stays an explicit coverage gap.
+            recipe_guide = "UX-R04 composed setup guide " + secrets.token_hex(3)
+            page.locator("#guide-add").click()
+            form = page.locator("#guide-editor form.guide-form")
+            form.wait_for(state="visible", timeout=12000)
+            rfields = form.locator('[data-shared-guide-fields="server"]')
+            rfields.locator('input[name="name"]').fill(recipe_guide)
+            rfields.locator('textarea[name="text"]').fill("Composed setup controller text")
+            form.locator('textarea[name="recipe_spec"]').fill(
+                '{"modules":[{"id":"gui-0000000000000000","revision":"r001"}]}')
+            form.locator('button[type="submit"]').click()
+            rcard = page.locator('[data-business-domain="guides"] [data-business-record]').filter(
+                has_text=recipe_guide).first
+            rcard.wait_for(state="visible", timeout=30000)
+            rcard.locator('button[data-action="preview"]').click()
+            page.locator("#guide-render-now").wait_for(state="visible", timeout=15000)
+            page.locator("#guide-render-now").click()
+            composed = page.locator(
+                '#guide-render-result [data-shared-composed-setup][data-composed-mode="server"]')
+            composed.wait_for(state="visible", timeout=20000)
+            gaps = composed.locator("[data-composed-gaps]").inner_text().lower()
+            if "missing coverage" not in gaps:
+                raise AssertionError(
+                    "Shared Server composed setup did not state its coverage gap: " + gaps)
+            if composed.get_attribute("data-composed-ready") != "false":
+                raise AssertionError(
+                    "Server composed setup with an unresolved pin claimed readiness")
+            assert_no_horizontal_overflow(page)
+            capture(page, artifacts, "server-shared-composed-setup-" + str(viewport["width"]))
         if role == "workgroup":
-            # Create a real Watch hypothesis without inventing external evidence.
+            # UX-R04: real Server feedback thread through the shared renderThread
+            # component, with a correction that keeps the superseded body in an
+            # immutable revision history.
+            page.goto(base_url + "/?mode=server&workspace=workgroup&section=feedback&view=editor",
+                      wait_until="domcontentloaded")
+            page.locator("#discussion-new").wait_for(state="visible", timeout=30000)
+            page.locator("#discussion-new").click()
+            compose = page.locator("#discussion-compose form")
+            compose.wait_for(state="visible", timeout=15000)
+            thread_title = "UX-R04 discussion " + secrets.token_hex(3)
+            compose.locator('input[name="title"]').fill(thread_title)
+            compose.locator('textarea[name="body"]').fill("Original discussion body text")
+            compose.get_by_role("button", name="Publish feedback").click()
+            thread = page.locator('#discussion-messages [data-shared-thread="server"]')
+            thread.wait_for(state="visible", timeout=30000)
+            if thread.locator("[data-message-id]").count() == 0:
+                raise AssertionError("Shared Server thread rendered no message")
+            capture(page, artifacts, "server-shared-feedback-thread-" + str(viewport["width"]))
+            first_message = thread.locator("[data-message-id]").first
+            first_id = first_message.get_attribute("data-message-id")
+            first_message.locator('button[data-action="correct"]').first.click()
+            correction = page.locator("#discussion-correction-form")
+            correction.wait_for(state="visible", timeout=15000)
+            correction.locator('textarea[name="body"]').fill("Corrected discussion body text")
+            correction.locator('textarea[name="edit_reason"]').fill(
+                "UX-R04 shared correction reason")
+            correction.get_by_role("button", name="Append correction revision").click()
+            corrected_body = page.locator(
+                '#discussion-messages [data-shared-thread="server"]').get_by_text(
+                    "Corrected discussion body text")
+            corrected_body.first.wait_for(state="visible", timeout=30000)
+            thread = page.locator('#discussion-messages [data-shared-thread="server"]')
+            corrected = thread.locator(f'[data-message-id="{first_id}"]').first
+            corrected.wait_for(state="visible", timeout=20000)
+            if "Corrected discussion body text" not in corrected.inner_text():
+                raise AssertionError("Server correction did not update the shared thread")
+            # Immutable history keeps the superseded original wording, rendered
+            # through the shared revision-history reader.
+            corrected.locator('button[data-action="history"]').first.click()
+            history = page.locator("#discussion-history")
+            history.wait_for(state="visible", timeout=15000)
+            revision_reader = history.locator(
+                '[data-shared-revision-history="discussions"][data-revision-mode="server"]')
+            revision_reader.wait_for(state="visible", timeout=15000)
+            revisions = revision_reader.locator("[data-shared-revision]")
+            if revisions.count() < 2:
+                raise AssertionError(
+                    "Server revision history did not use the shared reader")
+            # The revised bodies live inside collapsed <details>; expand the
+            # retained revisions before asserting their immutable content.
+            for summary in revision_reader.locator("details summary").all():
+                summary.click()
+            reader_text = revision_reader.inner_text()
+            if "Original discussion body text" not in reader_text:
+                raise AssertionError(
+                    "Server correction history lost the original superseded body")
+            if "UX-R04 shared correction reason" not in reader_text:
+                raise AssertionError("Server correction history lost the retained reason")
+            assert_no_horizontal_overflow(page)
+            capture(page, artifacts,
+                    "server-shared-discussion-correction-" + str(viewport["width"]))
+        if role == "workgroup":
             page.goto(base_url + "/?mode=server&workspace=workgroup&section=watch&view=editor",
                       wait_until="domcontentloaded")
             page.locator("#watch-add-entry").wait_for(state="visible", timeout=30000)
@@ -513,6 +878,26 @@ def server_journey(browser, base_url, creds, artifacts, role, viewport):
                     raise AssertionError("Watch detail lost controlled content: " + expected)
             page.locator("#watch-detail details").first.wait_for(state="visible")
             capture(page, artifacts, "server-shared-watch-detail-" + str(viewport["width"]))
+            # UX-R04 §13 #19: an uncommitted draft is scoped to this mode/account
+            # and can never cross into the Demo cache (or any other mode).
+            page.locator("#watch-add-entry").click()
+            draft_form = page.locator("#watch-form")
+            draft_form.wait_for(state="visible")
+            typed = "UX-R04 uncommitted Server draft value"
+            draft_form.locator('input[name="name"]').fill(typed)
+            draft_form.locator('textarea[name="hypothesis"]').fill(typed)
+            draft_keys = page.evaluate("""() => Object.keys(window.localStorage)
+                .filter(key => key.startsWith("ai-compass-working-draft:"))""")
+            if not any("server" in key for key in draft_keys):
+                raise AssertionError("Server draft was not scoped to the server mode")
+            if any("demo" in key for key in draft_keys):
+                raise AssertionError("A Demo draft key leaked into the Server context")
+            if not page.evaluate(
+                    "value => Object.keys(window.localStorage).some("
+                    "key => window.localStorage.getItem(key).includes(value))", typed):
+                raise AssertionError("The uncommitted Server draft value was not cached")
+            server_draft_keys = page.evaluate("""() => Object.keys(window.localStorage)
+                .filter(key => key.startsWith("ai-compass-working-draft:"))""")
         if role in ("workgroup", "multi_role"):
             page.goto(base_url + "/?mode=server&workspace=workgroup&section=testdesign&view=editor",
                       wait_until="domcontentloaded")
@@ -533,6 +918,12 @@ def server_journey(browser, base_url, creds, artifacts, role, viewport):
                 raise AssertionError("Backdrop/Escape unexpectedly dismissed the form or lost draft")
             dialog.get_by_role("button", name="Close dialog").click()
             dialog.wait_for(state="hidden")
+            # The shared shell returns focus to the editor trigger on close.
+            if page.evaluate("() => document.activeElement ? document.activeElement.id : ''") != "case-new":
+                raise AssertionError(
+                    "Server editor did not restore focus to its trigger: " +
+                    str(page.evaluate(
+                        "() => document.activeElement ? document.activeElement.id : ''")))
             if role == "workgroup":
                 # Real persisted Test Design round-trip: UI Task creation -> TC
                 # save -> same shared presenter after a full browser reload.
@@ -542,7 +933,8 @@ def server_journey(browser, base_url, creds, artifacts, role, viewport):
                 page.locator("#server-task-add-root").click()
                 task_dialog = page.locator("#server-task-editor[role=dialog]")
                 task_dialog.wait_for(state="visible", timeout=15000)
-                task_name = "UX-R04 reusable browser Task"
+                fixture_suffix = secrets.token_hex(3)
+                task_name = "UX-R04 reusable browser Task " + fixture_suffix
                 task_dialog.locator('input[name="name"]').fill(task_name)
                 task_dialog.get_by_role("button", name="Save task revision").click()
                 task_dialog.wait_for(state="hidden", timeout=25000)
@@ -554,7 +946,7 @@ def server_journey(browser, base_url, creds, artifacts, role, viewport):
                 page.locator("#case-new").click()
                 case_dialog = page.locator("#case-editor[role=dialog]")
                 case_dialog.wait_for(state="visible", timeout=15000)
-                case_title = "UX-R04 preserved browser challenge"
+                case_title = "UX-R04 preserved browser challenge " + fixture_suffix
                 case_dialog.locator('input[name="name"]').fill(case_title)
                 task_choice = case_dialog.locator('select[name="task_id"] option').filter(
                     has_text=task_name).first
@@ -579,6 +971,323 @@ def server_journey(browser, base_url, creds, artifacts, role, viewport):
                     state="visible", timeout=30000)
                 if page.locator('[data-shared-case-detail="demo"]').count():
                     raise AssertionError("Server Test Case incorrectly displayed Demo detail")
+                # Unavailable domain API: the screen must fail closed with the
+                # shared error presentation and never substitute Demo fixtures.
+                unavailable = context.new_page()
+                unavailable.set_default_timeout(20000)
+                try:
+                    unavailable.route(
+                        "**/api/v1/campaigns**",
+                        lambda route: route.fulfill(
+                            status=503, content_type="application/json",
+                            body=json.dumps({"detail": "Service unavailable (injected probe)"})))
+                    unavailable.goto(
+                        base_url + "/?mode=server&workspace=workgroup&section=benchmark&view=editor",
+                        wait_until="domcontentloaded")
+                    unavailable.locator(
+                        '#campaign-status [data-shared-status="error"]').first.wait_for(
+                            state="visible", timeout=30000)
+                    unavailable_text = unavailable.locator("#campaign-status").inner_text().lower()
+                    if "unavailable" not in unavailable_text and "failed" not in unavailable_text:
+                        raise AssertionError(
+                            "Unavailable API did not report a domain error: " + unavailable_text[:120])
+                    if unavailable.locator('[data-business-domain="campaigns"]').count():
+                        raise AssertionError("Unavailable API still rendered Server campaign cards")
+                    if unavailable.locator('[data-shared-matrix][data-matrix-mode="demo"]').count():
+                        raise AssertionError("Unavailable Server screen fell back to Demo content")
+                    demo_titles = unavailable.locator(
+                        'text=Plan: agent autonomy for intermittent driver bugs').count()
+                    if demo_titles:
+                        raise AssertionError("Demo fixtures leaked into a failed Server request")
+                    assert_exactly_one_view(unavailable, "#ux-screen-host > [data-ux-screen]")
+                    capture(unavailable, artifacts,
+                            "server-unavailable-api-" + str(viewport["width"]))
+                finally:
+                    unavailable.close()
+
+                # Results explorer: same observation matrix component, with an
+                # explicit empty state on a database without measured Runs.
+                page.goto(base_url + "/?mode=server&workspace=workgroup&section=results&view=editor",
+                          wait_until="domcontentloaded")
+                server_matrix = page.locator(
+                    '[data-shared-observation-matrix][data-observation-mode="server"]')
+                server_matrix.wait_for(state="visible", timeout=30000)
+                if not server_matrix.locator("[data-observation-empty-matrix]").count():
+                    raise AssertionError(
+                        "Empty Server results did not state that nothing is recorded")
+                if server_matrix.locator('[data-shared-observation-matrix="demo"]').count():
+                    raise AssertionError("Server results leaked the Demo matrix")
+                assert_no_horizontal_overflow(page)
+                capture(page, artifacts,
+                        "server-shared-observation-matrix-" + str(viewport["width"]))
+
+                # Tasks: one shared tree in both modes; a stale move revision
+                # must be refused explicitly, never applied.
+                page.goto(base_url + "/?mode=server&workspace=workgroup&section=tasks&view=editor",
+                          wait_until="domcontentloaded")
+                page.locator("#server-task-add-root").wait_for(state="visible", timeout=30000)
+                page.locator("#server-task-add-root").click()
+                sibling = page.locator("#server-task-editor[role=dialog]")
+                sibling.wait_for(state="visible", timeout=15000)
+                sibling.locator('input[name="name"]').fill("UX-R04 sibling section")
+                sibling.get_by_role("button", name="Save task revision").click()
+                sibling.wait_for(state="hidden", timeout=25000)
+                page.locator("#server-task-list").wait_for(state="visible", timeout=25000)
+                stale_tasks = context.new_page()
+                stale_tasks.set_default_timeout(20000)
+                try:
+                    stale_tasks.goto(page.url, wait_until="domcontentloaded")
+                    stale_tasks.locator("#server-task-list").wait_for(state="visible", timeout=30000)
+                    move = page.locator(
+                        '#server-task-list button[data-task-action="down"]').first
+                    move.wait_for(state="visible", timeout=25000)
+                    move.click()
+                    page.locator("#server-task-state", has_text="task node(s)").first.wait_for(
+                        state="visible", timeout=25000)
+                    stale_move = stale_tasks.locator(
+                        '#server-task-list button[data-task-action="down"]').first
+                    stale_move.click()
+                    refusal = stale_tasks.locator(
+                        '#server-task-state [data-shared-status="error"]').first
+                    refusal.wait_for(state="visible", timeout=25000)
+                    if "refused" not in refusal.inner_text().lower():
+                        raise AssertionError(
+                            "Stale task move was not refused explicitly: " +
+                            refusal.inner_text()[:120])
+                    if "revision" not in refusal.inner_text().lower() and \
+                            "changed" not in refusal.inner_text().lower():
+                        raise AssertionError(
+                            "Stale task move refusal lacks the revision reason")
+                    capture(stale_tasks, artifacts,
+                            "server-task-stale-refusal-" + str(viewport["width"]))
+                finally:
+                    stale_tasks.close()
+
+                # UX-R04: real Server campaign matrix through the shared component.
+                page.goto(base_url + "/?mode=server&workspace=workgroup&section=catalog&view=editor",
+                          wait_until="domcontentloaded")
+                page.locator(".shared-catalog-workspace").wait_for(state="visible", timeout=30000)
+                for component_type in ("model", "provider", "harness"):
+                    page.locator(
+                        f'button[data-act="newComponentType"][data-id="{component_type}"]'
+                    ).first.click()
+                    editor = page.locator("[data-common-form]")
+                    editor.wait_for(state="visible", timeout=20000)
+                    editor.locator('input[name="name"]').fill("UX-R04 " + component_type)
+                    if component_type == "harness":
+                        editor.locator('input[name="osWindows"]').check()
+                    editor.locator('button[type="submit"]').click()
+                    editor.wait_for(state="hidden", timeout=30000)
+                page.goto(base_url + "/?mode=server&workspace=workgroup&section=benchmark&view=editor",
+                          wait_until="domcontentloaded")
+                page.locator("#campaign-add").wait_for(state="visible", timeout=30000)
+                page.locator(
+                    '[data-business-domain="campaigns"], [data-business-empty="campaigns"]'
+                ).first.wait_for(state="visible", timeout=30000)
+                page.locator("#campaign-add").click()
+                campaign_form = page.locator("#campaign-form")
+                campaign_form.wait_for(state="visible", timeout=20000)
+                campaign_title = "UX-R04 shared matrix campaign " + secrets.token_hex(3)
+                campaign_form.locator('input[name="name"]').fill(campaign_title)
+                campaign_form.locator('textarea[name="objective"]').fill(
+                    "Verify the shared campaign evaluation matrix in an authenticated Server")
+                task_choice = campaign_form.locator('select[name="task_id"] option').filter(
+                    has_text=task_name).first
+                task_value = task_choice.get_attribute("value")
+                if not task_value:
+                    raise AssertionError("Created real Task was not selectable for a campaign")
+                campaign_form.locator('select[name="task_id"]').select_option(task_value)
+                case_choice = campaign_form.locator('select[name="test_case_ids"] option').filter(
+                    has_text=case_title).first
+                case_value = case_choice.get_attribute("value")
+                if not case_value:
+                    raise AssertionError("Created real Test Case was not offered to the campaign")
+                campaign_form.locator('select[name="test_case_ids"]').select_option(case_value)
+                campaign_form.locator('button[type="submit"]').click()
+                campaign_card = page.locator(
+                    '[data-business-domain="campaigns"] [data-business-record]').filter(
+                        has_text=campaign_title).first
+                campaign_card.wait_for(state="visible", timeout=30000)
+                campaign_card.locator('button[data-action="matrix"]').click()
+                matrix = page.locator('[data-shared-matrix][data-matrix-mode="server"]')
+                matrix.wait_for(state="visible", timeout=30000)
+                if not page.locator('[data-shared-stepper][data-stepper-mode="server"]').count():
+                    raise AssertionError("Server campaign lifecycle does not use the shared stepper")
+                server_lifecycle = page.locator(
+                    '[data-shared-lifecycle="campaigns"][data-lifecycle-mode="server"]')
+                server_lifecycle.wait_for(state="visible", timeout=20000)
+                # Same canonical wording as the offline Demo for a planned campaign.
+                expected_labels = sorted(["Start / open campaign", "Archive campaign"])
+                server_labels = sorted(server_lifecycle.locator("button").all_inner_texts())
+                if server_labels != expected_labels:
+                    raise AssertionError(
+                        "Server planned campaign transitions differ from the shared Demo "
+                        "presentation: " + str(server_labels))
+                # The add-configuration form is disclosed, not always open.
+                page.locator("details:has(#matrix-add-form)").locator("summary").first.click()
+                add_form = page.locator("#matrix-add-form")
+                add_form.wait_for(state="visible", timeout=20000)
+                add_form.locator('input[name="label"]').fill("UX-R04 shared Server configuration")
+                # Bind the configuration to the campaign's own Task: the default
+                # option may be another Task with no eligible Test Case.
+                add_form.locator('select[name="task_id"]').select_option(task_value)
+                add_form.locator('select[name="test_case_ids"] option').first.wait_for(
+                    state="attached", timeout=20000)
+                if add_form.locator('select[name="test_case_ids"] option[selected]').count() == 0:
+                    raise AssertionError(
+                        "The campaign Task offered no eligible Test Case to the matrix")
+                for component in ("model", "provider", "harness"):
+                    add_form.locator(f'select[name="{component}"]').select_option(index=0)
+                add_form.locator('button[type="submit"]').click()
+                cell_button = page.locator(
+                    '[data-shared-matrix][data-matrix-mode="server"] [data-shared-matrix-cell] button'
+                ).first
+                try:
+                    cell_button.wait_for(state="visible", timeout=30000)
+                except Exception:
+                    raise AssertionError(
+                        "Matrix configuration was rejected: " +
+                        page.locator("#campaign-status").inner_text()[:200])
+                assert_no_horizontal_overflow(page)
+                capture(page, artifacts, "server-shared-campaign-matrix-" +
+                        str(viewport["width"]))
+                cell_button.click()
+                cell = page.locator('[data-matrix-cell-detail][data-matrix-mode="server"]')
+                cell.wait_for(state="visible", timeout=30000)
+                if "never measured evidence" not in cell.inner_text().lower():
+                    raise AssertionError("Shared Server matrix cell lost its provenance notice")
+                # The rendered link must open the exact evaluated Test Case
+                # revision, not the current version.
+                cell_text = cell.inner_text()
+                pinned = re.search(r"pinned revision (r\d{3})", cell_text)
+                if not pinned:
+                    raise AssertionError(
+                        "Cell detail does not state the pinned Test Case revision: " +
+                        cell_text[:160])
+                context_link = cell.locator('a', has_text="Open Test Case context").first
+                if context_link.count() == 0:
+                    raise AssertionError("Cell detail lost the Test Case context link")
+                href = context_link.get_attribute("href") or ""
+                if f"revision={pinned.group(1)}" not in href:
+                    raise AssertionError(
+                        "Test Case context link does not open the pinned revision: " + href)
+                decision = page.locator("#matrix-decision-form")
+                decision.wait_for(state="visible", timeout=20000)
+                decision.locator('select[name="decision"]').select_option("waived")
+                decision.locator('textarea[name="reason"]').fill(
+                    "UX-R04 Server waiver recorded through the shared decision form")
+                decision.locator('button[type="submit"]').click()
+                matrix = page.locator('[data-shared-matrix][data-matrix-mode="server"]')
+                matrix.locator('[data-matrix-state="waived"]').first.wait_for(
+                    state="visible", timeout=30000)
+                matrix_text = matrix.inner_text()
+                if "UX-R04 Server waiver recorded" not in matrix_text:
+                    raise AssertionError("Shared Server matrix lost the recorded waiver reason")
+                if "Waived: 1" not in matrix_text:
+                    raise AssertionError("Shared Server matrix did not apply the waiver")
+                capture(page, artifacts, "server-shared-campaign-matrix-decided-" +
+                        str(viewport["width"]))
+                page.reload(wait_until="domcontentloaded")
+                persisted = page.locator(
+                    '[data-shared-matrix][data-matrix-mode="server"] [data-matrix-state="waived"]')
+                persisted.first.wait_for(state="visible", timeout=30000)
+                if "UX-R04 Server waiver recorded" not in page.locator(
+                        '[data-shared-matrix][data-matrix-mode="server"]').inner_text():
+                    raise AssertionError("Persisted Server matrix waiver was lost after reload")
+                # Negative: a stale plan revision must be refused explicitly,
+                # through the shared status presentation, with no silent
+                # overwrite and no cross-mode fallback.
+                stale = context.new_page()
+                stale.set_default_timeout(20000)
+                try:
+                    stale.goto(page.url, wait_until="domcontentloaded")
+                    stale_matrix = stale.locator(
+                        '[data-shared-matrix][data-matrix-mode="server"]')
+                    stale_matrix.wait_for(state="visible", timeout=30000)
+                    # Advance the plan revision by reinstating the evaluation.
+                    page.locator(
+                        '[data-shared-matrix][data-matrix-mode="server"] '
+                        '[data-shared-matrix-cell] button').first.click()
+                    page.locator("#matrix-decision-form").wait_for(state="visible")
+                    page.locator('#matrix-decision-form select[name="decision"]'
+                                 ).select_option("selected")
+                    page.locator('#matrix-decision-form button[type="submit"]').click()
+                    page.locator(
+                        '[data-shared-matrix][data-matrix-mode="server"] '
+                        '[data-shared-matrix-cell][data-matrix-state="pending"]').first.wait_for(
+                            state="visible", timeout=30000)
+                    # The other browser still holds the previous revision.
+                    stale.locator(
+                        '[data-shared-matrix][data-matrix-mode="server"] '
+                        '[data-shared-matrix-cell] button').first.click()
+                    stale.locator("#matrix-decision-form").wait_for(state="visible")
+                    stale.locator('#matrix-decision-form select[name="decision"]'
+                                  ).select_option("waived")
+                    stale.locator('#matrix-decision-form textarea[name="reason"]').fill(
+                        "Stale browser revision must be refused")
+                    stale.locator('#matrix-decision-form button[type="submit"]').click()
+                    refusal = stale.locator(
+                        '#campaign-status [data-shared-status="error"], '
+                        '[data-shared-status="error"]')
+                    refusal.first.wait_for(state="visible", timeout=30000)
+                    refusal_text = refusal.first.inner_text().lower()
+                    if "revision" not in refusal_text:
+                        raise AssertionError(
+                            "Stale matrix revision refusal lacks an explicit reason: " +
+                            refusal_text[:120])
+                    stale_text = stale.locator(
+                        '[data-shared-matrix][data-matrix-mode="server"]').inner_text()
+                    if "Stale browser revision must be refused" in stale_text:
+                        raise AssertionError("A stale revision was silently applied")
+                    if stale.locator(
+                            '[data-shared-matrix-cell][data-matrix-state="waived"]').count() == 0:
+                        raise AssertionError(
+                            "The refused stale write altered the stale page state")
+                    if stale.locator('[data-browser-domain="demo"]').count():
+                        raise AssertionError("Refused Server write fell back to Demo")
+                    capture(stale, artifacts, "server-shared-campaign-matrix-stale-" +
+                            str(viewport["width"]))
+                finally:
+                    stale.close()
+                if "Stale browser revision must be refused" in page.locator(
+                        '[data-shared-matrix][data-matrix-mode="server"]').inner_text():
+                    raise AssertionError("Refused stale write altered the committed plan")
+                # Read-only historical plan: no lifecycle transition may be
+                # offered from a revision that is not the current campaign one.
+                # Pick the revision immediately before the displayed one: an
+                # older plan that definitely carries a matrix plan.
+                option_info = page.evaluate("""() => {
+                  const select = document.getElementById('matrix-revision');
+                  if (!select) return null;
+                  const options = Array.from(select.options).map(
+                    option => ({value: option.value, selected: option.selected}));
+                  return options.length > 1 ? options : null;
+                }""")
+                if not option_info:
+                    raise AssertionError("No historical plan revision was available to inspect")
+                current_index = next(
+                    (index for index, option in enumerate(option_info) if option["selected"]), 0)
+                pick = current_index + 1 if current_index + 1 < len(option_info) else current_index - 1
+                older = option_info[pick]["value"]
+                page.locator("#matrix-revision").select_option(older)
+                try:
+                    page.locator('[data-shared-matrix][data-matrix-mode="server"]').wait_for(
+                        state="visible", timeout=25000)
+                except Exception:
+                    raise AssertionError(
+                        "Historical plan revision did not render: " +
+                        page.locator("#campaign-detail").inner_text()[:200])
+                if page.locator('[data-shared-lifecycle="campaigns"] button').count():
+                    raise AssertionError(
+                        "Historical plan revision still offers lifecycle transitions")
+                if not page.locator('[data-shared-lifecycle-empty]').count():
+                    raise AssertionError(
+                        "Historical plan revision lacks an explicit read-only notice")
+                if "revision=r007" in page.locator(
+                        '[data-shared-matrix][data-matrix-mode="server"]').inner_text():
+                    raise AssertionError("Historical revision mismatch")
+                capture(page, artifacts,
+                        "server-shared-campaign-matrix-historical-" + str(viewport["width"]))
             if role == "multi_role":
                 # Same authenticated session: Users & Access must be explicit,
                 # and its account-creation form a protected, closed-by-default modal.
@@ -618,6 +1327,688 @@ def server_journey(browser, base_url, creds, artifacts, role, viewport):
         if traced:
             context.tracing.stop(path=str(artifacts / ("server-" + role + "-" + str(viewport["width"]) + ".zip")))
         context.close()
+
+
+def draft_isolation(browser, base_url, demo_url, creds, artifacts, viewport):
+    """UX-R04 §13 #19: a local draft cache never crosses Demo/Server modes.
+
+    Drafts are namespaced by [mode, origin, account, kind, id]; this proves the
+    two modes write disjoint, non-overlapping key sets and that neither can read
+    the other's uncommitted text.
+    """
+    prefix = "ai-compass-working-draft:"
+    typed = "UX-R04 cross-mode draft isolation value"
+    context = browser.new_context(viewport=viewport, reduced_motion="reduce")
+    page = context.new_page()
+    page.set_default_timeout(30000)
+    errors = []
+    page.on("pageerror", lambda e: errors.append(str(e)))
+    try:
+        # Authenticated Server: the draft cache is scoped to the Server mode.
+        page.goto(base_url + "/?mode=server&workspace=workgroup&section=watch&view=editor",
+                  wait_until="domcontentloaded")
+        page.locator("#server-login-form").wait_for(state="visible", timeout=30000)
+        page.locator("#server-username").fill(creds["workgroup"]["username"])
+        page.locator("#server-password").fill(creds["workgroup"]["password"])
+        page.get_by_role("button", name="Sign in to Server").click()
+        page.locator('#ux-screen-host[data-ux-current]').wait_for(state="visible", timeout=30000)
+        page.locator("#watch-add-entry").wait_for(state="visible", timeout=30000)
+        page.locator("#watch-add-entry").click()
+        watch_form = page.locator("#watch-form")
+        watch_form.wait_for(state="visible")
+        watch_form.locator('input[name="name"]').fill(typed)
+        watch_form.locator('textarea[name="hypothesis"]').fill(typed)
+        page.wait_for_timeout(300)  # The draft is saved on input/change.
+        server_keys = page.evaluate(
+            "prefix => Object.keys(window.localStorage).filter(k => k.startsWith(prefix))",
+            prefix)
+        if not server_keys:
+            raise AssertionError("Server did not cache an uncommitted draft")
+        if not any("server" in key for key in server_keys):
+            raise AssertionError("Server draft key is not scoped to the server mode")
+        if any(key.split(prefix, 1)[1].startswith("demo") for key in server_keys):
+            raise AssertionError("A Demo-scoped draft key exists in the Server context")
+        server_recovery = page.evaluate(
+            "value => Object.keys(window.localStorage).filter(k => k.startsWith("
+            "'ai-compass-working-draft:')).map(k => window.localStorage.getItem(k)).join('')",
+            typed)
+        if typed not in server_recovery:
+            raise AssertionError("The uncommitted Server draft value was not recoverable")
+        assert_exactly_one_view(page, "#ux-screen-host > [data-ux-screen]")
+
+        # Standalone Demo (separate origin): only Demo-scoped drafts, and the
+        # Server's uncommitted text is absent.
+        demo = context.new_page()
+        demo.set_default_timeout(30000)
+        demo_errors = []
+        demo.on("pageerror", lambda e: demo_errors.append(str(e)))
+        demo.goto(demo_url + "?mode=demo&workspace=workgroup", wait_until="domcontentloaded")
+        demo.locator('[data-act="login"][data-id="u1"]').click()
+        demo.locator(".app").wait_for(state="visible", timeout=30000)
+        demo.locator('[data-act="nav"][data-id="knowledge"]').click()
+        demo.locator('[data-act="newGuide"]').first.click()
+        gdialog = demo.get_by_role("dialog")
+        gdialog.wait_for(state="visible")
+        gdialog.locator('select[name="type"]').select_option("Installation")
+        gdialog.locator('input[name="title"]').fill(typed)
+        gdialog.locator('textarea[name="body"]').fill("Demo-only draft body")
+        demo.wait_for_timeout(300)
+        demo_keys = demo.evaluate(
+            "prefix => Object.keys(window.localStorage).filter(k => k.startsWith(prefix))",
+            prefix)
+        # If the Demo frontend ever attaches draft caching, its keys must be
+        # Demo-scoped and must never include the Server's uncommitted text.
+        if any(key.split(prefix, 1)[1].startswith("demo") for key in demo_keys):
+            pass
+        elif any(key.split(prefix, 1)[1].startswith("server") for key in demo_keys):
+            raise AssertionError("A Server-scoped draft key exists in the Demo context")
+        if demo.evaluate("value => Object.keys(window.localStorage).some("
+                         "k => k.startsWith('ai-compass-working-draft:') && "
+                         "window.localStorage.getItem(k).includes(value))", typed):
+            raise AssertionError("The Server's uncommitted draft text leaked into Demo")
+        if demo_errors:
+            raise AssertionError("Demo JS runtime error(s): " + "; ".join(demo_errors[:3]))
+        # Disjoint sets: no Server-scoped key exists in the Demo context and no
+        # Demo-scoped key exists in the Server context.
+        demo_scoped_in_server = [key for key in server_keys
+                                 if key.split(prefix, 1)[1].startswith("demo")]
+        server_scoped_in_demo = [key for key in demo_keys
+                                 if key.split(prefix, 1)[1].startswith("server")]
+        if demo_scoped_in_server or server_scoped_in_demo:
+            raise AssertionError("Demo and Server draft scopes are not disjoint")
+        assert_no_horizontal_overflow(page)
+        return {"server_draft_keys": len(server_keys), "demo_draft_keys": len(demo_keys)}
+    finally:
+        context.close()
+
+
+def api_call(page, method, path, payload=None):
+    """Drive the real REST API from the authenticated browser context.
+
+    Uses only the session cookie and CSRF token the page already holds; no
+    privileged test hook and no Django fixture command. Returns status + JSON.
+    """
+    return page.evaluate("""async ({method, path, payload}) => {
+        const cookie = document.cookie.split('; ')
+            .find(c => c.startsWith('csrftoken='));
+        const headers = {'Content-Type': 'application/json'};
+        if (cookie) headers['X-CSRFToken'] = cookie.split('=')[1];
+        const options = {method, headers, credentials: 'same-origin'};
+        if (payload !== null && payload !== undefined)
+            options.body = JSON.stringify(payload);
+        const response = await fetch('/api/v1/' + path, options);
+        const body = await response.json().catch(() => ({}));
+        return {status: response.status, body};
+    }""", {"method": method, "path": path, "payload": payload})
+
+
+def assert_api(result, expected, label):
+    if result["status"] != expected:
+        raise AssertionError(f"{label} returned {result['status']}: " +
+                             json.dumps(result["body"])[:200])
+    return result["body"]
+
+
+def upload_evidence(page, item_id, filename, content, revision=""):
+    """Upload one real evidence blob from the authenticated browser context.
+
+    Uses the session cookie + CSRF token the page already holds; never a Django
+    fixture command. Returns status + JSON, exactly like api_call.
+    """
+    return page.evaluate("""async ({itemId, filename, content, revision}) => {
+        const cookie = document.cookie.split('; ')
+            .find(c => c.startsWith('csrftoken='));
+        const headers = {};
+        if (cookie) headers['X-CSRFToken'] = cookie.split('=')[1];
+        const form = new FormData();
+        form.append('file', new Blob([content], {type: 'text/plain'}), filename);
+        form.append('source', 'UX-R04 automated proof');
+        form.append('provenance', JSON.stringify({usage: 'probe'}));
+        if (revision) form.append('revision', revision);
+        const response = await fetch('/api/v1/catalog/items/' + encodeURIComponent(itemId) +
+            '/evidence/upload', {method: 'POST', headers, credentials: 'same-origin',
+            body: form});
+        const body = await response.json().catch(() => ({}));
+        return {status: response.status, body};
+    }""", {"itemId": item_id, "filename": filename, "content": content,
+           "revision": revision})
+
+
+def sign_in(page, base_url, credential):
+    page.goto(base_url + "/?mode=server&workspace=workgroup&section=studio",
+              wait_until="domcontentloaded")
+    page.locator("#server-login-form").wait_for(state="visible", timeout=30000)
+    page.locator("#server-username").fill(credential["username"])
+    page.locator("#server-password").fill(credential["password"])
+    page.get_by_role("button", name="Sign in to Server").click()
+    page.locator('#ux-screen-host[data-ux-current]').wait_for(state="visible", timeout=30000)
+    page.locator("#server-login-form").wait_for(state="hidden", timeout=30000)
+
+
+def build_measured_run(page, suffix, label="UX-R04"):
+    """Create one real individual measured Run through the public REST API.
+
+    No Django seed command (business fixtures are forbidden there). Returns the
+    created Run dict plus the task / test case / campaign it belongs to, so a
+    caller can reuse the same fixture for correction, withdrawal or evidence.
+    """
+    model = assert_api(api_call(page, "POST", "models", {
+        "name": label + " model " + suffix, "properties": {}}), 201, "model")
+    provider = assert_api(api_call(page, "POST", "catalog/provider", {
+        "name": label + " provider " + suffix, "properties": {}}), 201, "provider")
+    harness = assert_api(api_call(page, "POST", "catalog/harness", {
+        "name": label + " harness " + suffix,
+        "properties": {"osWindows": True}}), 201, "harness")
+    task = assert_api(api_call(page, "POST", "tasks", {
+        "name": label + " task " + suffix,
+        "properties": {"phase": "SWE", "domain": "Embedded",
+                       "criteria": "Disposable lifecycle fixture"}}), 201, "task")
+    case = assert_api(api_call(page, "POST", "test-cases", {
+        "name": label + " case " + suffix, "task_id": task["id"],
+        "properties": {"objective": "probe", "inputs": "none",
+                       "expected_outputs": "none", "dod": "probe DoD"}}),
+        201, "test case")
+    # A real publication requires a documented, ready setup recipe pinned to the
+    # guide, covering the selected components. Build one the same way a real
+    # author does: a guide with text, then a revision carrying the recipe.
+    guide = assert_api(api_call(page, "POST", "guides", {
+        "name": label + " guide " + suffix,
+        "properties": {"text": "Install the pinned trio and verify wiring."}}),
+        201, "guide")
+    assert_api(api_call(page, "PATCH", "guides/" + guide["id"], {
+        "expected_revision": guide["revision"],
+        "properties": {"text": "Install the pinned trio and verify wiring.",
+                       "recipe": {"modules": [{"id": guide["id"],
+                                               "revision": guide["revision"]}],
+                                  "required": ["model", "provider", "harness"]}}}),
+        200, "guide recipe")
+    campaign = assert_api(api_call(page, "POST", "campaigns", {
+        "name": label + " campaign " + suffix,
+        "objective": "produce one real individual measured Run",
+        "mode": "task_centred", "task_id": task["id"],
+        "test_case_ids": [case["id"]], "guide_id": guide["id"],
+        "configuration": {"reasoning": None}}), 201, "campaign")
+    started = assert_api(api_call(page, "POST",
+        "campaigns/" + campaign["id"] + "/actions/start",
+        {"expected_revision": campaign["revision"]}), 200, "campaign start")
+    session = assert_api(api_call(page, "POST",
+        "campaigns/" + campaign["id"] + "/sessions", {
+            "test_case_id": case["id"],
+            "component_ids": {"model": model["id"], "provider": provider["id"],
+                              "harness": harness["id"]},
+            "settings": {"nullable": None}, "configuration_version": "1",
+            "properties": {"tool": "shell"}}), 201, "session")
+    assert_api(api_call(page, "POST", "sessions/" + session["id"] + "/interactions", {
+        "expected_revision": session["revision"], "type": "human_prompt",
+        "content": "Create SPI driver", "human_minutes": 3, "agent_minutes": None,
+        "extensions": {"unknown": None}}), 200, "interaction")
+    run = assert_api(api_call(page, "POST", "sessions/" + session["id"] + "/close", {
+        "expected_revision": "r002", "outcome": "accepted", "quality_score": 82,
+        "quality_evaluation": "Regression passed", "information_utility_score": None,
+        "tokens_count": None, "tokens_multiplier": 1, "cost_mode": "flat_rate",
+        "cost_eur": None, "human_review_minutes": None,
+        "human_correction_minutes": None,
+        "produced_outputs": "driver.c and Twister output"}), 201, "run close")
+    if run.get("kind") != "individual":
+        raise AssertionError("Measured Run was not an individual Run")
+    return {"run": run, "task": task, "case": case, "campaign": campaign,
+            "model": model, "provider": provider, "harness": harness}
+
+
+def publish_run(reviewer, campaign, run_id):
+    """Close the campaign for review, then publish the chosen Run as reviewer.
+
+    A Run may only be corrected/withdrawn once it is part of a real effective
+    publication, so the fixture must go through the same publication path a real
+    reviewer uses. The campaign revision advances as sessions are recorded, so
+    the current revision is re-read before the close transition.
+    """
+    current = assert_api(api_call(reviewer, "GET",
+        "campaigns/" + campaign["id"]), 200, "campaign read")
+    current = current.get("campaign", current)
+    closed = assert_api(api_call(reviewer, "POST",
+        "campaigns/" + campaign["id"] + "/actions/close",
+        {"expected_revision": current["revision"]}), 200, "campaign close")
+    campaign = closed.get("campaign", closed)
+    assert_api(api_call(reviewer, "POST",
+        "campaigns/" + campaign["id"] + "/publication/publish",
+        {"expected_revision": campaign["revision"], "run_ids": [run_id],
+         "removal_reason": ""}), 200, "campaign publish")
+    return campaign
+
+
+def run_correction_withdrawal(browser, base_url, creds, artifacts, viewport):
+    """UX-R04 (#123 bead ai-w3x.12): real published-Run correction + withdrawal.
+
+    Proves in Chromium, over a Run built from real measured evidence, that only
+    the authenticated reviewer may amend it, that a correction commits an
+    immutable new revision carrying only the changed measurement, that a stale
+    expected_revision is refused (409, never applied), and that withdrawal
+    supersedes the publication while the original Run revision stays readable.
+    """
+    suffix = secrets.token_hex(3)
+    writer_context = browser.new_context(viewport=viewport, reduced_motion="reduce")
+    reviewer_context = browser.new_context(viewport=viewport, reduced_motion="reduce")
+    writer = writer_context.new_page(); writer.set_default_timeout(30000)
+    errors = []
+    writer.on("pageerror", lambda e: errors.append(str(e)))
+    try:
+        sign_in(writer, base_url, creds["workgroup"])
+        fixture = build_measured_run(writer, suffix, "UX-R04 amend")
+        run = fixture["run"]
+        identifier, revision = run["id"], run["revision"]
+
+        # A Run is amendable only once it is part of a real effective
+        # publication, so the reviewer publishes it first through the same
+        # campaign close + publish path a real reviewer uses.
+        reviewer = reviewer_context.new_page(); reviewer.set_default_timeout(30000)
+        reviewer.on("pageerror", lambda e: errors.append(str(e)))
+        sign_in(reviewer, base_url, creds["reviewer"])
+        publish_run(reviewer, fixture["campaign"], identifier)
+
+        # A writable non-reviewer must be refused the lifecycle action...
+        refused = api_call(writer, "POST",
+            "runs/" + identifier + "/actions/corrected",
+            {"expected_revision": revision, "reason": "writer cannot review",
+             "metrics_patch": {"quality_score": 70}})
+        if refused["status"] != 403:
+            raise AssertionError(
+                "A non-reviewer was allowed to correct a published Run: " +
+                str(refused["status"]))
+        # ...and the UI must not offer it either.
+        writer.goto(base_url +
+                    "/?mode=server&workspace=workgroup&section=results&view=editor",
+                    wait_until="domcontentloaded")
+        writer.locator("#server-results").wait_for(state="visible", timeout=30000)
+        writer.wait_for_timeout(1200)
+        if writer.locator('button[data-amend-run="' + identifier + '"]').count():
+            raise AssertionError("A non-reviewer was offered the Run amend action")
+
+        # The reviewer corrects one measurement, giving a mandatory reason.
+        reviewer.goto(base_url +
+                      "/?mode=server&workspace=workgroup&section=results&view=editor",
+                      wait_until="domcontentloaded")
+        reviewer.locator("#server-results").wait_for(state="visible", timeout=30000)
+        amend_button = reviewer.locator(
+            'button[data-amend-run="' + identifier + '"]')
+        amend_button.wait_for(state="visible", timeout=30000)
+        amend_button.click()
+        detail = reviewer.locator("#results-detail")
+        detail.wait_for(state="visible", timeout=20000)
+        # A correction with no measurement/outcome change must be refused
+        # client-side, through the shared status presentation.
+        reviewer.locator("#run-amend-action").select_option("corrected")
+        reviewer.locator("#run-amend-reason").fill(
+            "A sufficiently long justification that changes nothing measurable")
+        reviewer.locator("#run-amend-save").click()
+        reviewer.locator("#results-status").get_by_text(
+            "specify at least one", exact=False).wait_for(
+                state="visible", timeout=20000)
+        # A stale expected_revision must be refused by the Server (409).
+        stale = api_call(reviewer, "POST",
+            "runs/" + identifier + "/actions/corrected",
+            {"expected_revision": "r000", "reason": "stale correction attempt",
+             "metrics_patch": {"quality_score": 91}})
+        if stale["status"] != 409:
+            raise AssertionError(
+                "Stale Run correction was not refused with 409: " +
+                str(stale["status"]))
+        # The real correction commits an immutable new revision.
+        reviewer.locator("#run-amend-quality").fill("91")
+        reviewer.locator("#run-amend-save").click()
+        reviewer.locator("#results-status").get_by_text(
+            "committed", exact=False).wait_for(state="visible", timeout=30000)
+        amended = assert_api(api_call(reviewer, "GET",
+            "runs/" + identifier + "/revisions"), 200, "run revisions")
+        if amended["current"]["revision"] == revision:
+            raise AssertionError("Correction did not advance the Run revision")
+        if len(amended["revisions"]) < 2:
+            raise AssertionError("Correction did not record an immutable revision")
+        new_revision = amended["current"]["revision"]
+        capture(reviewer, artifacts,
+                "server-run-corrected-" + str(viewport["width"]))
+
+        # Persistence: a full browser reload must re-render the corrected
+        # revision from PostgreSQL, not a cached pre-correction value.
+        reviewer.goto(base_url +
+                      "/?mode=server&workspace=workgroup&section=results&view=editor",
+                      wait_until="domcontentloaded")
+        reviewer.locator("#server-results").wait_for(state="visible", timeout=30000)
+        reviewer.locator(
+            'button[data-amend-run="' + identifier + '"]').first.wait_for(
+                state="visible", timeout=30000)
+        confirmed = assert_api(api_call(reviewer, "GET",
+            "runs/" + identifier + "/revisions"), 200, "run revisions after reload")
+        if confirmed["current"]["revision"] != new_revision:
+            raise AssertionError(
+                "Corrected Run revision did not survive a browser reload")
+
+        # Withdrawal supersedes the publication; history keeps the original.
+        reviewer.goto(base_url +
+                      "/?mode=server&workspace=workgroup&section=results&view=editor",
+                      wait_until="domcontentloaded")
+        reviewer.locator("#server-results").wait_for(state="visible", timeout=30000)
+        withdraw_button = reviewer.locator(
+            'button[data-amend-run="' + identifier + '"]').first
+        withdraw_button.wait_for(state="visible", timeout=30000)
+        withdraw_button.click()
+        reviewer.locator("#results-detail").wait_for(state="visible", timeout=20000)
+        reviewer.locator("#run-amend-action").select_option("withdrawn")
+        reviewer.locator("#run-amend-reason").fill(
+            "Provenance of the retained raw log is invalid; withdraw the Run")
+        reviewer.once("dialog", lambda dialog: dialog.accept())
+        reviewer.locator("#run-amend-save").click()
+        reviewer.locator("#results-status").get_by_text(
+            "committed", exact=False).wait_for(state="visible", timeout=30000)
+        after = assert_api(api_call(reviewer, "GET",
+            "runs/" + identifier + "/revisions"), 200, "run revisions after withdraw")
+        if after["current"]["status"] != "withdrawn":
+            raise AssertionError(
+                "Withdraw did not supersede the Run publication: " +
+                str(after["current"]["status"]))
+        if not after["revisions"]:
+            raise AssertionError("Withdraw erased the immutable Run revision history")
+        assert_exactly_one_view(reviewer, "#ux-screen-host > [data-ux-screen]")
+        assert_no_horizontal_overflow(reviewer)
+        capture(reviewer, artifacts,
+                "server-run-withdrawn-" + str(viewport["width"]))
+        if errors:
+            raise AssertionError("Run amendment JS error(s): " + "; ".join(errors[:3]))
+        return {"run": identifier}
+    finally:
+        writer_context.close()
+        reviewer_context.close()
+
+
+def test_case_fork_and_denial(browser, base_url, creds, artifacts, viewport):
+    """UX-R04 (#123 bead ai-w3x.12): Test Case fork, evidence and denial.
+
+    Proves in Chromium/real-API that a fork records an immutable source revision
+    and a child version that survives a reload, that a real evidence blob lands
+    attributed to the exact source revision, and that an Engineer (business_read
+    only) is denied the fork editor, the evidence upload and any Task write
+    without another mode being substituted.
+    """
+    suffix = secrets.token_hex(3)
+    writer_context = browser.new_context(viewport=viewport, reduced_motion="reduce")
+    engineer_context = browser.new_context(viewport=viewport, reduced_motion="reduce")
+    writer = writer_context.new_page(); writer.set_default_timeout(30000)
+    errors = []
+    writer.on("pageerror", lambda e: errors.append(str(e)))
+    try:
+        sign_in(writer, base_url, creds["workgroup"])
+        task = assert_api(api_call(writer, "POST", "tasks", {
+            "name": "UX-R04 fork task " + suffix,
+            "properties": {"phase": "SWE", "domain": "Embedded",
+                           "criteria": "Fork lineage fixture"}}), 201, "task")
+        case = assert_api(api_call(writer, "POST", "test-cases", {
+            "name": "UX-R04 fork case " + suffix, "task_id": task["id"],
+            "properties": {"objective": "probe", "inputs": "none",
+                           "expected_outputs": "none", "dod": "probe DoD"}}),
+            201, "test case")
+        source_revision = case["revision"]
+
+        writer.goto(base_url +
+                    "/?mode=server&workspace=workgroup&section=testdesign&view=editor",
+                    wait_until="domcontentloaded")
+        writer.locator("#server-test-cases").wait_for(state="visible", timeout=30000)
+        row = writer.locator('[data-shared-case="' + case["id"] + '"]')
+        row.wait_for(state="visible", timeout=30000)
+        # Fork through the real UI: the editor names the immutable source revision.
+        row.locator('button[data-action="fork"]').click()
+        editor = writer.locator("#case-editor")
+        editor.wait_for(state="visible", timeout=20000)
+        if source_revision not in editor.inner_text():
+            raise AssertionError("Fork editor did not pin the source revision")
+        editor.locator('input[name="name"]').fill(case["name"] + " (fork)")
+        editor.get_by_role("button", name="Save fork").click()
+        writer.locator("#case-status").get_by_text("Saved", exact=False).wait_for(
+            state="visible", timeout=30000)
+
+        forked = assert_api(api_call(writer, "GET",
+            "test-cases/" + case["id"] + "/revisions"), 200, "case revisions")
+        if not forked.get("revisions"):
+            raise AssertionError("Fork did not expose the immutable case history")
+        # Persistence: the fork lineage must survive a full browser reload and
+        # a fresh list fetch (the child is rendered as a fork of its source).
+        writer.goto(base_url +
+                    "/?mode=server&workspace=workgroup&section=testdesign&view=editor",
+                    wait_until="domcontentloaded")
+        writer.locator("#server-test-cases").wait_for(state="visible", timeout=30000)
+        fork_row = writer.locator('[data-shared-case]').filter(
+            has_text="(fork)").first
+        fork_row.wait_for(state="visible", timeout=30000)
+        if "Fork" not in fork_row.inner_text():
+            raise AssertionError("Fork lineage was lost after a browser reload")
+        capture(writer, artifacts,
+                "server-test-case-fork-" + str(viewport["width"]))
+
+        # Evidence: a real attachment lands through the authorized API and is
+        # attributed to the exact source revision.
+        uploaded = upload_evidence(writer, case["id"],
+                                   "ux-r04-" + suffix + ".txt",
+                                   "original measured harness output", source_revision)
+        if uploaded["status"] != 201:
+            raise AssertionError("Evidence upload was not accepted: " +
+                                 str(uploaded["status"]))
+        linked = assert_api(api_call(writer, "GET",
+            "catalog/items/" + case["id"] + "/evidence"), 200, "case evidence")
+        if not linked.get("results"):
+            raise AssertionError("Uploaded Test Case evidence is not listed")
+        # The exact source revision carries the attachment.
+        if not any(row.get("revision") == source_revision
+                   for row in linked["results"]):
+            raise AssertionError(
+                "Evidence was not attributed to the exact source revision")
+
+        # An Engineer (business_read only) must be denied the fork editor,
+        # the evidence upload and any Task write, and handed nothing else.
+        engineer = engineer_context.new_page(); engineer.set_default_timeout(30000)
+        engineer.on("pageerror", lambda e: errors.append(str(e)))
+        sign_in(engineer, base_url, creds["engineer"])
+        engineer.goto(base_url + "/?mode=server&workspace=engineer&section=tasks",
+                      wait_until="domcontentloaded")
+        engineer.locator('#ux-screen-host[data-ux-current]').wait_for(
+            state="visible", timeout=30000)
+        engineer.wait_for_timeout(1200)
+        if engineer.locator("#server-test-cases").is_visible() or \
+                engineer.locator('button[data-action="fork"]').count():
+            raise AssertionError("Engineer reached the Test Case fork editor")
+        # No write affordance is offered on the shared Task tree either.
+        if engineer.locator('#server-task-list button[data-task-action="up"], '
+                            '#server-task-list button[data-task-action="edit"]').count():
+            raise AssertionError("Engineer was offered a Task write affordance")
+        # The evidence upload API must be refused for a read-only Engineer.
+        denied = upload_evidence(engineer, case["id"], "denied.txt",
+                                  "unauthorized", source_revision)
+        if denied["status"] not in (403, 404):
+            raise AssertionError(
+                "Engineer was allowed to attach Test Case evidence: " +
+                str(denied["status"]))
+        assert_exactly_one_view(engineer, "#ux-screen-host > [data-ux-screen]")
+        capture(engineer, artifacts,
+                "server-test-case-fork-denied-" + str(viewport["width"]))
+        if errors:
+            raise AssertionError("Fork/denial JS error(s): " + "; ".join(errors[:3]))
+        return {"case": case["id"]}
+    finally:
+        writer_context.close()
+        engineer_context.close()
+
+
+def recommendation_lifecycle(browser, base_url, creds, artifacts, viewport):
+    """UX-R04: Server-only Recommendation review/withdraw lifecycle, end to end.
+
+    Builds a real individual measured Run through the public REST API (no Django
+    seed command — business fixtures are forbidden there), drafts a
+    Recommendation over it, then proves in Chromium that only the authenticated
+    reviewer may publish it with an explicit justification and later withdraw it,
+    that the shared detail re-renders the new revision, and that a writable
+    non-reviewer is never offered the transition.
+    """
+    suffix = secrets.token_hex(3)
+    # The writer and the reviewer are different real identities: they must not
+    # share a BrowserContext, whose cookie jar is the session. One context per
+    # persona keeps their Server sessions independent, exactly as two operators
+    # in two browsers would be.
+    writer_context = browser.new_context(viewport=viewport, reduced_motion="reduce")
+    reviewer_context = browser.new_context(viewport=viewport, reduced_motion="reduce")
+    writer = writer_context.new_page()
+    writer.set_default_timeout(30000)
+    errors = []
+    writer.on("pageerror", lambda e: errors.append(str(e)))
+    try:
+        # --- Real measured evidence through the authenticated API -----------
+        sign_in(writer, base_url, creds["workgroup"])
+        model = assert_api(api_call(writer, "POST", "models", {
+            "name": "UX-R04 review model " + suffix, "properties": {}}), 201, "model")
+        provider = assert_api(api_call(writer, "POST", "catalog/provider", {
+            "name": "UX-R04 review provider " + suffix, "properties": {}}), 201, "provider")
+        harness = assert_api(api_call(writer, "POST", "catalog/harness", {
+            "name": "UX-R04 review harness " + suffix,
+            "properties": {"osWindows": True}}), 201, "harness")
+        task = assert_api(api_call(writer, "POST", "tasks", {
+            "name": "UX-R04 review task " + suffix,
+            "properties": {"phase": "SWE", "domain": "Embedded",
+                           "criteria": "Disposable lifecycle fixture"}}), 201, "task")
+        case = assert_api(api_call(writer, "POST", "test-cases", {
+            "name": "UX-R04 review case " + suffix, "task_id": task["id"],
+            "properties": {"objective": "probe", "inputs": "none",
+                           "expected_outputs": "none", "dod": "probe DoD"}}),
+            201, "test case")
+        campaign = assert_api(api_call(writer, "POST", "campaigns", {
+            "name": "UX-R04 review campaign " + suffix,
+            "objective": "produce one real individual measured Run",
+            "mode": "task_centred", "task_id": task["id"],
+            "test_case_ids": [case["id"]]}), 201, "campaign")
+        started = assert_api(api_call(writer, "POST",
+            "campaigns/" + campaign["id"] + "/actions/start",
+            {"expected_revision": campaign["revision"]}), 200, "campaign start")
+        session = assert_api(api_call(writer, "POST",
+            "campaigns/" + campaign["id"] + "/sessions", {
+                "test_case_id": case["id"],
+                "component_ids": {"model": model["id"], "provider": provider["id"],
+                                  "harness": harness["id"]},
+                "settings": {"nullable": None}, "configuration_version": "1",
+                "properties": {"tool": "shell"}}), 201, "session")
+        assert_api(api_call(writer, "POST", "sessions/" + session["id"] + "/interactions", {
+            "expected_revision": session["revision"], "type": "human_prompt",
+            "content": "Create SPI driver", "human_minutes": 3, "agent_minutes": None,
+            "extensions": {"unknown": None}}), 200, "interaction")
+        run = assert_api(api_call(writer, "POST", "sessions/" + session["id"] + "/close", {
+            "expected_revision": "r002", "outcome": "accepted", "quality_score": 82,
+            "quality_evaluation": "Regression passed", "information_utility_score": None,
+            "tokens_count": None, "tokens_multiplier": 1, "cost_mode": "flat_rate",
+            "cost_eur": None, "human_review_minutes": None,
+            "human_correction_minutes": None,
+            "produced_outputs": "driver.c and Twister output"}), 201, "run close")
+        if run.get("kind") != "individual":
+            raise AssertionError("Measured Run was not an individual Run")
+        record = assert_api(api_call(writer, "POST", "recommendations", {
+            "name": "UX-R04 review recommendation " + suffix,
+            "task_id": task["id"], "solution_id": run["solution_id"],
+            "run_ids": [run["id"]],
+            "properties": {"decision": "recommended",
+                           "rationale": "Controlled Twister run passed",
+                           "limitations": "Single scenario"}}), 201, "recommendation")
+
+        # --- The writer drafts and submits; it may NOT publish --------------
+        # The Run's created_at must be strictly later than the campaign start
+        # (the publication freshness baseline), so this same Run is never later
+        # mis-read as evidence that appeared *after* publication.
+        time.sleep(1.1)
+        assert_api(api_call(writer, "POST",
+            "recommendations/" + record["id"] + "/actions/submit",
+            {"expected_revision": record["revision"]}), 200, "submit")
+        refused = api_call(writer, "POST",
+            "recommendations/" + record["id"] + "/actions/publish",
+            {"expected_revision": "r002", "review_note": "writer cannot review"})
+        if refused["status"] != 403:
+            raise AssertionError(
+                "A non-reviewer was allowed to publish a recommendation: " +
+                str(refused["status"]))
+
+        # The shared list must not offer the review transitions to a writer.
+        writer.goto(base_url +
+                    "/?mode=server&workspace=workgroup&section=recommendations&view=editor",
+                    wait_until="domcontentloaded")
+        list_row = writer.locator(
+            '[data-business-domain="recommendations"] [data-business-record]').filter(
+                has_text="UX-R04 review recommendation " + suffix).first
+        list_row.wait_for(state="visible", timeout=30000)
+        if list_row.locator('button[data-action="publish"], '
+                            'button[data-action="unpublish"]').count():
+            raise AssertionError("A non-reviewer was offered a review transition")
+
+        # --- The reviewer publishes with an explicit justification ----------
+        reviewer = reviewer_context.new_page()
+        reviewer.set_default_timeout(30000)
+        reviewer.on("pageerror", lambda e: errors.append(str(e)))
+        sign_in(reviewer, base_url, creds["reviewer"])
+        reviewer.goto(base_url +
+                      "/?mode=server&workspace=workgroup&section=recommendations&view=editor",
+                      wait_until="domcontentloaded")
+        review_row = reviewer.locator(
+            '[data-business-domain="recommendations"] [data-business-record]').filter(
+                has_text="UX-R04 review recommendation " + suffix).first
+        review_row.wait_for(state="visible", timeout=30000)
+        publish = review_row.locator('button[data-action="publish"]').first
+        publish.wait_for(state="visible", timeout=20000)
+        # The reviewer is prompted for an explicit, non-empty justification.
+        reviewer.once("dialog", lambda dialog: dialog.accept(
+            "Reviewed the original measured Run; one authorized decision"))
+        publish.click()
+        # The controller re-fetches the list and reports the recorded transition
+        # ("Recommendation publish action recorded…"); the shared status only
+        # flips once that attributable confirmation lands.
+        reviewer.locator("#rec-status").get_by_text(
+            "publish action recorded", exact=False).wait_for(
+                state="visible", timeout=30000)
+        # The shared detail projection re-renders the new immutable revision.
+        review_row = reviewer.locator(
+            '[data-business-domain="recommendations"] [data-business-record]').filter(
+                has_text="UX-R04 review recommendation " + suffix).first
+        review_row.locator('button[data-action="history"]').first.click()
+        detail = reviewer.locator(
+            '[data-shared-domain-detail="recommendations"][data-domain-mode="server"]')
+        detail.wait_for(state="visible", timeout=30000)
+        if "Immutable, attributable publication history" not in detail.inner_text():
+            raise AssertionError("Published recommendation lost its shared detail projection")
+        if "r003" not in detail.inner_text():
+            raise AssertionError("Shared detail did not re-render the published r003 revision")
+        assert_no_horizontal_overflow(reviewer)
+        capture(reviewer, artifacts,
+                "server-recommendation-published-" + str(viewport["width"]))
+
+        # --- The reviewer withdraws it with a justification -----------------
+        review_row = reviewer.locator(
+            '[data-business-domain="recommendations"] [data-business-record]').filter(
+                has_text="UX-R04 review recommendation " + suffix).first
+        withdraw = review_row.locator('button[data-action="unpublish"]').first
+        withdraw.wait_for(state="visible", timeout=20000)
+        reviewer.once("dialog", lambda dialog: dialog.accept(
+            "New failed evidence invalidates the prior qualification"))
+        withdraw.click()
+        reviewer.locator("#rec-status").get_by_text(
+            "unpublish action recorded", exact=False).wait_for(
+                state="visible", timeout=30000)
+        # A rejected review (empty justification) must be refused client-side.
+        review_row.locator('button[data-action="history"]').first.click()
+        detail = reviewer.locator(
+            '[data-shared-domain-detail="recommendations"][data-domain-mode="server"]')
+        detail.wait_for(state="visible", timeout=30000)
+        if "r004" not in detail.inner_text():
+            raise AssertionError("Shared detail did not re-render the withdrawn r004 revision")
+        assert_exactly_one_view(reviewer, "#ux-screen-host > [data-ux-screen]")
+        assert_no_horizontal_overflow(reviewer)
+        capture(reviewer, artifacts,
+                "server-recommendation-withdrawn-" + str(viewport["width"]))
+        if errors:
+            raise AssertionError("Recommendation lifecycle JS error(s): " + "; ".join(errors[:3]))
+        return {"recommendation": record["id"], "run": run["id"]}
+    finally:
+        writer_context.close()
+        reviewer_context.close()
 
 
 def run_tests(base_url, demo_url, credentials, artifacts):
@@ -664,6 +2055,19 @@ def run_tests(base_url, demo_url, credentials, artifacts):
                     run(f"Authenticated Server {role} {width}",
                         lambda k=role, v=viewport: server_journey(
                             browser, base_url, creds, directory, k, v))
+                run(f"Demo/Server draft isolation {width}",
+                    lambda v=viewport: draft_isolation(
+                        browser, base_url, demo_url, creds, directory, v))
+                if "reviewer" in creds:
+                    run(f"Server Recommendation review/withdraw lifecycle {width}",
+                        lambda v=viewport: recommendation_lifecycle(
+                            browser, base_url, creds, directory, v))
+                    run(f"Server Run correction/withdrawal {width}",
+                        lambda v=viewport: run_correction_withdrawal(
+                            browser, base_url, creds, directory, v))
+                    run(f"Server Test Case fork + denial {width}",
+                        lambda v=viewport: test_case_fork_and_denial(
+                            browser, base_url, creds, directory, v))
         finally:
             browser.close()
     failed = [record for record in records if record["result"] == "FAIL"]

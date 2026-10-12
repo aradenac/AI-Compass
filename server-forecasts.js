@@ -18,7 +18,11 @@ function mount(root,csrf,escapeHtml){
   }
   function status(message,bad){
     var node=$("#forecast-status");
-    if(node){node.textContent=message;node.className=bad?"server-status server-error":"server-status";}
+    if(node){
+      node.className=bad?"server-status server-error":"server-status";
+      node.innerHTML=window.AICompassWorkgroup.renderDomainStatus({
+        mode:"server",state:bad?"error":"ok",message:message==null?"":String(message)});
+    }
   }
   function option(id,label,selected){
     return '<option value="'+esc(id)+'"'+(selected?" selected":"")+'>'+esc(label)+'</option>';
@@ -111,29 +115,29 @@ function mount(root,csrf,escapeHtml){
     node.hidden=false;
     node.innerHTML='<h3>'+(f?"Revise":"Draft")+' theoretical configuration</h3>'+
       '<form id="forecast-form">'+
-      '<label>Title<input name="name" required maxlength="160" value="'+esc(f&&f.name||"")+'"></label>'+
-      '<label>Engineering task<select name="task_id">'+tasks.map(function(t){
-        return option(t.id,t.name,f&&f.task_id===t.id);}).join("")+'</select></label>'+
-      listTypes.map(function(k){
-        return '<label>'+k+'<select name="'+k+'">'+(catalog[k]||[]).map(function(x){
-          return option(x.id,x.name,f&&f.component_ids[k]===x.id);}).join("")+'</select></label>';
-      }).join("")+
-      '<label>Configuration / parameters / tools JSON<textarea name="configuration">'+
-         esc(JSON.stringify(f?f.configuration:{},null,2))+'</textarea></label>'+
-      '<label>Assumptions (JSON)<textarea name="assumptions">'+
-         esc(JSON.stringify(p.assumptions||{},null,2))+'</textarea></label>'+
-      '<label>Theoretical predicted metrics (JSON, unknown=null)<textarea name="predicted_metrics">'+
-         esc(JSON.stringify(p.predicted_metrics||{
-           quality_score:null,acceptance_probability:null,autonomy_score:null,
-           human_minutes:null,ai_cost_eur:null,tokens:null},null,2))+'</textarea></label>'+
-      '<label>Rationale<textarea name="rationale" required maxlength="10000">'+esc(p.rationale||"")+'</textarea></label>'+
-      '<label>Uncertainty / missing evidence<textarea name="uncertainty" maxlength="10000">'+esc(p.uncertainty||"")+'</textarea></label>'+
-      '<label>Confidence<select name="confidence">'+["unknown","low","medium","high"].map(function(k){
-        return option(k,k,p.confidence===k);}).join("")+'</select></label>'+
-      '<label>Exact Watch signals (multi-select)<select name="watch_links" multiple size="6">'+watch.map(function(w){
-        return option(w.id,w.name+" · "+w.revision,!!f&&f.watch_links.some(function(p){return p.id===w.id;}));
-      }).join("")+'</select></label>'+
-      '<p class="muted small">This is a forecast, never a measured solution. Editing any material field creates a new Draft revision.</p>'+
+      window.AICompassWorkgroup.renderDomainFields(
+        window.AICompassWorkgroup.FORECAST_FIELDS,{
+          name:f&&f.name||"",task_id:f&&f.task_id||"",
+          model:(f&&f.component_ids||{}).model,
+          provider:(f&&f.component_ids||{}).provider,
+          harness:(f&&f.component_ids||{}).harness,
+          configuration:JSON.stringify(f?f.configuration:{},null,2),
+          assumptions:JSON.stringify(p.assumptions||{},null,2),
+          predicted_metrics:JSON.stringify(p.predicted_metrics||{
+            quality_score:null,acceptance_probability:null,autonomy_score:null,
+            human_minutes:null,ai_cost_eur:null,tokens:null},null,2),
+          rationale:p.rationale||"",uncertainty:p.uncertainty||"",
+          confidence:p.confidence||"unknown",
+          watch_links:(f&&f.watch_links||[]).map(function(link){return link.id;})
+        },"server",{idPrefix:"forecast",choices:{
+          task_id:tasks.map(function(task){return [task.id,task.name];}),
+          model:(catalog.model||[]).map(function(x){return [x.id,x.name];}),
+          provider:(catalog.provider||[]).map(function(x){return [x.id,x.name];}),
+          harness:(catalog.harness||[]).map(function(x){return [x.id,x.name];}),
+          watch_links:watch.map(function(signal){
+            return [signal.id,signal.name+" · "+signal.revision];})}})+
+      '<p class="muted small">This is a forecast, never a measured solution. Editing any material '+
+      'field creates a new Draft revision; predicted values are never measured Runs.</p>'+
       '<button type="submit">Save theoretical version</button> <button type="button" id="forecast-cancel">Cancel</button>'+
       '</form>';
     $("#forecast-cancel").addEventListener("click",function(){node.hidden=true;});
@@ -180,14 +184,11 @@ function mount(root,csrf,escapeHtml){
       var result=await api("forecasts/"+encodeURIComponent(f.id)+"/revisions");
       if(!enabled||current!==ticket)return;
       node.innerHTML=window.AICompassWorkgroup.renderKnowledgeDetail(f,{domain:"forecasts",mode:"server"})+
-        '<h4>Immutable theoretical revisions</h4>'+
-        (result.revisions||[]).map(function(v){
-          return '<details><summary>'+esc(v.revision)+' · '+esc(v.status)+' · '+esc(v.created_by)+
-            '</summary><pre style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></details>';
-        }).join("");
-      node.querySelectorAll("details pre").forEach(function(pre,i){
-        pre.textContent=JSON.stringify(result.revisions[i],null,2);
-      });
+        window.AICompassWorkgroup.renderRevisionHistory(
+          (result.revisions||[]).map(function(v){
+            return {revision:v.revision,by:v.created_by,at:v.status,
+              body:JSON.stringify(v,null,2),reason:"Retained theoretical revision"};
+          }),{mode:"server",domain:"forecasts",heading:"Immutable theoretical revisions"});
     }catch(err){status("History unavailable: "+err.message,true);}
   }
   function lifecycle(f){
@@ -202,7 +203,10 @@ function mount(root,csrf,escapeHtml){
       '<p>Current '+esc(f.status)+' · changes in assumptions require a fresh review cycle.</p>'+
       (actions.includes("review")?
         '<label>Required reviewer justification<textarea id="forecast-review-notes" maxlength="10000"></textarea></label>':"")+
-      actions.map(function(k){return '<button type="button" data-stage-action="'+esc(k)+'">'+esc(k)+'</button>';}).join("");
+      window.AICompassWorkgroup.renderLifecycleActions(
+        actions.map(function(k){return {key:k,attributes:{"data-stage-action":k}};}),
+        {mode:"server",domain:"forecasts",
+         emptyText:"No lifecycle transition is permitted for this revision."});
     node.querySelectorAll("[data-stage-action]").forEach(function(btn){
       btn.addEventListener("click",async function(){
         btn.disabled=true;

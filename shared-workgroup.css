@@ -27,12 +27,14 @@
 /* UX-R04 unified Demo/Server business list surfaces; content is text-only. */
 .shared-business-list{display:flex;flex-direction:column;gap:10px;margin:12px 0}
 .shared-business-record{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;padding:16px;background:#fff;border:1px solid #dce4ef;border-radius:12px;min-width:0}
-.shared-business-content{min-width:0;overflow-wrap:anywhere;flex:1}
+/* A domain may expose many permitted actions: the action column must never
+ * squeeze the record content into a one-character-wide strip. */
+.shared-business-content{min-width:0;overflow-wrap:anywhere;flex:1 1 56%}
 .shared-business-content h3{font-size:16px;margin:0 0 7px}
 .shared-business-meta{margin:2px 0 7px;color:#526579;overflow-wrap:anywhere}
 .shared-business-description{margin:6px 0;white-space:pre-wrap;overflow-wrap:anywhere}
 .shared-business-note{margin:5px 0;color:#485f77;overflow-wrap:anywhere}
-.shared-business-actions{display:flex;flex-wrap:wrap;gap:7px;justify-content:flex-end;min-width:0}
+.shared-business-actions{display:flex;flex-wrap:wrap;gap:7px;justify-content:flex-end;min-width:0;flex:0 1 42%;max-width:42%}
 .shared-business-actions button{border:1px solid #cbd7e5;border-radius:9px;background:#f7f9fd;color:#253f69;font:600 13px system-ui,sans-serif;padding:9px 12px;cursor:pointer}
 .shared-business-actions button:focus-visible{outline:3px solid #4b6ad4;outline-offset:2px}
 
@@ -57,3 +59,165 @@
 .shared-knowledge-property { margin:12px 0; }
 .shared-knowledge-property h4 { margin:0 0 4px; font-size:13px; }
 .shared-knowledge-property p { margin:0; }
+
+/* UX-R04 one campaign evaluation matrix presentation for Demo and Server. */
+.shared-matrix {
+  border:1px solid #dce4ef;
+  border-radius:12px;
+  background:#fff;
+  padding:16px;
+  margin:12px 0;
+  min-width:0;
+}
+.shared-matrix h3 { margin:0 0 8px; }
+.shared-matrix-summary { margin:8px 0 6px; }
+.shared-matrix-notice {
+  margin:0 0 8px;
+  padding:8px 11px;
+  border-left:3px solid #91b3e6;
+  border-radius:6px;
+  background:#f7f9fd;
+}
+.shared-matrix-task { margin-top:16px; }
+.shared-matrix-task h4 { margin:0 0 8px; font-size:14px; }
+.shared-matrix-scroll { overflow-x:auto; max-width:100%; }
+table.shared-matrix-grid { width:100%; border-collapse:collapse; font-size:12px; }
+table.shared-matrix-grid th,
+table.shared-matrix-grid td {
+  border:1px solid #e3e8f0;
+  padding:8px;
+  text-align:left;
+  vertical-align:top;
+}
+table.shared-matrix-grid thead th { background:#fafbfe; color:#465672; }
+table.shared-matrix-grid tbody th { font-weight:650; }
+.shared-matrix-cell[data-matrix-state="not_selected"] { opacity:.55; }
+.shared-matrix-cell .tag { margin-bottom:6px; }
+.shared-matrix-cell button { display:block; margin:4px 0; }
+.shared-matrix-cell-detail,
+.shared-matrix-decision {
+  border:1px solid #dce4ef;
+  border-radius:12px;
+  background:#fff;
+  padding:14px;
+  margin:12px 0;
+  overflow-wrap:anywhere;
+}
+.shared-matrix-cell-detail h3 { margin:0 0 6px; }
+.shared-matrix-property { margin:12px 0; }
+.shared-matrix-property h4 { margin:0 0 4px; font-size:13px; }
+.shared-matrix-value { margin:0; white-space:pre-wrap; }
+.shared-matrix-runs { margin:0; padding-left:18px; }
+.shared-matrix-runs li { margin:4px 0; }
+
+/* Compact lifecycle stepper and case-preserving identifiers in matrix headers. */
+.shared-stepper {
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  list-style:none;
+  margin:8px 0 12px;
+  padding:0;
+}
+.shared-stepper li {
+  display:flex;
+  align-items:center;
+  gap:6px;
+  padding:4px 10px;
+  border:1px solid #e3e8f0;
+  border-radius:50px;
+  background:#f7f9fd;
+  font-size:12px;
+}
+.shared-stepper li[data-step-state="current"] {
+  border-color:#91b3e6;
+  background:#edf4ff;
+  font-weight:650;
+}
+.shared-stepper li[data-step-state="done"] {
+  border-color:#c4ead9;
+  background:#e4f7ed;
+  color:#19744f;
+}
+.shared-stepper li[data-step-state="blocked"] {
+  border-color:#f9d5da;
+  background:#feedef;
+  color:#a33d48;
+}
+.shared-matrix-identifier { text-transform:none; }
+
+/* One discussion-thread presentation for Demo and Server. */
+.shared-thread-message {
+  border:1px solid #e2e8f0;
+  border-radius:8px;
+  padding:12px;
+  margin-bottom:10px;
+  background:#fff;
+}
+.shared-thread-meta { display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
+.shared-thread-body {
+  margin-top:8px;
+  white-space:pre-wrap;
+  overflow-wrap:anywhere;
+}
+.shared-thread-actions { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+
+/* One review/publication action bar for Demo and Server. */
+.shared-lifecycle { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:10px 0; }
+.shared-lifecycle button {
+  border:1px solid #cbd7e5;
+  border-radius:9px;
+  background:#f7f9fd;
+  color:#253f69;
+  font:600 13px system-ui,sans-serif;
+  padding:8px 12px;
+  cursor:pointer;
+}
+.shared-lifecycle button:focus-visible { outline:3px solid #4b6ad4; outline-offset:2px; }
+
+/* One measured-Run presentation for Demo and Server. */
+.shared-run-detail {
+  border:1px solid #dce4ef;
+  border-radius:12px;
+  background:#fff;
+  padding:16px;
+  margin:12px 0;
+  overflow-wrap:anywhere;
+}
+.shared-run-detail h3 { margin:6px 0; }
+.shared-run-metrics {
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+  gap:10px;
+  margin:12px 0;
+}
+.shared-run-metrics > div {
+  border:1px solid #e3e8f0;
+  border-radius:10px;
+  padding:10px;
+  background:#fafbfe;
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
+.shared-run-metrics strong { font-size:18px; }
+
+/* One observation matrix (Task × candidate, Test Case × Solution). */
+.shared-observation-matrix { margin:12px 0; }
+table.shared-observation-table {
+  width:100%;
+  border-collapse:collapse;
+  font-size:12px;
+}
+table.shared-observation-table th,
+table.shared-observation-table td {
+  border:1px solid #e3e8f0;
+  padding:8px;
+  text-align:left;
+  vertical-align:top;
+}
+table.shared-observation-table thead th { background:#fafbfe; color:#465672; }
+table.shared-observation-table tbody th { font-weight:650; }
+.shared-observation-value.tone-low { color:#b24249; }
+.shared-observation-value.tone-mid { color:#a66507; }
+.shared-row-action { margin-top:6px; }

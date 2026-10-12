@@ -2,6 +2,28 @@
 "use strict";
 const fs = require("node:fs"), vm = require("node:vm"), assert = require("node:assert/strict");
 const html = fs.readFileSync("prototype.html", "utf8");
+
+/* UX-R04 #123 / TD-01: the Demo Tasks page renders through the single shared
+   mount. The legacy second `return` (an unreachable organizer over the dead
+   treeHtml/taskOrganizerPage surface) has been removed and must not resurface
+   as duplicated detail DOM. */
+assert.equal((html.match(/return heading\("Explore","Engineering task hierarchy"/g) || []).length, 1,
+  "prototype.html must keep exactly one Explore task-heading return");
+assert.equal((html.match(/id="shared-demo-tasks"/g) || []).length, 1,
+  "prototype.html must mount the shared Demo task surface exactly once");
+assert(!html.includes("An evolving, arbitrary-depth tree."),
+  "The unreachable legacy task-taxonomy return must stay removed");
+/* UX-R04 #123 bead ai-w3x.4: the orphaned Demo organizer surface (inline task
+   forms, drag-and-drop handlers, root/add/reorder dispatcher branches, organizer
+   CSS and their ui-state) is fully dead now that tasksPage() renders only the
+   shared server-tasks.js mount. It was deleted and must not resurface. */
+for (const dead of ["taskOrganizerPage", "taskOrganizerNode", "taskOrganizerReorder",
+  "taskDropZone", "taskDropTarget", "resetTaskDropStyle", "inlineTaskFields",
+  "saveInlineTask", "dropTaskOn", "moveTaskNode", "isValidTaskMove", "treeHtml",
+  "data-task-drag", "inline-task-form", "ui.taskView", "ui.draggedTask"]) {
+  assert(!html.includes(dead), "orphaned organizer surface must stay removed: " + dead);
+}
+
 const start = html.indexOf("function demoTaskVersion(id){");
 const end = html.indexOf("if(!localStorage.getItem(KEY))persist();", start);
 assert(start > 0 && end > start, "Shared Demo provider must be defined before persistence bootstrap");

@@ -69,7 +69,9 @@
     function edit(model, type) {
       if (!canWrite) return;
       selected = model;
-      var existing = model && (model.properties || {});
+      // Creating a record must start from an empty JSON object, never the
+      // literal "null" prefill that made every new catalog record unsavable.
+      var existing = (model && (model.properties || {})) || {};
       editor.hidden = false; history.hidden = true;
       editor.innerHTML = '<h3>' + (model ? "Revise" : "Create") + ' ' + esc(type) + '</h3>' +
         '<form data-common-form><label>Name <input name="name" required maxlength="160" value="' +

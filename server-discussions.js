@@ -7,7 +7,11 @@ function mount(root,csrf,escapeHtml){
   function esc(v){return escapeHtml(v==null?"":String(v));}
   function status(message,bad){
     var node=$("#discussion-status");
-    if(node){node.textContent=message;node.className=bad?"server-status server-error":"server-status";}
+    if(node){
+      node.className=bad?"server-status server-error":"server-status";
+      node.innerHTML=window.AICompassWorkgroup.renderDomainStatus({
+        mode:"server",state:bad?"error":"ok",message:message==null?"":String(message)});
+    }
   }
   async function api(path,method,data){
     var options={method:method||"GET",credentials:"same-origin",cache:"no-store"};
@@ -26,6 +30,12 @@ function mount(root,csrf,escapeHtml){
   function scopeChoice(current){
     return choice("public","Public to logged-in engineers",current!=="internal")+
            (privileged?choice("internal","Internal workgroup only",current==="internal"):"");
+  }
+  // Permission-aware choices: "internal" is only offered to privileged roles,
+  // in Demo and Server alike. The shared field component renders them.
+  function scopeChoices(){
+    return [["public","Public to logged-in engineers"]].concat(privileged?
+      [["internal","Internal workgroup only"]]:[]);
   }
   function shell(){
     root.innerHTML='<div class="server-model-toolbar"><div>'+
@@ -57,13 +67,14 @@ function mount(root,csrf,escapeHtml){
     var panel=$("#discussion-compose");panel.hidden=false;
     panel.innerHTML='<h3>Submit new feedback</h3>'+
       '<form id="discussion-new-form">'+
-      '<label>Subject<input name="title" maxlength="160" required></label>'+
-      '<label>Kind<select name="kind">'+["feedback","question","idea","request","discussion"]
-        .map(function(k){return choice(k,k,k==="feedback");}).join("")+'</select></label>'+
-      '<label>Visibility<select name="scope">'+scopeChoice("public")+'</select></label>'+
-      '<label>Optional catalog object reference (permanent ID)<input name="context_id" placeholder="tsk-… or sol-…"></label>'+
+      window.AICompassWorkgroup.renderDomainFields(
+        window.AICompassWorkgroup.FEEDBACK_THREAD_FIELDS,
+        {title:"",kind:"feedback",scope:"public",context_id:"",body:""},"server",
+        {idPrefix:"discussion-new",choices:{
+          kind:[["feedback","feedback"],["question","question"],["idea","idea"],
+            ["request","request"],["discussion","discussion"]],
+          scope:scopeChoices()}})+
       '<p class="muted small">Only public task, solution and technology catalog references can be attached to discussion threads. The exact catalog revision is pinned at creation.</p>'+
-      '<label>Feedback / first message<textarea name="body" rows="5" required maxlength="16000"></textarea></label>'+
       '<button type="submit">Publish feedback</button><button type="button" id="discussion-new-cancel">Cancel</button>'+
       '</form>';
     $("#discussion-new-cancel").addEventListener("click",function(){panel.hidden=true;});
@@ -128,25 +139,27 @@ function mount(root,csrf,escapeHtml){
       panel.innerHTML='<h3>'+esc(t.title)+' · '+esc(t.id)+'</h3>'+
         '<p class="muted small">'+(t.properties.scope==="internal"?"INTERNAL":"Public")+
         ' · '+esc(t.created_by)+' · context: '+esc(t.context_id||"none")+'</p>'+
-        '<div id="discussion-messages">'+(data.messages||[]).map(function(m){
+        '<div id="discussion-messages">'+window.AICompassWorkgroup.renderThread(
+          (data.messages||[]).map(function(m){
+            return {id:m.id,author:m.created_by,at:m.created_at,revision:m.revision,
+              parentId:m.parent_id,visibility:m.visibility==="internal"?"internal":"public",
+              body:m.body,
+              attachments:(m.attachments||[]).map(function(a){
+                return {href:a.download,filename:a.filename,sha256:a.sha256};})};}),
+          {mode:"server",emptyText:"No message in this Server conversation yet.",
+           actions:function(m){
+             var isAuthor=m.author===username;
+             return [{label:"Reply",attributes:{"data-message":m.id,"data-action":"reply"}}].concat(
+               (isAuthor||privileged)?[{label:"Correct / change visibility",
+                 attributes:{"data-message":m.id,"data-action":"correct"}}]:[]).concat(
+               [{label:"Correction history",
+                 attributes:{"data-message":m.id,"data-action":"history"}}]);}})+'</div>'+
+        '<div id="discussion-attachments">'+(data.messages||[]).map(function(m){
           var isAuthor=m.created_by===username;
-          return '<article style="padding:12px;margin-bottom:10px;border:1px solid #e2e8f0;border-radius:8px">'+
-            '<strong>'+esc(m.created_by)+'</strong> · '+esc(m.visibility==="internal"?"INTERNAL":"Public")+
-            ' · <span class="muted small">'+esc(m.created_at)+' · '+esc(m.id)+
-            ' · '+esc(m.revision)+(m.parent_id?" · reply to "+esc(m.parent_id):"")+'</span>'+
-            '<p style="white-space:pre-wrap;overflow-wrap:anywhere">'+esc(m.body)+'</p>'+
-            (m.attachments||[]).map(function(a){
-              return '<p class="muted small">Original attachment: <a href="'+
-                esc(a.download)+'">'+esc(a.filename)+'</a> · SHA-256 '+esc(a.sha256)+'</p>';
-            }).join("")+
-            '<button type="button" data-message="'+esc(m.id)+'" data-action="reply">Reply</button>'+
-            (isAuthor||privileged?'<button type="button" data-message="'+esc(m.id)+
-              '" data-action="correct">Correct / change visibility</button>':'')+
-            '<button type="button" data-message="'+esc(m.id)+'" data-action="history">Correction history</button>'+
-            (isAuthor||privileged?'<form data-attachment="'+esc(m.id)+'" style="display:inline-block;margin-left:8px">'+
-              '<input name="file" type="file" accept=".pdf,.txt,.md,.csv,.json,.png,.jpg,.jpeg,.webp,.zip" required>'+
-              '<button type="submit">Attach original</button></form>':'')+
-            '</article>';
+          return (isAuthor||privileged)?'<form data-attachment="'+esc(m.id)+
+            '" style="display:inline-block;margin:4px 8px 4px 0">'+
+            '<input name="file" type="file" accept=".pdf,.txt,.md,.csv,.json,.png,.jpg,.jpeg,.webp,.zip" required>'+
+            '<button type="submit">Attach original to '+esc(m.id)+'</button></form>':"";
         }).join("")+'</div>'+
         '<div id="discussion-reply-editor"></div>';
       panel.querySelectorAll("form[data-attachment]").forEach(function(form){
@@ -163,9 +176,11 @@ function mount(root,csrf,escapeHtml){
     var t=threads.find(function(x){return x.id===selected;});
     var area=$("#discussion-reply-editor");
     area.innerHTML='<h4>Reply '+(parent?"to "+esc(parent):"to conversation")+'</h4>'+
-      '<form id="discussion-reply-form"><label>Visibility<select name="visibility">'+
-      scopeChoice(t&&t.properties.scope==="internal"?"internal":"public")+'</select></label>'+
-      '<label>Response<textarea name="body" required rows="4" maxlength="16000"></textarea></label>'+
+      '<form id="discussion-reply-form">'+
+      window.AICompassWorkgroup.renderDomainFields(
+        window.AICompassWorkgroup.FEEDBACK_REPLY_FIELDS,
+        {visibility:(t&&t.properties.scope==="internal"?"internal":"public"),body:""},"server",
+        {idPrefix:"discussion-reply",choices:{visibility:scopeChoices()}})+
       '<button type="submit">Persist reply</button></form>';
     $("#discussion-reply-form").addEventListener("submit",async function(event){
       event.preventDefault();var f=event.target,button=f.querySelector('[type="submit"]');button.disabled=true;
@@ -212,13 +227,12 @@ function mount(root,csrf,escapeHtml){
     area.textContent="Loading retained revision history…";
     try{
       var data=await api("discussions/messages/"+encodeURIComponent(identifier)+"/revisions");
-      area.innerHTML='<h3>Immutable message history · '+esc(identifier)+'</h3>'+
+      area.innerHTML=window.AICompassWorkgroup.renderRevisionHistory(
         (data.revisions||[]).map(function(r){
-          return '<details><summary>'+esc(r.revision)+' · '+esc(r.revision_by)+
-            ' · '+esc(r.revision_at)+' · '+esc(r.visibility)+'</summary>'+
-            '<p style="white-space:pre-wrap;overflow-wrap:anywhere">'+esc(r.body)+'</p>'+
-            '<p>Reason: '+esc(r.edit_reason||"Original message")+'</p></details>';
-        }).join("");
+          return {revision:r.revision,by:r.revision_by,at:r.revision_at,
+            visibility:r.visibility,body:r.body,reason:r.edit_reason};
+        }),{mode:"server",domain:"discussions",
+          heading:"Immutable message history · "+identifier});
     }catch(err){area.hidden=true;status("History unavailable: "+err.message,true);}
   }
   async function upload(form){

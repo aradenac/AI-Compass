@@ -21,13 +21,13 @@
       window.AICompassWorkgroup.renderGuideFields(guide||{},"server")+
       '<fieldset><legend>Composable recipe (optional)</legend>'+
       '<p class="muted small">Reuse exact guide revisions. For OS/versions and variants, edit the JSON recipe.</p>'+
-      '<label>Reusable modules<select name="recipe_modules" multiple size="5">'+
-      known.filter(function(g){return !guide||g.id!==guide.id;}).map(function(g){
-        return '<option value="'+escape(g.id)+'">'+escape(g.name)+' · '+escape(g.revision)+'</option>';
-      }).join("")+'</select></label>'+
-      '<button type="button" class="guide-add-modules">Add selected pinned modules</button>'+
-      '<label>Recipe (JSON; optional)<textarea name="recipe_spec" rows="8">'+
-      escape(properties.recipe?JSON.stringify(properties.recipe,null,2):"")+'</textarea></label></fieldset>'+
+      window.AICompassWorkgroup.renderDomainFields(
+        window.AICompassWorkgroup.GUIDE_RECIPE_FIELDS,
+        {recipe_modules:[],recipe_spec:properties.recipe?JSON.stringify(properties.recipe,null,2):""},
+        "server",{idPrefix:"guide-recipe",choices:{recipe_modules:known.filter(function(g){
+          return !guide||g.id!==guide.id;}).map(function(g){
+            return [g.id,g.name+" · "+g.revision];})}})+
+      '<button type="button" class="guide-add-modules">Add selected pinned modules</button></fieldset>'+
       '<button type="submit">Save guide</button> <button type="button" class="guide-cancel">Cancel</button>'+
       '</form>';
   }
@@ -67,7 +67,11 @@
     function find(s){return root.querySelector(s);}
     function status(message,error) {
       var node=find("#guide-status");
-      if(node){node.textContent=message;node.className=error?"server-status server-error":"server-status";}
+      if(node){
+        node.className=error?"server-status server-error":"server-status";
+        node.innerHTML=window.AICompassWorkgroup.renderDomainStatus({
+          mode:"server",state:error?"error":"ok",message:message==null?"":String(message)});
+      }
     }
     function shell() {
       root.innerHTML=
@@ -180,14 +184,13 @@
         if(!active||current!==ticket)return;
         node=find("#guide-history");
         node.innerHTML=window.AICompassWorkgroup.renderGuideDetail(item,"server")+
-          '<h4>Immutable revision history</h4>'+(response.revisions||[]).map(function(r){
-            return '<details><summary>'+escapeHtml(r.revision)+' · '+
-              escapeHtml(r.created_at)+' · '+escapeHtml(r.created_by)+'</summary>'+
-              '<pre style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></details>';
-          }).join("");
-        var pre=node.querySelectorAll("details pre");
-        response.revisions.forEach(function(r,i){pre[i].textContent=JSON.stringify({
-          name:r.name,properties:r.properties,schema_version:r.schema_version},null,2);});
+          window.AICompassWorkgroup.renderRevisionHistory(
+            (response.revisions||[]).map(function(r){
+              return {revision:r.revision, by:r.created_by, at:r.created_at,
+                body:JSON.stringify({name:r.name,properties:r.properties,
+                  schema_version:r.schema_version},null,2),
+                reason:"Retained Guide revision"};
+            }),{mode:"server",domain:"guides",heading:"Immutable revision history"});
       } catch(error) {
         if(active&&current===ticket)find("#guide-history").textContent="History unavailable: "+error.message;
       }
@@ -207,15 +210,14 @@
             throw Error("Configuration must be a JSON object");
           var result=await request(csrf,"/render","POST",{
             guide_id:item.id,revision:item.revision,configuration:configuration});
-          var markup='<p>'+(result.ready?"All declared modules applicable":"Incomplete or ambiguous recipe")+'</p>'+
-            '<pre style="white-space:pre-wrap;overflow-wrap:anywhere">'+
-            escapeHtml(JSON.stringify(result.missing,null,2))+'</pre>';
-          result.sections.forEach(function(section){
-            markup+='<details open><summary>'+escapeHtml(section.name)+' · '+escapeHtml(section.revision)+'</summary>'+
-              '<pre style="white-space:pre-wrap;overflow-wrap:anywhere">'+escapeHtml(section.text||"")+'</pre>'+
-              '<p>'+escapeHtml(section.url||"")+'</p></details>';
-          });
-          output.innerHTML=markup;
+          output.innerHTML=window.AICompassWorkgroup.renderComposedSetup({
+            title:item.name,revision:item.revision,ready:result.ready,
+            missing:(result.missing||[]).map(function(entry){
+              return typeof entry==="string"?entry:JSON.stringify(entry);}),
+            sections:(result.sections||[]).map(function(section){
+              return {name:section.name,revision:section.revision,
+                text:section.text,url:section.url};})
+          },{mode:"server",domain:"guides"});
         }catch(error){output.textContent="Unable to render: "+error.message;}
         finally{button.disabled=false;}
       });
