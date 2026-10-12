@@ -1314,7 +1314,6 @@ return heading("Explore","Engineering task hierarchy",
  '<div id="server-task-list"></div><section id="server-task-editor" hidden></section>' +
  '<pre id="server-task-history" hidden></pre></section>' +
  '<section class="card" style="margin-top:16px">'+details+'</section>';
-return heading("Explore","Engineering task hierarchy","An evolving, arbitrary-depth tree. Test Cases are experimental challenges attached to tasks, not branches of the taxonomy.",(canEdit()?btn(ui.taskView==="organize"?"✓ Done organizing":"↗ Organize tree","organizeToggle","","primary")+(ui.taskView==="organize"?btn("+ Root section","organizeAddRoot","",""):btn("+ New task node","newTask",t.id,"")):""))+(canEdit()&&ui.taskView==="organize"?taskOrganizerPage():'<div class="split"><section class="card"><div class="card-head"><h2>Task taxonomy</h2>'+badge(db.tasks.length+" nodes")+'</div><div class="filters"><input class="input" data-filter="taskSearch" placeholder="Find task, domain, specialty…" value="'+E(ui.filters.taskSearch||"")+'"><select data-filter="taskPhase">'+[["all","All activities"],["SWE","Software / SWE"],["SYS","Systems / SYS"],["Support","Support"]].map(function(x){return opt(x[0],x[1],ui.filters.taskPhase||"all");}).join("")+'</select></div><div class="tree">'+treeHtml(null,0)+'</div><p class="helper">Select a node to view its DoD, descendants, attached TCs and evaluated solutions.</p></section><section class="card">'+details+'</section></div>');
 }
 function solutionCard(s){
 var stats=solutionStats(s.id),checked=ui.selectedCompare.includes(s.id);
