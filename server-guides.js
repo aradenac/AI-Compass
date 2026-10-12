@@ -184,14 +184,13 @@
         if(!active||current!==ticket)return;
         node=find("#guide-history");
         node.innerHTML=window.AICompassWorkgroup.renderGuideDetail(item,"server")+
-          '<h4>Immutable revision history</h4>'+(response.revisions||[]).map(function(r){
-            return '<details><summary>'+escapeHtml(r.revision)+' · '+
-              escapeHtml(r.created_at)+' · '+escapeHtml(r.created_by)+'</summary>'+
-              '<pre style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></details>';
-          }).join("");
-        var pre=node.querySelectorAll("details pre");
-        response.revisions.forEach(function(r,i){pre[i].textContent=JSON.stringify({
-          name:r.name,properties:r.properties,schema_version:r.schema_version},null,2);});
+          window.AICompassWorkgroup.renderRevisionHistory(
+            (response.revisions||[]).map(function(r){
+              return {revision:r.revision, by:r.created_by, at:r.created_at,
+                body:JSON.stringify({name:r.name,properties:r.properties,
+                  schema_version:r.schema_version},null,2),
+                reason:"Retained Guide revision"};
+            }),{mode:"server",domain:"guides",heading:"Immutable revision history"});
       } catch(error) {
         if(active&&current===ticket)find("#guide-history").textContent="History unavailable: "+error.message;
       }
