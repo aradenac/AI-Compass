@@ -12,6 +12,7 @@ Only synthetic, isolated CI accounts are used. Never run provisioning on product
 import argparse
 import json
 import os
+import re
 from pathlib import Path
 import secrets
 import subprocess
@@ -853,6 +854,21 @@ def server_journey(browser, base_url, creds, artifacts, role, viewport):
                 cell.wait_for(state="visible", timeout=30000)
                 if "never measured evidence" not in cell.inner_text().lower():
                     raise AssertionError("Shared Server matrix cell lost its provenance notice")
+                # The rendered link must open the exact evaluated Test Case
+                # revision, not the current version.
+                cell_text = cell.inner_text()
+                pinned = re.search(r"pinned revision (r\d{3})", cell_text)
+                if not pinned:
+                    raise AssertionError(
+                        "Cell detail does not state the pinned Test Case revision: " +
+                        cell_text[:160])
+                context_link = cell.locator('a', has_text="Open Test Case context").first
+                if context_link.count() == 0:
+                    raise AssertionError("Cell detail lost the Test Case context link")
+                href = context_link.get_attribute("href") or ""
+                if f"revision={pinned.group(1)}" not in href:
+                    raise AssertionError(
+                        "Test Case context link does not open the pinned revision: " + href)
                 decision = page.locator("#matrix-decision-form")
                 decision.wait_for(state="visible", timeout=20000)
                 decision.locator('select[name="decision"]').select_option("waived")

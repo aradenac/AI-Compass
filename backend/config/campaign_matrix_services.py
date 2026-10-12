@@ -255,7 +255,15 @@ def projection(item, revision, scope="private"):
         grouped[eid]["in_progress"]-=1
     totals={"candidates":len(ids),"not_selected":0,"waived":0,
             "pending":0,"in_progress":0,"evaluated":0,"measured_runs":0}
+    # Each cell must expose the exact Test Case revision pinned by the
+    # displayed campaign revision, so a client can open the evaluated source
+    # rather than the current version.
+    snapshot=CampaignSnapshot.objects.select_related("revision").get(revision=revision)
+    pinned_case_revisions={
+        pin.test_case.item.public_id:f"r{pin.revision.number:03d}"
+        for pin in snapshot.case_pins.select_related("test_case__item","revision")}
     for cell in plan["cells"]:
+        cell["test_case_revision"]=pinned_case_revisions.get(cell["test_case_id"],"")
         runs=grouped[cell["id"]]["runs"]
         active=grouped[cell["id"]]["in_progress"] if scope=="private" else 0
         decision=cell["decision"]
