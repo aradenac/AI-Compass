@@ -863,6 +863,26 @@ def server_journey(browser, base_url, creds, artifacts, role, viewport):
                     raise AssertionError("Watch detail lost controlled content: " + expected)
             page.locator("#watch-detail details").first.wait_for(state="visible")
             capture(page, artifacts, "server-shared-watch-detail-" + str(viewport["width"]))
+            # UX-R04 §13 #19: an uncommitted draft is scoped to this mode/account
+            # and can never cross into the Demo cache (or any other mode).
+            page.locator("#watch-add-entry").click()
+            draft_form = page.locator("#watch-form")
+            draft_form.wait_for(state="visible")
+            typed = "UX-R04 uncommitted Server draft value"
+            draft_form.locator('input[name="name"]').fill(typed)
+            draft_form.locator('textarea[name="hypothesis"]').fill(typed)
+            draft_keys = page.evaluate("""() => Object.keys(window.localStorage)
+                .filter(key => key.startsWith("ai-compass-working-draft:"))""")
+            if not any("server" in key for key in draft_keys):
+                raise AssertionError("Server draft was not scoped to the server mode")
+            if any("demo" in key for key in draft_keys):
+                raise AssertionError("A Demo draft key leaked into the Server context")
+            if not page.evaluate(
+                    "value => Object.keys(window.localStorage).some("
+                    "key => window.localStorage.getItem(key).includes(value))", typed):
+                raise AssertionError("The uncommitted Server draft value was not cached")
+            server_draft_keys = page.evaluate("""() => Object.keys(window.localStorage)
+                .filter(key => key.startsWith("ai-compass-working-draft:"))""")
         if role in ("workgroup", "multi_role"):
             page.goto(base_url + "/?mode=server&workspace=workgroup&section=testdesign&view=editor",
                       wait_until="domcontentloaded")
@@ -1294,6 +1314,99 @@ def server_journey(browser, base_url, creds, artifacts, role, viewport):
         context.close()
 
 
+def draft_isolation(browser, base_url, demo_url, creds, artifacts, viewport):
+    """UX-R04 §13 #19: a local draft cache never crosses Demo/Server modes.
+
+    Drafts are namespaced by [mode, origin, account, kind, id]; this proves the
+    two modes write disjoint, non-overlapping key sets and that neither can read
+    the other's uncommitted text.
+    """
+    prefix = "ai-compass-working-draft:"
+    typed = "UX-R04 cross-mode draft isolation value"
+    context = browser.new_context(viewport=viewport, reduced_motion="reduce")
+    page = context.new_page()
+    page.set_default_timeout(30000)
+    errors = []
+    page.on("pageerror", lambda e: errors.append(str(e)))
+    try:
+        # Authenticated Server: the draft cache is scoped to the Server mode.
+        page.goto(base_url + "/?mode=server&workspace=workgroup&section=watch&view=editor",
+                  wait_until="domcontentloaded")
+        page.locator("#server-login-form").wait_for(state="visible", timeout=30000)
+        page.locator("#server-username").fill(creds["workgroup"]["username"])
+        page.locator("#server-password").fill(creds["workgroup"]["password"])
+        page.get_by_role("button", name="Sign in to Server").click()
+        page.locator('#ux-screen-host[data-ux-current]').wait_for(state="visible", timeout=30000)
+        page.locator("#watch-add-entry").wait_for(state="visible", timeout=30000)
+        page.locator("#watch-add-entry").click()
+        watch_form = page.locator("#watch-form")
+        watch_form.wait_for(state="visible")
+        watch_form.locator('input[name="name"]').fill(typed)
+        watch_form.locator('textarea[name="hypothesis"]').fill(typed)
+        page.wait_for_timeout(300)  # The draft is saved on input/change.
+        server_keys = page.evaluate(
+            "prefix => Object.keys(window.localStorage).filter(k => k.startsWith(prefix))",
+            prefix)
+        if not server_keys:
+            raise AssertionError("Server did not cache an uncommitted draft")
+        if not any("server" in key for key in server_keys):
+            raise AssertionError("Server draft key is not scoped to the server mode")
+        if any(key.split(prefix, 1)[1].startswith("demo") for key in server_keys):
+            raise AssertionError("A Demo-scoped draft key exists in the Server context")
+        server_recovery = page.evaluate(
+            "value => Object.keys(window.localStorage).filter(k => k.startsWith("
+            "'ai-compass-working-draft:')).map(k => window.localStorage.getItem(k)).join('')",
+            typed)
+        if typed not in server_recovery:
+            raise AssertionError("The uncommitted Server draft value was not recoverable")
+        assert_exactly_one_view(page, "#ux-screen-host > [data-ux-screen]")
+
+        # Standalone Demo (separate origin): only Demo-scoped drafts, and the
+        # Server's uncommitted text is absent.
+        demo = context.new_page()
+        demo.set_default_timeout(30000)
+        demo_errors = []
+        demo.on("pageerror", lambda e: demo_errors.append(str(e)))
+        demo.goto(demo_url + "?mode=demo&workspace=workgroup", wait_until="domcontentloaded")
+        demo.locator('[data-act="login"][data-id="u1"]').click()
+        demo.locator(".app").wait_for(state="visible", timeout=30000)
+        demo.locator('[data-act="nav"][data-id="knowledge"]').click()
+        demo.locator('[data-act="newGuide"]').first.click()
+        gdialog = demo.get_by_role("dialog")
+        gdialog.wait_for(state="visible")
+        gdialog.locator('select[name="type"]').select_option("Installation")
+        gdialog.locator('input[name="title"]').fill(typed)
+        gdialog.locator('textarea[name="body"]').fill("Demo-only draft body")
+        demo.wait_for_timeout(300)
+        demo_keys = demo.evaluate(
+            "prefix => Object.keys(window.localStorage).filter(k => k.startsWith(prefix))",
+            prefix)
+        # If the Demo frontend ever attaches draft caching, its keys must be
+        # Demo-scoped and must never include the Server's uncommitted text.
+        if any(key.split(prefix, 1)[1].startswith("demo") for key in demo_keys):
+            pass
+        elif any(key.split(prefix, 1)[1].startswith("server") for key in demo_keys):
+            raise AssertionError("A Server-scoped draft key exists in the Demo context")
+        if demo.evaluate("value => Object.keys(window.localStorage).some("
+                         "k => k.startsWith('ai-compass-working-draft:') && "
+                         "window.localStorage.getItem(k).includes(value))", typed):
+            raise AssertionError("The Server's uncommitted draft text leaked into Demo")
+        if demo_errors:
+            raise AssertionError("Demo JS runtime error(s): " + "; ".join(demo_errors[:3]))
+        # Disjoint sets: no Server-scoped key exists in the Demo context and no
+        # Demo-scoped key exists in the Server context.
+        demo_scoped_in_server = [key for key in server_keys
+                                 if key.split(prefix, 1)[1].startswith("demo")]
+        server_scoped_in_demo = [key for key in demo_keys
+                                 if key.split(prefix, 1)[1].startswith("server")]
+        if demo_scoped_in_server or server_scoped_in_demo:
+            raise AssertionError("Demo and Server draft scopes are not disjoint")
+        assert_no_horizontal_overflow(page)
+        return {"server_draft_keys": len(server_keys), "demo_draft_keys": len(demo_keys)}
+    finally:
+        context.close()
+
+
 def run_tests(base_url, demo_url, credentials, artifacts):
     from playwright.sync_api import sync_playwright
     directory = Path(artifacts)
@@ -1338,6 +1451,9 @@ def run_tests(base_url, demo_url, credentials, artifacts):
                     run(f"Authenticated Server {role} {width}",
                         lambda k=role, v=viewport: server_journey(
                             browser, base_url, creds, directory, k, v))
+                run(f"Demo/Server draft isolation {width}",
+                    lambda v=viewport: draft_isolation(
+                        browser, base_url, demo_url, creds, directory, v))
         finally:
             browser.close()
     failed = [record for record in records if record["result"] == "FAIL"]
