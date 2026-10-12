@@ -193,8 +193,8 @@
       function name(list,id,key){var found=list.find(function(x){return x.id===id;});return found?(found[key]||id):id;}
       return {revision:matrix.revision||row.revision,
         tasks:taskIds.map(function(id){return {id:id,name:name(tasks,id,"name")};}),
-        testCases:caseIds.map(function(id){return {id:id,name:name(cases,id,"name"),
-          href:window.AICompassContext.route("server","workgroup","testdesign",{record:id})};}),
+        // No current-revision Test Case link: each cell pins its own revision.
+        testCases:caseIds.map(function(id){return {id:id,name:name(cases,id,"name")};}),
         configurations:configurations.map(function(x){
           return {id:x.id,taskId:x.task_id,label:x.label,kind:x.kind};}),
         cells:cells.map(function(cell){
@@ -202,6 +202,9 @@
             testCaseId:cell.test_case_id,testCaseRevision:cell.test_case_revision||"",
             status:cell.status,decision:cell.decision,activeAttempts:cell.active_attempts||0,
             introducedRevision:cell.introduced_revision||"",
+            // The exact evaluated Test Case source, never the current version.
+            testCaseHref:window.AICompassContext.route("server","workgroup","testdesign",{
+              record:cell.test_case_id,revision:cell.test_case_revision||""}),
             waiver:cell.waiver?{reason:cell.waiver.reason,actor:cell.waiver.actor,at:cell.waiver.at}:null,
             runs:(cell.runs||[]).map(function(run){
               return {id:run.id,kind:run.kind||"",revision:run.effective_revision||"",
@@ -617,7 +620,10 @@
           window.AICompassWorkgroup.renderStepper(
             window.AICompassWorkgroup.campaignLifecycleSteps(row.status),
             {mode:"server",domain:"campaign"})+
-          campaignLifecycleBar(row)+
+          ((!revision||revision===row.revision)?campaignLifecycleBar(row):
+            '<p class="muted small" data-shared-lifecycle-empty>Historical plan revision '+
+            esc(matrix.revision)+' — lifecycle transitions are offered on the current '+
+            'campaign revision only.</p>')+
           (row.archived?'<p class="muted small" role="status">This campaign revision is archived; '+
             'the lifecycle above is historical.</p>':"")+
           '<p class="muted small">Task-associated configurations only · each pair has a stable evaluation ID. Candidate planning is distinct from immutable measured Runs. Historical decisions are frozen; attempt counts are the live observed projection.</p>'+

@@ -516,7 +516,11 @@
       section("Test Case",line(String(cell.testCaseId)+
         (cell.testCaseRevision?" · pinned revision "+cell.testCaseRevision:"")+
         (testCase&&testCase.revision?" · version "+testCase.revision:""))+
-        (testCase&&testCase.href?'<p>'+matrixHref({href:testCase.href,label:"Open Test Case context"})+'</p>':""))+
+        (cell.testCaseHref?
+          '<p>'+matrixHref({href:cell.testCaseHref,label:"Open Test Case context"})+'</p>':
+         cell.testCaseAction?'<p>'+matrixCommand(cell.testCaseAction)+'</p>':
+         testCase&&testCase.href?
+          '<p>'+matrixHref({href:testCase.href,label:"Open Test Case context"})+'</p>':""))+
       section("Configuration",line(configuration.label+' · '+
         (configuration.kind||"individual")+' · '+configuration.id))+
       section("Recorded state",line(MATRIX_STATE_LABEL[cell.status]+
@@ -637,9 +641,15 @@
       else if(kind==="checkbox")
         control='<input id="'+id+'" name="'+escape(name)+'" type="checkbox" value="yes"'+
           (value===true||value==="yes"||value==="on"?' checked':'')+'>';
-      else
+      else {
+        // Numeric metrics keep the historical Demo contract: fractions are
+        // valid (step="any") and negative measurements are refused (min="0").
+        if(kind==="number")attrs+=' step="'+escape(entry.step||"any")+'"'+
+          (entry.min===undefined?' min="0"':"")+
+          (entry.max===undefined?"":' max="'+escape(entry.max)+'"');
         control='<input id="'+id+'" name="'+escape(name)+'" type="'+
           escape(kind==="number"?"number":"text")+'" value="'+escape(value)+'"'+attrs+'>';
+      }
       if(locked)return control;
       return '<div class="field shared-domain-field'+(entry.span?' span2':"")+
         '" data-shared-field="'+escape(name)+'"><label for="'+id+'">'+escape(entry.label)+'</label>'+

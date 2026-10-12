@@ -2559,6 +2559,8 @@ function demoMatrixProjection(c){
    var state=demoMatrixStatus(c,cell);
    return {id:cell.id,configurationId:cell.configurationId,testCaseId:cell.caseId,
     status:state.state,decision:cell.decision,
+    testCaseAction:{label:"Open Test Case context",
+     attributes:{"data-act":"caseDetail","data-id":cell.caseId}},
     activeAttempts:state.attempts.filter(function(trial){return trial.status!=="completed";}).length,
     runs:state.runs.map(function(run){return {id:run.id,
      kind:run.frameworkAggregate?"framework":"individual",

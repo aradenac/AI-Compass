@@ -118,6 +118,22 @@ assert.throws(()=>ui.renderDomainDetail({title:"x"},{mode:"demo",domain:"Feedbac
 assert.throws(()=>ui.renderDomainDetail({title:"x",links:[{href:"https://evil.example"}]},
   {mode:"server",domain:"feedback"}),/same-origin/);
 
+/* Numeric metrics keep the historical Demo field contract: fractions are
+   valid and negative measurements are refused (review regression). */
+const numeric=ui.renderDomainFields(ui.FORECAST_FIELDS,{aiCost:"0.50",humanMinutes:"12.5"},'demo');
+for(const name of ["aiCost","humanMinutes"]) {
+  const rendered=numeric.match(new RegExp('name="'+name+'"[^>]*'))[0];
+  assert(rendered.includes('type="number"'),name+" must stay a number input");
+  assert(rendered.includes('step="any"'),name+" must accept fractional values");
+  assert(rendered.includes('min="0"'),name+" must refuse negative measurements");
+}
+const bounded=ui.renderDomainFields([{key:"ratio",label:"Ratio",kind:"number",min:0,max:1,step:"0.1"}],
+  {ratio:"0.5"},"demo");
+assert(bounded.includes('step="0.1"')&&bounded.includes('min="0"')&&bounded.includes('max="1"'),
+  "Explicit numeric bounds must override the defaults");
+assert(ui.renderDomainFields([{key:"offset",label:"Offset",kind:"number",min:-5}],{},"server")
+  .includes('min="-5"'),"An explicit negative bound must be preserved");
+
 /* One discussion-thread presentation for Demo and Server. */
 const thread=ui.renderThread([
   {id:"msg-1",author:"Author & <b>",at:"2026-10-11T09:00",revision:"r002",

@@ -95,6 +95,34 @@ assert(hostileDetail.includes("&lt;b&gt;unsafe&lt;/b&gt; &amp; reason"));
 assert(!hostileDetail.includes("<b>unsafe</b>"));
 assert(hostileDetail.includes("DoD failed &amp; &lt;i&gt;not&lt;/i&gt; accepted"));
 
+/* A cell pinned to an older Test Case revision must link to that exact source. */
+const pinnedPlan={...serverProjection,
+  testCases:[{id:"tcs-a",name:"Driver challenge",revision:"version 3",href:"/testdesign?record=tcs-a"}],
+  cells:[{id:"evl-a",configurationId:"cfg-a",testCaseId:"tcs-a",status:"evaluated",
+    decision:"selected",testCaseRevision:"r007",
+    testCaseHref:"/testdesign?record=tcs-a&revision=r007",
+    runs:[{id:"run-a",kind:"individual",outcome:"DoD accepted"}]}]};
+const pinnedDetail=ui.renderMatrixCellDetail(pinnedPlan,"evl-a",{mode:"server"});
+assert(pinnedDetail.includes("pinned revision r007"));
+assert(pinnedDetail.includes("revision=r007"),
+  "The cell detail must link to the pinned Test Case revision");
+assert(!pinnedDetail.includes('href="/testdesign?record=tcs-a"'),
+  "The cell detail must not fall back to the current Test Case revision");
+const unpinnedDetail=ui.renderMatrixCellDetail({...serverProjection,
+  cells:[{id:"evl-a",configurationId:"cfg-a",testCaseId:"tcs-a",status:"pending"}]},
+  "evl-a",{mode:"server"});
+assert(unpinnedDetail.includes("No measured Run is attached"));
+assert.throws(()=>ui.renderMatrixCellDetail({...serverProjection,
+  cells:[{id:"evl-a",configurationId:"cfg-a",testCaseId:"tcs-a",status:"pending",
+    testCaseHref:"https://evil.example/test-case"}]},"evl-a",{mode:"server"}),
+  /same-origin/,"An external pinned Test Case link must be refused");
+const actionDetail=ui.renderMatrixCellDetail({...serverProjection,
+  cells:[{id:"evl-a",configurationId:"cfg-a",testCaseId:"tcs-a",status:"pending",
+    testCaseAction:{label:"Open Test Case context",
+      attributes:{"data-act":"caseDetail","data-id":"tcs-a"}}}]},"evl-a",{mode:"demo"});
+assert(actionDetail.includes('data-act="caseDetail"'),
+  "Demo must reach its Test Case through a permitted action");
+
 /* Cell detail and decision fields keep provenance and refuse unsafe input. */
 const detail=ui.renderMatrixCellDetail(serverProjection,"evl-b",{mode:"server"});
 assert(detail.includes('data-matrix-cell-detail="evl-b"'));

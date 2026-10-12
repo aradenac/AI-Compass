@@ -285,6 +285,24 @@ def demo_journey(browser, demo_url, artifacts, role, label, viewport):
                 raise AssertionError("Forecast review bar lost its theoretical provenance notice")
             capture(page, artifacts, "demo-shared-forecast-lifecycle-" + str(viewport["width"]))
             page.get_by_role("dialog").get_by_role("button", name="Close dialog").click()
+            # Decimal metrics remain valid while negative measurements are
+            # refused: the historical Demo number contract, shared with Server.
+            page.locator('[data-act="newForecast"]').first.click()
+            forecast_dialog = page.get_by_role("dialog")
+            forecast_dialog.wait_for(state="visible")
+            cost = forecast_dialog.locator('input[name="aiCost"]')
+            cost.fill("0.5")
+            if not cost.evaluate("el => el.validity.valid && !el.validity.stepMismatch"):
+                raise AssertionError("Fractional Demo metric was rejected by native validation")
+            cost.fill("-1")
+            if cost.evaluate("el => el.validity.valid"):
+                raise AssertionError("Negative Demo metric passed native validation")
+            cost.fill("0.5")
+            if forecast_dialog.locator('input[name="hourlyRate"]').evaluate(
+                    "el => el.getAttribute('step')") != "any":
+                raise AssertionError("Demo numeric fields lost their fractional step")
+            capture(page, artifacts, "demo-shared-fractional-metric-" + str(viewport["width"]))
+            page.get_by_role("dialog").get_by_role("button", name="Close dialog").click()
         if role == "u1":
             # The actual Demo form must honor the same NFR modal contract.
             page.locator('[data-act="nav"][data-id="testdesign"]').click()
@@ -916,6 +934,42 @@ def server_journey(browser, base_url, creds, artifacts, role, viewport):
                 if "Stale browser revision must be refused" in page.locator(
                         '[data-shared-matrix][data-matrix-mode="server"]').inner_text():
                     raise AssertionError("Refused stale write altered the committed plan")
+                # Read-only historical plan: no lifecycle transition may be
+                # offered from a revision that is not the current campaign one.
+                # Pick the revision immediately before the displayed one: an
+                # older plan that definitely carries a matrix plan.
+                option_info = page.evaluate("""() => {
+                  const select = document.getElementById('matrix-revision');
+                  if (!select) return null;
+                  const options = Array.from(select.options).map(
+                    option => ({value: option.value, selected: option.selected}));
+                  return options.length > 1 ? options : null;
+                }""")
+                if not option_info:
+                    raise AssertionError("No historical plan revision was available to inspect")
+                current_index = next(
+                    (index for index, option in enumerate(option_info) if option["selected"]), 0)
+                pick = current_index + 1 if current_index + 1 < len(option_info) else current_index - 1
+                older = option_info[pick]["value"]
+                page.locator("#matrix-revision").select_option(older)
+                try:
+                    page.locator('[data-shared-matrix][data-matrix-mode="server"]').wait_for(
+                        state="visible", timeout=25000)
+                except Exception:
+                    raise AssertionError(
+                        "Historical plan revision did not render: " +
+                        page.locator("#campaign-detail").inner_text()[:200])
+                if page.locator('[data-shared-lifecycle="campaigns"] button').count():
+                    raise AssertionError(
+                        "Historical plan revision still offers lifecycle transitions")
+                if not page.locator('[data-shared-lifecycle-empty]').count():
+                    raise AssertionError(
+                        "Historical plan revision lacks an explicit read-only notice")
+                if "revision=r007" in page.locator(
+                        '[data-shared-matrix][data-matrix-mode="server"]').inner_text():
+                    raise AssertionError("Historical revision mismatch")
+                capture(page, artifacts,
+                        "server-shared-campaign-matrix-historical-" + str(viewport["width"]))
             if role == "multi_role":
                 # Same authenticated session: Users & Access must be explicit,
                 # and its account-creation form a protected, closed-by-default modal.
