@@ -13,6 +13,10 @@ chat history: see §7.
   don't silently widen.
 - Group issues under an epic when they form one effort; link with `bd link`/`--deps`;
   no orphan issues.
+- **One GitHub issue = one branch = one PR.** Name the branch after the GitHub
+  issue it serves (e.g. `agent/gh-123-<topic>-<date>`). Do the work on that branch
+  and open **one PR per GitHub issue** once its scope is done. Don't mix unrelated
+  issues in one branch/PR.
 
 ## 2. Every issue references its GitHub issue + governing spec
 At creation, each issue MUST carry:
