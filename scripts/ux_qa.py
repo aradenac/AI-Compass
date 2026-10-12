@@ -48,10 +48,25 @@ def provision(output):
         subprocess.run(command, input=password + "\n", text=True, stdout=subprocess.DEVNULL,
                        check=True)
         users[label] = {"username": name, "password": password}
+    # A dedicated publication reviewer (not part of the role-journey loop) is
+    # required to exercise the Server-only Recommendation review/withdraw
+    # lifecycle, which no writer role may perform. It also carries the
+    # Contributor grant because the Workgroup shell only routes a business
+    # screen to a persona holding business_write; the reviewer capability alone
+    # is what the publication transitions require, and it still denies every
+    # ordinary write the lifecycle does not need.
+    name = "uxqa-reviewer-" + secrets.token_hex(3)
+    password = secrets.token_urlsafe(30)
+    subprocess.run(["docker", "compose", "exec", "-T", "api", "python", "manage.py",
+                    "bootstrap_identity", "--username", name,
+                    "--role", "contributor", "--role", "reviewer",
+                    "--password-stdin"], input=password + "\n", text=True,
+                   stdout=subprocess.DEVNULL, check=True)
+    users["reviewer"] = {"username": name, "password": password}
     descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
         json.dump(users, handle)
-    print("Created five disposable, independent, randomized role fixtures (credentials not logged).")
+    print("Created disposable, independent, randomized role fixtures (credentials not logged).")
 
 
 def assert_exactly_one_view(page, selector):
@@ -1407,6 +1422,213 @@ def draft_isolation(browser, base_url, demo_url, creds, artifacts, viewport):
         context.close()
 
 
+def api_call(page, method, path, payload=None):
+    """Drive the real REST API from the authenticated browser context.
+
+    Uses only the session cookie and CSRF token the page already holds; no
+    privileged test hook and no Django fixture command. Returns status + JSON.
+    """
+    return page.evaluate("""async ({method, path, payload}) => {
+        const cookie = document.cookie.split('; ')
+            .find(c => c.startsWith('csrftoken='));
+        const headers = {'Content-Type': 'application/json'};
+        if (cookie) headers['X-CSRFToken'] = cookie.split('=')[1];
+        const options = {method, headers, credentials: 'same-origin'};
+        if (payload !== null && payload !== undefined)
+            options.body = JSON.stringify(payload);
+        const response = await fetch('/api/v1/' + path, options);
+        const body = await response.json().catch(() => ({}));
+        return {status: response.status, body};
+    }""", {"method": method, "path": path, "payload": payload})
+
+
+def assert_api(result, expected, label):
+    if result["status"] != expected:
+        raise AssertionError(f"{label} returned {result['status']}: " +
+                             json.dumps(result["body"])[:200])
+    return result["body"]
+
+
+def sign_in(page, base_url, credential):
+    page.goto(base_url + "/?mode=server&workspace=workgroup&section=studio",
+              wait_until="domcontentloaded")
+    page.locator("#server-login-form").wait_for(state="visible", timeout=30000)
+    page.locator("#server-username").fill(credential["username"])
+    page.locator("#server-password").fill(credential["password"])
+    page.get_by_role("button", name="Sign in to Server").click()
+    page.locator('#ux-screen-host[data-ux-current]').wait_for(state="visible", timeout=30000)
+    page.locator("#server-login-form").wait_for(state="hidden", timeout=30000)
+
+
+def recommendation_lifecycle(browser, base_url, creds, artifacts, viewport):
+    """UX-R04: Server-only Recommendation review/withdraw lifecycle, end to end.
+
+    Builds a real individual measured Run through the public REST API (no Django
+    seed command — business fixtures are forbidden there), drafts a
+    Recommendation over it, then proves in Chromium that only the authenticated
+    reviewer may publish it with an explicit justification and later withdraw it,
+    that the shared detail re-renders the new revision, and that a writable
+    non-reviewer is never offered the transition.
+    """
+    suffix = secrets.token_hex(3)
+    context = browser.new_context(viewport=viewport, reduced_motion="reduce")
+    writer = context.new_page()
+    writer.set_default_timeout(30000)
+    errors = []
+    writer.on("pageerror", lambda e: errors.append(str(e)))
+    try:
+        # --- Real measured evidence through the authenticated API -----------
+        sign_in(writer, base_url, creds["workgroup"])
+        model = assert_api(api_call(writer, "POST", "models", {
+            "name": "UX-R04 review model " + suffix, "properties": {}}), 201, "model")
+        provider = assert_api(api_call(writer, "POST", "catalog/provider", {
+            "name": "UX-R04 review provider " + suffix, "properties": {}}), 201, "provider")
+        harness = assert_api(api_call(writer, "POST", "catalog/harness", {
+            "name": "UX-R04 review harness " + suffix,
+            "properties": {"osWindows": True}}), 201, "harness")
+        task = assert_api(api_call(writer, "POST", "tasks", {
+            "name": "UX-R04 review task " + suffix,
+            "properties": {"phase": "SWE", "domain": "Embedded",
+                           "criteria": "Disposable lifecycle fixture"}}), 201, "task")
+        case = assert_api(api_call(writer, "POST", "test-cases", {
+            "name": "UX-R04 review case " + suffix, "task_id": task["id"],
+            "properties": {"objective": "probe", "inputs": "none",
+                           "expected_outputs": "none", "dod": "probe DoD"}}),
+            201, "test case")
+        campaign = assert_api(api_call(writer, "POST", "campaigns", {
+            "name": "UX-R04 review campaign " + suffix,
+            "objective": "produce one real individual measured Run",
+            "mode": "task_centred", "task_id": task["id"],
+            "test_case_ids": [case["id"]]}), 201, "campaign")
+        started = assert_api(api_call(writer, "POST",
+            "campaigns/" + campaign["id"] + "/actions/start",
+            {"expected_revision": campaign["revision"]}), 200, "campaign start")
+        session = assert_api(api_call(writer, "POST",
+            "campaigns/" + campaign["id"] + "/sessions", {
+                "test_case_id": case["id"],
+                "component_ids": {"model": model["id"], "provider": provider["id"],
+                                  "harness": harness["id"]},
+                "settings": {"nullable": None}, "configuration_version": "1",
+                "properties": {"tool": "shell"}}), 201, "session")
+        assert_api(api_call(writer, "POST", "sessions/" + session["id"] + "/interactions", {
+            "expected_revision": session["revision"], "type": "human_prompt",
+            "content": "Create SPI driver", "human_minutes": 3, "agent_minutes": None,
+            "extensions": {"unknown": None}}), 200, "interaction")
+        run = assert_api(api_call(writer, "POST", "sessions/" + session["id"] + "/close", {
+            "expected_revision": "r002", "outcome": "accepted", "quality_score": 82,
+            "quality_evaluation": "Regression passed", "information_utility_score": None,
+            "tokens_count": None, "tokens_multiplier": 1, "cost_mode": "flat_rate",
+            "cost_eur": None, "human_review_minutes": None,
+            "human_correction_minutes": None,
+            "produced_outputs": "driver.c and Twister output"}), 201, "run close")
+        if run.get("kind") != "individual":
+            raise AssertionError("Measured Run was not an individual Run")
+        record = assert_api(api_call(writer, "POST", "recommendations", {
+            "name": "UX-R04 review recommendation " + suffix,
+            "task_id": task["id"], "solution_id": run["solution_id"],
+            "run_ids": [run["id"]],
+            "properties": {"decision": "recommended",
+                           "rationale": "Controlled Twister run passed",
+                           "limitations": "Single scenario"}}), 201, "recommendation")
+
+        # --- The writer drafts and submits; it may NOT publish --------------
+        # The Run's created_at must be strictly later than the campaign start
+        # (the publication freshness baseline), so this same Run is never later
+        # mis-read as evidence that appeared *after* publication.
+        time.sleep(1.1)
+        assert_api(api_call(writer, "POST",
+            "recommendations/" + record["id"] + "/actions/submit",
+            {"expected_revision": record["revision"]}), 200, "submit")
+        refused = api_call(writer, "POST",
+            "recommendations/" + record["id"] + "/actions/publish",
+            {"expected_revision": "r002", "review_note": "writer cannot review"})
+        if refused["status"] != 403:
+            raise AssertionError(
+                "A non-reviewer was allowed to publish a recommendation: " +
+                str(refused["status"]))
+
+        # The shared list must not offer the review transitions to a writer.
+        writer.goto(base_url +
+                    "/?mode=server&workspace=workgroup&section=recommendations&view=editor",
+                    wait_until="domcontentloaded")
+        list_row = writer.locator(
+            '[data-business-domain="recommendations"] [data-business-record]').filter(
+                has_text="UX-R04 review recommendation " + suffix).first
+        list_row.wait_for(state="visible", timeout=30000)
+        if list_row.locator('button[data-action="publish"], '
+                            'button[data-action="unpublish"]').count():
+            raise AssertionError("A non-reviewer was offered a review transition")
+
+        # --- The reviewer publishes with an explicit justification ----------
+        reviewer = context.new_page()
+        reviewer.set_default_timeout(30000)
+        reviewer.on("pageerror", lambda e: errors.append(str(e)))
+        sign_in(reviewer, base_url, creds["reviewer"])
+        reviewer.goto(base_url +
+                      "/?mode=server&workspace=workgroup&section=recommendations&view=editor",
+                      wait_until="domcontentloaded")
+        review_row = reviewer.locator(
+            '[data-business-domain="recommendations"] [data-business-record]').filter(
+                has_text="UX-R04 review recommendation " + suffix).first
+        review_row.wait_for(state="visible", timeout=30000)
+        publish = review_row.locator('button[data-action="publish"]').first
+        publish.wait_for(state="visible", timeout=20000)
+        # The reviewer is prompted for an explicit, non-empty justification.
+        reviewer.once("dialog", lambda dialog: dialog.accept(
+            "Reviewed the original measured Run; one authorized decision"))
+        publish.click()
+        # The controller re-fetches the list and reports the recorded transition
+        # ("Recommendation publish action recorded…"); the shared status only
+        # flips once that attributable confirmation lands.
+        reviewer.locator("#rec-status").get_by_text(
+            "publish action recorded", exact=False).wait_for(
+                state="visible", timeout=30000)
+        # The shared detail projection re-renders the new immutable revision.
+        review_row = reviewer.locator(
+            '[data-business-domain="recommendations"] [data-business-record]').filter(
+                has_text="UX-R04 review recommendation " + suffix).first
+        review_row.locator('button[data-action="history"]').first.click()
+        detail = reviewer.locator(
+            '[data-shared-domain-detail="recommendations"][data-domain-mode="server"]')
+        detail.wait_for(state="visible", timeout=30000)
+        if "Immutable, attributable publication history" not in detail.inner_text():
+            raise AssertionError("Published recommendation lost its shared detail projection")
+        if "r003" not in detail.inner_text():
+            raise AssertionError("Shared detail did not re-render the published r003 revision")
+        assert_no_horizontal_overflow(reviewer)
+        capture(reviewer, artifacts,
+                "server-recommendation-published-" + str(viewport["width"]))
+
+        # --- The reviewer withdraws it with a justification -----------------
+        review_row = reviewer.locator(
+            '[data-business-domain="recommendations"] [data-business-record]').filter(
+                has_text="UX-R04 review recommendation " + suffix).first
+        withdraw = review_row.locator('button[data-action="unpublish"]').first
+        withdraw.wait_for(state="visible", timeout=20000)
+        reviewer.once("dialog", lambda dialog: dialog.accept(
+            "New failed evidence invalidates the prior qualification"))
+        withdraw.click()
+        reviewer.locator("#rec-status").get_by_text(
+            "unpublish action recorded", exact=False).wait_for(
+                state="visible", timeout=30000)
+        # A rejected review (empty justification) must be refused client-side.
+        review_row.locator('button[data-action="history"]').first.click()
+        detail = reviewer.locator(
+            '[data-shared-domain-detail="recommendations"][data-domain-mode="server"]')
+        detail.wait_for(state="visible", timeout=30000)
+        if "r004" not in detail.inner_text():
+            raise AssertionError("Shared detail did not re-render the withdrawn r004 revision")
+        assert_exactly_one_view(reviewer, "#ux-screen-host > [data-ux-screen]")
+        assert_no_horizontal_overflow(reviewer)
+        capture(reviewer, artifacts,
+                "server-recommendation-withdrawn-" + str(viewport["width"]))
+        if errors:
+            raise AssertionError("Recommendation lifecycle JS error(s): " + "; ".join(errors[:3]))
+        return {"recommendation": record["id"], "run": run["id"]}
+    finally:
+        context.close()
+
+
 def run_tests(base_url, demo_url, credentials, artifacts):
     from playwright.sync_api import sync_playwright
     directory = Path(artifacts)
@@ -1454,6 +1676,10 @@ def run_tests(base_url, demo_url, credentials, artifacts):
                 run(f"Demo/Server draft isolation {width}",
                     lambda v=viewport: draft_isolation(
                         browser, base_url, demo_url, creds, directory, v))
+                if "reviewer" in creds:
+                    run(f"Server Recommendation review/withdraw lifecycle {width}",
+                        lambda v=viewport: recommendation_lifecycle(
+                            browser, base_url, creds, directory, v))
         finally:
             browser.close()
     failed = [record for record in records if record["result"] == "FAIL"]
