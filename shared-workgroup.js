@@ -756,6 +756,106 @@
       '" data-status-mode="'+escape(mode)+'" role="'+(alert?"alert":"status")+'">'+
       escape(options.message||"")+'</p>';
   }
+  /* One observation matrix (Task × candidate or Test Case × Solution): the
+   * same rows, columns, observation counts and record routing in both modes.
+   * Missing comparisons stay explicitly unknown; nothing is averaged here. */
+  function renderObservationMatrix(projection, options) {
+    options=options||{};
+    var mode=domainMode(options.mode);
+    if(!projection||typeof projection!=="object"||Array.isArray(projection))
+      throw Error("Authorized observation matrix required");
+    if(!Array.isArray(projection.columnLabels))
+      throw Error("Observation matrix requires its column labels");
+    if(!Array.isArray(projection.rows))throw Error("Observation matrix requires rows");
+    // An empty matrix is legitimate (no persisted observation): only a matrix
+    // that actually renders rows needs column labels.
+    if(projection.rows.length&&!projection.columnLabels.length)
+      throw Error("Observation matrix with rows requires column labels");
+    var columns=new Map();
+    projection.columnLabels.forEach(function(column){
+      if(!column||column.key==null||!column.label)throw Error("Column requires key and label");
+      columns.set(String(column.key),column);});
+    // Fail closed on inconsistent projections: a cell that references an
+    // undeclared column would otherwise hide its observations silently.
+    function checkColumns(holder) {
+      (holder.columns||[]).forEach(function(entry){
+        if(!entry||!columns.has(String(entry.key)))
+          throw Error("Observation cell references an unknown column");
+      });
+    }
+    projection.rows.forEach(function(row){
+      if(!row||row.key==null)throw Error("Observation row requires its key");
+      checkColumns(row);
+    });
+    if(projection.footerRow)checkColumns(projection.footerRow);
+    function cell(column,cellOptions) {
+      var key=String(column.key);
+      if(!columns.has(key))throw Error("Observation cell references an unknown column");
+      var observations=column.observations===undefined?0:column.observations;
+      if(!Number.isInteger(observations)||observations<0)
+        throw Error("Observation count must be a non-negative integer");
+      var body;
+      if(!observations&&column.value==null)
+        body='<span class="muted" data-observation-empty>'+
+          escape(cellOptions.emptyRowText||"Not recorded")+'</span>';
+      else
+        body=(column.value!=null?'<strong class="shared-observation-value'+
+          (column.tone?' tone-'+escape(column.tone):"")+'">'+escape(column.value)+'</strong>':'')+
+          (column.hint?'<div class="muted small">'+escape(column.hint)+'</div>':"");
+      (column.ids||[]).forEach(function(record){
+        if(!record||!record.id)throw Error("Observation record requires its stable public ID");
+        if(record.href)body+='<p class="small">'+recordLink({href:record.href,
+          label:record.label||record.id})+'</p>';
+        else if(record.action)body+='<p class="small">'+matrixCommand({
+          label:record.action.label||record.id,attributes:record.action.attributes})+'</p>';
+        else body+='<p class="muted small">'+escape(record.id)+'</p>';
+      });
+      return '<td data-observation-column="'+escape(key)+
+        '" data-observation-count="'+escape(observations)+'">'+body+'</td>';
+    }
+    function rowCells(row,cellOptions) {
+      return columns.keys() ? projection.columnLabels.map(function(column){
+        var match=(row.columns||[]).find(function(entry){
+          return String(entry.key)===String(column.key);});
+        return cell(match?Object.assign({},match,{key:column.key}):
+          {key:column.key,observations:0},cellOptions);
+      }).join("") : "";
+    }
+    var counts=projection.counts||[];
+    if(!Array.isArray(counts))throw Error("Observation counts must be a list");
+    var visibleCounts=counts.filter(function(entry){
+      return entry&&entry.label&&entry.value!=null&&entry.value!=="";});
+    return '<section class="shared-observation-matrix" data-shared-observation-matrix="'+
+      escape(options.domain||"observations")+'" data-observation-mode="'+escape(mode)+'">'+
+      (visibleCounts.length?'<p class="small" data-observation-counts>'+
+        visibleCounts.map(function(entry){
+          return escape(String(entry.value))+" "+escape(entry.label);}).join(' · ')+'</p>':"")+
+      (projection.rows.length?
+        '<div class="shared-matrix-scroll"><table class="shared-observation-table"><thead><tr>'+
+        '<th scope="col">'+escape(projection.rowAxis||"Row")+'</th>'+
+        projection.columnLabels.map(function(column){
+          return '<th scope="col" data-observation-label="'+escape(column.key)+'">'+
+            escape(column.label)+'</th>';}).join("")+
+        '</tr></thead><tbody>'+
+        projection.rows.map(function(row){
+          return '<tr data-observation-row="'+escape(row.key)+'"><th scope="row">'+
+            escape(row.label||row.key)+
+            (row.detail?'<div class="muted small">'+escape(row.detail)+'</div>':"")+
+            (row.rowAction?'<div class="shared-row-action">'+matrixCommand(row.rowAction)+'</div>':
+             row.rowHref?'<div class="shared-row-action">'+recordLink(row.rowHref)+'</div>':"")+
+            '</th>'+rowCells(row,options)+'</tr>';}).join("")+
+        (projection.footerRow?'<tr data-observation-footer="1"><th scope="row">'+
+          escape(projection.footerRow.label||"")+'</th>'+
+          rowCells(projection.footerRow,options)+'</tr>':"")+
+        '</tbody></table></div>':
+        '<p class="muted" data-observation-empty-matrix>'+
+          escape(options.emptyText||"No persisted observation matches this filter.")+'</p>')+
+      (projection.policy?'<p class="muted small">'+escape(projection.policy)+'</p>':"")+
+      (projection.notices||[]).filter(function(value){return value!=null&&value!=="";})
+        .map(function(value){return '<p class="muted small">'+escape(value)+'</p>';}).join("")+
+      '</section>';
+  }
+
   /* One measured-Run presentation: identity, provenance and only the metrics
    * the authorized source actually recorded. Unknown values stay unknown and a
    * theoretical forecast is never presented as a measured Run. */
@@ -1196,6 +1296,7 @@
     CAMPAIGN_LIFECYCLE:CAMPAIGN_LIFECYCLE,campaignLifecycleSteps:campaignLifecycleSteps,
     LIFECYCLE_ACTION_LABELS:LIFECYCLE_ACTION_LABELS,
     RUN_KINDS:RUN_KINDS,renderMeasuredRunDetail:renderMeasuredRunDetail,
+    renderObservationMatrix:renderObservationMatrix,
     campaignLifecycleActionKeys:campaignLifecycleActionKeys,
     renderLifecycleActions:renderLifecycleActions,
     WATCH_SOURCE_FIELDS:WATCH_SOURCE_FIELDS,WATCH_ENTRY_FIELDS:WATCH_ENTRY_FIELDS,

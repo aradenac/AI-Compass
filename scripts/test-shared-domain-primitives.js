@@ -118,6 +118,57 @@ assert.throws(()=>ui.renderDomainDetail({title:"x"},{mode:"demo",domain:"Feedbac
 assert.throws(()=>ui.renderDomainDetail({title:"x",links:[{href:"https://evil.example"}]},
   {mode:"server",domain:"feedback"}),/same-origin/);
 
+/* One observation matrix: same rows/columns/counts in both modes, unknown
+   comparisons explicit, and record routing validated. */
+const matrixProjection={rowAxis:"Test Case",columnAxis:"AI Solution",
+  columnLabels:[{key:"s1",label:"Solution A"},{key:"s2",label:"Solution B"}],
+  counts:[{label:"published Run(s)",value:2}],
+  policy:"observed results only",
+  rows:[{key:"c1",label:"Driver challenge",detail:"Driver integration",
+    rowAction:{label:"Open Test Case",attributes:{"data-act":"caseDetail","data-id":"c1"}},
+    columns:[{key:"s1",observations:2,value:"94/100",hint:"2 run(s)",tone:"",
+      ids:[{id:"run-1",href:"/results?record=run-1"}]}]},
+   {key:"c2",label:"IRQ behaviour",columns:[{key:"s1",observations:0}]}],
+  footerRow:{label:"Coverage",columns:[{key:"s1",value:"1/2 cases"}]},
+  notices:["Missing comparisons are unknown, not zero."]};
+const matrixHtml=ui.renderObservationMatrix(matrixProjection,{mode:"server",
+  domain:"results",emptyRowText:"Not tested"});
+assert(matrixHtml.includes('data-shared-observation-matrix="results"'));
+assert(matrixHtml.includes('data-observation-mode="server"'));
+assert(matrixHtml.includes("2 published Run(s)"));
+assert.equal((matrixHtml.match(/data-observation-row=/g)||[]).length,2);
+assert.equal((matrixHtml.match(/data-observation-label=/g)||[]).length,2);
+assert(matrixHtml.includes("94/100")&&matrixHtml.includes("2 run(s)"));
+assert(matrixHtml.includes("Not tested"),"An unobserved cell stays explicitly unknown");
+assert(matrixHtml.includes('data-observation-count="0"'));
+assert(matrixHtml.includes('data-observation-footer="1"')&&matrixHtml.includes("1/2 cases"));
+assert(matrixHtml.includes('href="/results?record=run-1"'));
+assert(matrixHtml.includes('data-act="caseDetail"'));
+const demoMatrix=ui.renderObservationMatrix(matrixProjection,{mode:"demo",
+  domain:"results",emptyRowText:"Not tested"});
+assert.equal(demoMatrix.replace(/demo/g,"MODE"),matrixHtml.replace(/server/g,"MODE"),
+  "Equivalent rows must render the same observation matrix in both modes");
+const emptyMatrix=ui.renderObservationMatrix({rowAxis:"Test Case",columnAxis:"AI Solution",
+  columnLabels:[],rows:[],counts:[]},{mode:"server",emptyText:"No persisted results"});
+assert(emptyMatrix.includes("No persisted results")&&
+  emptyMatrix.includes("data-observation-empty-matrix"));
+assert.throws(()=>ui.renderObservationMatrix({rowAxis:"T",columnLabels:[],rows:[{key:"r",
+  label:"R",columns:[]}]},{mode:"demo"}),/requires column labels/);
+assert.throws(()=>ui.renderObservationMatrix({columnLabels:[{key:"a",label:"A"}],
+  rows:[{key:"r",label:"R",columns:[{key:"missing",observations:1}]}]},{mode:"demo"}),
+  /unknown column/);
+assert.throws(()=>ui.renderObservationMatrix({columnLabels:[{key:"a",label:"A"}],
+  rows:[{key:"r",label:"R",columns:[{key:"a",observations:"many"}]}]},{mode:"demo"}),
+  /non-negative integer/);
+assert.throws(()=>ui.renderObservationMatrix({columnLabels:[{key:"a",label:"A"}],
+  rows:[{key:"r",label:"R",columns:[{key:"a",observations:1,ids:[{}]}]}]},{mode:"server"}),
+  /stable public ID/);
+assert.throws(()=>ui.renderObservationMatrix({columnLabels:[{key:"a",label:"A"}],
+  rows:[{key:"r",label:"R",columns:[{key:"a",observations:1,
+    ids:[{id:"x",href:"https://evil.example/x"}]}]}]},{mode:"server"}),/same-origin/);
+assert.throws(()=>ui.renderObservationMatrix({columnLabels:[]},{mode:"wat"}),
+  /mode required/);
+
 /* Numeric metrics keep the historical Demo field contract: fractions are
    valid and negative measurements are refused (review regression). */
 const numeric=ui.renderDomainFields(ui.FORECAST_FIELDS,{aiCost:"0.50",humanMinutes:"12.5"},'demo');
@@ -267,7 +318,7 @@ const servers={
   "server-forecasts.js":["FORECAST_FIELDS"],
   "server-discussions.js":["FEEDBACK_THREAD_FIELDS","FEEDBACK_REPLY_FIELDS","renderThread("],
   "server-recommendations.js":["RECOMMENDATION_FIELDS"],
-  "server-results.js":["EVALUATION_FIELDS","renderMeasuredRunDetail("],
+  "server-results.js":["EVALUATION_FIELDS","renderMeasuredRunDetail(","renderObservationMatrix("],
   "server-guides.js":["GUIDE_RECIPE_FIELDS"],
   "server-sessions.js":["renderStepper("],
   "server-campaigns.js":["renderCampaignMatrix","renderStepper","campaignLifecycleBar","renderLifecycleActions("],
@@ -276,6 +327,7 @@ const servers={
 };
 assert(page.includes("renderDomainFields(")&&page.includes("renderStepper(")&&
   page.includes("renderThread(")&&page.includes("renderLifecycleActions(")&&
+  page.includes("renderObservationMatrix(")&&page.includes("renderMeasuredRunDetail(")&&
   page.includes('domain:"campaigns"'),
   "Demo must use the shared form, stepper, thread and campaign lifecycle primitives");
 for(const [file,markers] of Object.entries(servers)) {

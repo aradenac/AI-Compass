@@ -291,6 +291,25 @@ def demo_journey(browser, demo_url, artifacts, role, label, viewport):
             runs_tab = page.locator('[data-act="resultsTab"][data-id="runs"]')
             if runs_tab.count():
                 runs_tab.first.click()
+            # The comparison matrix is the same shared component as Server's.
+            matrix_tab = page.locator('[data-act="resultsTab"][data-id="matrix"]')
+            if matrix_tab.count():
+                matrix_tab.first.click()
+                demo_matrix = page.locator(
+                    '[data-shared-observation-matrix][data-observation-mode="demo"]')
+                demo_matrix.wait_for(state="visible", timeout=20000)
+                if demo_matrix.locator('[data-observation-row]').count() == 0:
+                    raise AssertionError("Demo comparison matrix rendered no row")
+                if demo_matrix.locator('[data-observation-label]').count() == 0:
+                    raise AssertionError("Demo comparison matrix rendered no column")
+                if not demo_matrix.locator('[data-observation-empty]').count():
+                    raise AssertionError(
+                        "Demo comparison matrix no longer marks unobserved cells explicitly")
+                capture(page, artifacts,
+                        "demo-shared-observation-matrix-" + str(viewport["width"]))
+            runs_tab = page.locator('[data-act="resultsTab"][data-id="runs"]')
+            if runs_tab.count():
+                runs_tab.first.click()
             run_button = page.locator('button[data-act="runDetail"]').first
             run_button.wait_for(state="visible", timeout=20000)
             run_button.click()
@@ -740,6 +759,22 @@ def server_journey(browser, base_url, creds, artifacts, role, viewport):
                             "server-unavailable-api-" + str(viewport["width"]))
                 finally:
                     unavailable.close()
+
+                # Results explorer: same observation matrix component, with an
+                # explicit empty state on a database without measured Runs.
+                page.goto(base_url + "/?mode=server&workspace=workgroup&section=results&view=editor",
+                          wait_until="domcontentloaded")
+                server_matrix = page.locator(
+                    '[data-shared-observation-matrix][data-observation-mode="server"]')
+                server_matrix.wait_for(state="visible", timeout=30000)
+                if not server_matrix.locator("[data-observation-empty-matrix]").count():
+                    raise AssertionError(
+                        "Empty Server results did not state that nothing is recorded")
+                if server_matrix.locator('[data-shared-observation-matrix="demo"]').count():
+                    raise AssertionError("Server results leaked the Demo matrix")
+                assert_no_horizontal_overflow(page)
+                capture(page, artifacts,
+                        "server-shared-observation-matrix-" + str(viewport["width"]))
 
                 # Tasks: one shared tree in both modes; a stale move revision
                 # must be refused explicitly, never applied.

@@ -1494,7 +1494,29 @@ var targetOpts=mode==="task"?db.tasks.filter(function(t){return db.cases.some(fu
 var controls='<div class="filters"><label class="small">Benchmark perspective</label><select data-filter="matrixMode">'+opt("task","Task → compare solutions",mode)+opt("solution","Solution → compare tasks",mode)+'</select><select data-filter="matrixTarget">'+targetOpts.join("")+'</select></div>';
 var cs=mode==="task"?db.cases.filter(function(c){return descendants(target).includes(c.task);}):db.cases.filter(function(c){return db.runs.some(function(r){return r.case===c.id&&r.solution===target&&r.status==="published";});});
 var cols=mode==="task"?db.solutions.filter(function(s){return visibleSolution(s)&&db.runs.some(function(r){return r.solution===s.id&&cs.some(function(c){return c.id===r.case;})&&r.status==="published";});}):[rec("solutions",target)].filter(function(s){return s&&visibleSolution(s);});
-var matrix=cs.length?simpleTable(["Common test case / task"].concat(cols.map(function(s){return s.name;})),cs.map(function(c){return '<tr>'+td(linkAction(c.title,"caseDetail",c.id)+'<div class="muted small">'+E(rec("tasks",c.task)?.name||"")+'</div>')+cols.map(function(s){var rs=db.runs.filter(function(r){return r.case===c.id&&r.solution===s.id&&r.status==="published";});return td(rs.length?'<span class="score'+(avg(rs.map(function(x){return x.score;}))<75?' low':'')+'">'+Math.round(avg(rs.map(function(x){return x.score;})))+'/100</span><div class="muted small">'+rs.length+' run(s)</div>':'<span class="muted">Not tested</span>');}).join("")+'</tr>';}).concat([ '<tr>'+td("<strong>Coverage</strong>")+cols.map(function(s){return td(db.cases.filter(function(c){return cs.some(function(x){return x.id===c.id;})&&db.runs.some(function(r){return r.case===c.id&&r.solution===s.id&&r.status==="published";});}).length+"/"+cs.length+" cases");}).join("")+'</tr>' ])):'<div class="empty">No matching published evidence yet.</div>';
+var matrix=cs.length?window.AICompassWorkgroup.renderObservationMatrix({
+ rowAxis:"Common test case / task",columnAxis:"AI Solution",
+ columnLabels:cols.map(function(s){return {key:s.id,label:s.name};}),
+ counts:[{label:"published Run(s) in scope",value:db.runs.filter(function(r){
+   return r.status==="published"&&cs.some(function(c){return c.id===r.case;});}).length}],
+ rows:cs.map(function(c){
+  return {key:c.id,label:c.title,detail:rec("tasks",c.task)?.name||"",
+   rowAction:{label:"Open Test Case",attributes:{"data-act":"caseDetail","data-id":c.id}},
+   columns:cols.map(function(sv){
+    var rs=db.runs.filter(function(r){return r.case===c.id&&r.solution===sv.id&&r.status==="published";});
+    if(!rs.length)return {key:sv.id,observations:0};
+    var score=Math.round(avg(rs.map(function(x){return x.score;})));
+    return {key:sv.id,observations:rs.length,value:score+"/100",
+     tone:score<75?"low":score<85?"mid":"",hint:rs.length+" run(s)",
+     ids:rs.map(function(r){return {id:r.id,action:{label:"Run "+r.id,
+      attributes:{"data-act":"runDetail","data-id":r.id}}};})};})};}),
+ footerRow:{label:"Coverage",columns:cols.map(function(sv){
+  return {key:sv.id,value:db.cases.filter(function(c){
+    return cs.some(function(x){return x.id===c.id;})&&db.runs.some(function(r){
+      return r.case===c.id&&r.solution===sv.id&&r.status==="published";});}).length+"/"+cs.length+" cases"};})},
+ notices:["Scores summarize observed results only. Missing comparisons are unknown, not zero. "+
+  "For audited comparison, open each run and inspect its context and Definition of Done."]
+},{mode:"demo",domain:"results",emptyRowText:"Not tested"}):'<div class="empty">No matching published evidence yet.</div>';
 return controls+'<div class="note" style="margin-bottom:16px"><strong>'+E(mode==="task"?"Task-centric benchmark":"Solution-centric benchmark")+'</strong> · '+E(mode==="task"?"Same task and test cases, multiple solutions. Compare common cases, not unequal portfolios.":"One solution across tasks and concrete cases; reveal its actual coverage.")+'</div>'+matrix+'<p class="helper">Scores summarize observed results only. Missing comparisons are unknown, not zero. For audited comparison, open each run and inspect its context and DoD.</p>';
 }
 

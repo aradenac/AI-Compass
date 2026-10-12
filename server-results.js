@@ -151,24 +151,33 @@ function mount(root,csrf,escapeHtml){
             'rel="noopener noreferrer">Open original API source</a></details>':"");
       }
     }else context.replaceChildren();
-    node.innerHTML='<p><strong>'+esc(data.view==="task"?"Task × candidate":"Candidate × task")+
-      '</strong> · '+esc(data.counts.individual_runs)+' individual Run(s) · '+
-      esc(data.counts.composite_workflows)+' composite workflow(s) · '+
-      esc(data.counts.theoretical_forecasts)+' THEORETICAL forecast(s)</p>'+
-      (groups.length?'<table><thead><tr><th>'+esc(data.row_axis)+'</th><th>'+
-        esc(data.column_axis)+'</th><th>Source records</th></tr></thead><tbody>'+
-        groups.map(function(row){
-          return row.columns.map(function(col){
-            return '<tr><td>'+esc(row.key)+'</td><td>'+esc(col.key)+'</td><td>'+
-              esc(col.observations)+' · '+col.observation_ids.map(esc).join(", ")+'</td></tr>';
-          }).join("");
-        }).join("")+'</tbody></table>':
-        '<p>No persisted results in this filter. Empty is not a failed Test Case.</p>')+
-      '<p class="muted small">'+esc(data.scoring_policy)+'</p>';
-    node.querySelectorAll("table").forEach(function(table){
-      table.style.width="100%";
-      table.style.overflowWrap="anywhere";
+    // One shared observation matrix; only the authorized projection differs.
+    var columnLabels=[];
+    groups.forEach(function(row){
+      row.columns.forEach(function(col){
+        if(!columnLabels.some(function(entry){return entry.key===col.key;}))
+          columnLabels.push({key:col.key,label:col.key});
+      });
     });
+    node.innerHTML=window.AICompassWorkgroup.renderObservationMatrix({
+      rowAxis:data.row_axis,columnAxis:data.column_axis,columnLabels:columnLabels,
+      counts:[
+        {label:"individual Run(s)",value:data.counts.individual_runs},
+        {label:"composite workflow(s)",value:data.counts.composite_workflows},
+        {label:"THEORETICAL forecast(s)",value:data.counts.theoretical_forecasts}],
+      policy:data.scoring_policy,
+      rows:groups.map(function(row){
+        return {key:row.key,label:row.key,
+          columns:row.columns.map(function(col){
+            return {key:col.key,observations:col.observations,
+              hint:col.observations+" record(s)",
+              ids:(col.observation_ids||[]).map(function(identifier){
+                return {id:identifier,label:identifier,
+                  href:window.AICompassContext.route("server","workgroup","results",
+                    {record:identifier})};})};})};}),
+      notices:["Empty is not a failed Test Case, and missing comparisons stay unknown."]
+    },{mode:"server",domain:"results",
+       emptyText:"No persisted results in this filter. Empty is not a failed Test Case."});
     $("#results-rows").innerHTML=window.AICompassWorkgroup.renderRecords(
       (data.results||[]).map(function(r){
         var forecast=r.kind==="forecast",metrics=(forecast?r.predicted_metrics:r.metrics)||{};

@@ -201,3 +201,23 @@ table.shared-matrix-grid tbody th { font-weight:650; }
   gap:2px;
 }
 .shared-run-metrics strong { font-size:18px; }
+
+/* One observation matrix (Task × candidate, Test Case × Solution). */
+.shared-observation-matrix { margin:12px 0; }
+table.shared-observation-table {
+  width:100%;
+  border-collapse:collapse;
+  font-size:12px;
+}
+table.shared-observation-table th,
+table.shared-observation-table td {
+  border:1px solid #e3e8f0;
+  padding:8px;
+  text-align:left;
+  vertical-align:top;
+}
+table.shared-observation-table thead th { background:#fafbfe; color:#465672; }
+table.shared-observation-table tbody th { font-weight:650; }
+.shared-observation-value.tone-low { color:#b24249; }
+.shared-observation-value.tone-mid { color:#a66507; }
+.shared-row-action { margin-top:6px; }
