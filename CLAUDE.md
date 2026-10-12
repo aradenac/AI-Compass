@@ -17,6 +17,19 @@ chat history: see §8.
   issue it serves (e.g. `agent/gh-123-<topic>-<date>`). Do the work on that branch
   and open **one PR per GitHub issue** once its scope is done. Don't mix unrelated
   issues in one branch/PR.
+- **Clean up when the issue is done.** Once the PR is merged and the GitHub issue
+  closed (or the issue is closed without a PR), delete the worktree and **both**
+  the local and the remote branch — no stale worktrees or branches linger.
+
+  ```bash
+  git worktree remove <dir>            # run from another worktree; must be clean
+  git branch -D <branch>               # local; -D because squash-merge leaves it "unmerged"
+  git push origin --delete <branch>    # remote
+  ```
+
+  Never delete the worktree/branch you are currently on (the owner deletes the
+  branch if you are standing in it). This is cleanup, not a merge or a close — the
+  agent still never merges PRs nor closes issues (AGENTS.md).
 
 ## 2. Every issue references its GitHub issue + governing spec
 At creation, each issue MUST carry:
@@ -109,4 +122,7 @@ bd reopen <id>                                   # review challenges a closed fi
 bd create <child> -t task --parent <epic-id>     # new required correction (§4)
 gh pr view <n> --comments                        # read PR review comments (§4)
 gh api repos/{owner}/{repo}/pulls/<n>/comments   # line-level review comments (§4)
+git worktree remove <dir>                        # cleanup once PR merged + issue closed (§1)
+git branch -D <branch>                           #   local (squash-merge -> need -D)
+git push origin --delete <branch>                #   remote
 ```
