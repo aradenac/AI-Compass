@@ -16,6 +16,7 @@
 | Data Governance Audit Explorer | [Current contract](../data-governance-audit-explorer.md) | [#91](https://github.com/aradenac/AI-Compass/issues/91) | Code merged |
 | Coordinated releases / shared providers | [Current contract](../shared-frontend-and-release-lifecycle.md) | [#75](https://github.com/aradenac/AI-Compass/issues/75), [#77](https://github.com/aradenac/AI-Compass/issues/77), [#78](https://github.com/aradenac/AI-Compass/issues/78) | Code merged; shell accepted in #115, remaining business presentation parity in #123 |
 | Local/LAN security and archive permission foundations | [Operational profiles](../secure-operations-baseline.md) | [#76](https://github.com/aradenac/AI-Compass/issues/76) | Code merged |
+| Draft resume, Run stepper, 409 conflicts and Run ownership | [Draft, conflict and Run-stepper behaviour](../draft-conflict-and-run-stepper.md) | [#124](https://github.com/aradenac/AI-Compass/issues/124) — UX-R05 | Implemented on a `main`-based branch; targeted node, Django (256 tests OK) and desktop Chromium (11/11) checks executed; [PR #132](https://github.com/aradenac/AI-Compass/pull/132) in review |
 
 These specifications contain the domain rules, acceptance criteria, cross-relationships and UX contracts as maintained product documentation. They are not repeated in `future-evolutions`. Detailed implementation documentation under `docs/` is retained.
 
@@ -28,7 +29,7 @@ These specifications contain the domain rules, acceptance criteria, cross-relati
 | Order / priority | Issue | Scope and verification obligation |
 | --- | --- | --- |
 | **1 / P0-UX-GAP** | [#123](https://github.com/aradenac/AI-Compass/issues/123) — UX-R04 | Truly shared **business-domain** presentation components across Demo/Server, TD-01, no feature loss |
-| **2 / P1-UX-GAP** | [#124](https://github.com/aradenac/AI-Compass/issues/124) — UX-R05 | Draft resume / revision conflict / Run stepper and owner-safe edit behavior, reusing existing helpers |
+| **2 / P1-UX-GAP** | [#124](https://github.com/aradenac/AI-Compass/issues/124) — UX-R05 | **Implemented, [PR #132](https://github.com/aradenac/AI-Compass/pull/132) in review:** scoped draft resume, real Run stepper, first-class 409 conflict UX and creator-only Run writes, reusing the existing helper; see [behaviour contract](../draft-conflict-and-run-stepper.md). Issue not closed until the PR is reviewed and merged. |
 | **3 / P2-UX-GAP** | [#125](https://github.com/aradenac/AI-Compass/issues/125) — UX-R06 | End-to-end Engineer, Workgroup, Results/Recommendations and Management user journeys |
 | **4 / P3-UX-GAP** | [#126](https://github.com/aradenac/AI-Compass/issues/126) — UX-R07 | Desktop Chromium coverage of 20 UX scenarios, visual consistency and accessibility baseline |
 

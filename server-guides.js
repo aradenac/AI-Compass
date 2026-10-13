@@ -9,9 +9,15 @@
     }
     return fetch("/api/v1/guides"+(path||""),options).then(async function(response){
       var body=await response.json().catch(function(){return {};});
-      if(!response.ok)throw Error(body.detail||body.error||("HTTP "+response.status));
+      if(!response.ok)throw(window.AICompassRuntime&&window.AICompassRuntime.httpError?
+        window.AICompassRuntime.httpError(response.status,body):
+        Error(body.detail||body.error||("HTTP "+response.status)));
       return body;
     });
+  }
+  function failure(error){
+    return window.AICompassRuntime&&window.AICompassRuntime.failureInfo?
+      window.AICompassRuntime.failureInfo(error):{conflict:false,detail:error&&error.message};
   }
   function formMarkup(escape,guide,heading,known) {
     var properties=guide&&guide.properties||{};
@@ -63,7 +69,7 @@
     });
   }
   function mount(root,csrf,escapeHtml) {
-    var active=false,write=false,ticket=0,records=[],selected=null;
+    var active=false,write=false,ticket=0,records=[],selected=null,activeDraft=null;
     function find(s){return root.querySelector(s);}
     function status(message,error) {
       var node=find("#guide-status");
@@ -147,15 +153,19 @@
     var inline=null;
     function edit(item) {
       var node=find("#guide-editor");
+      if(activeDraft&&activeDraft.dispose)activeDraft.dispose();
+      activeDraft=null;
       node.hidden=false;
       node.innerHTML=formMarkup(escapeHtml,item,item?"Revise existing Setup Guide":"New reusable Setup Guide",records);
       wireRecipeBuilder(node,records);
       node.querySelector(".guide-cancel").addEventListener("click",function(){node.hidden=true;});
-      var draft = window.AICompassDrafts && window.AICompassDraftAccount ?
-        window.AICompassDrafts.attach(node.querySelector("form"),{
-          mode:"server",account:window.AICompassDraftAccount,kind:"guide",
-          id:item?item.id:"new",revision:item?item.revision:"new",schema:"guide-v1"
-        }):null;
+      var drafts=window.AICompassDrafts,
+          scope=drafts&&drafts.forMode?drafts.forMode("server","guide",{
+            id:item?item.id:"new",revision:item?item.revision:"new",schema:"guide-v1",
+            label:item?item.name:"New Setup Guide",guardUnload:true,
+            onConflictReload:function(info){reloadLatestGuide(item,info);}}):null;
+      var draft=scope?drafts.attach(node.querySelector("form"),scope):null;
+      activeDraft=draft;
       node.querySelector("form").addEventListener("submit",async function(event){
         event.preventDefault();
         if(!active||!write)return;
@@ -170,11 +180,40 @@
           } else await request(csrf,"","POST",payload);
           if(!active)return;
           if(draft)draft.clear();
+          activeDraft=null;
           node.hidden=true;
           await refresh();
-        } catch(error){if(draft&&/409|revision_conflict/.test(error.message))draft.conflict();status("Guide not saved: "+error.message,true);}
+        } catch(error){
+          var info=failure(error);
+          if(draft&&info.conflict){
+            var latest=null;
+            if(item){try{var detail=await request(csrf,"/"+encodeURIComponent(item.id));
+              latest=detail.guide||detail;}catch(_){}}
+            draft.conflict({label:item?item.name:"New Setup Guide",
+              baseRevision:item?item.revision:"new",
+              latestRevision:latest?latest.revision:"unknown",message:info.detail});
+          }
+          status("Guide not saved"+(info.conflict?" (409 revision conflict)":
+            info.denied?" (not authorized)":"")+": "+info.detail,true);
+        }
         finally{button.disabled=false;}
       });
+    }
+    /* Reload the newest authoritative guide; the local draft is never reapplied. */
+    async function reloadLatestGuide(item,info){
+      if(!item)return;
+      var run=++ticket;
+      try{
+        var detail=await request(csrf,"/"+encodeURIComponent(item.id));
+        if(!active||run!==ticket)return;
+        var fresh=detail.guide||detail;
+        edit(fresh);
+        status("Reloaded Guide "+fresh.id+" at Server revision "+fresh.revision+
+          ". Your unsaved draft stays on this device for manual reapplication.");
+      }catch(error){
+        if(active&&run===ticket)status("Could not reload the latest guide: "+
+          failure(error).detail,true);
+      }
     }
     async function inspect(item) {
       var current=ticket,node=find("#guide-history");
@@ -224,6 +263,8 @@
     }
     function setAccess(canRead,canWrite) {
       ++ticket;active=!!canRead;write=active&&!!canWrite;records=[];
+      if(activeDraft&&activeDraft.dispose)activeDraft.dispose();
+      activeDraft=null;
       if(inline)inline.setAccess(false,false);
       inline=null;
       root.replaceChildren();root.hidden=!active;

@@ -690,21 +690,28 @@
       links.map(function(link){return '<p>'+recordLink(link)+'</p>';}).join("")+
       '</article>';
   }
-  // Campaign lifecycle and session steps share one presentation too.
+  // Campaign lifecycle and session steps share one presentation too. An
+  // interactive stepper turns the label into a local navigation button; it
+  // never persists anything, it only reveals the matching panel.
   function renderStepper(steps, options) {
     options=options||{};
     var mode=domainMode(options.mode),domain=String(options.domain||"workflow");
     if(!/^[a-z][a-z0-9-]*$/.test(domain))throw Error("Explicit stepper domain required");
     if(!Array.isArray(steps)||!steps.length)throw Error("Authorized stepper steps required");
-    return '<ol class="shared-stepper" data-shared-stepper="'+escape(domain)+
+    return '<ol class="shared-stepper'+(options.interactive?' shared-draft-step':'')+'"'+
+      (options.id?' id="'+escape(options.id)+'"':'')+
+      ' data-shared-stepper="'+escape(domain)+
       '" data-stepper-mode="'+escape(mode)+'">'+steps.map(function(step,index){
         if(!step||!step.label)throw Error("Stepper step requires a label");
         var state=step.state||"todo";
         if(!STEPPER_STATES.includes(state))throw Error("Unsupported stepper state");
-        return '<li data-step-state="'+escape(state)+'" data-step-index="'+escape(index)+'">'+
-          '<strong>'+escape((index+1)+". "+step.label)+'</strong>'+
+        var current=options.interactive&&state==="current";
+        return '<li data-step-state="'+escape(state)+'" data-step-index="'+escape(index)+'"'+
+          (current?' aria-current="step"':'')+'>'+
+          (step.action? matrixCommand(step.action):
+            '<strong>'+escape((index+1)+". "+step.label)+'</strong>')+
           (step.detail?' <span class="muted small">'+escape(step.detail)+'</span>':"")+
-          (step.action? ' '+matrixCommand(step.action):"")+'</li>';
+          '</li>';
       }).join("")+'</ol>';
   }
   // Loading, empty, refused and denied states read the same in both modes.

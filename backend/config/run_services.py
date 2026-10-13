@@ -161,7 +161,8 @@ def close(*,actor,public_id,expected_revision,data):
             "method_definition","guide_revision","guide").filter(public_id=public_id).first()
         if session is None:raise InvalidSession("Unknown real Server session")
         if not can_edit(actor,session):
-            raise SessionAccessDenied("Only draft creator or campaign owner can close it")
+            raise SessionAccessDenied(
+                "Only the experimenter who owns this Run can close it into a measured Run")
         if BenchmarkRun.objects.filter(session=session).exists():
             raise SessionConflict("This session already has a permanent run")
         current=_checkpoint(session)

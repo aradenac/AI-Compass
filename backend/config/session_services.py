@@ -153,8 +153,15 @@ def _initial_state(session, evaluation_id=None):
 
 
 def can_edit(actor,session):
-    return actor.is_superuser or actor.pk in (
-        session.created_by_id,session.campaign_snapshot.owner_id)
+    """One experimenter owns one active Run/session (UX-R05 §10.1).
+
+    Only the account that created the session may append checkpoints or close it
+    into a Run. Authorized co-workers keep read access and may create *separate*
+    sessions for the same campaign, but can never concurrently write someone
+    else's active experiment. The campaign owner is therefore no longer an
+    implicit co-writer; a superuser retains the existing operational override.
+    """
+    return bool(actor.is_superuser or actor.pk == session.created_by_id)
 
 
 def create(*, actor, campaign_id, data):
@@ -320,7 +327,8 @@ def append(*, actor, public_id, expected_revision, action, data, step_key=None):
         if session is None:
             raise InvalidSession("Unknown Server session")
         if not can_edit(actor,session):
-            raise SessionAccessDenied("Only session creator or campaign owner may edit this draft")
+            raise SessionAccessDenied(
+                "Only the experimenter who created this active Run may edit its session")
         current=_checkpoint(session)
         if expected_revision!=f"r{current.number:03d}":
             raise SessionConflict("Draft changed in another browser; reload before saving")

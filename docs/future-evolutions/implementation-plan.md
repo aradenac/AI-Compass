@@ -76,7 +76,7 @@ Completed domain specifications have been promoted into maintained documentation
 | Priority | Issue | Missing/partial specification coverage to close | Required predecessor |
 | --- | --- | --- | --- |
 | **1 — P0-UX-GAP** | [#123](https://github.com/aradenac/AI-Compass/issues/123) — UX-R04 | Common business-level renderers/controllers, actual Demo/Server UX equivalence; TD-01 | #114–#116 closed |
-| **2 — P1-UX-GAP** | [#124](https://github.com/aradenac/AI-Compass/issues/124) — UX-R05 | Existing draft helper coverage: Campaign, Run/session steppers, resume/discard, base-revision 409 conflict & ownership safety | #123 |
+| **2 — P1-UX-GAP** | [#124](https://github.com/aradenac/AI-Compass/issues/124) — UX-R05 | Existing draft helper coverage: Campaign, Run/session steppers, resume/discard, base-revision 409 conflict & ownership safety. **Implemented on a `main`-based branch with focused node/Django/desktop-Chromium evidence ([PR #132](https://github.com/aradenac/AI-Compass/pull/132)); issue remains open until review/merge.** Behaviour: [draft, conflict and Run-stepper contract](../draft-conflict-and-run-stepper.md). | #123 |
 | **3 — P2-UX-GAP** | [#125](https://github.com/aradenac/AI-Compass/issues/125) — UX-R06 | Complete §13 role journeys: Engineer profiles/access/feedback; Workgroup five-zone diagram, publication-only updates and valid counts; Results/Recommendations; Management provenance; cross-role boundaries | #123, #124 |
 | **4 — P3-UX-GAP** | [#126](https://github.com/aradenac/AI-Compass/issues/126) — UX-R07 | Executable 20-scenario evidence matrix, desktop visual/accessibility baseline and regression gate including negative fixtures | #123–#125 |
 

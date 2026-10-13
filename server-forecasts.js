@@ -2,7 +2,8 @@
 (function(){
 "use strict";
 function mount(root,csrf,escapeHtml){
-  var enabled=false,writer=false,reviewer=false,ticket=0,forecasts=[],watch=[],tasks=[],catalog={};
+  var enabled=false,writer=false,reviewer=false,ticket=0,forecasts=[],watch=[],tasks=[],catalog={},
+    activeDraft=null;
   var listTypes=["model","provider","harness"];
   function $(q){return root.querySelector(q);}
   function esc(v){return escapeHtml(v==null?"":String(v));}
@@ -13,8 +14,14 @@ function mount(root,csrf,escapeHtml){
       opts.body=JSON.stringify(data||{});
     }
     var r=await fetch("/api/v1/"+path,opts),body=await r.json().catch(function(){return {};});
-    if(!r.ok)throw Error(body.detail||body.error||"HTTP "+r.status);
+    if(!r.ok)throw(window.AICompassRuntime&&window.AICompassRuntime.httpError?
+      window.AICompassRuntime.httpError(r.status,body):
+      Error(body.detail||body.error||"HTTP "+r.status));
     return body;
+  }
+  function failure(error){
+    return window.AICompassRuntime&&window.AICompassRuntime.failureInfo?
+      window.AICompassRuntime.failureInfo(error):{conflict:false,detail:error&&error.message};
   }
   function status(message,bad){
     var node=$("#forecast-status");
@@ -112,6 +119,8 @@ function mount(root,csrf,escapeHtml){
   function form(f){
     if(!writer)return;
     var p=f&&f.properties||{},node=$("#forecast-form-panel");
+    if(activeDraft&&activeDraft.dispose)activeDraft.dispose();
+    activeDraft=null;
     node.hidden=false;
     node.innerHTML='<h3>'+(f?"Revise":"Draft")+' theoretical configuration</h3>'+
       '<form id="forecast-form">'+
@@ -141,11 +150,13 @@ function mount(root,csrf,escapeHtml){
       '<button type="submit">Save theoretical version</button> <button type="button" id="forecast-cancel">Cancel</button>'+
       '</form>';
     $("#forecast-cancel").addEventListener("click",function(){node.hidden=true;});
-    var draft=window.AICompassDrafts && window.AICompassDraftAccount ?
-      window.AICompassDrafts.attach($("#forecast-form"),{
-        mode:"server",account:window.AICompassDraftAccount,kind:"forecast",
-        id:f?f.id:"new",revision:f?f.revision:"new",schema:"forecast-v1"
-      }):null;
+    var drafts=window.AICompassDrafts,
+        scope=drafts&&drafts.forMode?drafts.forMode("server","forecast",{
+          id:f?f.id:"new",revision:f?f.revision:"new",schema:"forecast-v1",
+          label:f?f.name:"New theoretical Forecast",guardUnload:true,
+          onConflictReload:function(info){reloadLatestForecast(f,info);}}):null;
+    var draft=scope?drafts.attach($("#forecast-form"),scope):null;
+    activeDraft=draft;
     $("#forecast-form").addEventListener("submit",async function(event){
       event.preventDefault();var form=event.target,b=form.querySelector('[type="submit"]');
       b.disabled=true;
@@ -173,10 +184,37 @@ function mount(root,csrf,escapeHtml){
         await api("forecasts"+(f?"/"+encodeURIComponent(f.id):""),f?"PATCH":"POST",data);
         if(!enabled)return;
         if(draft)draft.clear();
+        activeDraft=null;
         node.hidden=true;await refresh();status("Theoretical Forecast stored, prior review and evidence preserved.");
-      }catch(err){if(draft&&/409|revision_conflict/.test(err.message))draft.conflict();status("Forecast not saved: "+err.message,true);}
+      }catch(err){
+        var info=failure(err);
+        if(draft&&info.conflict){
+          var latest=null;
+          if(f){try{latest=await api("forecasts/"+encodeURIComponent(f.id));}catch(_){}}
+          draft.conflict({label:f?f.name:"New theoretical Forecast",
+            baseRevision:f?f.revision:"new",
+            latestRevision:latest?latest.revision:"unknown",message:info.detail});
+        }
+        status("Forecast not saved"+(info.conflict?" (409 revision conflict)":
+          info.denied?" (not authorized)":"")+": "+info.detail,true);
+      }
       finally{b.disabled=false;}
     });
+  }
+  /* Reload the newest theoretical revision without merging or repinning the draft. */
+  async function reloadLatestForecast(f,info){
+    if(!f)return;
+    var run=++ticket;
+    try{
+      var fresh=await api("forecasts/"+encodeURIComponent(f.id));
+      if(!enabled||run!==ticket)return;
+      form(fresh);
+      status("Reloaded Forecast "+fresh.id+" at Server revision "+fresh.revision+
+        ". Your unsaved draft stays on this device for manual reapplication.");
+    }catch(error){
+      if(enabled&&run===ticket)status("Could not reload the latest Forecast: "+
+        failure(error).detail,true);
+    }
   }
   async function inspect(f){
     var current=ticket,node=$("#forecast-detail-panel");node.hidden=false;node.textContent="Loading immutable original…";
@@ -246,6 +284,8 @@ function mount(root,csrf,escapeHtml){
   function setAccess(read,write,review){
     ++ticket;enabled=!!read;writer=enabled&&!!write;reviewer=enabled&&!!review;
     forecasts=[];watch=[];tasks=[];catalog={};
+    if(activeDraft&&activeDraft.dispose)activeDraft.dispose();
+    activeDraft=null;
     root.replaceChildren();root.hidden=!enabled;
     if(enabled){shell();refresh();}
   }

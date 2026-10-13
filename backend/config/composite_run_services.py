@@ -58,7 +58,8 @@ def close(*,actor,public_id,expected_revision,data):
         ).filter(public_id=public_id).first()
         if session is None:raise InvalidSession("Unknown Server session")
         if not can_edit(actor,session):
-            raise SessionAccessDenied("Only session creator or campaign owner can close this run")
+            raise SessionAccessDenied(
+                "Only the experimenter who owns this Run can close this composite Run")
         if (BenchmarkRun.objects.filter(session=session).exists() or
                 CompositeBenchmarkRun.objects.filter(session=session).exists()):
             raise SessionConflict("Session already has a permanent Run")

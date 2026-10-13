@@ -99,3 +99,42 @@
 .ux-shell [data-engineer-body] button:disabled { opacity:.54; cursor:default; }
 .ux-shell [data-engineer-body] .list-row { min-width:0; }
 .ux-shell [data-engineer-body] .list-row > div { min-width:0; overflow-wrap:anywhere; }
+
+/* UX-R05: unsaved local drafts and revision conflicts are first-class, never
+ * colour-only, and always offer an explicit action to the user. */
+.ux-shell .shared-draft-status,
+.ux-shell .shared-conflict-notice {
+  border:1px solid #d8b46a; border-left:4px solid #b5811f; border-radius:10px;
+  background:#fffaf0; color:#4a3610; padding:10px 13px; margin:0 0 12px;
+  font-size:13px; line-height:1.5; min-width:0; overflow-wrap:anywhere;
+}
+.ux-shell .shared-draft-status[data-draft-dirty="true"] { border-left-color:#b5811f; }
+.ux-shell .shared-conflict-notice[role="alert"] {
+  border-left-color:#b3322c; border-color:#e2b3b0; background:#fff5f4; color:#5a1f1c;
+}
+.ux-shell .shared-draft-status strong,
+.ux-shell .shared-conflict-notice strong { display:block; margin-bottom:4px; }
+.ux-shell .shared-conflict-actions { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+.ux-shell .shared-draft-action {
+  border:1px solid #c9b585; border-radius:8px; background:#fff;
+  color:#3c2f12; font:600 12px system-ui,sans-serif; padding:6px 10px; cursor:pointer;
+}
+.ux-shell .shared-draft-action.primary { background:#3159ad; border-color:#3159ad; color:#fff; }
+.ux-shell .shared-draft-action:hover { filter:brightness(0.97); }
+.ux-shell .shared-draft-recovery {
+  background:#fff; border:1px dashed #c9b585; border-radius:8px; margin:8px 0 0;
+  max-height:220px; overflow:auto; padding:8px; white-space:pre-wrap;
+  overflow-wrap:anywhere; font-size:12px;
+}
+.ux-shell .shared-draft-step {
+  display:flex; flex-wrap:wrap; gap:6px; margin:0 0 12px; padding:0; list-style:none;
+}
+.ux-shell .shared-draft-step li { display:inline-flex; }
+.ux-shell .shared-draft-step button {
+  border:1px solid #d5deeb; border-radius:8px; background:#fff;
+  color:#263b61; font:600 12px system-ui,sans-serif; padding:7px 11px; cursor:pointer;
+}
+.ux-shell .shared-draft-step li[aria-current="step"] button {
+  background:#3159ad; border-color:#3159ad; color:#fff;
+}
+.ux-shell .shared-draft-step button[data-step-visited="true"]::after { content:" ✓"; }

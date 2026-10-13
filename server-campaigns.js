@@ -11,7 +11,8 @@
   };
   function mount(root, csrf, escapeHtml) {
     var allowed=false,canWrite=false,canReview=false,ticket=0,campaigns=[],methods=[],tasks=[],cases=[],guides=[];
-    var catalog={model:[],provider:[],harness:[],framework:[]},offers=[],sessionWorkspace=null;
+    var catalog={model:[],provider:[],harness:[],framework:[]},offers=[],sessionWorkspace=null,
+      activeDraft=null,extraDrafts=[];
     function el(selector){return root.querySelector(selector);}
     function esc(value){return escapeHtml(value==null?"":String(value));}
     function status(message,error){
@@ -30,8 +31,31 @@
       }
       var response=await fetch("/api/v1/"+path,opts);
       var body=await response.json().catch(function(){return {};});
-      if(!response.ok)throw Error(body.detail||body.error||"HTTP "+response.status);
+      /* UX-R05: keep the HTTP status so 409/403 become explicit conflict UI. */
+      if(!response.ok)throw(window.AICompassRuntime&&window.AICompassRuntime.httpError?
+        window.AICompassRuntime.httpError(response.status,body):
+        Error(body.detail||body.error||"HTTP "+response.status));
       return body;
+    }
+    function drafts(){return window.AICompassDrafts;}
+    function disposeExtras(){
+      extraDrafts.forEach(function(handle){if(handle&&handle.dispose)handle.dispose();});
+      extraDrafts=[];
+    }
+    /* Secondary long-lived forms in the same screen (matrix builders) get their
+     * own bounded local draft so unsaved input survives navigation or reload. */
+    function attachDraftForm(form,kind,options){
+      var d=drafts();
+      if(!d||!d.forMode||!form)return null;
+      var scope=d.forMode("server",kind,options||{});
+      if(!scope)return null;
+      var handle=d.attach(form,scope);
+      extraDrafts.push(handle);
+      return handle;
+    }
+    function failure(error){
+      return window.AICompassRuntime&&window.AICompassRuntime.failureInfo?
+        window.AICompassRuntime.failureInfo(error):{conflict:false,detail:error&&error.message};
     }
     function build(){
       root.innerHTML='<div class="server-model-toolbar"><div><h2>Benchmark Workspace · Campaigns</h2>'+
@@ -215,6 +239,11 @@
     function editor(source){
       if(!allowed||!canWrite)return;
       var target=el("#campaign-editor"),mode=source?source.mode:"task_centred";
+      /* One live draft handle at a time: re-rendering the editor must not leak
+       * listeners or leave a stale handle reporting unsaved changes. */
+      if(activeDraft&&activeDraft.dispose)activeDraft.dispose();
+      activeDraft=null;
+      disposeExtras();
       target.hidden=false;el("#campaign-detail").hidden=true;
       var versions=methods.filter(function(x){return x.mode===mode;});
       target.innerHTML='<h3>'+(source?"Edit campaign · "+esc(source.revision):"Create campaign")+'</h3>'+
@@ -269,6 +298,14 @@
         '<button type="submit">Save '+(source?"new revision":"campaign")+'</button>'+
         '<button type="button" id="campaign-cancel">Cancel</button></form>';
       var form=el("#campaign-form");
+      var campaignDraftScope=drafts()&&drafts().forMode?drafts().forMode(
+        "server","campaign",{id:source?source.id:"new",
+          revision:source?source.revision:"new",schema:"campaign-form-v2",
+          label:source?source.name:"New campaign",guardUnload:true,
+          onConflictReload:function(info,entry){
+            reloadLatestCampaign(source,info,entry);
+          }}):null;
+      activeDraft=campaignDraftScope?drafts().attach(form,campaignDraftScope):null;
       var pricingPicker=null;
       var workingParticipants=(source&&Array.isArray(source.participants)?source.participants:[]).map(function(p){
         return {id:p.id,label:p.label,role:p.role,configuration_version:p.configuration_version,
@@ -486,11 +523,45 @@
           }
           var saved=source?await api("campaigns/"+encodeURIComponent(source.id),"PATCH",payload):
             await api("campaigns","POST",payload);
+          if(activeDraft&&activeDraft.clear)activeDraft.clear();
+          activeDraft=null;
           target.hidden=true;await refresh();
           status("Saved "+(saved.campaign||saved).id+" as a new immutable Server revision.");
-        }catch(error){status("Campaign save refused: "+error.message,true);}
+        }catch(error){
+          var info=failure(error);
+          if(activeDraft&&info.conflict){
+            var latest=null;
+            if(source){
+              try{var detail=await api("campaigns"+"/"+encodeURIComponent(source.id));
+                latest=detail.campaign||detail;}catch(_){}
+            }
+            activeDraft.conflict({label:source?source.name:"New campaign",
+              baseRevision:source?source.revision:"new",
+              latestRevision:latest?latest.revision:"unknown",
+              message:info.detail});
+          }
+          status("Campaign save refused"+(info.conflict?" (409 revision conflict)":
+            info.denied?" (not authorized)":"")+": "+info.detail,true);
+        }
         finally{button.disabled=false;}
       });
+    }
+    /* 409 reload: show the newest authoritative campaign, keep the unsaved draft
+     * on this device, and never reapply or merge it automatically. */
+    async function reloadLatestCampaign(source,info,entry){
+      if(!source)return;
+      var run=++ticket;
+      try{
+        var detail=await api("campaigns"+"/"+encodeURIComponent(source.id));
+        if(!allowed||run!==ticket)return;
+        var fresh=detail.campaign||detail;
+        editor(Object.assign({},source,fresh));
+        status("Reloaded campaign "+source.id+" at Server revision "+fresh.revision+
+          ". Your unsaved draft stays on this device for manual reapplication.");
+      }catch(error){
+        if(allowed&&run===ticket)status("Could not reload the latest campaign: "+
+          failure(error).detail,true);
+      }
     }
     async function transition(row,action){
       if(!allowed||(["publish","unpublish"].includes(action)?!canReview:!canWrite))return;
@@ -506,7 +577,22 @@
         await refresh();
         status("Campaign "+result.campaign.id+" · "+result.campaign.revision+
           " · "+result.campaign.status+(result.campaign.archived?" (archived)":""));
-      }catch(error){if(allowed&&run===ticket)status("Transition refused: "+error.message,true);}
+      }catch(error){
+        if(!allowed||run!==ticket)return;
+        var info=failure(error);
+        if(info.conflict&&drafts()&&drafts().notice){
+          /* A campaign-wide list/plan change must never be merged automatically. */
+          drafts().notice(el("#campaign-list"),{kind:"campaign-transition-conflict",tone:"error",
+            title:"Conflict: Campaign "+row.id+" changed since it was opened",
+            message:info.detail+" Server revision "+(info.latestRevision||"unknown")+
+              "; your base "+row.revision+". Nothing was published, closed or repinned.",
+            actions:[{label:"Reload latest campaign",primary:true,onClick:function(){
+              refresh().then(function(){status("Reloaded the latest Campaign revision.");});
+            }}]});
+        }
+        status("Transition refused"+(info.conflict?" (409 revision conflict)":
+          info.denied?" (not authorized)":"")+": "+info.detail,true);
+      }
     }
 
 
@@ -592,6 +678,9 @@
 
     async function showMatrix(row,filter,revision){
       if(!allowed)return;
+      if(activeDraft&&activeDraft.dispose)activeDraft.dispose();
+      activeDraft=null;
+      disposeExtras();
       var route=new URL(window.location.href);
       route.searchParams.set("record",row.id);
       route.searchParams.set("view","matrix");
@@ -685,10 +774,16 @@
           showMatrix(row,chosenTask,this.value);
         });
         function choose(id){return cells.find(function(x){return x.id===id;});}
+        /* Test Case display name for a cell's ephemeral waiver draft label: the
+         * merged grid (renderCampaignMatrix) renders names itself, so this
+         * adapter only needs the lookup for the local draft descriptor. */
+        function tcName(id){var t=cases.find(function(x){return x.id===id;});return t?t.name:id;}
         target.querySelectorAll("[data-matrix-cell]").forEach(function(button){
           button.addEventListener("click",function(){
             var cell=choose(button.dataset.matrixCell);
             var detail=target.querySelector("#matrix-cell-details");detail.hidden=false;
+            if(activeDraft&&activeDraft.dispose)activeDraft.dispose();
+            activeDraft=null;
             detail.innerHTML=window.AICompassWorkgroup.renderMatrixCellDetail(
                 projection,cell.id,{mode:"server"})+
               (editable?'<form id="matrix-decision-form" class="server-card">'+
@@ -699,6 +794,16 @@
               '<p><button type="button" id="matrix-open-sessions">Open Test Run workspace</button></p>'+
               '<details class="ux-advanced-source"><summary>Advanced: immutable matrix cell source</summary>'+
                 '<pre style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></details>';
+            if(editable){
+              var cfg=byId[cell.configuration_id];
+              var cellScope=drafts()&&drafts().forMode?drafts().forMode("server",
+                "campaign-matrix-waiver",{id:cell.id,revision:row.revision,
+                  schema:"campaign-matrix-v1",label:tcName(cell.test_case_id)+" × "+(cfg?cfg.label:cell.configuration_id),
+                  guardUnload:true,
+                  onConflictReload:function(){showMatrix(row,chosenTask,revision);}}):null;
+              activeDraft=cellScope?drafts().attach(detail.querySelector("#matrix-decision-form"),
+                cellScope):null;
+            }
             detail.querySelector("pre").textContent=JSON.stringify({runs:cell.runs,history:cell.history,
                configuration:byId[cell.configuration_id]},null,2);
             detail.querySelector("#matrix-open-sessions").addEventListener("click",function(){
@@ -722,10 +827,52 @@
             var saved=await api("campaigns/"+encodeURIComponent(row.id)+"/matrix/edit",
               "PATCH",{expected_revision:row.revision,operation:operation});
             Object.assign(row,saved.campaign);
+            if(activeDraft&&activeDraft.clear)activeDraft.clear();
+            activeDraft=null;
+            disposeExtras();
             await refresh();
             await showMatrix(row,chosenTask);
             status("Matrix updated: "+row.id+" · "+row.revision+" (previous revisions preserved).");
-          }catch(error){status("Matrix change refused: "+error.message,true);}
+          }catch(error){
+            var info=failure(error);
+            if(info.conflict){
+              /* Never merge or repin: show the newer plan and keep the local text. */
+              var host=target.querySelector("#matrix-cell-details:not([hidden])")||target;
+              var reasonField=target.querySelector("#matrix-reason-server");
+              var pendingText=reasonField?reasonField.value:"";
+              drafts().notice(host,{kind:"matrix-conflict",tone:"error",
+                title:"Conflict: Campaign "+row.id+" plan changed since it was opened",
+                message:info.detail+" Your base revision "+row.revision+
+                  "; latest Server revision "+(info.latestRevision||"unknown")+
+                  ". Nothing was overwritten, merged or repinned. Reapply a waiver manually after reloading.",
+                actions:[
+                  {label:"Reload latest plan",primary:true,onClick:function(){
+                    var url=new URL(window.location.href);
+                    if(activeDraft&&activeDraft.dispose)activeDraft.dispose();
+                    activeDraft=null;
+                    refresh().then(function(){
+                      var fresh=campaigns.find(function(c){return c.id===row.id;});
+                      if(fresh)showMatrix(fresh,chosenTask);
+                    });
+                    status("Reloaded the latest Campaign plan. Waiver text stays in the local draft for manual reapplication.");
+                  }},
+                  {label:"Copy my waiver text",onClick:function(){
+                    if(pendingText)drafts().copyText(pendingText);
+                    var pre=document.createElement("pre");
+                    pre.className="shared-draft-recovery";
+                    pre.textContent=pendingText||"No waiver text was entered.";
+                    host.appendChild(pre);
+                  }},
+                  {label:"Discard my waiver text",onClick:function(){
+                    if(activeDraft&&activeDraft.clear)activeDraft.clear();
+                    activeDraft=null;
+                    status("Unsaved waiver text discarded. Server data was never overwritten.");
+                  }}
+                ]});
+            }
+            status("Matrix change refused"+(info.conflict?" (409 revision conflict)":"")+
+              ": "+info.detail,true);
+          }
         }
         if(!editable)return;
         var form=target.querySelector("#matrix-add-form");
@@ -772,6 +919,12 @@
           change({action:"add_cases",configuration_id:add.elements.configuration_id.value,
             test_case_ids:Array.from(add.elements.test_case_ids.selectedOptions).map(function(x){return x.value;})});
         });
+        attachDraftForm(form,"campaign-matrix-configuration",{id:row.id,
+          revision:row.revision,schema:"campaign-matrix-add-v1",
+          label:"New configuration on "+row.name,guardUnload:true});
+        attachDraftForm(add,"campaign-matrix-cases",{id:row.id,revision:row.revision,
+          schema:"campaign-matrix-add-v1",label:"Offer Test Cases on "+row.name,
+          guardUnload:true});
       }catch(error){target.textContent="Evaluation matrix unavailable: "+error.message;}
     }
     async function history(row){
@@ -798,6 +951,10 @@
     }
     function setAccess(read,write,review){
       ++ticket;allowed=!!read;canWrite=!!write&&allowed;canReview=!!review&&allowed;
+      /* Dropping the workspace must not leave a live draft handle reporting
+       * unsaved changes for a form that no longer exists. */
+      if(activeDraft&&activeDraft.dispose)activeDraft.dispose();
+      activeDraft=null;disposeExtras();
       campaigns=[];methods=[];root.replaceChildren();root.hidden=!allowed;
       if(allowed){build();refresh();}
     }

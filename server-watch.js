@@ -3,7 +3,7 @@
 (function(){
 "use strict";
 function mount(root,csrf,escapeHtml){
-  var active=false,writer=false,reviewer=false,seq=0,sources=[],entries=[];
+  var active=false,writer=false,reviewer=false,seq=0,sources=[],entries=[],activeDraft=null;
   function $(selector){return root.querySelector(selector);}
   function esc(value){return escapeHtml(value==null?"":String(value));}
   // One shared loading/read/error presentation in Demo and Server.
@@ -22,8 +22,14 @@ function mount(root,csrf,escapeHtml){
       options.body=JSON.stringify(data||{});
     }
     var response=await fetch("/api/v1/"+path,options),body=await response.json().catch(function(){return {};});
-    if(!response.ok)throw Error(body.detail||body.error||("HTTP "+response.status));
+    if(!response.ok)throw(window.AICompassRuntime&&window.AICompassRuntime.httpError?
+      window.AICompassRuntime.httpError(response.status,body):
+      Error(body.detail||body.error||("HTTP "+response.status)));
     return body;
+  }
+  function failure(error){
+    return window.AICompassRuntime&&window.AICompassRuntime.failureInfo?
+      window.AICompassRuntime.failureInfo(error):{conflict:false,detail:error&&error.message};
   }
   function option(value,label,selected){
     return '<option value="'+esc(value)+'"'+(selected?' selected':'')+'>'+esc(label)+'</option>';
@@ -107,6 +113,8 @@ function mount(root,csrf,escapeHtml){
   function edit(kind,row){
     if(!active||!writer)return;
     var isSource=kind==="sources",p=row&&row.properties||{},area=$("#watch-editor");
+    if(activeDraft&&activeDraft.dispose)activeDraft.dispose();
+    activeDraft=null;
     var known=isSource?["claim","citation","url","source_type","confidence","published_on",
       "retrieved_on","limitations","visibility"]:
       ["hypothesis","assumptions","notes","visibility","review_state"];
@@ -132,11 +140,14 @@ function mount(root,csrf,escapeHtml){
           return [source.id,source.name+" · "+source.revision];})}})+
       '<button type="submit">Save immutable revision</button> <button type="button" id="watch-cancel">Cancel</button></form>';
     $("#watch-cancel").addEventListener("click",function(){area.hidden=true;});
-    var draft=window.AICompassDrafts && window.AICompassDraftAccount ?
-      window.AICompassDrafts.attach($("#watch-form"),{
-        mode:"server",account:window.AICompassDraftAccount,kind:kind,
-        id:row?row.id:"new",revision:row?row.revision:"new",schema:"watch-v1"
-      }):null;
+    var drafts=window.AICompassDrafts,
+        scope=drafts&&drafts.forMode?drafts.forMode("server",kind,{
+          id:row?row.id:"new",revision:row?row.revision:"new",schema:"watch-v1",
+          label:row?row.name:(isSource?"New Research Source":"New Watch Entry"),
+          guardUnload:true,
+          onConflictReload:function(info){reloadLatest(kind,routeForKind(kind),row,info);}}):null;
+    var draft=scope?drafts.attach($("#watch-form"),scope):null;
+    activeDraft=draft;
     $("#watch-form").addEventListener("submit",async function(event){
       event.preventDefault();var form=event.target,button=form.querySelector('[type="submit"]');
       button.disabled=true;
@@ -167,11 +178,40 @@ function mount(root,csrf,escapeHtml){
         await api(routeForKind(kind)+(row?"/"+encodeURIComponent(row.id):""),row?"PATCH":"POST",data);
         if(!active)return;
         if(draft)draft.clear();
+        activeDraft=null;
         area.hidden=true;await refresh();
         note("Revision safely committed in Server; previous history and exact source pins retained.");
-      }catch(error){if(draft&&/409|revision_conflict/.test(error.message))draft.conflict();note("NOT saved: "+error.message,true);}
+      }catch(error){
+        var info=failure(error);
+        if(draft&&info.conflict){
+          var latest=null;
+          if(row){try{latest=await api(routeForKind(kind)+"/"+encodeURIComponent(row.id));}catch(_){}}
+          draft.conflict({label:row?row.name:(isSource?"New Research Source":"New Watch Entry"),
+            baseRevision:row?row.revision:"new",
+            latestRevision:latest?latest.revision:"unknown",message:info.detail});
+        }
+        note("NOT saved"+(info.conflict?" (409 revision conflict)":
+          info.denied?" (not authorized)":"")+": "+info.detail,true);
+      }
       finally{button.disabled=false;}
     });
+  }
+  /* Reload the newest authoritative revision; the local draft is intentionally
+   * left on the device for manual reapplication instead of being merged. */
+  async function reloadLatest(kind,route,row,info){
+    if(!row)return;
+    var run=++seq;
+    try{
+      var fresh=await api(route+"/"+encodeURIComponent(row.id));
+      if(!active||run!==seq)return;
+      await refresh();
+      if(!active)return;
+      edit(kind,fresh);
+      note("Reloaded "+fresh.id+" at Server revision "+fresh.revision+
+        ". Your unsaved draft stays on this device for manual reapplication.");
+    }catch(error){
+      if(active)note("Could not reload the latest revision: "+failure(error).detail,true);
+    }
   }
   async function inspect(kind,row){
     var ticket=seq,area=$("#watch-detail");area.hidden=false;area.textContent="Loading history…";
@@ -238,6 +278,8 @@ function mount(root,csrf,escapeHtml){
   function setAccess(read,write,review){
     active=!!read;writer=active&&!!write;reviewer=active&&!!review;
     ++seq;sources=[];entries=[];
+    if(activeDraft&&activeDraft.dispose)activeDraft.dispose();
+    activeDraft=null;
     root.replaceChildren();root.hidden=!active;
     if(active){frame();refresh();}
   }
