@@ -10,7 +10,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . /app
 
 RUN useradd --create-home --uid 10001 appuser && \
-    mkdir -p /var/lib/ai-compass/evidence && \
+    mkdir -p /var/lib/ai-compass/evidence /var/lib/ai-compass/archives && \
     chown -R appuser:appuser /var/lib/ai-compass
 USER appuser
 EXPOSE 8000

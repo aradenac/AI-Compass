@@ -1,7 +1,7 @@
 from django.urls import path
 
 from . import auth_views, catalog_views, catalog_type_views, evidence_views, task_views, user_admin_views, activity_views, data_health_views, test_case_views, setup_guide_views, campaign_views, session_views, run_views, watch_views, forecast_views, results_views, recommendation_views, discussion_views, archive_views, workload_views, external_import_views
-from . import pricing_views, environment_views, setup_recipe_views, publication_views, run_lifecycle_views, engineer_views, opportunity_views, opportunity_insights_views, deployment_views, budget_views, governance_audit_views
+from . import pricing_views, environment_views, setup_recipe_views, publication_views, run_lifecycle_views, engineer_views, opportunity_views, opportunity_insights_views, deployment_views, budget_views, governance_audit_views, retirement_views, archive_job_views
 from .api import api
 
 urlpatterns = [
@@ -54,6 +54,13 @@ urlpatterns = [
     path("api/v1/planning/profiles/<slug:public_id>/effective", workload_views.effective_workload),
     path("api/v1/archives", archive_views.archive_inventory),
     path("api/v1/archives/native", archive_views.native_export),
+    path("api/v1/archives/jobs", archive_job_views.archive_jobs),
+    path("api/v1/archives/jobs/<slug:public_id>", archive_job_views.archive_job_detail),
+    path("api/v1/archives/jobs/<slug:public_id>/run", archive_job_views.archive_job_run),
+    path("api/v1/archives/jobs/<slug:public_id>/grants", archive_job_views.archive_grants),
+    path("api/v1/archives/jobs/<slug:public_id>/grant", archive_job_views.archive_grant),
+    path("api/v1/archives/jobs/<slug:public_id>/grants/<slug:grant_id>/revoke", archive_job_views.archive_grant_revoke),
+    path("api/v1/archives/download/<slug:public_id>", archive_job_views.archive_download),
     path("api/v1/discussions", discussion_views.threads),
     path("api/v1/discussions/<slug:public_id>", discussion_views.thread_detail),
     path("api/v1/discussions/<slug:public_id>/messages", discussion_views.reply),
@@ -134,6 +141,15 @@ urlpatterns = [
     path("api/v1/maintenance/issues/<slug:public_id>", data_health_views.detail),
     path("api/v1/maintenance/issues/<slug:public_id>/triage", data_health_views.update_issue),
     path("api/v1/maintenance/migrations", data_health_views.migrations),
+    path("api/v1/maintenance/retirement/inventory", retirement_views.orphan_inventory),
+    path("api/v1/maintenance/retirement/preview", retirement_views.purge_preview),
+    path("api/v1/maintenance/retirement/policy", retirement_views.purge_policy),
+    path("api/v1/maintenance/retirement/policy/edit", retirement_views.update_policy),
+    path("api/v1/maintenance/retirement/purge", retirement_views.run_purge),
+    path("api/v1/maintenance/retirement/receipts", retirement_views.purge_receipts),
+    path("api/v1/maintenance/retirement/<slug:public_id>", retirement_views.retirement_history),
+    path("api/v1/maintenance/retirement/<slug:public_id>/retire", retirement_views.retire_item),
+    path("api/v1/maintenance/retirement/<slug:public_id>/restore", retirement_views.restore_item),
     path("api/v1/activity", activity_views.collection),
     path("api/v1/activity/export", activity_views.export),
     path("api/v1/activity/<uuid:event_id>", activity_views.detail),
