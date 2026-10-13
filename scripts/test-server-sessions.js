@@ -26,7 +26,8 @@ assert(js.includes('"/interactions","POST"'));
 assert(js.includes('"/setup","PATCH"'));
 /* UX-R05: a real sequential stepper whose navigation is local-only. */
 assert(js.includes("data-session-goto"),"Run stepper must expose explicit step buttons");
-assert(js.includes("shared-draft-step"),"Run stepper reuses the shared step presentation");
+assert(js.includes("renderStepper(")&&js.includes("interactive:true"),
+  "Run stepper reuses the shared (now interactive) step presentation");
 assert(js.includes("data-session-panel"),"Run steps must be real panels, not one long page");
 assert(js.includes("Moving between steps writes nothing"),
   "step navigation must never commit a checkpoint");

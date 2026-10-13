@@ -69,13 +69,16 @@ function mount(root,api,escapeHtml){
     return found?(found.label||found.key):key;
   }
   function stepNav(s,keys,current){
+    // One stepper presentation shared with the offline Demo and the campaign
+    // lifecycle (UX-R04), rendered interactive for the Server Run (UX-R05).
+    // Each step is a local navigation control: moving never writes a checkpoint.
     return '<p id="session-step-cue" class="muted small" role="status"></p>'+
-      '<ol class="shared-draft-step" id="session-stepper" aria-label="Run steps">'+
-      keys.map(function(key,index){
-        return '<li'+(key===current?' aria-current="step"':'')+'>'+
-          '<button type="button" data-session-goto="'+esc(key)+'">'+
-          esc((index+1)+". "+stepLabel(key,s))+'</button></li>';
-      }).join("")+'</ol>';
+      window.AICompassWorkgroup.renderStepper(keys.map(function(key,index){
+        return {label:String(index+1)+". "+stepLabel(key,s),
+          state:key===current?"current":"todo",
+          action:{label:String(index+1)+". "+stepLabel(key,s),
+            attributes:{"data-session-goto":key}}};
+      }),{mode:"server",domain:"session",interactive:true,id:"session-stepper"});
   }
   function renderTimeline(){
     var state=session.state,node=$("#session-timeline");
