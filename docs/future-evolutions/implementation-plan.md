@@ -1,6 +1,6 @@
 # Future evolutions — delivery ledger and prioritized plan
 
-> **Updated:** 2026-10-11, reconciled with merged UX #114–#116, remaining UX gap #123–#126 and still-open FUT #92–#95.
+> **Updated:** 2026-10-13, reconciled with merged UX #114–#116 and #123–#124 (PRs #129–#132), #125 under review (PR #134), remaining UX gate #126 and still-open FUT #92–#95.
 > **Source of truth:** GitHub merge/issue state for delivery; [current product documentation](../product-definition.md) for implemented domain specifications; this plan for priority and dependencies.
 > **Original approval/history:** [2026-10-10 complete phase plan](../history/fut-plan-approved-2026-10-10.md). Original requirements are retained, not erased.
 
@@ -17,21 +17,21 @@
 | P6 — Deployment and resources | #89–#90 merged | **Completed code** |
 | P7 — Audit, purge, archives, security/capacity and release CLI | #91 merged; #92–#95 open | **Partially delivered; remaining P7 deferred behind UX** |
 | UX-R01 → UX-R03 — initial recovery | #114–#116 merged/closed | **Completed code, selected Chromium journeys passed** |
-| UX-R04 → UX-R07 — remaining UX specification coverage | #123–#126 open | **Top priority before remaining P7** |
+| UX-R04 → UX-R07 — remaining UX specification coverage | #123/#124 merged/closed; #125/#126 open | **Top priority before remaining P7** |
 
 ## Status and phase vocabulary
 
 - **Code merged**: the implementation PR was merged and its original FUT issue closed; does **not** imply independent UX acceptance, real staging acceptance, user sign-off or production GO.
-- **Open — priority**: approved UX-R04–R07 corrective work that precedes all FUT P7 expansion.
+- **Open — priority**: approved UX-R06–R07 corrective work (#125 in review, #126 the final gate) that precedes all FUT P7 expansion.
 - **Open — deferred**: existing FUT P7 issues #92–#95 retain original scope and technical dependencies but resume only after UX-R07 acceptance.
 - **Operational release:** still **NO-GO** pending existing independent real staging/browser/recovery/operator decision gates in [Release Readiness](../release-readiness.md).
 
 ## Execution order — mandatory
 
 1. **[#114](https://github.com/aradenac/AI-Compass/issues/114) / [#115](https://github.com/aradenac/AI-Compass/issues/115) / [#116](https://github.com/aradenac/AI-Compass/issues/116) — COMPLETED:** Chromium real-browser infrastructure, shared shell/single active view/protected modals, contextual navigation. Merged in PRs #118/#120/#121. Their closure does not independently prove all 20 §13 UX scenarios, durable drafts, complete role journeys or a truly shared business presentation layer.
-2. **[#123](https://github.com/aradenac/AI-Compass/issues/123) — UX-R04, P0-UX-GAP, NEXT:** one *business* presentation implementation using Demo/Server adapters; finish TD-01. No duplicate view/DOM layers. Prerequisite for subsequent UX improvements.
-3. **[#124](https://github.com/aradenac/AI-Compass/issues/124) — UX-R05, P1-UX-GAP:** complete form/Run stepper draft resume, role/mode isolation, revision conflicts and authoritative session ownership. Requires #123; extend the existing draft system.
-4. **[#125](https://github.com/aradenac/AI-Compass/issues/125) — UX-R06, P2-UX-GAP:** complete Engineer/Workgroup/Results/Management and knowledge journeys, including published-only updates, accurate counters, source/role-sensitive detail. Requires #123 and #124. **In progress:** an implementation PR (same pinned base) delivers the published-only Workgroup Updates read model + surface, the resolved Under-review counter and its read-only filter, the Profitability → Technology Catalog gap link, Engineer OS/Unknown variants, multi-role/Maintenance fail-closed boundaries, deterministic Demo/Server fixtures and two new desktop Chromium journeys; per-scenario status, remaining blockers and the explicit DAP access-request spec dependency are recorded in [UX-R06 persona coverage](../ux-r06-persona-coverage.md). **The issue stays open** and #126 remains the certification gate.
+2. **[#123](https://github.com/aradenac/AI-Compass/issues/123) — UX-R04, P0-UX-GAP, MERGED/CLOSED:** one *business* presentation implementation using Demo/Server adapters; TD-01 resolved. No duplicate view/DOM layers. Merged on `main` (PRs #129–#131).
+3. **[#124](https://github.com/aradenac/AI-Compass/issues/124) — UX-R05, P1-UX-GAP, MERGED/CLOSED:** complete form/Run stepper draft resume, role/mode isolation, revision conflicts and authoritative session ownership. Merged on `main` (PR #132); extended the existing draft system.
+4. **[#125](https://github.com/aradenac/AI-Compass/issues/125) — UX-R06, P2-UX-GAP, In review:** complete Engineer/Workgroup/Results/Management and knowledge journeys, including published-only updates, accurate counters, source/role-sensitive detail. Requires #123 and #124 (both merged). **Under review (PR #134, rebased on `main`):** the published-only Workgroup Updates read model + surface (qualitative exclusions only, no restricted-record counts), the resolved Under-review counter and its read-only filter, the Profitability → Technology Catalog gap link, Engineer OS/Unknown variants, multi-role/Maintenance fail-closed boundaries, deterministic Demo/Server fixtures and the desktop Chromium journeys (incl. authenticated Server Engineer-feedback and Management drill-down); per-scenario status, remaining blockers and the explicit DAP access-request spec dependency are recorded in [UX-R06 persona coverage](../ux-r06-persona-coverage.md). **The issue stays open** until the owner merges and closes it; #126 remains the certification gate.
 5. **[#126](https://github.com/aradenac/AI-Compass/issues/126) — UX-R07, P3-UX-GAP, FINAL UX GATE:** traceable automated and reviewed **desktop** acceptance across the 20 normative UX scenarios, targeted accessibility and approved visual references. Fix demonstrable UX defects; keep the platform security/data/recovery tests. Requires #123–#125.
 6. **Only after #126 is closed with real-browser acceptance passing:** resume the already approved P7 work [#92](https://github.com/aradenac/AI-Compass/issues/92) and [#93](https://github.com/aradenac/AI-Compass/issues/93), then [#94](https://github.com/aradenac/AI-Compass/issues/94) and [#95](https://github.com/aradenac/AI-Compass/issues/95) in their existing dependency order. Do not interpret this scheduling change as a new business feature.
 7. Backend work provably independent of UI may proceed only without circumventing security/recovery or UX acceptance. Operational production release remains separately **NO-GO** until real staging and an authorized decision.
@@ -75,8 +75,8 @@ Completed domain specifications have been promoted into maintained documentation
 
 | Priority | Issue | Missing/partial specification coverage to close | Required predecessor |
 | --- | --- | --- | --- |
-| **1 — P0-UX-GAP** | [#123](https://github.com/aradenac/AI-Compass/issues/123) — UX-R04 | Common business-level renderers/controllers, actual Demo/Server UX equivalence; TD-01 | #114–#116 closed |
-| **2 — P1-UX-GAP** | [#124](https://github.com/aradenac/AI-Compass/issues/124) — UX-R05 | Existing draft helper coverage: Campaign, Run/session steppers, resume/discard, base-revision 409 conflict & ownership safety. **Implemented on a `main`-based branch with focused node/Django/desktop-Chromium evidence ([PR #132](https://github.com/aradenac/AI-Compass/pull/132)); issue remains open until review/merge.** Behaviour: [draft, conflict and Run-stepper contract](../draft-conflict-and-run-stepper.md). | #123 |
+| **1 — P0-UX-GAP** | [#123](https://github.com/aradenac/AI-Compass/issues/123) — UX-R04 | Common business-level renderers/controllers, actual Demo/Server UX equivalence; TD-01 | #114–#116 closed; **merged/closed on `main`** |
+| **2 — P1-UX-GAP** | [#124](https://github.com/aradenac/AI-Compass/issues/124) — UX-R05 | Existing draft helper coverage: Campaign, Run/session steppers, resume/discard, base-revision 409 conflict & ownership safety. **Merged on `main` ([PR #132](https://github.com/aradenac/AI-Compass/pull/132)); issue closed.** Behaviour: [draft, conflict and Run-stepper contract](../draft-conflict-and-run-stepper.md). | #123 |
 | **3 — P2-UX-GAP** | [#125](https://github.com/aradenac/AI-Compass/issues/125) — UX-R06 | Complete §13 role journeys: Engineer profiles/access/feedback; Workgroup five-zone diagram, publication-only updates and valid counts; Results/Recommendations; Management provenance; cross-role boundaries | #123, #124 |
 | **4 — P3-UX-GAP** | [#126](https://github.com/aradenac/AI-Compass/issues/126) — UX-R07 | Executable 20-scenario evidence matrix, desktop visual/accessibility baseline and regression gate including negative fixtures | #123–#125 |
 
