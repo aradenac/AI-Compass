@@ -932,3 +932,95 @@ class BudgetRevision(models.Model):
         constraints = [models.UniqueConstraint(
             fields=["budget", "number"], name="uniq_resource_budget_revision")]
         ordering = ["budget", "number"]
+
+
+class RetirementRecord(models.Model):
+    """FUT-18: append-only logical retirement of one versioned business object.
+
+    Logical retirement hides an object from current default catalogs while
+    preserving its stable public id, immutable revisions and historical
+    references. It is NOT physical erasure and never cascades a delete.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    public_id = models.CharField(max_length=120, unique=True)
+    item = models.OneToOneField(CatalogItem, on_delete=models.PROTECT,
+                                related_name="retirement")
+    action = models.CharField(max_length=16)  # retired|restored
+    reason = models.CharField(max_length=600, blank=True)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+                              related_name="retirement_records")
+    retired_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["retired_at", "id"]
+
+
+class RetirementEvent(models.Model):
+    """Append-only tombstone/revocation trail; reapplied after a restore."""
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    item = models.ForeignKey(CatalogItem, on_delete=models.PROTECT,
+                             related_name="retirement_events")
+    action = models.CharField(max_length=16)  # retired|restored|purged|blocked
+    reason = models.CharField(max_length=600, blank=True)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
+                              on_delete=models.PROTECT, related_name="+")
+    detail = models.JSONField(default=dict)  # never blob bytes or secrets
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at", "id"]
+
+
+class PurgePolicy(models.Model):
+    """FUT-18: single versioned, auditable retention policy; disabled by default.
+
+    Grace duration and enabled state are administrative decisions, never a
+    hardcoded universal rule. Changes are audited through PurgePolicyRevision.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    is_active = models.BooleanField(default=False)
+    enabled = models.BooleanField(default=False)  # automatic GC off by default
+    grace_days = models.PositiveIntegerField(default=30)  # illustrative, not forced
+    eligible_classes = models.JSONField(default=list)  # subset of PURGE_CLASSES
+    cadence_hours = models.PositiveIntegerField(default=168)
+    version = models.PositiveIntegerField(default=1)
+    updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+                                   related_name="+")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-version", "id"]
+
+
+class PurgeCandidate(models.Model):
+    """FUT-18: durable inventoried candidate with its immutable preview guard."""
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    public_id = models.CharField(max_length=120, unique=True)
+    kind = models.CharField(max_length=24)  # evidence_blob|managed_record
+    subject = models.CharField(max_length=140)  # blob sha256 or record public id
+    eligible_at = models.DateTimeField()
+    first_seen_at = models.DateTimeField(auto_now_add=True)
+    size_bytes = models.PositiveBigIntegerField(default=0)
+    blockers = models.JSONField(default=list)  # protected-reference / policy reasons
+    preview = models.JSONField(default=dict)   # immutable dry-run snapshot
+    state = models.CharField(max_length=16, default="candidate")  # candidate|purged|blocked
+
+    class Meta:
+        ordering = ["first_seen_at", "id"]
+
+
+class PurgeReceipt(models.Model):
+    """FUT-18: durable, attributable purge result; never a silent deletion."""
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    public_id = models.CharField(max_length=120, unique=True)
+    job_key = models.CharField(max_length=64)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
+                              on_delete=models.PROTECT, related_name="+")
+    reclaimed_bytes = models.PositiveBigIntegerField(default=0)
+    purged_count = models.PositiveIntegerField(default=0)
+    blocked_count = models.PositiveIntegerField(default=0)
+    detail = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at", "id"]
