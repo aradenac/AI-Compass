@@ -1024,3 +1024,73 @@ class PurgeReceipt(models.Model):
 
     class Meta:
         ordering = ["created_at", "id"]
+
+
+class ArchiveJob(models.Model):
+    """FUT-19: durable, server-managed archive build; never an HTTP-lifetime job.
+
+    The artifact is produced by a separate process invoked by the API (a
+    management command), so a large confidential archive is never serialized in
+    API request memory. State is persisted so a client or operator can poll
+    progress, sizes, integrity and failure reason.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    public_id = models.CharField(max_length=120, unique=True)
+    kind = models.CharField(max_length=16)  # native|full_recovery
+    state = models.CharField(max_length=16, default="queued")  # queued|running|complete|failed
+    reason = models.CharField(max_length=120, blank=True)  # machine-readable failure reason
+    requested_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
+                                     on_delete=models.deletion.PROTECT, related_name="+")
+    requested_at = models.DateTimeField(auto_now_add=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    size_bytes = models.PositiveBigIntegerField(default=0)
+    sha256 = models.CharField(max_length=64, blank=True)
+    artifact_path = models.CharField(max_length=300, blank=True)
+    manifest = models.JSONField(default=dict)  # verification summary, no secrets
+
+    class Meta:
+        ordering = ["requested_at", "id"]
+
+
+class ArchiveGrant(models.Model):
+    """FUT-19: short-lived, revocable, artifact-scoped download bearer token.
+
+    Only the SHA-256 digest of the random token is stored. The raw token is
+    revealed exactly once, through an authenticated CSRF-protected operation,
+    and is never written to audit, logs or a URL/query string.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    public_id = models.CharField(max_length=120, unique=True)
+    job = models.ForeignKey(ArchiveJob, on_delete=models.deletion.PROTECT,
+                            related_name="grants")
+    token_digest = models.CharField(max_length=64, unique=True)
+    issued_to = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
+                                  on_delete=models.deletion.PROTECT, related_name="+")
+    scope = models.CharField(max_length=32, default="download")
+    issued_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    revoked_at = models.DateTimeField(null=True, blank=True)
+    last_used_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["issued_at", "id"]
+
+
+class ArchiveAccessEvent(models.Model):
+    """FUT-19: append-only attributable audit of archive request/grant/transfer.
+
+    Records who did what to which artifact; its JSON detail must never carry a
+    raw bearer token, byte range of confidential content or other secret.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
+                              on_delete=models.deletion.PROTECT, related_name="+")
+    job = models.ForeignKey(ArchiveJob, null=True, blank=True,
+                            on_delete=models.deletion.PROTECT, related_name="+")
+    action = models.CharField(max_length=32)  # requested|grant_issued|grant_revoked|downloaded|denied
+    detail = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at", "id"]

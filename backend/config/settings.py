@@ -88,6 +88,10 @@ EVIDENCE_STORE_ROOT = Path(os.environ.get("AI_COMPASS_EVIDENCE_ROOT", "/var/lib/
 EVIDENCE_MAX_BYTES = 16 * 1024 * 1024
 FILE_UPLOAD_MAX_MEMORY_SIZE = 0  # stream uploaded files via Django's temp file handler
 DATA_UPLOAD_MAX_MEMORY_SIZE = 128 * 1024
+# FUT-19: private directory for immutable archive artifacts (never served by Caddy).
+ARCHIVE_STORE_ROOT = Path(os.environ.get("AI_COMPASS_ARCHIVE_ROOT", "/var/lib/ai-compass/archives"))
+ARCHIVE_GRANT_TTL = 3600  # short-lived, artifact-scoped download grant lifetime (seconds)
+ARCHIVE_JOB_TIMEOUT = int(os.environ.get("AI_COMPASS_ARCHIVE_JOB_TIMEOUT", "3600"))
 
 
 # PLAT-33 mock adapter: intentionally impossible to switch on in a normal
