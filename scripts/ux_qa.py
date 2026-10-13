@@ -225,11 +225,15 @@ def api_request(context, base_url, path, method="POST", payload=None, expect=(20
     return response.json()
 
 
-def seed_server_evidence(context, base_url, label, published=True):
+def seed_server_evidence(context, base_url, label, published=True, quantifiable=False):
     """Deterministic, explicitly synthetic Server evidence through the real API.
 
     Everything is created by an authenticated disposable account with real
     permissions; no Demo record, no mocked authorization and no vendor access.
+
+    ``quantifiable`` records a complete setup duration and a numeric marginal
+    cost so the published Run yields a quantifiable Management opportunity cell
+    with pinned measured-run revisions (used by the deep §13 #17 drill-down).
     """
     harness = api_request(context, base_url, "/api/v1/catalog/harness", payload={
         "name": "UX-R06 " + label + " Linux-only synthetic harness",
@@ -280,15 +284,26 @@ def seed_server_evidence(context, base_url, label, published=True):
             "expected_revision": session["revision"], "type": "human_prompt",
             "content": "Synthetic prompt for a disposable QA fixture",
             "human_minutes": 0, "agent_minutes": None})
+    close_revision = after_interaction["revision"]
+    if quantifiable:
+        # Complete the setup duration and a numeric marginal cost so the closed
+        # Run measures a quantifiable opportunity (measured human effort + cost),
+        # instead of the default unquantifiable synthetic Run.
+        setup = api_request(context, base_url, "/api/v1/sessions/" + session["id"] + "/setup",
+                            method="PATCH",
+                            payload={"expected_revision": close_revision,
+                                     "installation_duration_minutes": 3})
+        close_revision = setup["revision"]
     closed = api_request(context, base_url, "/api/v1/sessions/" + session["id"] + "/close",
                       payload={
-                          "expected_revision": after_interaction["revision"],
+                          "expected_revision": close_revision,
                           "outcome": "accepted", "quality_score": 85,
                           "quality_evaluation": "Synthetic acceptance under its method",
                           "information_utility_score": 67,
                           "information_utility_evaluation": "Synthetic utility",
                           "tokens_count": None, "tokens_multiplier": 1,
-                          "cost_mode": "flat_rate", "cost_eur": None,
+                          "cost_mode": "amount" if quantifiable else "flat_rate",
+                          "cost_eur": 1.25 if quantifiable else None,
                           "human_review_minutes": 4, "human_correction_minutes": 0,
                           "produced_outputs": "synthetic-artifact.txt"})
     current = api_request(context, base_url, "/api/v1/campaigns/" + started["id"],
@@ -1019,6 +1034,212 @@ def server_publication_journey(browser, base_url, creds, artifacts, viewport):
         for context in (publisher_context, workgroup_context, engineer_context,
                         maintenance_context):
             context.close()
+
+
+def server_persona_deep_journey(browser, base_url, creds, artifacts, viewport):
+    """UX-R06 §13 #4 (Engineer feedback) and #17 (Management drill-down), real Server.
+
+    A rendered link or an empty list is not a journey: this seeds real
+    authenticated Server records and exercises the actual submissions,
+    drill-down and non-disclosure, then the return navigation.
+    """
+    author_context = browser.new_context(viewport=viewport, reduced_motion="reduce")
+    engineer_context = browser.new_context(viewport=viewport, reduced_motion="reduce")
+    management_context = browser.new_context(viewport=viewport, reduced_motion="reduce")
+    try:
+        server_context_login(author_context, base_url, creds, "multi_role",
+                             "/?mode=server&workspace=workgroup")
+        evidence = seed_server_evidence(author_context, base_url, "deep", published=True,
+                                        quantifiable=True)
+
+        # --- §13 #4: Engineer submits authentic usage feedback tied to a measured
+        # Solution/Task and verifies the recorded discussion and its visibility. ---
+        # Open the exact published measured Solution through the authorized deep
+        # link (task + solution route params) so the journey exercises the real
+        # detail regardless of the person's reactive-relevance subset.
+        engineer = server_context_login(
+            engineer_context, base_url, creds, "engineer",
+            "/?mode=server&workspace=engineer&all_tasks=true&task=%s&solution=%s"
+            % (evidence["task"]["id"], evidence["run"]["solution_id"]))
+        engineer.locator("#server-engineer").wait_for(state="visible", timeout=25000)
+        engineer.locator("#ux-engineer-feedback").wait_for(state="visible", timeout=25000)
+        comment = "UX-R06 authenticated feedback on measured Solution " + evidence["run"]["id"]
+        engineer.locator("[data-engineer-kind]").select_option("feedback")
+        engineer.locator("[data-engineer-comment]").fill(comment)
+        engineer.locator("[data-engineer-send]").click()
+        engineer.locator("[data-engineer-status]").filter(
+            has_text="no entitlement or provisioning was granted").wait_for(
+                state="visible", timeout=25000)
+        # Read back through the real authorized, public, authenticated API: the
+        # recorded thread is tied to the measured Solution's exact context id.
+        solution_id = evidence["run"]["solution_id"]
+        recorded = engineer.evaluate(
+            "async (sid) => { const r = await fetch('/api/v1/discussions',"
+            " {credentials: 'same-origin'}); const j = await r.json();"
+            " return (j.results || []).filter(x => x.context_id === sid &&"
+            "   x.properties && x.properties.kind === 'feedback')"
+            "   .map(x => x.properties.scope); }", solution_id)
+        if not recorded:
+            raise AssertionError("Engineer feedback was not recorded as a readable discussion")
+        if recorded != ["public"]:
+            raise AssertionError("Engineer feedback discussion is not public-scoped: %s" % recorded)
+        # Context preservation: the detail preserves its discovery context, and its
+        # breadcrumb returns to the source list with the URL state intact.
+        return_link = engineer.locator("[data-engineer-home]")
+        if return_link.count() == 0:
+            raise AssertionError("Engineer detail offers no return to its source discovery")
+        if "all_tasks=true" not in (return_link.get_attribute("href") or ""):
+            raise AssertionError("Engineer detail breadcrumb drops the discovery context")
+        return_link.click()
+        engineer.locator("[data-engineer-body]").wait_for(state="visible", timeout=20000)
+        if "all_tasks=true" not in engineer.url:
+            raise AssertionError("Engineer return navigation dropped the discovery context")
+        assert_exactly_one_view(engineer, "#ux-screen-host > [data-ux-screen]")
+        assert_no_horizontal_overflow(engineer)
+        capture(engineer, artifacts, "server-engineer-feedback-" + str(viewport["width"]))
+
+        # --- §13 #17: Management lands on authorized economics, drills to the exact
+        # Task/configuration factors and revisions, and individual rates never leak. ---
+        management = server_context_login(management_context, base_url, creds, "management",
+                              "/?mode=server&workspace=management")
+        management.locator("#server-management-insights").wait_for(state="visible", timeout=25000)
+        # Build one real saved scenario for the seeded population; the fixture is
+        # published measured evidence reached by the shared published selector.
+        readiness = _management_seed_scenario(management, base_url, evidence)
+        if not readiness:
+            raise AssertionError("Management fixture (population/scenario) could not be built")
+        seeded_profile = readiness["profile_id"]
+        seeded_scenario = readiness["scenario_id"]
+        management.reload(wait_until="domcontentloaded")
+        management.locator("#server-management-insights").wait_for(state="visible", timeout=25000)
+        profile_select = management.locator("[data-heat-profile]")
+        profile_select.wait_for(state="visible", timeout=25000)
+        profile_values = profile_select.locator("option").evaluate_all(
+            "els => els.map(e => e.value).filter(Boolean)")
+        if seeded_profile not in profile_values:
+            raise AssertionError("Seeded population is not offered by the Management heatmap")
+        profile_select.select_option(seeded_profile)
+        scenario_select = management.locator("[data-heat-scenario]")
+        scenario_select.wait_for(state="visible", timeout=25000)
+        management.wait_for_timeout(1200)
+        option_values = scenario_select.locator("option").evaluate_all(
+            "els => els.map(e => e.value).filter(Boolean)")
+        if seeded_scenario not in option_values:
+            raise AssertionError("Seeded saved scenario is not offered for its population")
+        scenario_select.select_option(seeded_scenario)
+        management.wait_for_timeout(1200)
+        # Drill into the seeded Task × measured configuration cell. The bounded
+        # taxonomy pages the grid (row_size 8), and the seeded Task may sit past
+        # the first page, so walk the authorized row/column pages until the exact
+        # cell is reachable, then click it.
+        cell = management.locator(
+            '[data-heat-cell="%s|benchmark|%s"]'
+            % (evidence["task"]["id"], evidence["run"]["solution_id"])).first
+
+        def _reset_columns():
+            for _ in range(6):
+                prev_col = management.locator("[data-heat-cprev]")
+                if prev_col.count() == 0 or prev_col.is_disabled():
+                    break
+                prev_col.click()
+                management.wait_for_timeout(500)
+
+        found = False
+        for _rows in range(12):
+            _reset_columns()
+            for _cols in range(6):
+                if cell.count() and cell.is_visible():
+                    found = True
+                    break
+                next_col = management.locator("[data-heat-cnext]")
+                if next_col.count() == 0 or next_col.is_disabled():
+                    break
+                next_col.click()
+                management.wait_for_timeout(700)
+            if found:
+                break
+            next_row = management.locator("[data-heat-rnext]")
+            if next_row.count() == 0 or next_row.is_disabled():
+                break
+            next_row.click()
+            management.wait_for_timeout(700)
+        if not found:
+            raise AssertionError(
+                "Seeded Task cell is not reachable in the authorized heatmap")
+        cell.click()
+        inspector = management.locator(".heat-inspector")
+        inspector.wait_for(state="visible", timeout=25000)
+        # Expand the authorized factor branches until the exact pinned measured
+        # source revision (immutable provenance) is visible.
+        branches = management.locator(".heat-inspector [data-heat-branch]")
+        pinned = management.locator(".heat-inspector .ux-source-ref")
+        expanded = False
+        for index in range(branches.count()):
+            branches.nth(index).click()
+            management.wait_for_timeout(300)
+            if pinned.count():
+                expanded = True
+                break
+        if not expanded:
+            raise AssertionError("Management drill-down shows no pinned source revision")
+        management.locator(".heat-inspector .ux-inspector-kv").first.wait_for(
+            state="visible", timeout=20000)
+        inspector_text = inspector.inner_text()
+        if evidence["task"]["id"] not in inspector_text:
+            raise AssertionError("Management drill-down does not name the exact source Task")
+        if evidence["run"]["id"] not in inspector_text:
+            raise AssertionError(
+                "Management drill-down does not pin the exact measured Run revision")
+        # The raw JSON dump must never be the default; it stays behind a disclosure.
+        json_dump = management.locator(".heat-inspector .ux-advanced-source > pre")
+        if json_dump.count() and json_dump.first.is_visible():
+            raise AssertionError("Management drill-down exposes a raw JSON dump by default")
+        # Restricted individual rates must never reach the Management view.
+        page_text = management.locator("#server-management-insights").inner_text()
+        for secret in ("hourly_rate_eur", "valuation_eur_per_hour",
+                       "baseline_human_hours", "linked_user"):
+            if secret in page_text:
+                raise AssertionError("Management view leaked restricted field '%s'" % secret)
+        assert_no_horizontal_overflow(management)
+        capture(management, artifacts, "server-management-drilldown-" + str(viewport["width"]))
+        return {"feedback_recorded": len(recorded), "management_cell": True}
+    finally:
+        for context in (author_context, engineer_context, management_context):
+            context.close()
+
+
+def _management_seed_scenario(page, base_url, evidence):
+    """Create one real cohort population + saved annual scenario for the seeded Task."""
+    profile = page.evaluate("""async (task) => {
+        const r = await fetch('/api/v1/planning/profiles', {method: 'POST',
+          credentials: 'same-origin', headers: {'Content-Type': 'application/json',
+          'X-CSRFToken': (document.cookie.match(/csrftoken=([^;]+)/) || [])[1] || ''},
+          body: JSON.stringify({kind: 'cohort', name: 'UX-R06 synthetic population',
+            headcount: 3, hourly_rate_eur: '375.75',
+            workloads: [{task_id: task, annual_occurrences: '12', baseline_human_hours: '4'}]})});
+        return {status: r.status, body: await r.json().catch(() => ({}))};
+    }""", evidence["task"]["id"])
+    if profile["status"] != 201:
+        return False
+    profile_id = profile["body"].get("id") or profile["body"].get("public_id")
+    if not profile_id:
+        return False
+    scenario = page.evaluate("""async ({profile_id, task, solution}) => {
+        const r = await fetch('/api/v1/planning/opportunities', {method: 'POST',
+          credentials: 'same-origin', headers: {'Content-Type': 'application/json',
+          'X-CSRFToken': (document.cookie.match(/csrftoken=([^;]+)/) || [])[1] || ''},
+          body: JSON.stringify({profile_id: profile_id, scenario: {
+            name: 'UX-R06 annual scenario', benchmark_weight: '0.8',
+            choices: [{task_id: task, kind: 'benchmark', candidate_id: solution}]}})});
+        return {status: r.status, body: await r.json().catch(() => ({}))};
+    }""", {"profile_id": profile_id, "task": evidence["task"]["id"],
+           "solution": evidence["run"]["solution_id"]})
+    if scenario["status"] not in (200, 201):
+        return False
+    scenario_id = scenario["body"].get("id") or scenario["body"].get("public_id")
+    if not scenario_id:
+        return False
+    return {"profile_id": profile_id, "scenario_id": scenario_id}
 
 
 def server_journey(browser, base_url, creds, artifacts, role, viewport):
@@ -2933,6 +3154,10 @@ def run_tests(base_url, demo_url, credentials, artifacts):
                 # Runs last: it publishes real disposable synthetic evidence.
                 run(f"Authenticated Server published persona journeys {width}",
                     lambda v=viewport: server_publication_journey(
+                        browser, base_url, creds, directory, v))
+                # §13 #4/#17 deep persona journeys on real seeded Server records.
+                run(f"Authenticated Server Engineer feedback and Management drill-down {width}",
+                    lambda v=viewport: server_persona_deep_journey(
                         browser, base_url, creds, directory, v))
         finally:
             browser.close()

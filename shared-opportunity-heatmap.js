@@ -176,7 +176,9 @@ function mount(element,provider,mode){
  let available=false,scenarios=[],profiles=[],
      profile=route.get("profile")||"",scenario=route.get("scenario")||"",
      revision=route.get("revision")||"",
-     rowPage=0,columnPage=0,historyMode="stacked",activeSlice="",collapsed=new Set(),matrix=null,
+     rowPage=Math.max(0,Number(route.get("row_page")||0)||0),
+     columnPage=Math.max(0,Number(route.get("column_page")||0)||0),
+     historyMode="stacked",activeSlice="",collapsed=new Set(),matrix=null,
      insights=null,detail=null,branch=-1,suggestions=null,seq=0,status="";
  const id=n=>element.querySelector(n);
  function info(s){status=s;const out=id("[data-heat-status]");if(out)out.textContent=s;}
@@ -374,6 +376,11 @@ function mount(element,provider,mode){
  function contextLocation(extra){
    const p={profile:profile,scenario:scenario,revision:revision,
      from:extra&&extra.task?root.location.pathname+root.location.search:""};
+   // Preserve the authorized pagination so a drill-down into a cell that lives
+   // on a later Task/configuration page returns to that page (authoritative
+   // matrix) instead of reporting the cell as outside the current filter.
+   if(rowPage>0)p.row_page=String(rowPage);
+   if(columnPage>0)p.column_page=String(columnPage);
    Object.assign(p,extra||{});
    return root.AICompassContext.route(mode,"management","home",p);
  }
@@ -382,6 +389,10 @@ function mount(element,provider,mode){
    for(const [k,v] of [["profile",profile],["scenario",scenario],["revision",revision]]){
      if(v)u.searchParams.set(k,v);else u.searchParams.delete(k);
    }
+   if(rowPage>0)u.searchParams.set("row_page",String(rowPage));
+   else u.searchParams.delete("row_page");
+   if(columnPage>0)u.searchParams.set("column_page",String(columnPage));
+   else u.searchParams.delete("column_page");
    ["task","kind","candidate"].forEach(k=>u.searchParams.delete(k));
    root.history.replaceState(root.history.state,"",u.pathname+u.search+u.hash);
    route=new URLSearchParams(u.search);
@@ -424,12 +435,12 @@ function mount(element,provider,mode){
      suggestionsView()+inspector();
    const change=(attr,fn)=>{let item=id(attr);if(item)item.onchange=fn;};
    change("[data-heat-profile]",function(){profile=this.value;scenario="";revision="";rowPage=0;columnPage=0;replaceFilterUrl();load();});
-   change("[data-heat-scenario]",function(){scenario=this.value;revision="";replaceFilterUrl();load();});
-   change("[data-heat-asof]",function(){revision=this.value;replaceFilterUrl();load();});
-   const buttons=[["[data-heat-rprev]",()=>{rowPage--;load();}],
-     ["[data-heat-rnext]",()=>{rowPage++;load();}],
-     ["[data-heat-cprev]",()=>{columnPage--;load();}],
-     ["[data-heat-cnext]",()=>{columnPage++;load();}],
+   change("[data-heat-scenario]",function(){scenario=this.value;revision="";rowPage=0;columnPage=0;replaceFilterUrl();load();});
+   change("[data-heat-asof]",function(){revision=this.value;rowPage=0;columnPage=0;replaceFilterUrl();load();});
+   const buttons=[["[data-heat-rprev]",()=>{rowPage--;replaceFilterUrl();load();}],
+     ["[data-heat-rnext]",()=>{rowPage++;replaceFilterUrl();load();}],
+     ["[data-heat-cprev]",()=>{columnPage--;replaceFilterUrl();load();}],
+     ["[data-heat-cnext]",()=>{columnPage++;replaceFilterUrl();load();}],
      ["[data-heat-stack]",()=>{historyMode="stacked";render();}],
      ["[data-heat-lines]",()=>{historyMode="lines";render();}],
      ["[data-heat-back]",()=>{detail=null;branch=-1;render();}],

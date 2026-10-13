@@ -242,14 +242,7 @@
         counts: counts,
         items: items.slice(0, 40),
         excluded: {
-          "unpublished_or_draft_campaigns": (db.campaigns || []).filter(function (c) {
-            return c.archived || c.stage !== "published"; }).length,
-          "unpublished_or_draft_guides": (db.guides || []).filter(function (g) {
-            return g.status !== "published"; }).length,
-          "internal_or_unreviewed_watch_entries": (db.watch || []).filter(function (w) {
-            return w.publication !== "published"; }).length,
-          "draft_forecasts_and_internal_hypotheses": (db.proposals || []).filter(function (p) {
-            return p.status !== "published"; }).length,
+          "unpublished_or_draft_records": "never included",
           "discussions_internal_or_private": "never included",
           "activity_feed_and_audit_events": "never included",
           "theoretical_forecasts": "never included"

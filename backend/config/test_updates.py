@@ -70,14 +70,42 @@ class UpdatesJourneyTests(_IndividualRunTests.__bases__[0]):
         self.assertNotIn("guide_published", kinds)
         self.assertNotIn("recommendation_published", kinds)
         self.assertEqual(payload["scope"], "published_only")
-        self.assertGreaterEqual(payload["excluded"]["unpublished_or_draft_campaigns"], 1)
-        self.assertGreaterEqual(payload["excluded"]["unpublished_or_draft_guides"], 1)
-        self.assertGreaterEqual(payload["excluded"]["internal_or_unreviewed_watch_entries"], 1)
+        # Review #134 / UX-R06 #125: the reader is told what is excluded, never
+        # how many restricted records exist (no existence/volume disclosure).
+        for value in payload["excluded"].values():
+            self.assertNotIsInstance(value, int)
+        self.assertEqual(payload["excluded"]["unpublished_or_draft_records"],
+                         "never included")
         self.assertEqual(payload["excluded"]["activity_feed_and_audit_events"],
                          "never included")
         self.assertEqual(payload["excluded"]["discussions_internal_or_private"],
                          "never included")
         self.assertEqual(payload["excluded"]["theoretical_forecasts"], "never included")
+
+    def test_restricted_existence_counts_are_not_disclosed_to_any_reader(self):
+        # Two real authenticated privilege levels: a Workspace reader
+        # (business_read only) and a full Workgroup editor. Neither response may
+        # carry a count of unpublished/draft/internal records, which would leak
+        # their existence and volume across the published-only boundary.
+        self.campaign()
+        create_watch("watch_entry", self.editor, "Internal hypothesis", {
+            "hypothesis": "Unreviewed internal hypothesis", "review_state": "draft",
+            "visibility": "internal"})
+        workgroup = Client(enforce_csrf_checks=True)
+        workgroup.get("/api/v1/auth/csrf")
+        workgroup.force_login(self.editor)
+        for label, client in (("reader", self.reader_client()), ("workgroup", workgroup)):
+            allowed = client.get(BASE)
+            self.assertEqual(allowed.status_code, 200, allowed.content)
+            payload = allowed.json()
+            self.assertEqual(payload["scope"], "published_only", label)
+            self.assertEqual(set(payload["excluded"]),
+                             {"unpublished_or_draft_records",
+                              "discussions_internal_or_private",
+                              "activity_feed_and_audit_events",
+                              "theoretical_forecasts"}, label)
+            for value in payload["excluded"].values():
+                self.assertNotIsInstance(value, int, label)
 
     def test_published_sources_carry_exact_origin_ids_and_revisions(self):
         camp, run, _ = self.published()
@@ -154,6 +182,7 @@ class UpdatesJourneyTests(_IndividualRunTests.__bases__[0]):
         kinds = {entry["kind"] for entry in payload["items"]}
         self.assertNotIn("campaign_published", kinds)
         self.assertNotIn("measured_result", kinds)
-        self.assertGreaterEqual(payload["excluded"]["unpublished_or_draft_campaigns"], 1)
+        self.assertEqual(payload["excluded"]["unpublished_or_draft_records"],
+                         "never included")
         self.assertEqual(CatalogItem.objects.filter(
             type_slug="campaign", public_id=camp["id"]).count(), 1)

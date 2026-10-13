@@ -8,7 +8,6 @@ privileged Activity Feed are deliberately not reused as a public news source.
 Every entry carries the exact source object ID and the source revision it was
 derived from so a reader can open the authoritative origin.
 """
-from django.db.models import Q
 from django.utils import timezone
 
 from .models import CatalogItem, RecommendationSnapshot
@@ -225,28 +224,17 @@ def _technology_items():
 
 
 def _excluded():
-    """Counts of existing records deliberately withheld by this published view."""
-    def not_marked(key, value):
-        # Absent/non-string values stay visible to the count: an unset publication
-        # field means "not published", never "published".
-        return Q(**{"current_revision__properties__" + key + "__isnull": True}) | ~Q(
-            **{"current_revision__properties__" + key: value})
+    """Qualitative exclusions withheld by this published view.
 
-    unpublished_campaigns = 0
-    for item in CatalogItem.objects.filter(type_slug="campaign"):
-        if publication_services.effective(item) is None:
-            unpublished_campaigns += 1
-    unpublished_recommendations = sum(
-        1 for item in CatalogItem.objects.filter(type_slug="recommendation")
-        if recommendation_services.published_revision(item) is None)
-    unpublished_guides = (CatalogItem.objects.filter(type_slug="setup_guide")
-                          .filter(not_marked("publication", "published")).count())
-    unpublished_watch = (CatalogItem.objects.filter(type_slug="watch_entry")
-                         .filter(not_marked("visibility", "published")).count())
-    return {"unpublished_or_draft_campaigns": unpublished_campaigns,
-            "unpublished_or_draft_recommendations": unpublished_recommendations,
-            "unpublished_or_draft_guides": unpublished_guides,
-            "internal_or_unreviewed_watch_entries": unpublished_watch,
+    Deliberately carries **no counts**: an exact tally of unpublished/draft
+    Campaigns, Recommendations, Guides or internal Watch entries would disclose
+    the existence and volume of restricted records to every ``business_read``
+    reader, contradicting the published-only contract of this endpoint (review
+    #134 / UX-R06 #125). The reader is told *what categories* are excluded, never
+    *how many* exist. Any volume signal belongs behind an independently
+    authorized Workgroup capability, which this read model does not add.
+    """
+    return {"unpublished_or_draft_records": "never included",
             "discussions_internal_or_private": "never included",
             "activity_feed_and_audit_events": "never included",
             "theoretical_forecasts": "never included"}

@@ -67,6 +67,11 @@ const provider=ui.demoProvider(db);
   assert(!payload.items.some(x=>x.source.object_id==="f2"),
     "theoretical forecasts must never be published knowledge here");
   assert(payload.excluded.theoretical_forecasts==="never included");
+  // Review #134: the published-only response must not disclose how many
+  // restricted records exist. Every exclusion is qualitative text, never a count.
+  assert(Object.values(payload.excluded).every(v=>typeof v!=="number"),
+    "exclusions must never carry restricted-record counts");
+  assert.equal(payload.excluded.unpublished_or_draft_records,"never included");
   const failed=payload.items.find(x=>x.source.object_id==="r2");
   assert(failed.summary.includes("failed Definition of Done"));
   assert(failed.notice.includes("never an endorsement"));
