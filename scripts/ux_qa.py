@@ -194,7 +194,7 @@ def capture(page, directory, name):
                     animations="disabled")
 
 
-def sign_in(context, base_url, creds, role, path="/?mode=server"):
+def server_context_login(context, base_url, creds, role, path="/?mode=server"):
     """Real session + CSRF cookie through the visible Server sign-in form."""
     page = context.new_page()
     page.set_default_timeout(15000)
@@ -209,7 +209,7 @@ def sign_in(context, base_url, creds, role, path="/?mode=server"):
     return page
 
 
-def api_call(context, base_url, path, method="POST", payload=None, expect=(200, 201)):
+def api_request(context, base_url, path, method="POST", payload=None, expect=(200, 201)):
     """Real same-origin API call using the authenticated session's CSRF cookie."""
     csrf = next((cookie["value"] for cookie in context.cookies()
                  if cookie["name"] == "csrftoken"), "")
@@ -231,60 +231,56 @@ def seed_server_evidence(context, base_url, label, published=True):
     Everything is created by an authenticated disposable account with real
     permissions; no Demo record, no mocked authorization and no vendor access.
     """
-    harness = api_call(context, base_url, "/api/v1/catalog/harness", payload={
+    harness = api_request(context, base_url, "/api/v1/catalog/harness", payload={
         "name": "UX-R06 " + label + " Linux-only synthetic harness",
         "properties": {"supported_os": ["linux"], "enterprise_accessibility": "accessible",
                        "interface": "cli", "version": "1.0-synthetic",
                        "details": "Disposable QA fixture, never a production technology"}})
-    model = api_call(context, base_url, "/api/v1/models", payload={
+    model = api_request(context, base_url, "/api/v1/models", payload={
         "name": "UX-R06 " + label + " synthetic model",
         "properties": {"enterprise_accessibility": "accessible"}})
-    provider = api_call(context, base_url, "/api/v1/catalog/provider", payload={
+    provider = api_request(context, base_url, "/api/v1/catalog/provider", payload={
         "name": "UX-R06 " + label + " synthetic provider",
         "properties": {"enterprise_accessibility": "accessible"}})
-    task = api_call(context, base_url, "/api/v1/tasks",
+    task = api_request(context, base_url, "/api/v1/tasks",
                     payload={"name": "UX-R06 " + label + " synthetic Task"})
-    case = api_call(context, base_url, "/api/v1/test-cases", payload={
+    case = api_request(context, base_url, "/api/v1/test-cases", payload={
         "name": "UX-R06 " + label + " synthetic Test Case", "task_id": task["id"],
         "properties": {"objective": "Disposable synthetic challenge",
                        "dod": "Synthetic acceptance only"}})
-    guide = api_call(context, base_url, "/api/v1/guides", payload={
+    guide = api_request(context, base_url, "/api/v1/guides", payload={
         "name": "UX-R06 " + label + " published synthetic guide",
         "properties": {"text": "Synthetic runbook for a disposable fixture"}})
-    published_guide = api_call(
-        context, base_url, "/api/v1/guides/" + guide["id"], method="PATCH",
+    published_guide = api_request(context, base_url, "/api/v1/guides/" + guide["id"], method="PATCH",
         payload={"expected_revision": guide["revision"], "properties": {
             "text": "Synthetic runbook for a disposable fixture",
             "recipe": {"modules": [{"id": guide["id"], "revision": "r001"}],
                        "required": ["model", "provider", "harness"]},
             "publication": "published"}})["guide"]
-    draft_guide = api_call(context, base_url, "/api/v1/guides", payload={
+    draft_guide = api_request(context, base_url, "/api/v1/guides", payload={
         "name": "UX-R06 " + label + " internal draft guide",
         "properties": {"text": "Draft only; must never appear as published knowledge"}})
-    internal_watch = api_call(context, base_url, "/api/v1/watch-entries", payload={
+    internal_watch = api_request(context, base_url, "/api/v1/watch-entries", payload={
         "name": "UX-R06 " + label + " internal hypothesis",
         "properties": {"hypothesis": "Unreviewed internal hypothesis",
                        "review_state": "draft", "visibility": "internal"}})
-    campaign = api_call(context, base_url, "/api/v1/campaigns", payload={
+    campaign = api_request(context, base_url, "/api/v1/campaigns", payload={
         "name": "UX-R06 " + label + " synthetic campaign", "objective": "Disposable QA objective",
         "mode": "task_centred", "task_id": task["id"], "test_case_ids": [case["id"]],
         "guide_id": guide["id"], "configuration": {"reasoning": None}})
-    started = api_call(
-        context, base_url, "/api/v1/campaigns/" + campaign["id"] + "/actions/start",
+    started = api_request(context, base_url, "/api/v1/campaigns/" + campaign["id"] + "/actions/start",
         payload={"expected_revision": campaign["revision"]})["campaign"]
-    session = api_call(
-        context, base_url, "/api/v1/campaigns/" + started["id"] + "/sessions", payload={
+    session = api_request(context, base_url, "/api/v1/campaigns/" + started["id"] + "/sessions", payload={
             "test_case_id": case["id"],
             "component_ids": {"model": model["id"], "provider": provider["id"],
                               "harness": harness["id"]},
             "settings": {"reasoning": None}, "properties": {"tools": ["git"]},
             "configuration_version": "v1"})
-    after_interaction = api_call(
-        context, base_url, "/api/v1/sessions/" + session["id"] + "/interactions", payload={
+    after_interaction = api_request(context, base_url, "/api/v1/sessions/" + session["id"] + "/interactions", payload={
             "expected_revision": session["revision"], "type": "human_prompt",
             "content": "Synthetic prompt for a disposable QA fixture",
             "human_minutes": 0, "agent_minutes": None})
-    closed = api_call(context, base_url, "/api/v1/sessions/" + session["id"] + "/close",
+    closed = api_request(context, base_url, "/api/v1/sessions/" + session["id"] + "/close",
                       payload={
                           "expected_revision": after_interaction["revision"],
                           "outcome": "accepted", "quality_score": 85,
@@ -295,19 +291,18 @@ def seed_server_evidence(context, base_url, label, published=True):
                           "cost_mode": "flat_rate", "cost_eur": None,
                           "human_review_minutes": 4, "human_correction_minutes": 0,
                           "produced_outputs": "synthetic-artifact.txt"})
-    current = api_call(context, base_url, "/api/v1/campaigns/" + started["id"],
+    current = api_request(context, base_url, "/api/v1/campaigns/" + started["id"],
                        method="GET", expect=(200,))
-    under_review = api_call(
-        context, base_url, "/api/v1/campaigns/" + started["id"] + "/actions/close",
+    under_review = api_request(context, base_url, "/api/v1/campaigns/" + started["id"] + "/actions/close",
         payload={"expected_revision": current["revision"]})["campaign"]
     result = {"harness": harness, "model": model, "provider": provider, "task": task,
               "case": case, "guide": published_guide, "draft_guide": draft_guide,
               "internal_watch": internal_watch, "campaign": under_review,
               "run": closed, "published": False}
     if published:
-        current = api_call(context, base_url, "/api/v1/campaigns/" + started["id"],
+        current = api_request(context, base_url, "/api/v1/campaigns/" + started["id"],
                            method="GET", expect=(200,))
-        api_call(context, base_url,
+        api_request(context, base_url,
                  "/api/v1/campaigns/" + started["id"] + "/publication/publish",
                  payload={"expected_revision": current["revision"], "run_ids": [closed["id"]],
                           "removal_reason": ""})
@@ -914,13 +909,13 @@ def server_publication_journey(browser, base_url, creds, artifacts, viewport):
     engineer_context = browser.new_context(viewport=viewport, reduced_motion="reduce")
     maintenance_context = browser.new_context(viewport=viewport, reduced_motion="reduce")
     try:
-        sign_in(publisher_context, base_url, creds, "multi_role",
+        server_context_login(publisher_context, base_url, creds, "multi_role",
                 "/?mode=server&workspace=workgroup")
         evidence = seed_server_evidence(publisher_context, base_url, "published", published=True)
         review_campaign = seed_server_evidence(publisher_context, base_url, "review", published=False)
         seed_server_evidence(publisher_context, base_url, "second", published=True)
 
-        workgroup = sign_in(workgroup_context, base_url, creds, "workgroup",
+        workgroup = server_context_login(workgroup_context, base_url, creds, "workgroup",
                             "/?mode=server&workspace=workgroup&section=studio")
         home = workgroup.locator("#server-workgroup-home")
         home.wait_for(state="visible", timeout=25000)
@@ -971,7 +966,7 @@ def server_publication_journey(browser, base_url, creds, artifacts, viewport):
         assert_no_horizontal_overflow(workgroup)
         capture(workgroup, artifacts, "server-updates-workgroup-" + str(viewport["width"]))
 
-        engineer = sign_in(engineer_context, base_url, creds, "engineer",
+        engineer = server_context_login(engineer_context, base_url, creds, "engineer",
                            "/?mode=server&workspace=engineer&section=updates")
         reader_surface = engineer.locator('[data-shared-updates="server"]')
         reader_surface.wait_for(state="visible", timeout=25000)
@@ -992,7 +987,7 @@ def server_publication_journey(browser, base_url, creds, artifacts, viewport):
             raise AssertionError("Draft guide leaked into the reader's published view")
         capture(engineer, artifacts, "server-updates-engineer-" + str(viewport["width"]))
 
-        maintainer = sign_in(maintenance_context, base_url, creds, "maintenance",
+        maintainer = server_context_login(maintenance_context, base_url, creds, "maintenance",
                              "/maintenance?mode=server")
         maintainer.goto(base_url + "/maintenance?mode=server&section=updates",
                         wait_until="domcontentloaded")
