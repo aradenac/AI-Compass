@@ -36,18 +36,19 @@ def preflight(env, directory):
     config = module.configuration(env)
     if config["profile"] == "development":
         return config
+    label = "Internet" if config["profile"] == "internet" else "LAN"
     certificate = env.get("AI_COMPASS_LAN_CERT", "")
     key = env.get("AI_COMPASS_LAN_KEY", "")
     if not certificate or not key:
-        raise ValueError("LAN requires both explicit TLS certificate and private key")
+        raise ValueError(label + " requires both explicit TLS certificate and private key")
     cert_path, key_path = (Path(x) if Path(x).is_absolute() else directory / x
                            for x in (certificate, key))
     if not cert_path.is_file() or not key_path.is_file():
-        raise ValueError("LAN certificate or private key does not exist")
+        raise ValueError(label + " certificate or private key does not exist")
     if key_path.is_symlink() or cert_path.is_symlink():
-        raise ValueError("LAN credentials must not use symlinks")
+        raise ValueError(label + " credentials must not use symlinks")
     if key_path.stat().st_mode & 0o077:
-        raise ValueError("LAN private key must not be accessible to group/other")
+        raise ValueError(label + " private key must not be accessible to group/other")
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     ctx.load_cert_chain(str(cert_path), str(key_path))
     return config

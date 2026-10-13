@@ -28,10 +28,12 @@ services:
       DB_USER: ${DB_USER:?Set DB_USER in .env}
       DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
       AI_COMPASS_EVIDENCE_ROOT: /var/lib/ai-compass/evidence
+      AI_COMPASS_ARCHIVE_ROOT: /var/lib/ai-compass/archives
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?Set DJANGO_SECRET_KEY in .env}
       DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,api}
     volumes:
       - evidence:/var/lib/ai-compass/evidence
+      - archives:/var/lib/ai-compass/archives
     depends_on:
       db:
         condition: service_healthy
@@ -95,6 +97,7 @@ services:
 volumes:
   pgdata:
   evidence:
+  archives:
 
 networks:
   internal:
