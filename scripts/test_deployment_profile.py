@@ -80,6 +80,44 @@ class DeploymentTests(unittest.TestCase):
             self.assertEqual(check.read_env(p)["AI_COMPASS_PROFILE"], "development")
             self.assertEqual(check.preflight(check.read_env(p), p.parent)["profile"], "development")
 
+    def internet(self):
+        return {"AI_COMPASS_PROFILE": "internet", "AI_COMPASS_TLS_PROXY": "1",
+                "DJANGO_SECRET_KEY": "k" * 40, "DB_PASSWORD": "p" * 40,
+                "DJANGO_ALLOWED_HOSTS": "compass.example.com",
+                "DJANGO_CSRF_TRUSTED_ORIGINS": "https://compass.example.com"}
+
+    def test_internet_profile_requires_tls_certificate_paths_and_permissions(self):
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            with self.assertRaisesRegex(ValueError, "Internet"):
+                check.preflight(self.internet(), base)  # no certificate supplied
+            key = base / "i.key"
+            key.write_text("key")
+            key.chmod(0o600)
+            cert = base / "i.crt"
+            cert.write_text("cert")
+            env = dict(self.internet(), AI_COMPASS_LAN_CERT=str(cert),
+                       AI_COMPASS_LAN_KEY=str(key))
+            with patch.object(check.ssl.SSLContext, "load_cert_chain") as verify:
+                cfg = check.preflight(env, base)
+                self.assertEqual(cfg["profile"], "internet")
+                self.assertTrue(cfg["secure"])
+                self.assertEqual(cfg["hsts_seconds"], 600)
+                verify.assert_called_once_with(str(cert), str(key))
+            key.chmod(0o644)
+            with self.assertRaisesRegex(ValueError, "group/other"):
+                check.preflight(env, base)
+
+    def test_internet_profile_refuses_cleartext_and_internal_hosts(self):
+        for overrides in ({"AI_COMPASS_TLS_PROXY": "0"},
+                          {"DJANGO_ALLOWED_HOSTS": "localhost"},
+                          {"DJANGO_ALLOWED_HOSTS": "192.168.1.5"},
+                          {"DJANGO_CSRF_TRUSTED_ORIGINS": "http://compass.example.com"},
+                          {"DJANGO_SECRET_KEY": "REPLACE_WITH_RANDOM_SECRET"}):
+            with self.subTest(overrides=overrides):
+                with self.assertRaises(check.module.ProfileError):
+                    check.module.configuration(dict(self.internet(), **overrides))
+
 
 if __name__ == "__main__":
     unittest.main()

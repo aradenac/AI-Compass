@@ -41,6 +41,7 @@ def archive_inventory(request):
     return json_no_store({
         "native": {"format": "ai-compass-native-v1",
                    "export": "/api/v1/archives/native",
+                   "job_build": "/api/v1/archives/jobs",
                    "can_export": request.user.has_perm("auth.archive_export"),
                    "required_permission": "archive_export"},
         "complete_recovery": {"transfer": "operator_cli_only",

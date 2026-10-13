@@ -932,3 +932,222 @@ class BudgetRevision(models.Model):
         constraints = [models.UniqueConstraint(
             fields=["budget", "number"], name="uniq_resource_budget_revision")]
         ordering = ["budget", "number"]
+
+
+class RetirementRecord(models.Model):
+    """FUT-18: append-only logical retirement of one versioned business object.
+
+    Logical retirement hides an object from current default catalogs while
+    preserving its stable public id, immutable revisions and historical
+    references. It is NOT physical erasure and never cascades a delete.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    public_id = models.CharField(max_length=120, unique=True)
+    item = models.OneToOneField(CatalogItem, on_delete=models.PROTECT,
+                                related_name="retirement")
+    action = models.CharField(max_length=16)  # retired|restored
+    reason = models.CharField(max_length=600, blank=True)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+                              related_name="retirement_records")
+    retired_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["retired_at", "id"]
+
+
+class RetirementEvent(models.Model):
+    """Append-only tombstone/revocation trail; reapplied after a restore."""
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    item = models.ForeignKey(CatalogItem, on_delete=models.PROTECT,
+                             related_name="retirement_events")
+    action = models.CharField(max_length=16)  # retired|restored|purged|blocked
+    reason = models.CharField(max_length=600, blank=True)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
+                              on_delete=models.PROTECT, related_name="+")
+    detail = models.JSONField(default=dict)  # never blob bytes or secrets
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at", "id"]
+
+
+class PurgePolicy(models.Model):
+    """FUT-18: single versioned, auditable retention policy; disabled by default.
+
+    Grace duration and enabled state are administrative decisions, never a
+    hardcoded universal rule. Changes are audited through PurgePolicyRevision.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    is_active = models.BooleanField(default=False)
+    enabled = models.BooleanField(default=False)  # automatic GC off by default
+    grace_days = models.PositiveIntegerField(default=30)  # illustrative, not forced
+    eligible_classes = models.JSONField(default=list)  # subset of PURGE_CLASSES
+    cadence_hours = models.PositiveIntegerField(default=168)
+    version = models.PositiveIntegerField(default=1)
+    updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+                                   related_name="+")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-version", "id"]
+
+
+class PurgeCandidate(models.Model):
+    """FUT-18: durable inventoried candidate with its immutable preview guard."""
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    public_id = models.CharField(max_length=120, unique=True)
+    kind = models.CharField(max_length=24)  # evidence_blob|managed_record
+    subject = models.CharField(max_length=140)  # blob sha256 or record public id
+    eligible_at = models.DateTimeField()
+    first_seen_at = models.DateTimeField(auto_now_add=True)
+    size_bytes = models.PositiveBigIntegerField(default=0)
+    blockers = models.JSONField(default=list)  # protected-reference / policy reasons
+    preview = models.JSONField(default=dict)   # immutable dry-run snapshot
+    state = models.CharField(max_length=16, default="candidate")  # candidate|purged|blocked
+
+    class Meta:
+        ordering = ["first_seen_at", "id"]
+
+
+class PurgeReceipt(models.Model):
+    """FUT-18: durable, attributable purge result; never a silent deletion."""
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    public_id = models.CharField(max_length=120, unique=True)
+    job_key = models.CharField(max_length=64)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
+                              on_delete=models.PROTECT, related_name="+")
+    reclaimed_bytes = models.PositiveBigIntegerField(default=0)
+    purged_count = models.PositiveIntegerField(default=0)
+    blocked_count = models.PositiveIntegerField(default=0)
+    detail = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at", "id"]
+
+
+class ArchiveJob(models.Model):
+    """FUT-19: durable, server-managed archive build; never an HTTP-lifetime job.
+
+    The artifact is produced by a separate process invoked by the API (a
+    management command), so a large confidential archive is never serialized in
+    API request memory. State is persisted so a client or operator can poll
+    progress, sizes, integrity and failure reason.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    public_id = models.CharField(max_length=120, unique=True)
+    kind = models.CharField(max_length=16)  # native|full_recovery
+    state = models.CharField(max_length=16, default="queued")  # queued|running|complete|failed
+    reason = models.CharField(max_length=120, blank=True)  # machine-readable failure reason
+    requested_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
+                                     on_delete=models.deletion.PROTECT, related_name="+")
+    requested_at = models.DateTimeField(auto_now_add=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    size_bytes = models.PositiveBigIntegerField(default=0)
+    sha256 = models.CharField(max_length=64, blank=True)
+    artifact_path = models.CharField(max_length=300, blank=True)
+    manifest = models.JSONField(default=dict)  # verification summary, no secrets
+
+    class Meta:
+        ordering = ["requested_at", "id"]
+
+
+class ArchiveGrant(models.Model):
+    """FUT-19: short-lived, revocable, artifact-scoped download bearer token.
+
+    Only the SHA-256 digest of the random token is stored. The raw token is
+    revealed exactly once, through an authenticated CSRF-protected operation,
+    and is never written to audit, logs or a URL/query string.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    public_id = models.CharField(max_length=120, unique=True)
+    job = models.ForeignKey(ArchiveJob, on_delete=models.deletion.PROTECT,
+                            related_name="grants")
+    token_digest = models.CharField(max_length=64, unique=True)
+    issued_to = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
+                                  on_delete=models.deletion.PROTECT, related_name="+")
+    scope = models.CharField(max_length=32, default="download")
+    issued_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    revoked_at = models.DateTimeField(null=True, blank=True)
+    last_used_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["issued_at", "id"]
+
+
+class ArchiveAccessEvent(models.Model):
+    """FUT-19: append-only attributable audit of archive request/grant/transfer.
+
+    Records who did what to which artifact; its JSON detail must never carry a
+    raw bearer token, byte range of confidential content or other secret.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
+                              on_delete=models.deletion.PROTECT, related_name="+")
+    job = models.ForeignKey(ArchiveJob, null=True, blank=True,
+                            on_delete=models.deletion.PROTECT, related_name="+")
+    action = models.CharField(max_length=32)  # requested|grant_issued|grant_revoked|downloaded|denied
+    detail = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at", "id"]
+
+
+class CapacityPolicy(models.Model):
+    """FUT-20: small versioned, auditable platform-operator capacity policy.
+
+    Only soft, administrable thresholds live here. Physical technical limits
+    (free disk, DB integrity, upload parser and archive decompression guards) are
+    NOT stored: they are detected and explained, never self-granted. A new row
+    supersedes the previous active one; a policy change never rewrites pinned
+    historical data.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    is_active = models.BooleanField(default=False)
+    version = models.PositiveIntegerField(default=1)
+    evidence_warn_bytes = models.PositiveBigIntegerField(default=8 * 1024 ** 3)
+    disk_warn_percent = models.PositiveIntegerField(default=80)
+    archive_concurrency_warn = models.PositiveIntegerField(default=4)
+    upload_quota_warn_bytes = models.PositiveBigIntegerField(default=2 * 1024 ** 3)
+    threshold_factors = models.JSONField(default=dict)  # optional per-metric overrides
+    updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+                                   related_name="+")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-version", "id"]
+
+
+class CapacityPolicyEvent(models.Model):
+    """FUT-20: append-only who/when/old/new audit of every policy change."""
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
+                              on_delete=models.PROTECT, related_name="+")
+    action = models.CharField(max_length=32)  # updated|reset
+    previous = models.JSONField(default=dict)
+    applied = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at", "id"]
+
+
+class AccessThrottle(models.Model):
+    """FUT-20: durable, DB-backed failed-login counter for Internet profiles.
+
+    A minimal keyed counter so abuse controls survive process/worker restarts and
+    need no speculative Redis/broker. A key is one-way hashed; no password or
+    secret is ever stored.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    key_digest = models.CharField(max_length=64, unique=True)
+    failures = models.PositiveIntegerField(default=0)
+    locked_until = models.DateTimeField(null=True, blank=True)
+    last_failure_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["updated_at", "id"]

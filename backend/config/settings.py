@@ -28,6 +28,12 @@ AI_COMPASS_PROFILE = _profile["profile"]
 ALLOWED_HOSTS = _profile["allowed_hosts"]
 CSRF_TRUSTED_ORIGINS = _profile["csrf_origins"]
 SECURE_PROXY_SSL_HEADER = _profile["proxy_header"]
+# FUT-20: an Internet/inter-BU profile enables HSTS; LAN and development do not.
+SECURE_HSTS_SECONDS = _profile.get("hsts_seconds", 0)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = False  # recoverable if a subdomain is misconfigured
+SECURE_HSTS_PRELOAD = False
+SECURE_SSL_REDIRECT = bool(_profile.get("hsts_seconds"))
+SECURE_REFERRER_POLICY = "same-origin"
 
 
 INSTALLED_APPS = [
@@ -88,6 +94,10 @@ EVIDENCE_STORE_ROOT = Path(os.environ.get("AI_COMPASS_EVIDENCE_ROOT", "/var/lib/
 EVIDENCE_MAX_BYTES = 16 * 1024 * 1024
 FILE_UPLOAD_MAX_MEMORY_SIZE = 0  # stream uploaded files via Django's temp file handler
 DATA_UPLOAD_MAX_MEMORY_SIZE = 128 * 1024
+# FUT-19: private directory for immutable archive artifacts (never served by Caddy).
+ARCHIVE_STORE_ROOT = Path(os.environ.get("AI_COMPASS_ARCHIVE_ROOT", "/var/lib/ai-compass/archives"))
+ARCHIVE_GRANT_TTL = 3600  # short-lived, artifact-scoped download grant lifetime (seconds)
+ARCHIVE_JOB_TIMEOUT = int(os.environ.get("AI_COMPASS_ARCHIVE_JOB_TIMEOUT", "3600"))
 
 
 # PLAT-33 mock adapter: intentionally impossible to switch on in a normal

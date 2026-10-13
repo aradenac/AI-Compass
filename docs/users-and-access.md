@@ -35,8 +35,9 @@ or edit accounts with direct Django permission grants. Adding/removing the
 requires `platform_manage`. To grant both capabilities explicitly to an operator,
 create it with both roles at bootstrap time; neither role implies the other.
 
-Only the six baseline roles may be assigned through this workspace. The final
-active `user-admin` role-holder cannot be disabled/demoted. Changes serialize
+Only the baseline roles defined in the identity module may be assigned through
+this workspace. The final active `user-admin` role-holder cannot be
+disabled/demoted. Changes serialize
 under a PostgreSQL advisory transaction lock, with target-account row locking.
 Existing sessions observe role changes on the next authenticated request;
 deactivated accounts lose authentication. Reactivating an account does not
