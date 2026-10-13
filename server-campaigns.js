@@ -774,6 +774,10 @@
           showMatrix(row,chosenTask,this.value);
         });
         function choose(id){return cells.find(function(x){return x.id===id;});}
+        /* Test Case display name for a cell's ephemeral waiver draft label: the
+         * merged grid (renderCampaignMatrix) renders names itself, so this
+         * adapter only needs the lookup for the local draft descriptor. */
+        function tcName(id){var t=cases.find(function(x){return x.id===id;});return t?t.name:id;}
         target.querySelectorAll("[data-matrix-cell]").forEach(function(button){
           button.addEventListener("click",function(){
             var cell=choose(button.dataset.matrixCell);
@@ -791,9 +795,10 @@
               '<details class="ux-advanced-source"><summary>Advanced: immutable matrix cell source</summary>'+
                 '<pre style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></details>';
             if(editable){
+              var cfg=byId[cell.configuration_id];
               var cellScope=drafts()&&drafts().forMode?drafts().forMode("server",
                 "campaign-matrix-waiver",{id:cell.id,revision:row.revision,
-                  schema:"campaign-matrix-v1",label:tcName(cell.test_case_id)+" × "+cfg.label,
+                  schema:"campaign-matrix-v1",label:tcName(cell.test_case_id)+" × "+(cfg?cfg.label:cell.configuration_id),
                   guardUnload:true,
                   onConflictReload:function(){showMatrix(row,chosenTask,revision);}}):null;
               activeDraft=cellScope?drafts().attach(detail.querySelector("#matrix-decision-form"),

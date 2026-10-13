@@ -1337,7 +1337,11 @@ def draft_isolation(browser, base_url, demo_url, creds, artifacts, viewport):
     the other's uncommitted text.
     """
     prefix = "ai-compass-working-draft:"
-    typed = "UX-R04 cross-mode draft isolation value"
+    # Distinct per-mode literals so a same-origin substring scan cannot mistake
+    # Demo's own legitimately-cached text for the Server's uncommitted value.
+    server_typed = "UX-R04 cross-mode Server isolation value"
+    demo_typed = "UX-R04 cross-mode Demo isolation value"
+    typed = server_typed
     context = browser.new_context(viewport=viewport, reduced_motion="reduce")
     page = context.new_page()
     page.set_default_timeout(30000)
@@ -1390,7 +1394,7 @@ def draft_isolation(browser, base_url, demo_url, creds, artifacts, viewport):
         gdialog = demo.get_by_role("dialog")
         gdialog.wait_for(state="visible")
         gdialog.locator('select[name="type"]').select_option("Installation")
-        gdialog.locator('input[name="title"]').fill(typed)
+        gdialog.locator('input[name="title"]').fill(demo_typed)
         gdialog.locator('textarea[name="body"]').fill("Demo-only draft body")
         demo.wait_for_timeout(300)
         demo_keys = demo.evaluate(
@@ -1404,7 +1408,7 @@ def draft_isolation(browser, base_url, demo_url, creds, artifacts, viewport):
             raise AssertionError("A Server-scoped draft key exists in the Demo context")
         if demo.evaluate("value => Object.keys(window.localStorage).some("
                          "k => k.startsWith('ai-compass-working-draft:') && "
-                         "window.localStorage.getItem(k).includes(value))", typed):
+                         "window.localStorage.getItem(k).includes(value))", server_typed):
             raise AssertionError("The Server's uncommitted draft text leaked into Demo")
         if demo_errors:
             raise AssertionError("Demo JS runtime error(s): " + "; ".join(demo_errors[:3]))
