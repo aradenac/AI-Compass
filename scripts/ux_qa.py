@@ -1,6 +1,21 @@
 #!/usr/bin/env python3
 """AI Compass UI QA: disposable identities, real Chromium journeys and fail-closed probes.
 
+UX-R07 (#126) keeps this the single CLI entry point and the stable CI check name
+`ui-qa`, while the newer §13-scenario gate lives in the `uxqa` package next to it:
+
+  support        shared low-level assertions and desktop screenshot capture
+  accessibility  deterministic a11y/focus/console/network gates and audits
+  demo           offline standalone Demo boundary checks
+  server         authenticated Server boundary, conflict and fail-closed checks
+  probes         deliberate-regression probes that must be rejected (superset)
+  coverage       normative §13 / modal traceability registry
+  report         machine- and human-readable report rendering
+
+The established journeys (Demo/Server persona flows, Run stepper, draft isolation,
+correction/withdrawal, fork/denial, recommendation lifecycle) remain in this module
+and are all executed below; the package adds traceable coverage on top of them.
+
 Usage:
   python3 scripts/ux_qa.py provision --output /tmp/ux-qa-credentials.json
   python3 scripts/ux_qa.py test --base-url http://127.0.0.1:8080 \
@@ -19,6 +34,17 @@ import subprocess
 import sys
 import time
 from datetime import datetime, timezone
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from uxqa import coverage as coverage_registry  # noqa: E402
+from uxqa import demo as demo_checks  # noqa: E402
+from uxqa import probes as probe_checks  # noqa: E402
+from uxqa import report as report_render  # noqa: E402
+from uxqa import server as server_checks  # noqa: E402
+from uxqa.accessibility import assert_accessible  # noqa: E402
+from uxqa.accessibility import PageWatch  # noqa: E402
+
+SUITE = "UX-R07 (#126) desktop scenario, visual-consistency and accessibility gate"
 
 ROLES = {
     "workgroup": ["contributor"],
@@ -135,56 +161,13 @@ def expect_failure(label, operation):
 
 
 def mutation_probes(browser, artifacts):
-    """Independent tests prove the gate rejects representative intentional regressions."""
-    page = browser.new_page(viewport={"width": 1024, "height": 768})
-    try:
-        page.set_content('<main><section class="uxqa-domain">Catalog</section>'
-                         '<section class="uxqa-domain">Unrelated Users</section></main>')
-        expect_failure("stacked workspaces", lambda: assert_exactly_one_view(page, ".uxqa-domain"))
-        page.set_content('<main><section class="uxqa-domain">Catalog</section></main>')
-        assert_exactly_one_view(page, ".uxqa-domain")
+    """Independent tests prove the gate rejects representative intentional regressions.
 
-        page.set_content('<form><input placeholder="Editor"></form>')
-        expect_failure("missing modal", lambda: assert_modal_form(page))
-        modal = """<style>.modal-backdrop{position:fixed;inset:0;background:#2229;
-            display:grid;place-items:center}.modal{background:white;padding:30px}</style>
-            <div class="modal-backdrop"><div role="dialog" aria-label="Editor" class="modal">
-            <button aria-label="Close dialog" onclick="this.closest('.modal-backdrop').remove()">×</button>
-            <form><input value="draft"></form></div></div>"""
-        page.set_content(modal)
-        assert_modal_form(page)
-        page.set_content(modal.replace('onclick="this.closest(\'.modal-backdrop\').remove()"',
-                                       'onclick="this.closest(\'.modal-backdrop\').remove()"') +
-                         "<script>document.querySelector('.modal-backdrop').onclick=()=>"
-                         "document.querySelector('.modal-backdrop').remove()</script>")
-        expect_failure("backdrop discards draft", lambda: assert_modal_form(page))
-
-        page.set_content("""<h1 id="list">Objects list</h1>
-            <a href="#detail" onclick="document.getElementById('detail').hidden=false">Open detail</a>
-            <section id="detail" hidden><h2>Object detail</h2>
-            <a href="#list" onclick="document.getElementById('detail').hidden=true">Back to list</a></section>""")
-        assert_return_path(page)
-        page.set_content("""<h1 id="list">Objects list</h1>
-            <a href="#detail" onclick="document.getElementById('detail').hidden=false">Open detail</a>
-            <section id="detail" hidden><h2>Object detail</h2>
-            <a href="#missing" onclick="document.getElementById('list').hidden=true">Back to list</a></section>""")
-        expect_failure("broken breadcrumb/return", lambda: assert_return_path(page))
-
-        page.set_content('<div style="width:2000px;height:20px">overflow</div>')
-        expect_failure("overflow", lambda: assert_no_horizontal_overflow(page))
-        page.set_content('<div style="max-width:100%;height:20px">inside</div>')
-        assert_no_horizontal_overflow(page)
-
-        errors = []
-        page.on("pageerror", lambda e: errors.append(str(e)))
-        page.evaluate("() => { setTimeout(() => { throw new Error('uxqa deliberate script error') }, 0) }")
-        page.wait_for_timeout(100)
-        if not any("uxqa deliberate script error" in error for error in errors):
-            raise AssertionError("JavaScript runtime exception was not captured")
-        page.screenshot(path=str(artifacts / "mutation-fixtures.png"))
-    finally:
-        page.close()
-
+    UX-R07 (#126): delegated to `uxqa.probes`, a superset that additionally proves
+    the gate rejects injected authorization-visibility, dialog-focus/containment,
+    focus-return and silent-revision-conflict regressions.
+    """
+    return probe_checks.mutation_probes(browser, artifacts)
 
 def capture(page, directory, name):
     # Never retain sensitive credentials or the contents of unfinished auth forms.
@@ -332,12 +315,15 @@ def demo_journey(browser, demo_url, artifacts, role, label, viewport):
     page.set_default_timeout(12000)
     errors = []
     api_calls = []
+    findings = []
     page.on("pageerror", lambda e: errors.append(str(e)))
     page.on("request", lambda request: api_calls.append(request.url)
             if "/api/v1/" in request.url else None)
     try:
         # Each browser context is clean; no server identity or database is available.
         page.goto(demo_url + "?mode=demo&workspace=" + label, wait_until="domcontentloaded")
+        assert_accessible(page, "demo sign-in " + label, expect_current=False,
+                          require_landmark=False, review=findings)
         page.locator(f'[data-act="login"][data-id="{role}"]').click()
         page.locator(".app").wait_for(state="visible", timeout=20000)
         if not page.locator(".ux-shell .ux-content").is_visible() or not page.locator(".ux-shell .ux-sidebar").is_visible():
@@ -345,6 +331,7 @@ def demo_journey(browser, demo_url, artifacts, role, label, viewport):
         if page.locator(".ux-shell").count() != 1:
             raise AssertionError("Demo has competing application shells")
         assert_no_horizontal_overflow(page)
+        assert_accessible(page, "Standalone Demo " + label, review=findings)
         if api_calls:
             raise AssertionError("Standalone Demo unexpectedly contacted API: " + str(api_calls))
         capture(page, artifacts, "demo-" + label + "-" + str(viewport["width"]))
@@ -758,6 +745,7 @@ def demo_journey(browser, demo_url, artifacts, role, label, viewport):
             page.get_by_role("dialog").get_by_role("button", name="Close dialog").click()
         if errors:
             raise AssertionError("Demo JS runtime error(s): " + "; ".join(errors[:3]))
+        return {"findings": findings}
     finally:
         context.tracing.stop(path=str(artifacts / ("demo-" + label + "-" + str(viewport["width"]) + ".zip")))
         context.close()
@@ -772,6 +760,7 @@ def demo_persona_journey(browser, demo_url, artifacts, viewport):
     page.set_default_timeout(15000)
     errors = []
     api_calls = []
+    findings = []
     page.on("pageerror", lambda e: errors.append(str(e)))
     page.on("request", lambda request: api_calls.append(request.url)
             if "/api/v1/" in request.url else None)
@@ -907,10 +896,11 @@ def demo_persona_journey(browser, demo_url, artifacts, viewport):
         if page.locator("[data-engineer-view=tool]").count() != 1:
             raise AssertionError("By Tool inversion is not keyboard reachable")
         assert_no_horizontal_overflow(page)
+        assert_accessible(page, "Standalone Demo multi-role engineer", review=findings)
         capture(page, artifacts, "demo-engineer-os-" + str(viewport["width"]))
         if errors:
             raise AssertionError("Demo persona JS runtime error(s): " + "; ".join(errors[:3]))
-        return {"personas": len(personas), "zones": 5}
+        return {"personas": len(personas), "zones": 5, "findings": findings}
     finally:
         context.tracing.stop(path=str(artifacts / ("demo-personas-" +
                                                    str(viewport["width"]) + ".zip")))
@@ -1248,6 +1238,7 @@ def server_journey(browser, base_url, creds, artifacts, role, viewport):
     page = context.new_page()
     page.set_default_timeout(15000)
     errors = []
+    findings = []
     page.on("pageerror", lambda e: errors.append(str(e)))
     path = "/maintenance?mode=server" if role == "maintenance" else (
         "/?mode=server&workspace=" + ("workgroup" if role == "multi_role" else role) +
@@ -1262,6 +1253,7 @@ def server_journey(browser, base_url, creds, artifacts, role, viewport):
         page.locator("#server-login-form").wait_for(state="hidden", timeout=25000)
         if page.locator("#server-account-name").text_content() != creds[role]["username"]:
             raise AssertionError("Authenticated user does not match the fixture")
+        assert_accessible(page, f"Authenticated Server {role}", review=findings)
         if role in ("workgroup", "multi_role"):
             page.locator("#server-workgroup-home").wait_for(state="visible", timeout=20000)
         elif role == "engineer":
@@ -1934,7 +1926,7 @@ def server_journey(browser, base_url, creds, artifacts, role, viewport):
             page.locator("#ux-results-context [role=alert]").wait_for(state="visible", timeout=20000)
             if not page.locator("#ux-results-context").is_visible():
                 raise AssertionError("Unavailable original Run was silently hidden")
-        return {"visible_active_screens": 1, "shared_shell": True}
+        return {"visible_active_screens": 1, "shared_shell": True, "findings": findings}
     finally:
         if traced:
             context.tracing.stop(path=str(artifacts / ("server-" + role + "-" + str(viewport["width"]) + ".zip")))
@@ -3129,6 +3121,10 @@ def run_tests(base_url, demo_url, credentials, artifacts):
                     lambda v=viewport: demo_journey(browser, demo_url, directory, "u2", "engineer", v))
                 run(f"Standalone Demo management {width}",
                     lambda v=viewport: demo_journey(browser, demo_url, directory, "u3", "management", v))
+                # UX-R07 §13-07/§13-19: reader/contributor publication boundary in Demo.
+                run(f"Standalone Demo publication boundary {width}",
+                    lambda v=viewport: demo_checks.demo_publication_boundary(
+                        browser, demo_url, directory, v))
                 run(f"Authenticated Server draft/stepper/conflict/ownership {width}",
                     lambda v=viewport: server_draft_stepper_conflict_journey(
                         browser, base_url, creds, directory, v))
@@ -3138,9 +3134,30 @@ def run_tests(base_url, demo_url, credentials, artifacts):
                     run(f"Authenticated Server {role} {width}",
                         lambda k=role, v=viewport: server_journey(
                             browser, base_url, creds, directory, k, v))
-                run(f"Demo/Server draft isolation {width}",
-                    lambda v=viewport: draft_isolation(
-                        browser, base_url, demo_url, creds, directory, v))
+                # UX-R07 §13-08/§13-17/§13-18: role grants and URL/API fail-closed.
+                run(f"Authenticated Server authorization fail-closed {width}",
+                    lambda v=viewport: server_checks.server_fail_closed_index(
+                        browser, base_url, creds, directory, v))
+                # UX-R07 §13-08: one session switches every granted workspace.
+                run(f"Authenticated Server multi-role workspace switching {width}",
+                    lambda v=viewport: server_checks.server_multirole_switch(
+                        browser, base_url, creds, directory, v))
+                # UX-R07 §13-07: no internal Watch entry reaches a reader.
+                run(f"Authenticated Server publication boundary {width}",
+                    lambda v=viewport: server_checks.server_publication_boundary(
+                        browser, base_url, creds, directory, v))
+                # UX-R07 §13-14: real stale-save 409 keeps the draft, no overwrite.
+                run(f"Authenticated Server revision conflict 409 {width}",
+                    lambda v=viewport: server_checks.server_revision_conflict(
+                        browser, base_url, creds, directory, v))
+                # UX-R07 §13-19: an unavailable Server never renders Demo fixtures.
+                run(f"Authenticated Server offline isolation {width}",
+                    lambda v=viewport: server_checks.server_no_fallback(
+                        browser, base_url, creds, directory, v))
+                # UX-R07 §13-13/§13-19: the real draft cache never crosses modes/accounts.
+                run(f"Demo/Server draft isolation contract {width}",
+                    lambda v=viewport: demo_checks.demo_draft_isolation(
+                        browser, demo_url, directory, v))
                 if "reviewer" in creds:
                     run(f"Server Recommendation review/withdraw lifecycle {width}",
                         lambda v=viewport: recommendation_lifecycle(
@@ -3161,34 +3178,12 @@ def run_tests(base_url, demo_url, credentials, artifacts):
                         browser, base_url, creds, directory, v))
         finally:
             browser.close()
-    failed = [record for record in records if record["result"] == "FAIL"]
-    report = {
-        "version": 1,
-        "suite": "UX-R05 Chromium draft, Run stepper, conflict and ownership acceptance",
-        "generated_at": datetime.now(timezone.utc).isoformat(),
-        "status": "FAIL" if failed else "PASS",
-        "ui_conformance": "CONTEXTUAL_JOURNEYS_CHECKED; MANUAL_STAGING_AND_FULL_PERSONA_DATA_REQUIRE_SEPARATE_REVIEW",
-        "production_approval": "NO-GO: separate operational gates",
-        "checks": records,
-        "known_ux_findings": debts,
-        "duration_seconds": round(time.monotonic() - start, 2),
-    }
-    (directory / "report.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
-    lines = ["# UI QA — " + report["status"], "",
-             f"Chromium journeys: **{len(records) - len(failed)}/{len(records)} passed**.",
-             "**Common shell, modal and seeded contextual navigation journeys exercised in Chromium.** Manual staging, full production evidence and deployment remain NO-GO.",
-             "", "| Check | Result | Detail |", "| --- | --- | --- |"]
-    for rec in records:
-        lines.append(f"| {rec['name']} | {rec['result']} | " +
-                     str(rec.get("message", rec.get("details", {}))).replace("|", "/")[:230] + " |")
-    if debts:
-        lines.extend(["", "## Legacy visual defects (not approved baselines)"])
-        for item in debts:
-            lines.append(f"- {item['test']}: {item['finding']} ({item['count']}). Track in #{item['issue']}.")
-    lines.extend(["", "Screenshots/traces/JSON are retained as CI artifacts. "
-                  "They are inspection evidence, NOT approved golden snapshots."])
-    (directory / "report.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
-    return 1 if failed else 0
+    findings = [finding for record in records
+                for finding in (record.get("details") or {}).get("findings", [])
+                if isinstance(record.get("details"), dict)]
+    report = report_render.build(records, findings, time.monotonic() - start, SUITE)
+    report["known_ux_findings"] = debts
+    return report_render.write(directory, report)
 
 
 def main():

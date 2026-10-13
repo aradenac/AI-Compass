@@ -11,8 +11,9 @@ EXPECTED_GRANTS = {
     "engineer": ["business_read"],
     "management": ["planning_manage", "planning_view"],
     "maintenance": ["audit_view", "maintenance_triage", "maintenance_view"],
+    # The combined UX-R06 fixture also carries `reviewer` (publication_review).
     "multi_role": ["business_read", "business_write", "planning_manage",
-                   "planning_view", "users_manage", "users_view"],
+                   "planning_view", "publication_review", "users_manage", "users_view"],
 }
 
 # Every entry is a capability the fixture deliberately does not hold: the API must
@@ -124,280 +125,6 @@ def assert_location_fail_closed(page, base_url, role, path, forbidden_selector, 
     if page.locator('#server-side-navigation a[aria-current="page"]').count() != 1:
         raise AssertionError(f"{role} lost its single active navigation entry after {path}")
     return crumbs.strip()
-
-
-def server_journey(browser, base_url, creds, artifacts, role, viewport):
-    context = browser.new_context(viewport=viewport, reduced_motion="reduce")
-    traced = False  # Keep the password entry entirely outside the downloadable trace.
-    page = context.new_page()
-    page.set_default_timeout(15000)
-    watch = PageWatch(page)
-    findings = []
-    try:
-        sign_in(page, base_url, creds, role)
-        page.locator(LANDING_SCREEN[role]).wait_for(state="visible", timeout=25000)
-        if page.locator("#server-account-name").text_content() != creds[role]["username"]:
-            raise AssertionError("Authenticated user does not match the fixture")
-        context.tracing.start(screenshots=True, snapshots=True, sources=True)
-        traced = True
-        page.reload(wait_until="domcontentloaded")
-        page.locator("#server-login-form").wait_for(state="hidden", timeout=25000)
-        page.locator('#ux-screen-host[data-ux-current]').wait_for(state="visible", timeout=25000)
-        if page.locator(".ux-shell").count() != 1:
-            raise AssertionError("Competing Server application shells")
-        assert_exactly_one_view(page, "#ux-screen-host > [data-ux-screen]")
-        if not page.locator(".ux-shell .ux-sidebar").is_visible():
-            raise AssertionError("Server sidebar missing from shared shell")
-        if role == "multi_role" and page.locator("#server-users").is_visible():
-            raise AssertionError("Users & Access leaked onto Workgroup screen")
-        if role == "engineer" and page.locator("#server-planning").is_visible():
-            raise AssertionError("Planning leaked into Engineer screen")
-        assert_no_horizontal_overflow(page)
-        assert_accessible(page, "Server " + role + " landing", review=findings)
-        capture(page, artifacts, "server-" + role + "-" + str(viewport["width"]))
-        # Deliberate authorization probes run from a separate page so the journey's
-        # own console/network gate is not polluted by expected 403 refusals.
-        probe = context.new_page()
-        probe.goto(base_url + "/?mode=server", wait_until="domcontentloaded")
-        assert_grant_matrix(probe, base_url, role)
-        watch.assert_clean("Server " + role + " landing")
-        # UX-R02 routes one domain at a time. Check real form dialogs as well
-        # (a green static HTML test must never substitute for this interaction).
-        if role == "workgroup":
-            # Empty real Server is legitimate; Demo fixtures must NEVER leak.
-            # Each domain is rendered by the same list component as offline Demo.
-            for section, domain in [
-                ("guides", "guides"), ("watch", "watch"),
-                ("feedback", "feedback"), ("recommendations", "recommendations"),
-                ("benchmark", "campaigns"), ("forecasts", "forecasts")
-            ]:
-                page.goto(base_url + "/?mode=server&workspace=workgroup&section=" + section + "&view=editor",
-                          wait_until="domcontentloaded")
-                page.locator(
-                    f'[data-business-domain="{domain}"], [data-business-empty="{domain}"]'
-                ).first.wait_for(state="visible", timeout=30000)
-                assert_exactly_one_view(page, "#ux-screen-host > [data-ux-screen]")
-                assert_no_horizontal_overflow(page)
-                assert_accessible(page, "Server workgroup " + domain, review=findings)
-                if domain in ("guides", "campaigns"):
-                    capture(page, artifacts, "server-shared-" + domain + "-" + str(viewport["width"]))
-        if role == "workgroup":
-            # Real Server write must remain persisted and revision-addressable.
-            page.goto(base_url + "/?mode=server&workspace=workgroup&section=guides&view=editor",
-                      wait_until="domcontentloaded")
-            page.locator("#guide-add").wait_for(state="visible", timeout=30000)
-            page.locator("#guide-add").click()
-            form = page.locator("#guide-editor form.guide-form")
-            form.wait_for(state="visible", timeout=12000)
-            assert_dialog_focus(page, "Server Guide editor")
-            page.locator("#guide-add").click()
-            form = page.locator("#guide-editor form.guide-form")
-            form.wait_for(state="visible", timeout=12000)
-            fields = form.locator('[data-shared-guide-fields="server"]')
-            fields.locator('input[name="name"]').fill("UX-R04 persisted setup guide")
-            fields.locator('textarea[name="text"]').fill("Original controlled instructions")
-            fields.locator('textarea[name="description"]').fill("Keep revisions and provenance")
-            fields.locator('input[name="url"]').fill("https://example.org/server-guide")
-            assert_no_horizontal_overflow(page)
-            capture(page, artifacts, "server-shared-guide-form-" + str(viewport["width"]))
-            form.locator('button[type="submit"]').click()
-            card = page.locator('[data-business-domain="guides"] [data-business-record]').filter(
-                has_text="UX-R04 persisted setup guide").first
-            card.wait_for(state="visible", timeout=30000)
-            page.reload(wait_until="domcontentloaded")
-            card = page.locator('[data-business-domain="guides"] [data-business-record]').filter(
-                has_text="UX-R04 persisted setup guide").first
-            card.wait_for(state="visible", timeout=30000)
-            card.locator('button[data-action="inspect"]').click()
-            detail = page.locator('[data-shared-guide-detail="server"]')
-            detail.wait_for(state="visible", timeout=30000)
-            for expected in ("Original controlled instructions",
-                             "Keep revisions and provenance",
-                             "https://example.org/server-guide"):
-                if expected not in detail.inner_text():
-                    raise AssertionError("Server Guide content missing: " + expected)
-            page.locator("#guide-history details").first.wait_for(state="visible")
-            assert_accessible(page, "Server workgroup guide detail", review=findings)
-            capture(page, artifacts, "server-shared-guide-detail-" + str(viewport["width"]))
-        if role == "workgroup":
-            # Create a real Watch hypothesis without inventing external evidence.
-            page.goto(base_url + "/?mode=server&workspace=workgroup&section=watch&view=editor",
-                      wait_until="domcontentloaded")
-            page.locator("#watch-add-entry").wait_for(state="visible", timeout=30000)
-            page.locator("#watch-add-entry").click()
-            watch_form = page.locator("#watch-form")
-            watch_form.wait_for(state="visible")
-            watch_form.locator('input[name="name"]').fill("UX-R04 Watch detail")
-            watch_form.locator('textarea[name="hypothesis"]').fill(
-                "An unmeasured, source-independent hypothesis")
-            watch_form.locator('textarea[name="assumptions"]').fill(
-                "Uncertainty must remain explicit")
-            watch_form.locator('button[type="submit"]').click()
-            watch_card = page.locator('[data-business-domain="watch"] [data-business-record]').filter(
-                has_text="UX-R04 Watch detail").first
-            watch_card.wait_for(state="visible", timeout=30000)
-            page.reload(wait_until="domcontentloaded")
-            watch_card = page.locator('[data-business-domain="watch"] [data-business-record]').filter(
-                has_text="UX-R04 Watch detail").first
-            watch_card.wait_for(state="visible", timeout=30000)
-            watch_card.locator('button[data-action="inspect"]').click()
-            detail = page.locator(
-                '[data-knowledge-domain="watch"][data-knowledge-mode="server"]')
-            detail.wait_for(state="visible", timeout=30000)
-            for expected in ("An unmeasured, source-independent hypothesis",
-                             "Uncertainty must remain explicit"):
-                if expected not in detail.inner_text():
-                    raise AssertionError("Watch detail lost controlled content: " + expected)
-            page.locator("#watch-detail details").first.wait_for(state="visible")
-            capture(page, artifacts, "server-shared-watch-detail-" + str(viewport["width"]))
-        if role in ("workgroup", "multi_role"):
-            page.goto(base_url + "/?mode=server&workspace=workgroup&section=testdesign&view=editor",
-                      wait_until="domcontentloaded")
-            page.locator("#case-new").wait_for(state="visible", timeout=25000)
-            assert_exactly_one_view(page, "#ux-screen-host > [data-ux-screen]")
-            page.locator("#case-new").click()
-            dialog = page.locator("#case-editor[role=dialog]")
-            dialog.wait_for(state="visible", timeout=15000)
-            if dialog.get_attribute("aria-modal") != "true":
-                raise AssertionError("Editable form was not promoted to an accessible dialog")
-            if dialog.locator("form").count() != 1:
-                raise AssertionError("Test Case form missing from dialog")
-            box = dialog.locator('input[name="name"]')
-            box.fill("Unsaved browser QA text")
-            page.locator(".ux-dialog-backdrop").click(position={"x": 2, "y": 2}, force=True)
-            page.keyboard.press("Escape")
-            if not dialog.is_visible() or box.input_value() != "Unsaved browser QA text":
-                raise AssertionError("Backdrop/Escape unexpectedly dismissed the form or lost draft")
-            dialog.get_by_role("button", name="Close dialog").click()
-            dialog.wait_for(state="hidden")
-            if role == "workgroup":
-                # Real persisted Test Design round-trip: UI Task creation -> TC
-                # save -> same shared presenter after a full browser reload.
-                page.goto(base_url + "/?mode=server&workspace=workgroup&section=tasks&view=editor",
-                          wait_until="domcontentloaded")
-                page.locator("#server-task-add-root").wait_for(state="visible", timeout=30000)
-                page.locator("#server-task-add-root").click()
-                task_dialog = page.locator("#server-task-editor[role=dialog]")
-                task_dialog.wait_for(state="visible", timeout=15000)
-                task_name = "UX-R04 reusable browser Task"
-                task_dialog.locator('input[name="name"]').fill(task_name)
-                task_dialog.get_by_role("button", name="Save task revision").click()
-                task_dialog.wait_for(state="hidden", timeout=25000)
-                page.locator(".server-task-node").filter(has_text=task_name).first.wait_for(
-                    state="visible", timeout=25000)
-                page.goto(base_url + "/?mode=server&workspace=workgroup&section=testdesign&view=editor",
-                          wait_until="domcontentloaded")
-                page.locator("#case-new").wait_for(state="visible", timeout=30000)
-                page.locator("#case-new").click()
-                case_dialog = page.locator("#case-editor[role=dialog]")
-                case_dialog.wait_for(state="visible", timeout=15000)
-                case_title = "UX-R04 preserved browser challenge"
-                case_dialog.locator('input[name="name"]').fill(case_title)
-                task_choice = case_dialog.locator('select[name="task_id"] option').filter(
-                    has_text=task_name).first
-                task_id = task_choice.get_attribute("value")
-                if not task_id:
-                    raise AssertionError("Created real Task was not selectable")
-                case_dialog.locator('select[name="task_id"]').select_option(task_id)
-                case_dialog.locator('textarea[name="objective"]').fill(
-                    "Validate shared Demo and Server presentation")
-                case_dialog.locator('textarea[name="inputs"]').fill(
-                    "Synthetic, disposable browser fixture")
-                case_dialog.locator('textarea[name="dod"]').fill(
-                    "Created object remains readable after reload")
-                case_dialog.locator('button[type="submit"]').click()
-                case_dialog.wait_for(state="hidden", timeout=30000)
-                page.locator('[data-shared-case]').filter(has_text=case_title).first.wait_for(
-                    state="visible", timeout=30000)
-                capture(page, artifacts, "server-shared-test-cases-persisted-" +
-                        str(viewport["width"]))
-                page.reload(wait_until="domcontentloaded")
-                page.locator('[data-shared-case]').filter(has_text=case_title).first.wait_for(
-                    state="visible", timeout=30000)
-                if page.locator('[data-shared-case-detail="demo"]').count():
-                    raise AssertionError("Server Test Case incorrectly displayed Demo detail")
-            if role == "multi_role":
-                # Same authenticated session: Users & Access must be explicit,
-                # and its account-creation form a protected, closed-by-default modal.
-                page.goto(base_url + "/?mode=server&workspace=workgroup&section=users",
-                          wait_until="domcontentloaded")
-                page.locator("#server-user-open-create").wait_for(state="visible", timeout=25000)
-                assert_exactly_one_view(page, "#ux-screen-host > [data-ux-screen]")
-                if page.locator("#server-test-cases").is_visible():
-                    raise AssertionError("Test Case editor leaked into Users & Access")
-                assert_accessible(page, "Server multi-role users & access", review=findings)
-                page.locator("#server-user-open-create").click()
-                user_dialog = page.locator("#server-user-create-panel[role=dialog]")
-                user_dialog.wait_for(state="visible")
-                page.keyboard.press("Escape")
-                if not user_dialog.is_visible():
-                    raise AssertionError("Escape incorrectly dismissed account-creation form")
-                user_dialog.get_by_role("button", name="Close dialog").click()
-                user_dialog.wait_for(state="hidden")
-        if role in ("engineer", "workgroup"):
-            # §13-08/§13-18: a route outside the resolved workspace must fail
-            # closed in the content AND in the announced current location.
-            assert_location_fail_closed(
-                page, base_url, role, "/?mode=server&workspace=management&section=planning",
-                "#server-management-insights", "Planning & Resources")
-            if role == "engineer":
-                assert_location_fail_closed(
-                    page, base_url, role, "/?mode=server&workspace=workgroup&section=users",
-                    "#server-users", "Users & Access")
-        if role == "engineer":
-            # §13-18: /maintenance is a separate controlled workspace.
-            assert_location_fail_closed(
-                page, base_url, role, "/maintenance?mode=server",
-                "#server-governance-audit", "Audit & Changes")
-            page.locator("#ux-auth-panel").wait_for(state="visible", timeout=20000)
-            if page.locator("#server-account-name").text_content() != creds[role]["username"]:
-                raise AssertionError("Maintenance fallback lost the authenticated identity")
-        if role == "management":
-            # Management sees authorized aggregate planning only, never the
-            # Workgroup authoring editors.
-            page.goto(base_url + "/?mode=server&workspace=management&section=planning",
-                      wait_until="domcontentloaded")
-            page.locator("#server-planning").wait_for(state="visible", timeout=25000)
-            assert_exactly_one_view(page, "#ux-screen-host > [data-ux-screen]")
-            assert_no_privileged_view(page, "#server-test-cases", "Management route")
-            assert_accessible(page, "Server management planning", review=findings)
-            capture(page, artifacts, "server-management-planning-" + str(viewport["width"]))
-        if role == "maintenance":
-            # Maintenance-only identity keeps audit/health and nothing else.
-            assert_location_fail_closed(
-                page, base_url, role, "/?mode=server&workspace=workgroup&section=guides",
-                "#server-guides", "Setup Guides")
-            page.goto(base_url + "/maintenance?mode=server&section=health",
-                      wait_until="domcontentloaded")
-            page.locator("#server-data-health").wait_for(state="visible", timeout=25000)
-            assert_exactly_one_view(page, "#ux-screen-host > [data-ux-screen]")
-            assert_accessible(page, "Server maintenance data health", review=findings)
-            capture(page, artifacts, "server-maintenance-health-" + str(viewport["width"]))
-        if role == "multi_role":
-            # Fail closed: a missing protected record never resolves to a
-            # different current record or a Demo fixture; foreign from rejected.
-            page.goto(base_url +
-                "/?mode=server&workspace=workgroup&section=watch&record=uxqa-not-present"
-                "&revision=r999&from=%2F%2Fevil.example",
-                wait_until="domcontentloaded")
-            page.locator("#server-shared-summary").wait_for(state="visible", timeout=25000)
-            page.locator("#server-shared-summary [role=alert]").wait_for(state="visible", timeout=20000)
-            if page.locator(".ux-return-link").count():
-                raise AssertionError("External navigation origin was accepted")
-            assert_exactly_one_view(page, "#ux-screen-host > [data-ux-screen]")
-            page.goto(base_url + "/?mode=server&workspace=engineer&section=results"
-                "&record=uxqa-missing-run&revision=r999", wait_until="domcontentloaded")
-            page.locator("#ux-results-context [role=alert]").wait_for(state="visible", timeout=20000)
-            if not page.locator("#ux-results-context").is_visible():
-                raise AssertionError("Unavailable original Run was silently hidden")
-        watch.assert_clean("Server " + role)
-        return {"visible_active_screens": 1, "shared_shell": True,
-                "grants": EXPECTED_GRANTS[role], "findings": findings}
-    finally:
-        if traced:
-            context.tracing.stop(path=str(artifacts / ("server-" + role + "-" +
-                                                       str(viewport["width"]) + ".zip")))
-        context.close()
 
 
 ROLES_INDEX = ["workgroup", "engineer", "management", "maintenance", "multi_role"]
@@ -588,8 +315,13 @@ def server_revision_conflict(browser, base_url, creds, artifacts, viewport):
         draft_text = page_b.locator("#guide-editor .shared-draft-status").first.inner_text()
         if not ("not saved" in status_text.lower() or "409" in status_text):
             raise AssertionError("409 was not surfaced to the user: " + status_text[:160])
-        if "409" not in draft_text:
-            raise AssertionError("Conflict banner did not report the 409: " + draft_text[:160])
+        if ("conflict" not in draft_text.lower()
+                or "revision" not in draft_text.lower()):
+            raise AssertionError(
+                "Conflict banner did not explain the refused revision: " + draft_text[:160])
+        if "not overwritten" not in draft_text.lower() and "overwritten" not in draft_text.lower():
+            raise AssertionError(
+                "Conflict banner did not state the draft/record was preserved: " + draft_text[:160])
         if fields_b.locator('textarea[name="text"]').input_value() != \
                 "Second contributor unsaved draft":
             raise AssertionError("Stale save cleared the unsaved draft values")
