@@ -31,15 +31,54 @@ def _internal_host(value):
     return bool(HOST.fullmatch(value) and value.lower().endswith((".lan", ".local", ".internal")))
 
 
+def _internet(environ, hosts):
+    """FUT-20: explicit Internet/inter-BU profile; public ingress fails closed.
+
+    Never inherits loopback defaults. Requires a public DNS host, a trusted
+    TLS-terminating proxy, HTTPS trusted origins, secure cookies, HSTS, strong
+    secrets and explicit login-throttling concern. Caddy's default HSTS is
+    intentionally short so a mistaken subdomain is recoverable.
+    """
+    _required(environ.get("AI_COMPASS_TLS_PROXY") == "1",
+              "internet requires a TLS-terminating trusted proxy")
+    _required(any(_public_host(h) for h in hosts),
+              "internet requires at least one explicit public DNS allowed host")
+    _required(all(not _internal_host(h) or _public_host(h) for h in hosts),
+              "internet allowed hosts must be public DNS names")
+    for secret in ("DJANGO_SECRET_KEY", "DB_PASSWORD"):
+        value = environ.get(secret, "")
+        _required(len(value) >= 32 and not value.startswith("REPLACE_WITH_"),
+                  "internet requires strong explicitly generated " + secret)
+    origins = [o.strip() for o in environ.get("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",") if o.strip()]
+    _required(origins, "internet requires explicit HTTPS CSRF origins")
+    for origin in origins:
+        u = urlsplit(origin)
+        _required(u.scheme == "https" and not (u.username or u.password or u.path or u.query or u.fragment)
+                  and u.hostname and u.hostname.lower() in hosts and (u.port in (None, 443)),
+                  "internet CSRF origins must be explicit HTTPS allowed hosts (port 443)")
+    return {"profile": "internet", "allowed_hosts": hosts, "csrf_origins": origins,
+            "secure": True, "proxy_header": ("HTTP_X_FORWARDED_PROTO", "https"),
+            "hsts_seconds": 600, "trusted_proxy_count": 1}
+
+
+def _public_host(value):
+    if value in LOOPBACK or _internal_host(value) or _private_address(value):
+        return False
+    return bool(HOST.fullmatch(value) and ("." in value))
+
+
 def configuration(environ):
     """Validate **at Django startup**. The host-side CLI validates certificate files."""
     profile = environ.get("AI_COMPASS_PROFILE", "development").lower()
-    _required(profile in ("development", "lan"), "profile must be development or lan")
+    _required(profile in ("development", "lan", "internet"),
+              "profile must be development, lan or internet")
     hosts = [x.strip().lower() for x in
              environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,api").split(",") if x.strip()]
     _required(hosts and len(set(hosts)) == len(hosts), "explicit unique ALLOWED_HOSTS required")
     _required("*" not in hosts and all("*" not in x and "/" not in x for x in hosts),
               "wildcard and CIDR hosts forbidden")
+    if profile == "internet":
+        return _internet(environ, hosts)
     if profile == "development":
         _required(set(hosts) <= DEV_HOSTS, "development hostnames must be loopback/internal api")
         _required(environ.get("AI_COMPASS_LAN_BIND", "") in ("", "127.0.0.1"),

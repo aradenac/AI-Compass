@@ -28,6 +28,12 @@ AI_COMPASS_PROFILE = _profile["profile"]
 ALLOWED_HOSTS = _profile["allowed_hosts"]
 CSRF_TRUSTED_ORIGINS = _profile["csrf_origins"]
 SECURE_PROXY_SSL_HEADER = _profile["proxy_header"]
+# FUT-20: an Internet/inter-BU profile enables HSTS; LAN and development do not.
+SECURE_HSTS_SECONDS = _profile.get("hsts_seconds", 0)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = False  # recoverable if a subdomain is misconfigured
+SECURE_HSTS_PRELOAD = False
+SECURE_SSL_REDIRECT = bool(_profile.get("hsts_seconds"))
+SECURE_REFERRER_POLICY = "same-origin"
 
 
 INSTALLED_APPS = [

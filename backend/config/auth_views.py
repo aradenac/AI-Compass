@@ -2,6 +2,7 @@
 import json
 from functools import wraps
 
+from django.conf import settings
 from django.contrib.auth import authenticate, login, logout, get_user_model
 from django.http import JsonResponse
 from django.middleware.csrf import get_token
@@ -88,11 +89,28 @@ def sign_in(request):
         return json_no_store({"error": "invalid_payload"}, status=400)
     if len(username) > 150 or len(password) > 4096:
         return json_no_store({"error": "invalid_credentials"}, status=401)
+    from .capacity_services import clear_failures, is_locked, record_failure
+    ip = _client_ip(request)
+    if is_locked(identifier=username, ip=ip):
+        return json_no_store({"error": "too_many_attempts"}, status=429)
     user = authenticate(request, username=username, password=password)
     if user is None or not user.is_active:
+        record_failure(identifier=username, ip=ip)
         return json_no_store({"error": "invalid_credentials"}, status=401)
+    clear_failures(identifier=username, ip=ip)
     login(request, user)
     return json_no_store(account_payload(user))
+
+
+def _client_ip(request):
+    """Only a trusted proxy's forwarded client may influence the throttle key;
+    otherwise the immediate connection address is used. The value never leaves
+    this module (only a one-way digest is stored)."""
+    if settings.SECURE_PROXY_SSL_HEADER:
+        forwarded = request.META.get("HTTP_X_FORWARDED_FOR", "")
+        if forwarded:
+            return forwarded.split(",")[0].strip()[:64]
+    return request.META.get("REMOTE_ADDR", "")[:64]
 
 
 @require_POST

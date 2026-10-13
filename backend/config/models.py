@@ -1094,3 +1094,60 @@ class ArchiveAccessEvent(models.Model):
 
     class Meta:
         ordering = ["created_at", "id"]
+
+
+class CapacityPolicy(models.Model):
+    """FUT-20: small versioned, auditable platform-operator capacity policy.
+
+    Only soft, administrable thresholds live here. Physical technical limits
+    (free disk, DB integrity, upload parser and archive decompression guards) are
+    NOT stored: they are detected and explained, never self-granted. A new row
+    supersedes the previous active one; a policy change never rewrites pinned
+    historical data.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    is_active = models.BooleanField(default=False)
+    version = models.PositiveIntegerField(default=1)
+    evidence_warn_bytes = models.PositiveBigIntegerField(default=8 * 1024 ** 3)
+    disk_warn_percent = models.PositiveIntegerField(default=80)
+    archive_concurrency_warn = models.PositiveIntegerField(default=4)
+    upload_quota_warn_bytes = models.PositiveBigIntegerField(default=2 * 1024 ** 3)
+    threshold_factors = models.JSONField(default=dict)  # optional per-metric overrides
+    updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+                                   related_name="+")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-version", "id"]
+
+
+class CapacityPolicyEvent(models.Model):
+    """FUT-20: append-only who/when/old/new audit of every policy change."""
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
+                              on_delete=models.PROTECT, related_name="+")
+    action = models.CharField(max_length=32)  # updated|reset
+    previous = models.JSONField(default=dict)
+    applied = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at", "id"]
+
+
+class AccessThrottle(models.Model):
+    """FUT-20: durable, DB-backed failed-login counter for Internet profiles.
+
+    A minimal keyed counter so abuse controls survive process/worker restarts and
+    need no speculative Redis/broker. A key is one-way hashed; no password or
+    secret is ever stored.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    key_digest = models.CharField(max_length=64, unique=True)
+    failures = models.PositiveIntegerField(default=0)
+    locked_until = models.DateTimeField(null=True, blank=True)
+    last_failure_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["updated_at", "id"]
