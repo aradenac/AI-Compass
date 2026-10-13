@@ -93,8 +93,9 @@
       })
     };
   }
-  function mount(element,provider,mode) {
+  function mount(element,provider,mode,options) {
     if(!element||!provider)throw Error("Environment presenter requires selected provider");
+    options=options||{};
     var enabled=false,generation=0,profile=null,sources=[];
     element.innerHTML='<div class="server-card"><h2>My available operating systems</h2>'+
       '<p class="muted">Self-declared Windows/Linux only. Not a license, verified deployment, or host-server OS.</p>'+
@@ -164,6 +165,9 @@
       try{
         profile=await provider.save(profile.revision,selected);
         await refresh();
+        // UX-R06: a declared-OS change re-evaluates dependent discovery in the
+        // same session. No business record and no profile history is deleted.
+        if(typeof options.onProfileSaved==="function")options.onProfileSaved(profile);
       }catch(e){status("Profile not saved: "+e.message+
         (e.status===409?". Reload and retry; never overwrite another version.":""));}
       finally{button.disabled=false;}

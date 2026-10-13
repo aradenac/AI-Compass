@@ -3,6 +3,7 @@
 "use strict";
 function mount(root,csrf,escapeHtml){
   var enabled=false,writer=false,reviewer=false,ticket=0,results=[],evaluations=[],tasks=[],solutions=[],campaigns=[],current=null;
+  var recommendations=[];
   var METRICS=["quality_score","information_utility_score","cost_eur",
                "tokens_total","human_total_minutes","interaction_agent_minutes"];
   function $(q){return root.querySelector(q);}
@@ -191,10 +192,26 @@ function mount(root,csrf,escapeHtml){
         if(r.experimental_method_version)facts.push("Experimental method v"+r.experimental_method_version);
         var notices=forecast?["Estimates only. Uncertainty: "+(r.uncertainty||"Unspecified")]:
           ["Unknown fields: "+(r.missing_fields||[]).join(", ")||"none"];
+        if(!forecast&&r.outcome==="failed")
+          notices.push("Published failed-DoD measurement: recorded negative evidence. It is never "+
+            "presented as a positive recommendation and it cannot be promoted by an editorial opinion.");
+        var editorial=!forecast&&r.solution_id?recommendations.find(function(x){
+          return x.task_id===r.task_id&&x.solution_id===r.solution_id;}):null;
         var links=forecast?[]:[{label:"Open Run context",
           href:window.AICompassContext.route("server",writer?"workgroup":"engineer","results",{
             record:r.id,revision:r.revision||"",task:r.task_id,
             solution:r.solution_id||r.candidate})}];
+        if(!forecast&&r.solution_id)links.push({label:"Solution detail · Guide, feedback and evidence",
+          href:window.AICompassContext.route("server",writer?"workgroup":"engineer","engineer",
+            {task:r.task_id,solution:r.solution_id})});
+        if(editorial&&writer)links.push({label:"Editorial Recommendation · "+
+          (editorial.decision||"published context"),
+          href:window.AICompassContext.route("server","workgroup",
+            "recommendations",{record:editorial.id,revision:editorial.revision||""})});
+        if(editorial&&!writer)notices.push("A published editorial Recommendation ("+
+          (editorial.decision||"published context")+") pins this exact Task and measured "+
+          "Solution. Open the Solution detail for its descriptive context; editorial opinions "+
+          "never override this measured result.");
         var actions=(!forecast&&reviewer)?[{label:"Correct / withdraw",
           attributes:{"data-amend-run":r.id}}]:[];
         return {id:r.id,title:forecast?"Theoretical forecast":"Measured Run",
@@ -238,14 +255,16 @@ function mount(root,csrf,escapeHtml){
     var version=++ticket;
     try{
       var inputs=await Promise.all([api("evaluations"),api("tasks"),api("solutions"),
-                                    api("campaigns")]);
+                                    api("campaigns"),api("recommendations")]);
       if(!enabled||version!==ticket)return;
       evaluations=inputs[0].results||[];tasks=inputs[1].results||[];
       solutions=inputs[2].results||[];campaigns=inputs[3].results||[];
+      recommendations=inputs[4].results||[];
       renderChoices();renderEvaluations();await loadMatrix();
     }catch(err){
       if(!enabled||version!==ticket)return;
-      evaluations=[];tasks=[];solutions=[];campaigns=[];results=[];current=null;
+      evaluations=[];tasks=[];solutions=[];campaigns=[];recommendations=[];
+      results=[];current=null;
       renderEvaluations();$("#results-rows").textContent="";
       status("Cannot retrieve Server Results: "+err.message,true);
     }
@@ -364,7 +383,7 @@ function mount(root,csrf,escapeHtml){
   }
   function setAccess(read,write,canReview){
     ++ticket;enabled=!!read;writer=enabled&&!!write;reviewer=enabled&&!!canReview;
-    results=[];evaluations=[];tasks=[];solutions=[];campaigns=[];current=null;
+    results=[];evaluations=[];tasks=[];solutions=[];campaigns=[];recommendations=[];current=null;
     root.replaceChildren();root.hidden=!enabled;
     if(enabled){shell();refresh();}
   }

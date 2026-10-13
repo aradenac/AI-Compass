@@ -86,6 +86,7 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;b
 <script src="shared-environment.js"></script>
 <script src="shared-pricing.js"></script>
 <script src="shared-workgroup.js"></script>
+<script src="shared-updates.js"></script>
 <script src="shared-engineer.js"></script>
 <script src="shared-opportunities.js"></script>
 <script src="shared-budgets.js"></script>
@@ -110,7 +111,10 @@ return {
   {id:"u2",name:"Nicolas Bernard",role:"engineer",bu:"Embedded Systems",initials:"NB"},
   {id:"u3",name:"Lena Martin",role:"management",bu:"R&D Management",initials:"LM"},
   {id:"u4",name:"Amir Haddad",role:"reader",bu:"Group Innovation",initials:"AH"},
-  {id:"u5",name:"Sofia Ramos",role:"workgroup",bu:"Digital Solutions",initials:"SR"}
+  {id:"u5",name:"Sofia Ramos",role:"workgroup",bu:"Digital Solutions",initials:"SR"},
+  {id:"u6",name:"Priya Nair",role:"workgroup",bu:"Embedded Systems",initials:"PN",
+   roles:["engineer","workgroup","management"],
+   roleNote:"Explicitly granted Engineer, Workgroup and Management personas in this fictional Demo."}
  ],
  tasks:[
   {id:"t1",parent:null,name:"Software Development",phase:"Software",domain:"Engineering",baseline:0,desc:"Software engineering tasks across the development lifecycle.",criteria:"Correctness; traceability; maintainability."},
@@ -432,6 +436,21 @@ if(!db.environmentFixturesInitialized){
  });
  db.environmentFixturesInitialized=true;persist();
 }
+
+// UX-R06 deterministic synthetic journey fixtures: reproducible Engineer OS
+// variants (Windows-only with a Linux-only alternative and an unclassified tool)
+// plus a published-vs-internal Watch split. Fictional Demo only.
+if(!db.uxR06FixturesInitialized){
+ var osClass={"Claude Code + CCR":["windows","linux"],"OpenCode":["linux"]};
+ db.components.forEach(function(c){
+  if(c.type!=="harness"||!osClass[c.name])return;
+  c.properties=c.properties||{};
+  if(!c.properties.supported_os)c.properties.supported_os=osClass[c.name].slice();
+ });
+ var watchVisibility={w1:"published",w2:"internal"};
+ db.watch.forEach(function(w){if(!w.publication)w.publication=watchVisibility[w.id]||"internal";});
+ db.uxR06FixturesInitialized=true;persist();
+}
 if(!Array.isArray(db.qualifications)){
  db.qualifications=[
   {id:"q1",title:"Assess NextCoder Preview",solution:"s5",task:"t13",stage:"to_qualify",owner:"u1",priority:"high",due:"2026-10-15",updatedAt:"2026-10-07",sourceWatch:"w1",notes:"Confirm access, tooling support and test methodology before running controlled cases.",conclusion:""},
@@ -609,7 +628,7 @@ var initialWorkspace=new URLSearchParams(window.location.search).get("workspace"
 var initialSection=new URLSearchParams(window.location.search).get("section");
 var initialPage=initialWorkspace==="workgroup" ?
   (initialSection&&window.AICompassWorkgroup.SECTION_TO_DEMO[initialSection]||"studio") :
-  initialWorkspace==="engineer"?(initialSection==="results"?"results":"tasks"):initialWorkspace==="management"?"management":"dashboard";
+  initialWorkspace==="engineer"?(initialSection==="results"?"results":initialSection==="updates"?"updates":"tasks"):initialWorkspace==="management"?"management":"dashboard";
 if(!initialWorkspace && db.users.some(function(u){return u.id===currentUser&&u.role==="workgroup";}))
   initialPage="studio";
 var ui={page:initialPage,task:"t5",solution:"s1",solutionView:"solutions",bench:"runs",matrix:"task",
@@ -826,13 +845,14 @@ function optionsFrom(type,format){return db[type].map(function(x){return[x.id,fo
 function navButton(page,icon,title,count){return '<button class="nav-link'+(ui.page===page?' active':'')+'" data-act="nav" data-id="'+page+'"><span class="nav-icon">'+icon+'</span>'+title+(count!=null?'<span class="count">'+count+'</span>':'')+'</button>';}
 function shell(inner,title){var u=user();if(!u)return login();
 var navigation=canEdit()?
-'<div class="nav-group"><div class="nav-label">WORKGROUP HOME</div>'+navButton("studio","◈","AI Workgroup Studio")+"</div>"+
+'<div class="nav-group"><div class="nav-label">WORKGROUP HOME</div>'+navButton("studio","◈","AI Workgroup Studio")+navButton("updates","◷","Workgroup updates")+"</div>"+
 '<div class="nav-group"><div class="nav-label">WORKSPACE</div>'+navButton("dashboard","◈","Dashboard")+navButton("tasks","▤","Task management")+'</div>'+
 '<div class="nav-group"><div class="nav-label">TECHNOLOGY INTELLIGENCE</div>'+navButton("watch","◉","Technology watch")+navButton("solutions","◇","Technology catalog")+'</div>'+
 '<div class="nav-group"><div class="nav-label">EXPERIMENTS</div>'+navButton("testdesign","▣","Test design")+navButton("benchmark","⚙","Benchmark workspace")+navButton("results","◫","Results explorer")+'</div>'+
 '<div class="nav-group"><div class="nav-label">KNOWLEDGE & COLLABORATION</div>'+navButton("recommendations","✧","Recommendations")+navButton("knowledge","▦","Guides & charter")+navButton("feedback","♧","Feedback & discussions")+navButton("activity","◷","Activity feed")+'</div>'+
 '<div class="nav-group"><div class="nav-label">REPORTING</div>'+navButton("management","▥","Management view")+'</div>':
 '<div class="nav-group"><div class="nav-label">Discover</div>'+navButton("dashboard","◈","Overview")+navButton("tasks","▤","Task explorer")+navButton("solutions","◇","AI solutions")+navButton("recommendations","✧","Recommendations")+'</div>'+
+'<div class="nav-group"><div class="nav-label">Published knowledge</div>'+navButton("updates","◷","Workgroup updates")+'</div>'+
 '<div class="nav-group"><div class="nav-label">Evaluate</div>'+navButton("results","◫","Benchmark results")+navButton("knowledge","▣","Guides & charter")+navButton("watch","◉","Technology watch")+'</div>'+
 '<div class="nav-group"><div class="nav-label">Collaborate</div>'+navButton("feedback","♧","Feedback & ideas")+navButton("activity","◷","Activity feed")+navButton("management","▥","Management view")+'</div>';
 document.getElementById("app").innerHTML=window.AICompassShell.render({
@@ -855,14 +875,18 @@ return '<div class="event"><div class="row-between"><strong>'+E(x.text)+'</stron
 '<div class="event-meta">'+E(x.at?x.at.replace("T"," ").slice(0,19):x.date)+' · '+E(x.type)+' · '+E(x.actorName||actor(x.actor))+
 (x.businessUnit?' · '+E(x.businessUnit):"")+(x.revisionIds?.length?' · '+x.revisionIds.length+' revision(s)':"")+'</div></div>';
 }).join("")+'</div>';}
+var demoEngineerWorkspace=null;
 function render(){var pages={studio:function(){
   return window.AICompassWorkgroup.renderMap("demo",user(),[],canEdit(),{
-    benchmark:window.AICompassWorkgroup.attention("benchmark",db.campaigns),
+    benchmark:window.AICompassWorkgroup.attention("benchmark",db.campaigns.map(function(c){
+      return {status:c.stage==="review"||c.status==="under_review"?"under_review":c.status,
+        archived:c.archived};
+    })),
     forecasts:window.AICompassWorkgroup.attention("forecasts",db.proposals),
     recommendations:window.AICompassWorkgroup.attention("recommendations",db.recommendations)
   });
-},dashboard:dashboardPage,tasks:tasksPage,solutions:solutionsPage,recommendations:recommendationsPage,benchmark:benchmarkPage,results:resultsPage,testdesign:testDesignPage,knowledge:knowledgePage,watch:watchPage,feedback:feedbackPage,activity:activityPage,management:managementPage,workgroup:benchmarkPage};
-var labels={studio:"AI Workgroup Studio",dashboard:canEdit()?"Dashboard":"Overview",tasks:canEdit()?"Task management":"Task explorer",solutions:canEdit()?"Technology catalog":"AI solutions",recommendations:"Recommendations",benchmark:"Benchmark workspace",results:"Results explorer",testdesign:"Test design",knowledge:"Guides & charter",watch:"Technology watch",feedback:"Feedback & discussions",activity:"Activity feed",management:"Management view",workgroup:"Benchmark workspace"};
+},updates:updatesPage,dashboard:dashboardPage,tasks:tasksPage,solutions:solutionsPage,recommendations:recommendationsPage,benchmark:benchmarkPage,results:resultsPage,testdesign:testDesignPage,knowledge:knowledgePage,watch:watchPage,feedback:feedbackPage,activity:activityPage,management:managementPage,workgroup:benchmarkPage};
+var labels={studio:"AI Workgroup Studio",updates:"Workgroup updates",dashboard:canEdit()?"Dashboard":"Overview",tasks:canEdit()?"Task management":"Task explorer",solutions:canEdit()?"Technology catalog":"AI solutions",recommendations:"Recommendations",benchmark:"Benchmark workspace",results:"Results explorer",testdesign:"Test design",knowledge:"Guides & charter",watch:"Technology watch",feedback:"Feedback & discussions",activity:"Activity feed",management:"Management view",workgroup:"Benchmark workspace"};
 if(!user()){login();return;}if(ui.page==="studio"&&!canEdit())ui.page="dashboard";if(ui.page==="workgroup")ui.page=canEdit()?"studio":"dashboard";if((ui.page==="benchmark"||ui.page==="testdesign")&&!canEdit())ui.page="results";if(canEdit()&&ui.page==="solutions")ui.solutionView="components";shell((pages[ui.page]||dashboardPage)(),labels[ui.page]);
 if(ui.page==="results"){
  var focus=new URLSearchParams(window.location.search);
@@ -900,6 +924,17 @@ if(ui.page==="results"){
  }
 }
 
+if(ui.page==="updates"){
+  var updatesHost=document.getElementById("shared-demo-updates");
+  if(updatesHost)window.AICompassUpdates.mount(updatesHost,
+    window.AICompassUpdates.demoProvider(db),"demo",{workspace:function(){
+      var value=new URLSearchParams(window.location.search).get("workspace");
+      return ["workgroup","engineer","management"].includes(value)?value:"workgroup";
+    },sections:function(){return canEdit()?
+      ["results","benchmark","recommendations","guides","watch","catalog","tasks","updates"]:
+      ["results","recommendations","guides","watch","catalog","updates"];}}).setAccess(true);
+}
+
 var runtime=window.AICompassRuntime;
 var requested=new URLSearchParams(window.location.search).get("workspace");
 var persona=runtime.choosePersona(user(), "demo", requested);
@@ -918,7 +953,9 @@ if(target && (ui.page==="dashboard" || ui.page==="tasks") && persona && persona.
  target.insertAdjacentHTML("beforeend",
    '<section id="demo-environment-profile" class="card" role="region" aria-label="My OS environment"></section>');
  window.AICompassEnvironment.mount(
-   document.getElementById("demo-environment-profile"),demoEnvironment,"demo").setAccess(true);
+   document.getElementById("demo-environment-profile"),demoEnvironment,"demo",
+   {onProfileSaved:function(){if(demoEngineerWorkspace)demoEngineerWorkspace.refresh();}})
+   .setAccess(true);
 }
 
 if(ui.page === "management" && persona && persona.id === "management" && window.AICompassHeatmap) {
@@ -972,9 +1009,13 @@ if(persona && persona.id === "engineer" && ui.page==="tasks" && window.AICompass
     var eRoot=document.createElement("section");
     eRoot.id="shared-demo-engineer";eRoot.className="server-catalog";
     engineerSource.insertBefore(eRoot,engineerSource.firstChild);
+    /* The selected Engineer persona is simulated for this fictional account; the
+     * Demo never claims a real workload profile for a multi-role user. */
+    var engineerPersona=Object.assign({},user(),{role:"engineer"});
     var eWorkspace=window.AICompassEngineer.mount(eRoot,
-      window.AICompassEngineer.demoProvider(db,user(),persist),"demo");
+      window.AICompassEngineer.demoProvider(db,engineerPersona,persist),"demo");
     eWorkspace.setAccess(true);
+    demoEngineerWorkspace=eWorkspace;
     var legacy=document.createElement("button");
     legacy.type="button";legacy.className="btn sm";
     legacy.textContent="Open Results Explorer";
@@ -1189,12 +1230,13 @@ function componentCatalog(){
  '<div class="row-between" style="margin-top:16px"><span class="muted small">'+count+' catalog components · '+db.solutions.filter(function(sol){return db.runs.some(function(r){return r.solution===sol.id;});}).length+' measured configurations</span><span class="muted small">Catalog ≠ measured evidence</span></div>';
 }
 function solutionsPage(){
-if(canEdit())return heading("Workgroup catalog","Models, Providers, Harnesses & Frameworks","One shared Catalog editor in Demo and Server; each revision and original JSON is preserved.","") + '<div id="shared-demo-catalog"></div><section id="shared-demo-pricing"></section>';
+var gapNotice=window.AICompassWorkgroup.coverageGapNotice("demo");
+if(canEdit())return gapNotice+heading("Workgroup catalog","Models, Providers, Harnesses & Frameworks","One shared Catalog editor in Demo and Server; each revision and original JSON is preserved.","") + '<div id="shared-demo-catalog"></div><section id="shared-demo-pricing"></section>';
 var q=String(ui.filters.solutionSearch||"").toLowerCase(),availability=ui.filters.access||"all",maturity=ui.filters.maturity||"all";
 var solutions=db.solutions.filter(function(s){return visibleSolution(s)&&(s.name+" "+s.model+" "+s.harness+" "+s.provider+" "+s.tags.join(" ")).toLowerCase().includes(q)&&(availability==="all"||(availability==="yes"?s.accessible:!s.accessible))&&(maturity==="all"||s.maturity===maturity);});
 var filters='<div class="filters"><input class="input" data-filter="solutionSearch" placeholder="Search model, harness, provider or capability…" value="'+E(ui.filters.solutionSearch||"")+'"><select data-filter="access">'+[["all","Any access"],["yes","Accessible"],["no","Not accessible"]].map(function(x){return opt(x[0],x[1],availability);}).join("")+'</select><select data-filter="maturity">'+[["all","Any maturity"],["candidate","Candidate"],["experimental","Experimental"],["evaluated","Evaluated"],["qualified","Qualified"]].map(function(x){return opt(x[0],x[1],maturity);}).join("")+'</select></div>';
 var compare=ui.selectedCompare.length>=2?section("Selected solution comparison",solutionComparison(ui.selectedCompare)):'<div class="note" style="margin-top:18px">Select two or more solution cards to compare configurations, accessibility, evidence, outcomes, cost and effort side by side.</div>';
-return heading("Explore","Benchmarked AI solutions","Each listed solution is a model + provider + harness + configuration that has been used in a recorded benchmark run.",btn("Explore engineering tasks","nav","tasks"))+filters+'<div class="grid g3">'+(solutions.length?solutions.map(solutionCard).join(""):'<div class="empty">No solutions match these filters.</div>')+'</div><div style="margin-top:20px">'+compare+'</div>';
+return gapNotice+heading("Explore","Benchmarked AI solutions","Each listed solution is a model + provider + harness + configuration that has been used in a recorded benchmark run.",btn("Explore engineering tasks","nav","tasks"))+filters+'<div class="grid g3">'+(solutions.length?solutions.map(solutionCard).join(""):'<div class="empty">No solutions match these filters.</div>')+'</div><div style="margin-top:20px">'+compare+'</div>';
 }
 function solutionComparison(ids){
 var ss=ids.map(function(id){return rec("solutions",id);}).filter(function(s){return s&&visibleSolution(s);});
@@ -1243,6 +1285,12 @@ openModal("Recommendation detail",
  window.AICompassWorkgroup.renderDomainDetail(projection,{mode:"demo",domain:"recommendations"}),
  '<button type="button" data-act="solution" data-id="'+E(s.id)+'">Open full solution detail</button>');
 }
+function updatesPage(){
+return heading("Published knowledge","Workgroup updates · What's new",
+  "Globally published measured results, campaigns, guides, technologies and editorial context. Drafts, internal hypotheses, private discussions and the privileged Activity Feed are deliberately excluded.",
+  btn("Workgroup Studio","nav","studio"))+
+'<div id="shared-demo-updates" role="region" aria-label="Published workgroup updates"></div>';
+}
 function recommendationsPage(){
 var solutions=db.solutions.filter(function(s){return visibleSolution(s);});
 var rows=solutions.map(function(s){
@@ -1260,11 +1308,29 @@ return heading("Decision support","Published recommendations","Globally shared r
 
 
 function campaignStages(){return [{id:"planned",name:"Planned",hint:"Campaigns to prepare"},{id:"active",name:"In progress",hint:"Open for execution"},{id:"review",name:"Under review",hint:"Closed / staged"},{id:"published",name:"Published",hint:"Reviewed evidence"}];}
+function campaignStageFilter(){
+ var status=new URLSearchParams(window.location.search).get("status");
+ return ["under_review","review","awaiting_publication"].includes(status)?"review":status||"";
+}
+function campaignFocusNote(focus){
+ if(!focus)return "";
+ var label=(campaignStages().find(function(s){return s.id===focus;})||{}).name||focus;
+ var shown=db.campaigns.filter(function(c){return !c.archived&&c.stage===focus;}).length;
+ return '<p class="muted small" data-campaign-focus role="status">Focused on the Studio '+
+   'attention count: showing '+shown+' '+E(label)+' campaign(s) only. This is a read-only '+
+   'derived filter within your read scope, not a personal assignment. '+
+   btn("Show all stages","campaignFocusClear","","sm")+'</p>';
+}
 function campaignRuns(c){return db.runs.filter(function(r){return r.campaignId===c.id;});}
 function campaignCompleted(c){return db.campaignTrials.filter(function(t){return t.campaign===c.id&&t.status==="completed";});}
 function campaignStatusLabel(c){return campaignStages().find(function(s){return s.id===c.stage;})?.name||c.stage;}
 function campaignBoard(){
-return '<div class="daily-board">'+campaignStages().map(function(stage){
+var filter=campaignStageFilter();
+return '<p class="muted small" data-campaign-focus>'+(filter?
+ 'Focused on the review count from the Studio badge: only '+E((campaignStages().find(function(s){return s.id===filter;})||{}).name||filter)+
+ ' campaigns are shown. This is a read-only derived filter, not a personal assignment. '+
+ btn("Show all stages","campaignFocusClear","","sm") : "All campaign stages are shown; the Studio badge only opens this read-only filter.")+'</p>'+
+'<div class="daily-board">'+campaignStages().filter(function(stage){return !filter||stage.id===filter;}).map(function(stage){
  var items=db.campaigns.filter(function(c){return !c.archived&&c.stage===stage.id;});
  return '<section class="daily-lane"><div class="daily-lane-head"><div><h3>'+E(stage.name)+'</h3><span class="muted small">'+E(stage.hint)+'</span></div><span class="lane-num">'+items.length+'</span></div>'+
  (items.map(function(c){return '<article class="daily-card"><div class="row-between">'+badge(c.mode==="task_compare"?"Task comparison":"Solution coverage")+'<span class="muted small">'+E(c.updated||"")+'</span></div><h4>'+E(c.title)+'</h4>'+
@@ -1356,13 +1422,23 @@ var filtered=db.runs.filter(function(r){var c=caseOf(r);return visibleRun(r)&&(!
 var filters='<div class="filters"><select data-filter="runTask">'+[opt("all","All tasks",task)].concat(db.tasks.filter(function(t){return db.cases.some(function(c){return c.task===t.id;});}).map(function(t){return opt(t.id,t.name,task);})).join("")+'</select><select data-filter="runSolution">'+[opt("all","All solutions",sol)].concat(db.solutions.filter(visibleSolution).map(function(s){return opt(s.id,s.name,sol);})).join("")+'</select> '+(!publishedOnly?'<select data-filter="runStatus">'+[["all","Any publication status"],["published","Published"],["draft","Draft"]].map(function(x){return opt(x[0],x[1],status);}).join("")+'</select>':"")+'<span class="muted small">'+filtered.length+" result(s)"+'</span></div>';
 var cards=window.AICompassWorkgroup.renderRecords(filtered.map(function(r){
  var tested=caseOf(r),sol=rec("solutions",r.solution);
+ var editorial=sol&&sol.recommendation&&sol.publication==="published"?
+   "Editorial context (descriptive only): "+sol.recommendation+
+   " It never overrides this measured outcome.":"";
+ var notices=[r.accepted?null:
+   "Published failed-DoD measurement: recorded negative evidence. It is never presented as a positive recommendation."+
+   (editorial?" "+editorial:"")].filter(Boolean);
  return {id:r.id,title:sol?.name||r.solution||"Composite Framework workflow",
    status:r.status,description:"MEASURED · controlled benchmark",
    facts:[r.date,tested?.title||r.case,
      r.frameworkAggregate?"Collaborative workflow ("+(r.frameworkParticipantIds||[]).length+" participants)":"Individual",
      "Quality "+r.score+"/100",r.accepted?"Accepted":"Failed",
      "Human "+effort(r)+" min","AI cost "+money(r.cost)],
-   actions:[{label:"Evidence",attributes:{"data-act":"runDetail","data-id":r.id}}]};
+   notices:notices,
+   actions:[{label:"Evidence",attributes:{"data-act":"runDetail","data-id":r.id}}].concat(
+     canEdit()&&sol&&sol.recommendation&&sol.publication==="published"?
+       [{label:"Editorial context",
+         attributes:{"data-act":"editRecommendation","data-id":sol.id}}]:[])};
 }),{domain:"results",mode:"demo",emptyText:"No matching published evidence."});
 return filters+cards;
 }
@@ -1418,9 +1494,10 @@ return controls+'<div class="note" style="margin-bottom:16px"><strong>'+E(mode==
 }
 
 function campaignRegistry(){
- var items=db.campaigns.filter(function(c){return !c.archived&&(canEdit()||c.stage==="published");})
+ var focus=campaignStageFilter();
+ var items=db.campaigns.filter(function(c){return !c.archived&&(canEdit()||c.stage==="published")&&(!focus||c.stage===focus);})
    .sort(function(a,b){return String(b.updated||"").localeCompare(String(a.updated||""));});
- return '<div class="card"><div class="filters">'+badge(db.campaigns.filter(function(x){return !x.archived;}).length+" campaigns")+
+ return campaignFocusNote(focus)+'<div class="card"><div class="filters">'+badge(db.campaigns.filter(function(x){return !x.archived;}).length+" campaigns")+
  ["planned","active","review","published"].map(function(k){return badge(db.campaigns.filter(function(x){return x.stage===k;}).length+" "+k);}).join(" ")+'</div>'+
  window.AICompassWorkgroup.renderRecords(items.map(function(c){
    var runs=campaignRuns(c),sessions=db.campaignTrials.filter(function(x){return x.campaign===c.id;});
@@ -3365,6 +3442,11 @@ if(act==="login"){currentUser=id;localStorage.setItem(SESSION,id);ui.page=initia
 if(act==="switch"){disposeModalDraft();currentUser="";localStorage.removeItem(SESSION);ui.modal="";render();return;}
 if(act==="close"){closeModal();return;}
 if(act==="nav"){ui.page=id;ui.modal="";render();window.scrollTo(0,0);return;}
+if(act==="campaignFocusClear"){
+ var focusUrl=new URL(window.location.href);focusUrl.searchParams.delete("status");
+ window.history.replaceState(window.history.state,"",focusUrl.pathname+focusUrl.search+focusUrl.hash);
+ render();return;
+}
 if(act==="task"){ui.task=id;ui.matrixTarget=id;ui.modal="";ui.page="tasks";render();return;}
 if(act==="expand"){ui.expanded[id]=ui.expanded[id]===false?true:false;render();return;}
 if(act==="solution"){ui.modal="";solutionDetail(id);return;}

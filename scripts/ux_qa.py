@@ -25,7 +25,9 @@ ROLES = {
     "engineer": ["user"],
     "management": ["deployment-planner"],
     "maintenance": ["data-maintainer"],
-    "multi_role": ["contributor", "user-admin", "deployment-planner"],
+    # UX-R06 publishes real synthetic evidence and reviews it with the same
+    # combined account; the grants stay independent, never inherited.
+    "multi_role": ["contributor", "user-admin", "deployment-planner", "reviewer"],
 }
 
 
@@ -190,6 +192,137 @@ def capture(page, directory, name):
         .forEach(input => { input.value = ''; })""")
     page.screenshot(path=str(directory / (name + ".png")), full_page=True,
                     animations="disabled")
+
+
+def server_context_login(context, base_url, creds, role, path="/?mode=server"):
+    """Real session + CSRF cookie through the visible Server sign-in form."""
+    page = context.new_page()
+    page.set_default_timeout(15000)
+    page.goto(base_url + path, wait_until="domcontentloaded")
+    page.locator("#server-login-form").wait_for(state="visible", timeout=25000)
+    page.locator("#server-username").fill(creds[role]["username"])
+    page.locator("#server-password").fill(creds[role]["password"])
+    page.get_by_role("button", name="Sign in to Server").click()
+    page.locator("#server-login-form").wait_for(state="hidden", timeout=25000)
+    if page.locator("#server-account-name").text_content() != creds[role]["username"]:
+        raise AssertionError("Authenticated Server account does not match its fixture")
+    return page
+
+
+def api_request(context, base_url, path, method="POST", payload=None, expect=(200, 201)):
+    """Real same-origin API call using the authenticated session's CSRF cookie."""
+    csrf = next((cookie["value"] for cookie in context.cookies()
+                 if cookie["name"] == "csrftoken"), "")
+    headers = {"X-CSRFToken": csrf, "Content-Type": "application/json"}
+    response = context.request.fetch(
+        base_url + path, method=method,
+        data=None if payload is None else json.dumps(payload), headers=headers)
+    if expect is not None and response.status not in expect:
+        raise AssertionError(
+            f"{method} {path} returned {response.status}: {response.text()[:400]}")
+    if response.status == 204:
+        return {}
+    return response.json()
+
+
+def seed_server_evidence(context, base_url, label, published=True, quantifiable=False):
+    """Deterministic, explicitly synthetic Server evidence through the real API.
+
+    Everything is created by an authenticated disposable account with real
+    permissions; no Demo record, no mocked authorization and no vendor access.
+
+    ``quantifiable`` records a complete setup duration and a numeric marginal
+    cost so the published Run yields a quantifiable Management opportunity cell
+    with pinned measured-run revisions (used by the deep §13 #17 drill-down).
+    """
+    harness = api_request(context, base_url, "/api/v1/catalog/harness", payload={
+        "name": "UX-R06 " + label + " Linux-only synthetic harness",
+        "properties": {"supported_os": ["linux"], "enterprise_accessibility": "accessible",
+                       "interface": "cli", "version": "1.0-synthetic",
+                       "details": "Disposable QA fixture, never a production technology"}})
+    model = api_request(context, base_url, "/api/v1/models", payload={
+        "name": "UX-R06 " + label + " synthetic model",
+        "properties": {"enterprise_accessibility": "accessible"}})
+    provider = api_request(context, base_url, "/api/v1/catalog/provider", payload={
+        "name": "UX-R06 " + label + " synthetic provider",
+        "properties": {"enterprise_accessibility": "accessible"}})
+    task = api_request(context, base_url, "/api/v1/tasks",
+                    payload={"name": "UX-R06 " + label + " synthetic Task"})
+    case = api_request(context, base_url, "/api/v1/test-cases", payload={
+        "name": "UX-R06 " + label + " synthetic Test Case", "task_id": task["id"],
+        "properties": {"objective": "Disposable synthetic challenge",
+                       "dod": "Synthetic acceptance only"}})
+    guide = api_request(context, base_url, "/api/v1/guides", payload={
+        "name": "UX-R06 " + label + " published synthetic guide",
+        "properties": {"text": "Synthetic runbook for a disposable fixture"}})
+    published_guide = api_request(context, base_url, "/api/v1/guides/" + guide["id"], method="PATCH",
+        payload={"expected_revision": guide["revision"], "properties": {
+            "text": "Synthetic runbook for a disposable fixture",
+            "recipe": {"modules": [{"id": guide["id"], "revision": "r001"}],
+                       "required": ["model", "provider", "harness"]},
+            "publication": "published"}})["guide"]
+    draft_guide = api_request(context, base_url, "/api/v1/guides", payload={
+        "name": "UX-R06 " + label + " internal draft guide",
+        "properties": {"text": "Draft only; must never appear as published knowledge"}})
+    internal_watch = api_request(context, base_url, "/api/v1/watch-entries", payload={
+        "name": "UX-R06 " + label + " internal hypothesis",
+        "properties": {"hypothesis": "Unreviewed internal hypothesis",
+                       "review_state": "draft", "visibility": "internal"}})
+    campaign = api_request(context, base_url, "/api/v1/campaigns", payload={
+        "name": "UX-R06 " + label + " synthetic campaign", "objective": "Disposable QA objective",
+        "mode": "task_centred", "task_id": task["id"], "test_case_ids": [case["id"]],
+        "guide_id": guide["id"], "configuration": {"reasoning": None}})
+    started = api_request(context, base_url, "/api/v1/campaigns/" + campaign["id"] + "/actions/start",
+        payload={"expected_revision": campaign["revision"]})["campaign"]
+    session = api_request(context, base_url, "/api/v1/campaigns/" + started["id"] + "/sessions", payload={
+            "test_case_id": case["id"],
+            "component_ids": {"model": model["id"], "provider": provider["id"],
+                              "harness": harness["id"]},
+            "settings": {"reasoning": None}, "properties": {"tools": ["git"]},
+            "configuration_version": "v1"})
+    after_interaction = api_request(context, base_url, "/api/v1/sessions/" + session["id"] + "/interactions", payload={
+            "expected_revision": session["revision"], "type": "human_prompt",
+            "content": "Synthetic prompt for a disposable QA fixture",
+            "human_minutes": 0, "agent_minutes": None})
+    close_revision = after_interaction["revision"]
+    if quantifiable:
+        # Complete the setup duration and a numeric marginal cost so the closed
+        # Run measures a quantifiable opportunity (measured human effort + cost),
+        # instead of the default unquantifiable synthetic Run.
+        setup = api_request(context, base_url, "/api/v1/sessions/" + session["id"] + "/setup",
+                            method="PATCH",
+                            payload={"expected_revision": close_revision,
+                                     "installation_duration_minutes": 3})
+        close_revision = setup["revision"]
+    closed = api_request(context, base_url, "/api/v1/sessions/" + session["id"] + "/close",
+                      payload={
+                          "expected_revision": close_revision,
+                          "outcome": "accepted", "quality_score": 85,
+                          "quality_evaluation": "Synthetic acceptance under its method",
+                          "information_utility_score": 67,
+                          "information_utility_evaluation": "Synthetic utility",
+                          "tokens_count": None, "tokens_multiplier": 1,
+                          "cost_mode": "amount" if quantifiable else "flat_rate",
+                          "cost_eur": 1.25 if quantifiable else None,
+                          "human_review_minutes": 4, "human_correction_minutes": 0,
+                          "produced_outputs": "synthetic-artifact.txt"})
+    current = api_request(context, base_url, "/api/v1/campaigns/" + started["id"],
+                       method="GET", expect=(200,))
+    under_review = api_request(context, base_url, "/api/v1/campaigns/" + started["id"] + "/actions/close",
+        payload={"expected_revision": current["revision"]})["campaign"]
+    result = {"harness": harness, "model": model, "provider": provider, "task": task,
+              "case": case, "guide": published_guide, "draft_guide": draft_guide,
+              "internal_watch": internal_watch, "campaign": under_review,
+              "run": closed, "published": False}
+    if published:
+        current = api_request(context, base_url, "/api/v1/campaigns/" + started["id"],
+                           method="GET", expect=(200,))
+        api_request(context, base_url,
+                 "/api/v1/campaigns/" + started["id"] + "/publication/publish",
+                 payload={"expected_revision": current["revision"], "run_ids": [closed["id"]],
+                          "removal_reason": ""})
+        result["published"] = True
+    return result
 
 
 def demo_journey(browser, demo_url, artifacts, role, label, viewport):
@@ -628,6 +761,485 @@ def demo_journey(browser, demo_url, artifacts, role, label, viewport):
     finally:
         context.tracing.stop(path=str(artifacts / ("demo-" + label + "-" + str(viewport["width"]) + ".zip")))
         context.close()
+
+
+def demo_persona_journey(browser, demo_url, artifacts, viewport):
+    """UX-R06 Demo: published Updates, grounded counter filter, OS variants and
+    persona switching for an explicitly multi-role fictional account."""
+    context = browser.new_context(viewport=viewport, reduced_motion="reduce")
+    context.tracing.start(screenshots=True, snapshots=True, sources=True)
+    page = context.new_page()
+    page.set_default_timeout(15000)
+    errors = []
+    api_calls = []
+    page.on("pageerror", lambda e: errors.append(str(e)))
+    page.on("request", lambda request: api_calls.append(request.url)
+            if "/api/v1/" in request.url else None)
+    try:
+        page.goto(demo_url + "?mode=demo&workspace=workgroup", wait_until="domcontentloaded")
+        page.locator('[data-act="login"][data-id="u6"]').click()
+        page.locator(".app").wait_for(state="visible", timeout=20000)
+        personas = page.locator(".shared-personas a").all_inner_texts()
+        if len(personas) != 3 or any("Maintenance" in name for name in personas):
+            raise AssertionError(
+                "Multi-role Demo must expose exactly its granted personas: " + str(personas))
+        if api_calls:
+            raise AssertionError("Standalone Demo unexpectedly contacted an API")
+        map_marker = page.locator("[data-workgroup-map]")
+        map_marker.wait_for(state="visible", timeout=20000)
+        zones = page.locator("[data-workgroup-map] .shared-studio-zone")
+        if zones.count() != 5:
+            raise AssertionError("Workgroup Studio must expose exactly five themed zones")
+        if page.locator("[data-workgroup-map] .shared-studio-core").count() < 5:
+            raise AssertionError("Core study areas lost their visual emphasis")
+        if not page.evaluate("""() => Array.from(
+                document.querySelectorAll('[data-studio-section]'))
+                .every(node => node.textContent.trim().length > 0)"""):
+            raise AssertionError("Studio blocks lack accessible names")
+        published_link = page.locator('[data-studio-published="updates"]')
+        gap_link = page.locator('[data-studio-gap="catalog"]')
+        if not published_link.count() or not gap_link.count():
+            raise AssertionError("Studio lost the published-updates or coverage-gap link")
+        badge = page.locator('[data-attention-filter="benchmark"]')
+        if not badge.count():
+            raise AssertionError("Grounded Under-review attention count is missing")
+        if not badge.get_attribute("aria-label"):
+            raise AssertionError("Attention count has no accessible label")
+        badge.focus()
+        page.keyboard.press("Enter")
+        page.locator("[data-campaign-focus]").wait_for(state="visible", timeout=20000)
+        if "review" not in page.locator("[data-campaign-focus]").inner_text().lower():
+            raise AssertionError("Attention count did not open its source filter")
+        filtered = page.locator('[data-business-domain="campaigns"] [data-business-record]')
+        if filtered.count() != 1:
+            raise AssertionError(
+                "Filtered campaign view must show the single unresolved record; found %d"
+                % filtered.count())
+        assert_no_horizontal_overflow(page)
+        capture(page, artifacts, "demo-attention-filter-" + str(viewport["width"]))
+        page.get_by_role("button", name="Show all stages").click()
+        page.wait_for_timeout(300)
+        if page.locator('[data-business-domain="campaigns"] [data-business-record]').count() <= 1:
+            raise AssertionError("Clearing the counter filter did not restore every campaign")
+        page.goto(demo_url + "?mode=demo&workspace=workgroup&section=updates",
+                  wait_until="domcontentloaded")
+        surface = page.locator('[data-shared-updates="demo"]')
+        surface.wait_for(state="visible", timeout=20000)
+        if surface.locator("[data-updates-kind]").count() == 0:
+            raise AssertionError("Published Demo knowledge is unexpectedly empty")
+        if surface.locator('[data-updates-id="g5"]').count():
+            raise AssertionError("A draft Demo guide leaked into published updates")
+        if surface.locator('[data-updates-id="w2"]').count():
+            raise AssertionError("An internal Watch hypothesis leaked into published updates")
+        if not surface.locator('[data-updates-id="g1"]').count():
+            raise AssertionError("A published Demo guide is missing from published updates")
+        # Desktop keyboard and assistive-technology contract for the new surface.
+        nav_item = page.locator('[data-act="nav"][data-id="updates"]')
+        nav_item.focus()
+        if not page.evaluate(
+                "() => document.activeElement && "
+                "document.activeElement.textContent.includes('Workgroup updates')"):
+            raise AssertionError("Published updates nav item is not keyboard focusable")
+        withheld = surface.locator(".shared-updates-withheld")
+        if not withheld.count() or not withheld.locator("summary").inner_text().strip():
+            raise AssertionError("Published updates lack an accessible exclusion disclosure")
+        withheld.locator("summary").click()
+        if "never included" not in withheld.inner_text():
+            raise AssertionError("Excluded internal sources are not stated explicitly")
+        if surface.get_by_role("heading", name="Workgroup Updates · What's New").count() != 1:
+            raise AssertionError("Published updates lack a single semantic heading")
+        if surface.locator("[data-updates-group]").count() == 0:
+            raise AssertionError("Published updates are not grouped for progressive reading")
+        if not page.evaluate("""() => Array.from(
+                document.querySelectorAll('.shared-updates-withheld summary'))
+                .every(node => node.tabIndex >= 0 && node.textContent.trim().length > 0)"""):
+            raise AssertionError("Exclusion disclosure is not a focusable labelled control")
+        measured = surface.locator('[data-updates-kind="measured_result"]').first
+        source_link = measured.get_by_role("link").first
+        href = source_link.get_attribute("href") or ""
+        if "section=results" not in href or "record=" not in href:
+            raise AssertionError("Measured update source link lost its exact record route")
+        source_link.click()
+        page.locator("#ux-demo-run-context").wait_for(state="visible", timeout=20000)
+        if page.locator("#ux-demo-run-context .ux-advanced-source pre").is_visible():
+            raise AssertionError("Updates drilldown defaults to a raw JSON dump")
+        assert_no_horizontal_overflow(page)
+        capture(page, artifacts, "demo-updates-source-" + str(viewport["width"]))
+        page.go_back(wait_until="domcontentloaded")
+        surface.wait_for(state="visible", timeout=20000)
+
+        page.locator('[data-persona="management"]').click()
+        page.locator("#demo-management-insights").wait_for(state="visible", timeout=20000)
+        page.locator("[data-heat-scenario]").select_option("opp-demo-insights")
+        gap = page.locator("[data-heat-gap]").first
+        gap.wait_for(state="visible", timeout=20000)
+        uncovered_task = gap.get_attribute("data-heat-gap")
+        gap.click()
+        notice = page.locator("[data-coverage-gap]")
+        notice.wait_for(state="visible", timeout=20000)
+        if uncovered_task not in notice.inner_text():
+            raise AssertionError("Coverage-gap navigation lost the requested Task context")
+        if "not a hidden candidate" not in notice.inner_text():
+            raise AssertionError("Coverage-gap notice does not state the missing evidence")
+        if "created automatically" not in notice.inner_text():
+            raise AssertionError("Coverage-gap notice does not deny automatic creation")
+        capture(page, artifacts, "demo-coverage-gap-" + str(viewport["width"]))
+
+        page.locator('[data-persona="engineer"]').click()
+        page.locator("[data-engineer-body]").wait_for(state="visible", timeout=20000)
+        unknown = page.locator("[data-engineer-os-unknown]")
+        unknown.wait_for(state="visible", timeout=20000)
+        profile_text = page.locator("[data-engineer-body]").inner_text()
+        if "Unknown" not in profile_text and "not configured" not in profile_text:
+            raise AssertionError("Missing OS profile is not presented as an explicit unknown")
+        page.locator("#demo-environment-profile input[name=windows]").check()
+        page.get_by_role("button", name="Save my environment").click()
+        page.locator("[data-engineer-os-unknown]").wait_for(state="detached", timeout=20000)
+        page.wait_for_timeout(600)
+        if page.locator(".ux-os-alternative").count() == 0:
+            raise AssertionError("A Linux-only alternative was hidden from a Windows-only user")
+        alternative = page.locator(".ux-os-alternative").first.inner_text()
+        if "Linux" not in alternative:
+            raise AssertionError("Other-OS alternative does not name the required OS")
+        body_text = page.locator("[data-engineer-body]").inner_text()
+        if "windows" not in body_text.lower():
+            raise AssertionError("Declared OS is not reflected in Engineer discovery")
+        if page.locator("[data-engineer-view=tool]").count() != 1:
+            raise AssertionError("By Tool inversion is not keyboard reachable")
+        assert_no_horizontal_overflow(page)
+        capture(page, artifacts, "demo-engineer-os-" + str(viewport["width"]))
+        if errors:
+            raise AssertionError("Demo persona JS runtime error(s): " + "; ".join(errors[:3]))
+        return {"personas": len(personas), "zones": 5}
+    finally:
+        context.tracing.stop(path=str(artifacts / ("demo-personas-" +
+                                                   str(viewport["width"]) + ".zip")))
+        context.close()
+
+
+def server_publication_journey(browser, base_url, creds, artifacts, viewport):
+    """UX-R06 Server: real published evidence, counter filter, reader boundaries."""
+    publisher_context = browser.new_context(viewport=viewport, reduced_motion="reduce")
+    workgroup_context = browser.new_context(viewport=viewport, reduced_motion="reduce")
+    engineer_context = browser.new_context(viewport=viewport, reduced_motion="reduce")
+    maintenance_context = browser.new_context(viewport=viewport, reduced_motion="reduce")
+    try:
+        server_context_login(publisher_context, base_url, creds, "multi_role",
+                "/?mode=server&workspace=workgroup")
+        evidence = seed_server_evidence(publisher_context, base_url, "published", published=True)
+        review_campaign = seed_server_evidence(publisher_context, base_url, "review", published=False)
+        seed_server_evidence(publisher_context, base_url, "second", published=True)
+
+        workgroup = server_context_login(workgroup_context, base_url, creds, "workgroup",
+                            "/?mode=server&workspace=workgroup&section=studio")
+        home = workgroup.locator("#server-workgroup-home")
+        home.wait_for(state="visible", timeout=25000)
+        badge = workgroup.locator('#server-workgroup-home [data-attention-filter="benchmark"]')
+        badge.wait_for(state="visible", timeout=25000)
+        if badge.get_attribute("aria-label") is None:
+            raise AssertionError("Server attention count has no accessible label")
+        badge.click()
+        workgroup.locator("[data-campaign-status-focus]").wait_for(state="visible",
+                                                                   timeout=25000)
+        focus_text = workgroup.locator("[data-campaign-status-focus]").inner_text().lower()
+        if "awaiting a review decision" not in focus_text:
+            raise AssertionError("Server counter filter does not name the pending decision")
+        if "not a personal assignment" not in focus_text:
+            raise AssertionError("Server counter filter does not explain its derived scope")
+        if not workgroup.locator(
+                '[data-business-record="%s"]' % review_campaign["campaign"]["id"]).count():
+            raise AssertionError("Under-review campaign missing from the filtered list")
+        if workgroup.locator(
+                '[data-business-record="%s"]' % evidence["campaign"]["id"]).count():
+            raise AssertionError("Published campaign leaked into the under-review filter")
+        assert_no_horizontal_overflow(workgroup)
+        capture(workgroup, artifacts, "server-counter-filter-" + str(viewport["width"]))
+        workgroup.get_by_role("button", name="Show all campaigns").click()
+        workgroup.wait_for_timeout(400)
+
+        workgroup.goto(base_url + "/?mode=server&workspace=workgroup&section=updates",
+                       wait_until="domcontentloaded")
+        surface = workgroup.locator('[data-shared-updates="server"]')
+        surface.wait_for(state="visible", timeout=25000)
+        if surface.locator("[data-updates-kind]").count() == 0:
+            raise AssertionError("Published Server knowledge is unexpectedly empty")
+        for label, record in (("published guide", evidence["guide"]["id"]),
+                              ("draft guide", evidence["draft_guide"]["id"]),
+                              ("internal watch", evidence["internal_watch"]["id"])):
+            present = surface.locator(f'[data-updates-id="{record}"]').count()
+            if "published" in label and not present:
+                raise AssertionError(f"A published Server {label} is missing from updates")
+            if "draft" in label.lower() or "internal" in label:
+                if present:
+                    raise AssertionError(f"A restricted Server {label} leaked into updates")
+        if surface.locator(f'[data-updates-id="{evidence["campaign"]["id"]}"]').count() == 0:
+            raise AssertionError("Published campaign announcement is missing")
+        if surface.locator(f'[data-updates-id="{review_campaign["campaign"]["id"]}"]').count():
+            raise AssertionError("Unpublished campaign leaked into published updates")
+        if surface.locator(f'[data-updates-id="{evidence["run"]["id"]}"]').count() == 0:
+            raise AssertionError("Published measured Run is missing from updates")
+        assert_no_horizontal_overflow(workgroup)
+        capture(workgroup, artifacts, "server-updates-workgroup-" + str(viewport["width"]))
+
+        engineer = server_context_login(engineer_context, base_url, creds, "engineer",
+                           "/?mode=server&workspace=engineer&section=updates")
+        reader_surface = engineer.locator('[data-shared-updates="server"]')
+        reader_surface.wait_for(state="visible", timeout=25000)
+        if reader_surface.locator("[data-updates-kind]").count() == 0:
+            raise AssertionError("A reader cannot see published Server knowledge")
+        denied = reader_surface.locator("[data-updates-source-denied]")
+        if denied.count() == 0:
+            raise AssertionError(
+                "An unreachable Workgroup source was offered as a live reader link")
+        if "is not available to this account" not in denied.first.inner_text():
+            raise AssertionError("Unreachable source does not explain the access boundary")
+        results_link = reader_surface.locator(
+            '[data-updates-kind="measured_result"] a').first
+        if "section=results" not in (results_link.get_attribute("href") or ""):
+            raise AssertionError("Reader-visible measured source link is not authorized")
+        draft_selector = '[data-updates-id="%s"]' % evidence["draft_guide"]["id"]
+        if reader_surface.locator(draft_selector).count():
+            raise AssertionError("Draft guide leaked into the reader's published view")
+        capture(engineer, artifacts, "server-updates-engineer-" + str(viewport["width"]))
+
+        maintainer = server_context_login(maintenance_context, base_url, creds, "maintenance",
+                             "/maintenance?mode=server")
+        maintainer.goto(base_url + "/maintenance?mode=server&section=updates",
+                        wait_until="domcontentloaded")
+        maintainer.wait_for_timeout(1500)
+        if maintainer.locator("#server-updates").is_visible():
+            raise AssertionError("Maintenance-only account received published Workgroup updates")
+        if maintainer.locator("#server-governance-audit").is_hidden():
+            raise AssertionError("Maintenance workspace lost its authorized audit view")
+        assert_exactly_one_view(maintainer, "#ux-screen-host > [data-ux-screen]")
+        maintainer.goto(base_url + "/?mode=server&workspace=workgroup&section=studio",
+                        wait_until="domcontentloaded")
+        maintainer.wait_for_timeout(1500)
+        if (maintainer.locator("#server-workgroup-home").is_visible() or
+                maintainer.locator("#server-campaigns").is_visible() or
+                maintainer.locator("#server-updates").is_visible()):
+            raise AssertionError(
+                "Maintenance-only account obtained Workgroup business screens by URL")
+        assert_exactly_one_view(maintainer, "#ux-screen-host > [data-ux-screen]")
+
+        workgroup.goto(base_url + "/?mode=server&workspace=workgroup&section=users",
+                       wait_until="domcontentloaded")
+        workgroup.wait_for_timeout(1500)
+        if workgroup.locator("#server-users").is_visible():
+            raise AssertionError("A contributor reached Users & Access by URL")
+        assert_exactly_one_view(workgroup, "#ux-screen-host > [data-ux-screen]")
+        capture(maintainer, artifacts, "server-updates-maintenance-" + str(viewport["width"]))
+        return {"published_items": reader_surface.locator("[data-updates-kind]").count()}
+    finally:
+        for context in (publisher_context, workgroup_context, engineer_context,
+                        maintenance_context):
+            context.close()
+
+
+def server_persona_deep_journey(browser, base_url, creds, artifacts, viewport):
+    """UX-R06 §13 #4 (Engineer feedback) and #17 (Management drill-down), real Server.
+
+    A rendered link or an empty list is not a journey: this seeds real
+    authenticated Server records and exercises the actual submissions,
+    drill-down and non-disclosure, then the return navigation.
+    """
+    author_context = browser.new_context(viewport=viewport, reduced_motion="reduce")
+    engineer_context = browser.new_context(viewport=viewport, reduced_motion="reduce")
+    management_context = browser.new_context(viewport=viewport, reduced_motion="reduce")
+    try:
+        server_context_login(author_context, base_url, creds, "multi_role",
+                             "/?mode=server&workspace=workgroup")
+        evidence = seed_server_evidence(author_context, base_url, "deep", published=True,
+                                        quantifiable=True)
+
+        # --- §13 #4: Engineer submits authentic usage feedback tied to a measured
+        # Solution/Task and verifies the recorded discussion and its visibility. ---
+        # Open the exact published measured Solution through the authorized deep
+        # link (task + solution route params) so the journey exercises the real
+        # detail regardless of the person's reactive-relevance subset.
+        engineer = server_context_login(
+            engineer_context, base_url, creds, "engineer",
+            "/?mode=server&workspace=engineer&all_tasks=true&task=%s&solution=%s"
+            % (evidence["task"]["id"], evidence["run"]["solution_id"]))
+        engineer.locator("#server-engineer").wait_for(state="visible", timeout=25000)
+        engineer.locator("#ux-engineer-feedback").wait_for(state="visible", timeout=25000)
+        comment = "UX-R06 authenticated feedback on measured Solution " + evidence["run"]["id"]
+        engineer.locator("[data-engineer-kind]").select_option("feedback")
+        engineer.locator("[data-engineer-comment]").fill(comment)
+        engineer.locator("[data-engineer-send]").click()
+        engineer.locator("[data-engineer-status]").filter(
+            has_text="no entitlement or provisioning was granted").wait_for(
+                state="visible", timeout=25000)
+        # Read back through the real authorized, public, authenticated API: the
+        # recorded thread is tied to the measured Solution's exact context id.
+        solution_id = evidence["run"]["solution_id"]
+        recorded = engineer.evaluate(
+            "async (sid) => { const r = await fetch('/api/v1/discussions',"
+            " {credentials: 'same-origin'}); const j = await r.json();"
+            " return (j.results || []).filter(x => x.context_id === sid &&"
+            "   x.properties && x.properties.kind === 'feedback')"
+            "   .map(x => x.properties.scope); }", solution_id)
+        if not recorded:
+            raise AssertionError("Engineer feedback was not recorded as a readable discussion")
+        if recorded != ["public"]:
+            raise AssertionError("Engineer feedback discussion is not public-scoped: %s" % recorded)
+        # Context preservation: the detail preserves its discovery context, and its
+        # breadcrumb returns to the source list with the URL state intact.
+        return_link = engineer.locator("[data-engineer-home]")
+        if return_link.count() == 0:
+            raise AssertionError("Engineer detail offers no return to its source discovery")
+        if "all_tasks=true" not in (return_link.get_attribute("href") or ""):
+            raise AssertionError("Engineer detail breadcrumb drops the discovery context")
+        return_link.click()
+        engineer.locator("[data-engineer-body]").wait_for(state="visible", timeout=20000)
+        if "all_tasks=true" not in engineer.url:
+            raise AssertionError("Engineer return navigation dropped the discovery context")
+        assert_exactly_one_view(engineer, "#ux-screen-host > [data-ux-screen]")
+        assert_no_horizontal_overflow(engineer)
+        capture(engineer, artifacts, "server-engineer-feedback-" + str(viewport["width"]))
+
+        # --- §13 #17: Management lands on authorized economics, drills to the exact
+        # Task/configuration factors and revisions, and individual rates never leak. ---
+        management = server_context_login(management_context, base_url, creds, "management",
+                              "/?mode=server&workspace=management")
+        management.locator("#server-management-insights").wait_for(state="visible", timeout=25000)
+        # Build one real saved scenario for the seeded population; the fixture is
+        # published measured evidence reached by the shared published selector.
+        readiness = _management_seed_scenario(management, base_url, evidence)
+        if not readiness:
+            raise AssertionError("Management fixture (population/scenario) could not be built")
+        seeded_profile = readiness["profile_id"]
+        seeded_scenario = readiness["scenario_id"]
+        management.reload(wait_until="domcontentloaded")
+        management.locator("#server-management-insights").wait_for(state="visible", timeout=25000)
+        profile_select = management.locator("[data-heat-profile]")
+        profile_select.wait_for(state="visible", timeout=25000)
+        profile_values = profile_select.locator("option").evaluate_all(
+            "els => els.map(e => e.value).filter(Boolean)")
+        if seeded_profile not in profile_values:
+            raise AssertionError("Seeded population is not offered by the Management heatmap")
+        profile_select.select_option(seeded_profile)
+        scenario_select = management.locator("[data-heat-scenario]")
+        scenario_select.wait_for(state="visible", timeout=25000)
+        management.wait_for_timeout(1200)
+        option_values = scenario_select.locator("option").evaluate_all(
+            "els => els.map(e => e.value).filter(Boolean)")
+        if seeded_scenario not in option_values:
+            raise AssertionError("Seeded saved scenario is not offered for its population")
+        scenario_select.select_option(seeded_scenario)
+        management.wait_for_timeout(1200)
+        # Drill into the seeded Task × measured configuration cell. The bounded
+        # taxonomy pages the grid (row_size 8), and the seeded Task may sit past
+        # the first page, so walk the authorized row/column pages until the exact
+        # cell is reachable, then click it.
+        cell = management.locator(
+            '[data-heat-cell="%s|benchmark|%s"]'
+            % (evidence["task"]["id"], evidence["run"]["solution_id"])).first
+
+        def _reset_columns():
+            for _ in range(6):
+                prev_col = management.locator("[data-heat-cprev]")
+                if prev_col.count() == 0 or prev_col.is_disabled():
+                    break
+                prev_col.click()
+                management.wait_for_timeout(500)
+
+        found = False
+        for _rows in range(12):
+            _reset_columns()
+            for _cols in range(6):
+                if cell.count() and cell.is_visible():
+                    found = True
+                    break
+                next_col = management.locator("[data-heat-cnext]")
+                if next_col.count() == 0 or next_col.is_disabled():
+                    break
+                next_col.click()
+                management.wait_for_timeout(700)
+            if found:
+                break
+            next_row = management.locator("[data-heat-rnext]")
+            if next_row.count() == 0 or next_row.is_disabled():
+                break
+            next_row.click()
+            management.wait_for_timeout(700)
+        if not found:
+            raise AssertionError(
+                "Seeded Task cell is not reachable in the authorized heatmap")
+        cell.click()
+        inspector = management.locator(".heat-inspector")
+        inspector.wait_for(state="visible", timeout=25000)
+        # Expand the authorized factor branches until the exact pinned measured
+        # source revision (immutable provenance) is visible.
+        branches = management.locator(".heat-inspector [data-heat-branch]")
+        pinned = management.locator(".heat-inspector .ux-source-ref")
+        expanded = False
+        for index in range(branches.count()):
+            branches.nth(index).click()
+            management.wait_for_timeout(300)
+            if pinned.count():
+                expanded = True
+                break
+        if not expanded:
+            raise AssertionError("Management drill-down shows no pinned source revision")
+        management.locator(".heat-inspector .ux-inspector-kv").first.wait_for(
+            state="visible", timeout=20000)
+        inspector_text = inspector.inner_text()
+        if evidence["task"]["id"] not in inspector_text:
+            raise AssertionError("Management drill-down does not name the exact source Task")
+        if evidence["run"]["id"] not in inspector_text:
+            raise AssertionError(
+                "Management drill-down does not pin the exact measured Run revision")
+        # The raw JSON dump must never be the default; it stays behind a disclosure.
+        json_dump = management.locator(".heat-inspector .ux-advanced-source > pre")
+        if json_dump.count() and json_dump.first.is_visible():
+            raise AssertionError("Management drill-down exposes a raw JSON dump by default")
+        # Restricted individual rates must never reach the Management view.
+        page_text = management.locator("#server-management-insights").inner_text()
+        for secret in ("hourly_rate_eur", "valuation_eur_per_hour",
+                       "baseline_human_hours", "linked_user"):
+            if secret in page_text:
+                raise AssertionError("Management view leaked restricted field '%s'" % secret)
+        assert_no_horizontal_overflow(management)
+        capture(management, artifacts, "server-management-drilldown-" + str(viewport["width"]))
+        return {"feedback_recorded": len(recorded), "management_cell": True}
+    finally:
+        for context in (author_context, engineer_context, management_context):
+            context.close()
+
+
+def _management_seed_scenario(page, base_url, evidence):
+    """Create one real cohort population + saved annual scenario for the seeded Task."""
+    profile = page.evaluate("""async (task) => {
+        const r = await fetch('/api/v1/planning/profiles', {method: 'POST',
+          credentials: 'same-origin', headers: {'Content-Type': 'application/json',
+          'X-CSRFToken': (document.cookie.match(/csrftoken=([^;]+)/) || [])[1] || ''},
+          body: JSON.stringify({kind: 'cohort', name: 'UX-R06 synthetic population',
+            headcount: 3, hourly_rate_eur: '375.75',
+            workloads: [{task_id: task, annual_occurrences: '12', baseline_human_hours: '4'}]})});
+        return {status: r.status, body: await r.json().catch(() => ({}))};
+    }""", evidence["task"]["id"])
+    if profile["status"] != 201:
+        return False
+    profile_id = profile["body"].get("id") or profile["body"].get("public_id")
+    if not profile_id:
+        return False
+    scenario = page.evaluate("""async ({profile_id, task, solution}) => {
+        const r = await fetch('/api/v1/planning/opportunities', {method: 'POST',
+          credentials: 'same-origin', headers: {'Content-Type': 'application/json',
+          'X-CSRFToken': (document.cookie.match(/csrftoken=([^;]+)/) || [])[1] || ''},
+          body: JSON.stringify({profile_id: profile_id, scenario: {
+            name: 'UX-R06 annual scenario', benchmark_weight: '0.8',
+            choices: [{task_id: task, kind: 'benchmark', candidate_id: solution}]}})});
+        return {status: r.status, body: await r.json().catch(() => ({}))};
+    }""", {"profile_id": profile_id, "task": evidence["task"]["id"],
+           "solution": evidence["run"]["solution_id"]})
+    if scenario["status"] not in (200, 201):
+        return False
+    scenario_id = scenario["body"].get("id") or scenario["body"].get("public_id")
+    if not scenario_id:
+        return False
+    return {"profile_id": profile_id, "scenario_id": scenario_id}
 
 
 def server_journey(browser, base_url, creds, artifacts, role, viewport):
@@ -2520,6 +3132,8 @@ def run_tests(base_url, demo_url, credentials, artifacts):
                 run(f"Authenticated Server draft/stepper/conflict/ownership {width}",
                     lambda v=viewport: server_draft_stepper_conflict_journey(
                         browser, base_url, creds, directory, v))
+                run(f"Standalone Demo multi-role persona journeys {width}",
+                    lambda v=viewport: demo_persona_journey(browser, demo_url, directory, v))
                 for role in ROLES:
                     run(f"Authenticated Server {role} {width}",
                         lambda k=role, v=viewport: server_journey(
@@ -2537,6 +3151,14 @@ def run_tests(base_url, demo_url, credentials, artifacts):
                     run(f"Server Test Case fork + denial {width}",
                         lambda v=viewport: test_case_fork_and_denial(
                             browser, base_url, creds, directory, v))
+                # Runs last: it publishes real disposable synthetic evidence.
+                run(f"Authenticated Server published persona journeys {width}",
+                    lambda v=viewport: server_publication_journey(
+                        browser, base_url, creds, directory, v))
+                # §13 #4/#17 deep persona journeys on real seeded Server records.
+                run(f"Authenticated Server Engineer feedback and Management drill-down {width}",
+                    lambda v=viewport: server_persona_deep_journey(
+                        browser, base_url, creds, directory, v))
         finally:
             browser.close()
     failed = [record for record in records if record["result"] == "FAIL"]

@@ -38,6 +38,36 @@ const db={tasks:[{id:"t1",parent:null,name:"Coding",desc:"C"}],
        {id:"r2",case:"c1",solution:"s1",status:"draft",accepted:true}],
  guides:[],feedback:[]};
 let saved=0;
+/* UX-R06: Windows-only person with a Linux-only measured alternative and an
+ * unclassified configuration. Synthetic Demo fixtures only, no scoring. */
+const osDb={
+  tasks:[{id:"t1",parent:null,name:"Coding",desc:"C"}],
+  components:[{id:"h-linux",type:"harness",name:"Linux-only harness",
+    properties:{supported_os:["linux"]}},
+   {id:"h-both",type:"harness",name:"Cross-platform harness",
+    properties:{supported_os:["windows","linux"]}},
+   {id:"h-unknown",type:"harness",name:"Unclassified harness",properties:{}}],
+  solutions:[
+   {id:"s-linux",name:"Linux candidate",accessible:true,publication:"published",
+    componentRefs:{harness:"h-linux"}},
+   {id:"s-both",name:"Windows candidate",accessible:true,publication:"published",
+    componentRefs:{harness:"h-both"}},
+   {id:"s-unknown",name:"Unclassified candidate",accessible:true,publication:"published",
+    componentRefs:{harness:"h-unknown"}}],
+  cases:[{id:"c1",task:"t1"}],
+  runs:[{id:"r1",case:"c1",solution:"s-linux",status:"published",accepted:true},
+        {id:"r2",case:"c1",solution:"s-both",status:"published",accepted:true},
+        {id:"r3",case:"c1",solution:"s-unknown",status:"published",accepted:true}],
+  guides:[],feedback:[],environmentHistory:[]};
+const osWindow={};
+vm.runInNewContext(fs.readFileSync("shared-environment.js","utf8"),
+  {window:osWindow,URLSearchParams,Set,Map,Date,Object,Array,Promise,Error});
+vm.runInNewContext(source,{window:osWindow,URLSearchParams,Set,Map,Date,Object,Array,
+  Promise,Error},{filename:"shared-engineer.js"});
+const windowsOnlyActor={id:"u-win",role:"engineer"};
+osDb.environmentHistory.push({user:"u-win",number:1,available_os:["windows"],
+  at:"2026-10-01T00:00:00Z"});
+const osDemo=osWindow.AICompassEngineer.demoProvider(osDb,windowsOnlyActor,()=>{});
 const demo=window.AICompassEngineer.demoProvider(db,{id:"u",role:"engineer"},()=>{saved++;});
 Promise.resolve().then(async()=>{
   const results=await demo.list("task",true);
@@ -53,5 +83,36 @@ Promise.resolve().then(async()=>{
   assert.equal(db.feedback.length,1);
   assert.equal(saved,1);
   assert.equal(calls.length,3);
+  const osView=await osDemo.list("task",true);
+  const configs=osView.tasks[0].configurations;
+  const linux=configs.find(x=>x.solution_id==="s-linux");
+  const both=configs.find(x=>x.solution_id==="s-both");
+  const unknown=configs.find(x=>x.solution_id==="s-unknown");
+  assert.equal(both.suitability,"supported_observation");
+  assert.equal(both.os.status,"compatible");
+  assert.equal(linux.suitability,"other_os_observation",
+    "a Linux-only measured tool stays discoverable as a secondary alternative");
+  assert.equal(linux.os.requires_os.join(","),"linux");
+  assert(linux.os.reason.includes("still discoverable")||
+    linux.os.reason.includes("Still discoverable"));
+  assert.equal(unknown.suitability,"unverified_or_not_suitable");
+  assert.equal(unknown.os.status,"unknown");
+  assert.equal(osView.user_os.configured,true);
+  const unconfigured=osWindow.AICompassEngineer.demoProvider(
+    {...osDb,environmentHistory:[]},{id:"u-none",role:"engineer"},()=>{});
+  const unconfiguredView=await unconfigured.list("task",true);
+  assert.equal(unconfiguredView.user_os.configured,false);
+  assert(unconfiguredView.tasks[0].configurations.every(
+    x=>["unconfigured_user","unknown"].includes(x.os.status)),
+    "an undeclared OS stays explicitly unconfigured/unknown instead of guessed");
+  assert(!unconfiguredView.tasks[0].configurations.some(
+    x=>x.os.status==="compatible"),
+    "no compatibility is invented before the person declares an OS");
+  assert(unconfiguredView.tasks[0].configurations.every(
+    x=>x.suitability!=="supported_observation"),
+    "no primary shortlist is invented without a declared OS");
+  assert(osView.tasks[0].configurations.every(
+    x=>x.scoring.score===null&&x.scoring.rank===null),
+    "no invented numeric score or rank may appear in the OS projection");
   console.log("FUT-12 shared Engineer Demo/Server projections and no invented scoring passed");
 }).catch(error=>{console.error(error);process.exitCode=1;});

@@ -30,6 +30,12 @@ function context(path,search,protocol){
   assert(ctx.returnTo("server","/")?.includes("q=agent"));
   assert(ctx.breadcrumb("server","workgroup","watch","w1","r003").includes("r003"));
   assert(ctx.route("server","engineer","results",{record:"r1"}).includes("record=r1"));
+  // A Management drill-down from a later Task/configuration page must keep the
+  // authorized pagination so the exact cell is still reachable on return.
+  const heat=ctx.route("server","management","home",
+    {profile:"wlp-1",scenario:"opp-1",row_page:"2",column_page:"1"});
+  assert(heat.includes("row_page=2") && heat.includes("column_page=1"),
+    "heatmap context must preserve the authorized pagination");
   assert.throws(()=>ctx.route("invalid","workgroup","watch"),/Invalid/);
   assert.throws(()=>ctx.route("server","root-admin","users"),/Invalid/);
   const record=ctx.recordDetails({id:"watch-1",name:"<script>bad</script>",

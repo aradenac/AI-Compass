@@ -75,6 +75,13 @@
       el("#campaign-refresh").addEventListener("click",refresh);
       if(canWrite)el("#campaign-add").addEventListener("click",function(){editor(null);});
       el("#campaign-list").addEventListener("click",function(e){
+        if(e.target.closest("#campaign-focus-clear")){
+          var focusUrl=new URL(window.location.href);
+          focusUrl.searchParams.delete("status");
+          window.history.replaceState(window.history.state,"",
+            focusUrl.pathname+focusUrl.search+focusUrl.hash);
+          render();return;
+        }
         var btn=e.target.closest("button[data-id]");
         if(btn)dispatch(btn);
       });
@@ -121,6 +128,9 @@
             }).join(""):'<p class="muted small">No campaigns</p>')+'</section>';
         }).join("")+'</div>';
       var route=new URLSearchParams(window.location.search),focusId=route.get("record");
+      var statusFocus=["planned","in_progress","under_review","published"].includes(
+        route.get("status"))?route.get("status"):"";
+      var awaitingFocus=route.get("status")==="awaiting_publication";
       var focused=focusId&&campaigns.find(function(x){return x.id===focusId;});
       var context=el("#campaign-context-view");
       if(focusId){
@@ -135,8 +145,21 @@
           if(source)source.textContent=JSON.stringify(focused,null,2);
         }
       }else context.replaceChildren();
-      list.innerHTML=window.AICompassWorkgroup.renderRecords(
-        (focused?[focused]:focusId?[]:campaigns).map(function(x){
+      var listed=focused?[focused]:focusId?[]:campaigns.filter(function(x){
+        if(awaitingFocus)return x.status==="under_review"&&!x.effective_publication;
+        return !statusFocus||x.status===statusFocus;});
+      var focusNote="";
+      if(statusFocus||awaitingFocus){
+        var focusCount=listed.length;
+        focusNote='<p class="muted small" data-campaign-status-focus role="status">Focused on '+
+          esc((awaitingFocus?"awaiting a review decision":statusFocus.replaceAll("_"," ")))+
+          ' campaigns ('+focusCount+' of '+
+          (focused?1:campaigns.length)+'). This is a read-only derived filter from the Studio '+
+          'count, not a personal assignment. <button type="button" id="campaign-focus-clear">'+
+          'Show all campaigns</button></p>';
+      }
+      list.innerHTML=focusNote+window.AICompassWorkgroup.renderRecords(
+        listed.map(function(x){
           var commands=x.archived?[["restore","Restore archive"]]:
             (NEXT[x.status]||[]).concat([["archive","Archive"]]);
           var actions=["matrix","sessions","history","publication"].map(function(k,i){

@@ -26,13 +26,14 @@
   var SECTION_TO_DEMO = Object.freeze({feedback:"feedback",watch:"watch",catalog:"solutions",
     tasks:"tasks",testdesign:"testdesign",forecasts:"watch",benchmark:"benchmark",
     results:"results",recommendations:"recommendations",guides:"knowledge",
-    opportunities:"management",deployment:"management",engineer:"tasks",activity:"activity"});
+    opportunities:"management",deployment:"management",engineer:"tasks",activity:"activity",
+    updates:"updates"});
   var SECTION_TO_SERVER = Object.freeze({feedback:"server-discussions",watch:"server-watch",
     catalog:"server-model-catalog",tasks:"server-task-tree",testdesign:"server-test-cases",
     forecasts:"server-forecasts",benchmark:"server-campaigns",results:"server-results",
     recommendations:"server-recommendations",guides:"server-guides",
     opportunities:"server-planning",deployment:"server-planning",engineer:"server-engineer",
-    activity:"server-activity"});
+    activity:"server-activity",updates:"server-updates"});
   var STABLE = Object.freeze({
     feedback:{api:"discussions",local:"feedback",title:"Feedback & Discussions"},
     watch:{api:"watch-entries",local:"watch",title:"Technology Watch"},
@@ -54,6 +55,7 @@
     grants = grants || [];
     if (["opportunities","deployment"].includes(section))return grants.includes("planning_view");
     if (section === "activity")return grants.includes("business_read")||grants.includes("users_manage");
+    if (section === "updates")return grants.includes("business_read");
     return grants.includes("business_read");
   }
   function href(mode, section, identity) {
@@ -81,19 +83,61 @@
             // spurious count for a domain without a modeled resolution state.
             var n=["benchmark","forecasts","recommendations"].includes(b[0]) ?
               counts[b[0]] : null;
-            return '<a class="shared-studio-block'+(CORE.includes(b[0])?" shared-studio-core":"")+
-              '" data-studio-section="'+escape(b[0])+'" href="'+escape(href(mode,b[0],identity))+
-              '"><strong>'+escape(b[1])+'</strong>'+
-              (Number.isInteger(n)&&n>0?'<span class="shared-attention" aria-label="'+n+
-                ' unresolved records">'+n+' requiring review</span>':"")+
-              '<small>'+escape(b[2])+'</small></a>';
-          }).join("")+'</div></section>';
+            var attentionLink=Number.isInteger(n)&&n>0 ?
+              '<a class="shared-attention" data-attention-filter="'+escape(b[0])+'"'+
+                ' aria-label="Filter '+escape(b[1])+' to the '+n+
+                ' record(s) requiring review" href="'+escape(href(mode,b[0],identity))+
+                (b[0]==="benchmark"?(href(mode,b[0],identity).includes("?")?"&":"?")+
+                  "status=awaiting_publication":"")+
+                '">'+
+                n+' requiring review</a>' : "";
+            return '<div class="shared-studio-block'+(CORE.includes(b[0])?" shared-studio-core":"")+
+              '"><a class="shared-studio-link" data-studio-section="'+escape(b[0])+
+              '" href="'+escape(href(mode,b[0],identity))+
+              '"><strong>'+escape(b[1])+'</strong><small>'+escape(b[2])+'</small></a>'+
+              attentionLink+'</div>';
+          }).join("")+'</div>'+
+          (zone.name==="Capitalisation & Décision" ?
+            '<p class="shared-studio-gap"><a data-studio-gap="catalog" href="'+
+            escape(root.AICompassContext.route(mode,"workgroup","catalog",{gap:"1"}))+
+            '">Profitability &amp; Opportunities → Technology Catalog: explore uncovered Tasks '+
+            'and candidate technologies</a> — knowledge discovery only; no Catalog entry, Task, '+
+            'Forecast or Campaign is created automatically.</p>' : "")+'</section>';
       }).join("")+
+      '<p class="shared-studio-published"><a data-studio-published="updates" href="'+
+        escape(href(mode,"updates",identity))+'">Workgroup Updates · What\'s New</a> — '+
+        'globally published measured results, campaigns, guides, technologies and editorial '+
+        'context, kept separate from the privileged Activity Feed and audit log.</p>'+
       '<p class="shared-studio-relations">Needs → Tasks → Test Design → Campaign Runs → Results → Recommendations and Guides → User adoption → Feedback. Technology Watch and Forecasts inform studies without manufacturing measured evidence.</p>'+
       '<a href="'+escape(href(mode,"activity",identity))+'">Activity Feed · historical changes</a></div>';
   }
   function breadcrumbs(mode,section,detail) {
     return root.AICompassContext.breadcrumb(mode,"workgroup",section,detail);
+  }
+  function coverageGapNotice(mode, parameters) {
+    /* Explicit knowledge-discovery link from Profitability/Opportunities. It
+     * states the gap without inventing a candidate, Forecast or Catalog entry. */
+    var params=parameters||new URLSearchParams(root.location.search);
+    if(params.get("gap")!=="1")return "";
+    var task=String(params.get("task")||"").slice(0,120);
+    var workspace=params.get("workspace");
+    if(!["workgroup","engineer","management"].includes(workspace))
+      workspace="workgroup";
+    return '<section class="shared-gap-notice" data-coverage-gap role="note">'+
+      '<h3>Coverage-gap exploration</h3>'+
+      '<p>The Technology Catalog holds versioned Model, Provider, Harness and Framework '+
+      'components. A blank Profitability cell or an uncovered Task means no current '+
+      'effective published measured configuration exists there yet; it is not a hidden '+
+      'candidate, a Forecast or an obligation.</p>'+
+      (task?'<p>Task context requested: <strong>'+escape(task)+'</strong>. Task membership '+
+        'and suitability are only claimed from real authorized records.</p>':'')+
+      '<p>Nothing is created automatically by this navigation. Candidate selection, '+
+      'Forecast and Campaign stay explicit Workgroup decisions.</p>'+
+      '<p><a href="'+escape(root.AICompassContext.route(mode,workspace,"catalog",{}))+
+      '">Clear the coverage-gap filter</a>'+
+      (workspace==="management"?' · <a href="'+
+        escape(root.AICompassContext.route(mode,"management","home",{}))+
+        '">Back to Management Insights</a>':"")+'</p></section>';
   }
   function serverProvider(transport) {
     if (!transport || typeof transport.request !== "function")
@@ -1391,5 +1435,6 @@
     FORECAST_FIELDS:FORECAST_FIELDS,FEEDBACK_THREAD_FIELDS:FEEDBACK_THREAD_FIELDS,
     FEEDBACK_REPLY_FIELDS:FEEDBACK_REPLY_FIELDS,
     RECOMMENDATION_FIELDS:RECOMMENDATION_FIELDS,EVALUATION_FIELDS:EVALUATION_FIELDS,
-    GUIDE_RECIPE_FIELDS:GUIDE_RECIPE_FIELDS};
+    GUIDE_RECIPE_FIELDS:GUIDE_RECIPE_FIELDS,
+    coverageGapNotice:coverageGapNotice};
 })(window);

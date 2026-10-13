@@ -157,6 +157,8 @@ const STYLE='<style>'+
 '.heat-cell.heat-1{background:#edf6fd}.heat-cell.heat-2{background:#d3e8f9}.heat-cell.heat-3{background:#9ac8ed}.heat-cell.heat-4{background:#5196cb;color:#092b48}'+
 '.heat-maturity{background:#fff9;border:1px solid #8198b8;border-radius:50%;font-size:10px;min-width:20px;height:20px;display:inline-grid;place-items:center}'+
 '.heat-selected{font-size:9px;color:#2650a4}.heat-blank{color:#8896ad;text-align:center!important}'+
+'.heat-task-gap{font-size:10px;line-height:1.35;color:#4a5b74;white-space:normal;margin-top:3px}'+
+'.heat-task-gap a{color:#24429c}'+
 '.heat-pagination,.heat-slice-legend{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:10px 0}'+
 '.heat-pagination button{font-size:11px;padding:6px 9px}.heat-slices{height:23px;display:flex;border:1px solid #bdcadd;border-radius:6px;overflow:hidden;background:#f2f5fb}'+
 '.heat-slice{min-width:0}.heat-slice-0{background:#4b7597}.heat-slice-1{background:#2f9a92}.heat-slice-2{background:#c1a05b}'+
@@ -174,7 +176,9 @@ function mount(element,provider,mode){
  let available=false,scenarios=[],profiles=[],
      profile=route.get("profile")||"",scenario=route.get("scenario")||"",
      revision=route.get("revision")||"",
-     rowPage=0,columnPage=0,historyMode="stacked",activeSlice="",collapsed=new Set(),matrix=null,
+     rowPage=Math.max(0,Number(route.get("row_page")||0)||0),
+     columnPage=Math.max(0,Number(route.get("column_page")||0)||0),
+     historyMode="stacked",activeSlice="",collapsed=new Set(),matrix=null,
      insights=null,detail=null,branch=-1,suggestions=null,seq=0,status="";
  const id=n=>element.querySelector(n);
  function info(s){status=s;const out=id("[data-heat-status]");if(out)out.textContent=s;}
@@ -234,7 +238,11 @@ function mount(element,provider,mode){
      '<div style="padding-left:'+Math.min(row.depth*16,200)+'px">'+
      '<button type="button" data-heat-collapse="'+escape(row.id)+'" aria-label="Toggle Task descendants">'+
        (collapsed.has(row.id)?"+":"−")+'</button> '+escape(row.name)+
-     '</div></th>'+
+    '</div>'+
+    '<div class="heat-task-gap"><a data-heat-gap="'+escape(row.id)+'" href="'+
+      escape(root.AICompassContext.route(mode,"workgroup","catalog",{gap:"1",task:row.id}))+
+      '">Explore candidate technologies in the Technology Catalog</a> — '+
+      'knowledge discovery only, no automatic entry</div></th>'+
      matrix.columns.map(col=>{
        const c=index.get(row.id+"|"+col.kind+"|"+col.id);
        if(!c)return '<td class="heat-blank" title="Uncovered Task/configuration">—</td>';
@@ -368,6 +376,11 @@ function mount(element,provider,mode){
  function contextLocation(extra){
    const p={profile:profile,scenario:scenario,revision:revision,
      from:extra&&extra.task?root.location.pathname+root.location.search:""};
+   // Preserve the authorized pagination so a drill-down into a cell that lives
+   // on a later Task/configuration page returns to that page (authoritative
+   // matrix) instead of reporting the cell as outside the current filter.
+   if(rowPage>0)p.row_page=String(rowPage);
+   if(columnPage>0)p.column_page=String(columnPage);
    Object.assign(p,extra||{});
    return root.AICompassContext.route(mode,"management","home",p);
  }
@@ -376,6 +389,10 @@ function mount(element,provider,mode){
    for(const [k,v] of [["profile",profile],["scenario",scenario],["revision",revision]]){
      if(v)u.searchParams.set(k,v);else u.searchParams.delete(k);
    }
+   if(rowPage>0)u.searchParams.set("row_page",String(rowPage));
+   else u.searchParams.delete("row_page");
+   if(columnPage>0)u.searchParams.set("column_page",String(columnPage));
+   else u.searchParams.delete("column_page");
    ["task","kind","candidate"].forEach(k=>u.searchParams.delete(k));
    root.history.replaceState(root.history.state,"",u.pathname+u.search+u.hash);
    route=new URLSearchParams(u.search);
@@ -418,12 +435,12 @@ function mount(element,provider,mode){
      suggestionsView()+inspector();
    const change=(attr,fn)=>{let item=id(attr);if(item)item.onchange=fn;};
    change("[data-heat-profile]",function(){profile=this.value;scenario="";revision="";rowPage=0;columnPage=0;replaceFilterUrl();load();});
-   change("[data-heat-scenario]",function(){scenario=this.value;revision="";replaceFilterUrl();load();});
-   change("[data-heat-asof]",function(){revision=this.value;replaceFilterUrl();load();});
-   const buttons=[["[data-heat-rprev]",()=>{rowPage--;load();}],
-     ["[data-heat-rnext]",()=>{rowPage++;load();}],
-     ["[data-heat-cprev]",()=>{columnPage--;load();}],
-     ["[data-heat-cnext]",()=>{columnPage++;load();}],
+   change("[data-heat-scenario]",function(){scenario=this.value;revision="";rowPage=0;columnPage=0;replaceFilterUrl();load();});
+   change("[data-heat-asof]",function(){revision=this.value;rowPage=0;columnPage=0;replaceFilterUrl();load();});
+   const buttons=[["[data-heat-rprev]",()=>{rowPage--;replaceFilterUrl();load();}],
+     ["[data-heat-rnext]",()=>{rowPage++;replaceFilterUrl();load();}],
+     ["[data-heat-cprev]",()=>{columnPage--;replaceFilterUrl();load();}],
+     ["[data-heat-cnext]",()=>{columnPage++;replaceFilterUrl();load();}],
      ["[data-heat-stack]",()=>{historyMode="stacked";render();}],
      ["[data-heat-lines]",()=>{historyMode="lines";render();}],
      ["[data-heat-back]",()=>{detail=null;branch=-1;render();}],

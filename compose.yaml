@@ -78,6 +78,7 @@ services:
       - ./shared-catalog.js:/srv/frontend/shared-catalog.js:ro
       - ./shared-environment.js:/srv/frontend/shared-environment.js:ro
       - ./shared-workgroup.js:/srv/frontend/shared-workgroup.js:ro
+      - ./shared-updates.js:/srv/frontend/shared-updates.js:ro
       - ./shared-engineer.js:/srv/frontend/shared-engineer.js:ro
       - ./shared-opportunities.js:/srv/frontend/shared-opportunities.js:ro
       - ./shared-opportunity-heatmap.js:/srv/frontend/shared-opportunity-heatmap.js:ro

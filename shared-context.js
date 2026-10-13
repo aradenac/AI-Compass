@@ -59,7 +59,7 @@
     if(workspace!=="maintenance" || mode==="demo")u.searchParams.set("workspace",workspace);
     if(section)u.searchParams.set("section",section);
     params=params||{};
-    ["record","revision","task","solution","view","q","profile","scenario","kind","candidate"].forEach(function(k){
+    ["record","revision","task","solution","view","q","profile","scenario","kind","candidate","gap","status","row_page","column_page","period"].forEach(function(k){
       if(params[k]!=null && String(params[k])!=="")
         u.searchParams.set(k,String(params[k]).slice(0,400));
     });
