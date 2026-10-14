@@ -1,5 +1,8 @@
 # Server Campaign Planning & Lifecycle — PLAT-12
 
+> **New target UI (not current Server implementation):** [Benchmark Workspace UI contract](benchmark-workspace-workgroup-ui-spec.md) and [versioned manager](prototypes/benchmark-workspace/index.html)/[campaign detail](prototypes/benchmark-workspace/campaign.html) prototypes. They introduce free multi-Task/multi-configuration campaign plans (no Task-centred/Solution-centred mode selector) and collaborative review threads with independent Open/Closed status. The historical Server API/mode fields and immutable revisions described below remain current until explicit migration.
+
+
 AI Compass uses **the same `prototype.html`** with two strictly independent runtimes.
 `?mode=demo` is fictitious browser `localStorage`; `?mode=server` is authenticated Django/PostgreSQL. Server creates **zero campaigns** or other business records at installation. No transfer between modes is attempted.
 
