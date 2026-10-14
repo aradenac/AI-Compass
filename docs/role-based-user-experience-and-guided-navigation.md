@@ -130,6 +130,8 @@ The profitability matrix and its calculations are defined in **DAP**, not reimpl
 
 ## 6. AI Workgroup Studio — one categorized navigable knowledge map
 
+> **Visual implementation reference (candidate):** [Workgroup homepage UI contract](workgroup-studio-home-ui-spec.md) · [standalone HTML map prototype](prototypes/workgroup-studio/index.html) · [view design handoff](prototypes/workgroup-studio/DESIGN.md). This is a *content-only* map view; no header/footer or lateral menu is specified within it. All domain behavior and the complete semantic graph below remain normative; prototype styling does not override them.
+
 ### 6.1 Main design decision
 
 The Workgroup default landing is **ONE integrated diagram** that is **simultaneously a knowledge/workflow explanation and direct navigation surface**. There is **NO separate operational workflow diagram, alert dashboard, personal action queue or forced path**.
