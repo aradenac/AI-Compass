@@ -1,5 +1,8 @@
 # PLAT-21 · Results Explorer and versioned evaluations (Server)
 
+> **Latest approved Results Explorer UX target (October 2026):** [read-only view specification](results-explorer-workgroup-ui-spec.md) · [versioned HTML](prototypes/results-explorer/index.html). The target UI removes Evaluation authoring and saved-Evaluation forms from **Results Explorer**, while preserving the implemented Evaluation API and immutable past records below. Qualified, published, accepted individual measured solutions are proposed automatically to **AI Solutions** for separate editorial review, guide verification and engineer visibility decision; qualification policy/backend projection is pending implementation.
+
+
 ## What is recorded
 
 Results Explorer reads persisted original **measured individual Runs**, **measured composite Framework workflow Runs**, and **theoretical Forecasts** as **three separate types**. Task-centred and candidate/solution-centred views are read-only matrices. They do not infer missing Test Cases, aggregate unknown values into zero, average across dissimilar methods, or redistribute composite team results among participant AI Solutions. Published Forecasts are labelled `THEORETICAL`; their predicted values are never counted as measured scores.
