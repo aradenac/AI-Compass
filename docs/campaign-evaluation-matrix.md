@@ -1,5 +1,8 @@
 # AI Compass — Campaign Evaluation Matrix
 
+> **Latest Workgroup UI direction (October 2026):** [Benchmark Workspace two-page specification](benchmark-workspace-workgroup-ui-spec.md) · [campaign manager HTML](prototypes/benchmark-workspace/index.html) · [campaign detail HTML](prototypes/benchmark-workspace/campaign.html). Product direction removes the Task-centred/Solution-centred **campaign UX mode**, permits multiple Tasks and configurations per campaign, and supports multi-author Open/Closed review discussion threads. Existing mode-dependent Server persistence and immutable historical evidence need migration/compatibility design before implementing this target.
+
+
 > **Reference:** Product/domain specification maintained with the implemented application. The delivery tracker and outstanding UX acceptance work are maintained in the [implementation plan](future-evolutions/implementation-plan.md).
 
 > **Contract:** Versioned Campaign Evaluation Matrix and selected Test Case × configuration coverage.
