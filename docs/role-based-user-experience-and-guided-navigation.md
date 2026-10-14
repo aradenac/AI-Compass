@@ -56,6 +56,9 @@ Users are **multi-role**. A person can be an Engineer, Workgroup contributor/rev
 - The existing **/maintenance** separation and the ability of a maintenance-only user to work without business access remain intact. User Administration remains restricted to **users_manage** (and platform-specific rights where applicable).
 - Keep Server and Demo routes/providers distinct; switching experiences never imports browser Demo records into the real server.
 
+
+> **Workgroup Task taxonomy editor:** [Task Explorer view specification](task-explorer-workgroup-ui-spec.md) and [standalone prototype](prototypes/task-explorer/index.html). The permanent Task taxonomy (Tasks as leaves only), editable categories, multi-valued classification families and initial human-effort estimate are a proposed Workgroup editing UX; user-facing Engineer Task discovery remains a separate role-aware projection.
+
 ## 4. Engineer — My AI Workspace
 
 ### 4.1 Primary landing, deliberately minimal
