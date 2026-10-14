@@ -249,6 +249,9 @@ Display the small badge near/on the block, e.g. "Benchmark Workspace · 3"; don'
 
 ## 7. AI Solutions, Results Explorer and Recommendations — no redundant catalogs
 
+> **Results Explorer UI decision:** [read-only view specification](results-explorer-workgroup-ui-spec.md) and [HTML prototype](prototypes/results-explorer/index.html). The result browser has no create/edit Evaluation actions. Eligible published, accepted individual measured solution evidence feeds a candidate projection to AI Solutions, where editorial work, guides and engineer visibility are handled. Do not assume a Forecast or composite workflow qualifies an individual solution.
+
+
 **Existing verified state:** [PLAT-22](recommendations-server.md) already implements a *manual reviewed recommendation* pinned to an exact **Task, measured individual AI Solution, individual Benchmark Run(s), optional Evaluation revision**, with evidence, rationale, limitations, historical revisions and controlled Draft → In review → Published/unpublished transitions. Publishing benchmark evidence does **not** automatically publish a recommendation. New evidence may produce **review_needed** without silently rewriting the historic editorial decision.
 
 **Desired UX:**
