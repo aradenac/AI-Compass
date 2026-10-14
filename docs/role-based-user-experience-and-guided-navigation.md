@@ -59,7 +59,9 @@ Users are **multi-role**. A person can be an Engineer, Workgroup contributor/rev
 
 > **Workgroup Task taxonomy editor:** [Task Explorer view specification](task-explorer-workgroup-ui-spec.md) and [standalone prototype](prototypes/task-explorer/index.html). The permanent Task taxonomy (Tasks as leaves only), editable categories, multi-valued classification families and initial human-effort estimate are a proposed Workgroup editing UX; user-facing Engineer Task discovery remains a separate role-aware projection.
 
-## 4. Engineer — My AI Workspace
+## 4. Engineer — My AI Workspace> **Workgroup Test Design destination:** [simplified UI contract](test-design-workgroup-ui-spec.md) · [HTML prototype](prototypes/test-design/index.html). Reuse the Task Explorer collapsible hierarchy; the Test Design editor shows campaign associations and their original Campaign statuses, not solution coverage. Omit statistics, right panel, reset-demo, version and fork UI. Backend history is preserved.
+
+
 
 ### 4.1 Primary landing, deliberately minimal
 
