@@ -130,6 +130,9 @@ The profitability matrix and its calculations are defined in **DAP**, not reimpl
 
 ## 6. AI Workgroup Studio — one categorized navigable knowledge map
 
+> **Needs & Feedback Workgroup destination:** [approved content-view specification](needs-feedback-workgroup-ui-spec.md) · [standalone HTML prototype](prototypes/needs-feedback/index.html). The view supports list/search/filter at left, a chronological conversation at center, metadata at right, and a compact summary/action strip. Requested new status/priority/type features are explicit pending business-model changes, not existing capabilities.
+
+
 > **Visual implementation reference (candidate):** [Workgroup homepage UI contract](workgroup-studio-home-ui-spec.md) · [standalone HTML map prototype](prototypes/workgroup-studio/index.html) · [view design handoff](prototypes/workgroup-studio/DESIGN.md). This is a *content-only* map view; no header/footer or lateral menu is specified within it. All domain behavior and the complete semantic graph below remain normative; prototype styling does not override them.
 
 ### 6.1 Main design decision

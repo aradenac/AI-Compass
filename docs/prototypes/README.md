@@ -27,6 +27,7 @@ docs/
 
 | View | Specification | Prototype | Status |
 | --- | --- | --- | --- |
+| Needs & Feedback Workgroup view | [UI specification](../needs-feedback-workgroup-ui-spec.md) | [HTML](needs-feedback/index.html) · [Design handoff](needs-feedback/DESIGN.md) | Visual layout approved; new metadata model pending implementation |
 | Workgroup Studio landing knowledge map | [Workgroup landing UI contract](../workgroup-studio-home-ui-spec.md) | [HTML](workgroup-studio/index.html) · [Design handoff](workgroup-studio/DESIGN.md) | Candidate reference; pending owner visual approval |
 
 Future views should receive their own directory and index entry; do not overwrite another view's prototype.
