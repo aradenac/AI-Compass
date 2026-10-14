@@ -1,5 +1,7 @@
 # FUT-04 — Shared AI Workgroup Studio and stable knowledge views
 
+> **Homepage visual design candidate (2026-10-14):** [Workgroup Studio homepage specification](workgroup-studio-home-ui-spec.md) and [versioned standalone HTML prototype](prototypes/workgroup-studio/index.html) ([implementation handoff](prototypes/workgroup-studio/DESIGN.md)). The homepage prototype covers only the central five-zone map: the application shell, published Updates and attention indicators remain separate product functions. The design is pending owner visual approval, not automatically a completed feature. See [prototype conventions](prototypes/README.md) for all subsequent view mockups.
+
 Issue: [#78](https://github.com/aradenac/AI-Compass/issues/78) · Original specification: [Role-based navigation](role-based-user-experience-and-guided-navigation.md) · [Shared frontend](shared-frontend-and-release-lifecycle.md).
 
 ## Workgroup navigation
