@@ -1,5 +1,8 @@
 # PLAT-10 — Persistent Test Cases and fork lineage
 
+> **Workgroup Test Design UI target (October 2026):** [simplified view specification](test-design-workgroup-ui-spec.md) · [HTML prototype](prototypes/test-design/index.html). The visible view has a shared collapsible Task Explorer taxonomy and a single Test Design editor with a read-only campaign/status list below. It intentionally omits versions and forks **from the interface only**; historic immutable revisions and fork lineage, campaign references and existing API guarantees specified below remain preserved. The legacy UI guidance in this document is superseded **only for the visual interaction of Test Design**.
+
+
 Test Cases are **experimental challenge instances**, not functional task-tree
 categories. Server stores Test Cases independently in PostgreSQL. Demo remains
 a standalone fake browser localStorage prototype: **no synchronization**.
