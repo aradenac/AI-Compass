@@ -1,5 +1,8 @@
 # PLAT-23 — Persistent Feedback & Discussions (Server)
 
+> **Approved Workgroup UX target (2026-10-14):** [Needs & Feedback UI specification](needs-feedback-workgroup-ui-spec.md) · [versioned interactive HTML prototype](prototypes/needs-feedback/index.html) · [prototype handoff](prototypes/needs-feedback/DESIGN.md). Three-column exploration/conversation/metadata layout, top summary and Workgroup-authored new contributions are approved design requirements. **New freely transitional status, priority and action-oriented classification require future domain/API evolution**; they do not exist merely because the prototype shows them. The existing public/internal visibility, immutable revisions, attachment access and security rules below remain authoritative.
+
+
 ## Outcome
 
 Authorized engineers can create a new Feedback/Question/Idea/Request/Discussion thread, reply to each other in **one chronological conversation shared between accounts and browsers**, correct their own posts, and attach original evidence files. Workgroup contributors/reviewers may write **Internal** messages and moderate/edit any discussion message with a reason. Every message, correction and attachment keeps original attribution. Existing offline seeded fake **Demo** remains independent, and a fresh Server starts with **zero** real discussion threads/messages.
