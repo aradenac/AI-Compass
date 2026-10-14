@@ -30,6 +30,7 @@ docs/
 | Needs & Feedback Workgroup view | [UI specification](../needs-feedback-workgroup-ui-spec.md) | [HTML](needs-feedback/index.html) · [Design handoff](needs-feedback/DESIGN.md) | Visual layout approved; new metadata model pending implementation |
 | Task Explorer Workgroup taxonomy | [UI specification](../task-explorer-workgroup-ui-spec.md) | [HTML](task-explorer/index.html) · [Design handoff](task-explorer/DESIGN.md) | Design candidate; schema/permissions implementation pending |
 | Test Design Workgroup view | [UI specification](../test-design-workgroup-ui-spec.md) | [HTML](test-design/index.html) · [Design handoff](test-design/DESIGN.md) | Approved simplified prototype; production integration pending |
+| Benchmark Workspace manager & campaign detail | [UI specification](../benchmark-workspace-workgroup-ui-spec.md) | [Manager](benchmark-workspace/index.html) · [Campaign detail](benchmark-workspace/campaign.html) · [Handoff](benchmark-workspace/DESIGN.md) | User-reviewed prototype; backend adaptation pending |
 | Workgroup Studio landing knowledge map | [Workgroup landing UI contract](../workgroup-studio-home-ui-spec.md) | [HTML](workgroup-studio/index.html) · [Design handoff](workgroup-studio/DESIGN.md) | Candidate reference; pending owner visual approval |
 
 Future views should receive their own directory and index entry; do not overwrite another view's prototype.
