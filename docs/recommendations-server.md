@@ -1,5 +1,8 @@
 # PLAT-22 — Evidence-linked Recommendations (Server)
 
+> **Approved target UI (October 2026):** [AI Solutions & Recommendations UI contract](ai-solutions-workgroup-ui-spec.md) · [interactive prototype](prototypes/ai-solutions/index.html). The Workgroup views the minimal positively qualified individually measured solution portfolio **plus published solutions retained even if they cease to qualify for the minimal portfolio**, with editorial notes, automatically matched component/harness Guides, extra manually linked Guides and a separate explicit Publish/Unpublish decision. This requires a new global solution visibility contract and a selection policy; the Task-pinned Recommendation API and immutable published revisions described below remain implemented and must be preserved.
+
+
 A Recommendation is a manually-reviewed decision about an **individual measured AI Solution** for an engineering Task, not a new Run or an automatically computed leaderboard. It lives under **Knowledge & Collaboration**, never under Experiments. Its original evidence is source Run (and optional Evaluation) data; no original experimental measurements or evidence file is rewritten.
 
 ## Persistent model, safe revisions and authorization
