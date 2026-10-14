@@ -249,6 +249,9 @@ Display the small badge near/on the block, e.g. "Benchmark Workspace · 3"; don'
 
 ## 7. AI Solutions, Results Explorer and Recommendations — no redundant catalogs
 
+> **Latest approved AI Solutions Workgroup view:** [UI specification](ai-solutions-workgroup-ui-spec.md) · [standalone HTML prototype](prototypes/ai-solutions/index.html). Default inventory is the minimal qualified portfolio **union already published solutions**, not the complete measured inventory; Results Explorer retains the full measured catalog. Classification is by phase or specialty, without visible Tasks. Editorial note, compatible auto/manual Guide links and explicit publish/unpublish with immediate readiness diagnostics belong here. Qualification/recommendation/publication remain separate authoritative decisions.
+
+
 > **Results Explorer UI decision:** [read-only view specification](results-explorer-workgroup-ui-spec.md) and [HTML prototype](prototypes/results-explorer/index.html). The result browser has no create/edit Evaluation actions. Eligible published, accepted individual measured solution evidence feeds a candidate projection to AI Solutions, where editorial work, guides and engineer visibility are handled. Do not assume a Forecast or composite workflow qualifies an individual solution.
 
 
