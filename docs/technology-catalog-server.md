@@ -1,5 +1,8 @@
 # Technology Catalog Server extension — PLAT-06
 
+> **Approved Workgroup UI target (October 2026):** [Technology Catalog specification](technology-catalog-workgroup-ui-spec.md) · [HTML prototype](prototypes/technology-catalog/index.html). The UI separates Models (no pricing tab/mandatory installation guide) from Providers/Harnesses/Frameworks (access/pricing, applicable setup guides), removes the maturity and visible History tab, and provides linking to existing/new Guides. Backend immutable revisions and schema compatibility still apply. Multi-offer pricing and guide link persistence require separate backend integration; the current Server API documented below remains authoritative.
+
+
 The **Models, Providers, Harnesses and Frameworks** lanes share the browser renderer
 (`model-catalog.js`) and the `list/get/create/revise/revisions` data-provider
 contract. The original seeded Demo remains a self-contained `localStorage`
