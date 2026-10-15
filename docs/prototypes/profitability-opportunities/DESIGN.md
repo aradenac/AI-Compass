@@ -1,0 +1,16 @@
+# Profitability & Opportunities — third UX prototype
+
+Approved direction under review: **three complementary opportunity layers by Task and roll-up group**, not one column per AI Solution. Phase and domain headings collapsed by default. The three columns mean activated annual **potential**, **incremental** accepted-benchmark opportunity beyond that activated baseline on the remaining scope, and **incremental** theoretical Forecast uplift beyond the best already activated/benchmarked alternative. Group rows sum verified disjoint leaf workloads only; never add competing configurations or a parent plus its children. Ideas remain visible but nonquantified.
+
+Per-leaf forecast and benchmark maxima must be derived using exact population, quantities, feasible alternatives, publication/review permissions, technical configuration, test-method comparability and potentially overlapping effects. `Forecast increment = max(0, forecast-qualified total achievable - already-covered activated and benchmark baseline)` is conceptual only and **not** the current FUT-13 implementation. The existing FUT-13 uses disjoint allocation of alternative **population shares**, not this new incremental-uplift decomposition. Implementing this proposed UI in Server requires an explicitly validated domain calculation design and immutable source-pinned revisions, rather than relabeling existing slices.
+
+The HTML uses fictional additive illustrative numbers in thousands of annual EUR. Activations and historical dates are also fictional: Server currently reports verified activation zero until FUT-15. All historic stacked areas are illustrative dated snapshots, not interpolated daily actuals. No population or scenario editor in this Workgroup surface; underlying authorized source scope and immutable scenario snapshots remain backend responsibilities. Historical values represent *prospective annual potential*, never realized cash savings.
+
+The proposed three-column view omits displayed per-solution alternatives; only published accepted qualifying measured AI Solutions from the minimal portfolio are eligible benchmark options, with theoretical Forecast candidates allowed solely in the theoretical layer. The examples of deployment versus experimentation are decision-support suggestions only. Preserve access restrictions for management economic projections and no hidden Server-to-Demo fallback.
+
+Desktop target 1366×900 and 1024px; inspect screenshots, keyboard focus and UI interactions before production implementation. No repository changes until approval.
+
+
+## Révision — listes d'opportunités
+
+Les listes « Déploiements prioritaires » et « À expérimenter » montrent désormais explicitement l'activité, la **solution IA individuelle retenue** (benchmark) ou la **configuration candidate de Forecast** (théorique), l'accessibilité entreprise issue du catalogue et le potentiel annuel **incrémental**. Les états Accessibile/Restreint/Inaccessible/Inconnu sont fictifs dans la démo et ne constituent pas un contrôle d'accès réel. Un Forecast sans Run ne doit pas être appelé solution individuelle mesurée. Les listes n'effectuent aucun déploiement, achat ni campagne.
