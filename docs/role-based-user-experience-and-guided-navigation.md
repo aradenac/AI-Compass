@@ -44,6 +44,9 @@ Four purpose-built default experiences:
 
 ## 3. Role-aware spaces and interface switching
 
+> **Latest approved destination concept (October 2026):** [role-separated User Workspaces specification](user-workspaces-ui-spec.md) · [Workgroup profile configuration](prototypes/user-workspaces/workgroup-profiles.html) · [Engineer My AI Workspace](prototypes/user-workspaces/my-ai-workspace.html). No personal Workgroup workspace. Workgroup configures **user profiles**, while the engineer's own Task-led landing belongs solely to an authorized **User experience**. Multi-role switching occurs at the top-level authenticated account/session experience selector, never through a control embedded in either destination; page UI is not an authorization boundary.
+
+
 Users are **multi-role**. A person can be an Engineer, Workgroup contributor/reviewer, management viewer and/or maintainers/administrators depending on their *actual permissions*. Roles are **composable and not a privilege hierarchy**; in particular a Platform Administrator or User Administrator is not automatically an authorized Workgroup contributor or Data Maintainer.
 
 **Recommended UX:** keep one authenticated session and show an avatar/account menu in the top-right corner containing the **available experiences**. Selecting one switches the interface context immediately; **do not require logout/login** just to enter another granted workspace. Include explicit label/current space, so role context is unmistakable. Users with only one eligible experience should not see a redundant selector.
