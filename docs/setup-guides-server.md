@@ -1,5 +1,8 @@
 # PLAT-11 — Versioned reusable Setup Guides (Server)
 
+> **Approved UI target (2026-10-15):** [simplified Guides & Charter interface](guides-charter-workgroup-ui-spec.md) · [HTML](prototypes/guides-charter/index.html). The Workgroup view hides revision numbers and advanced composition, offers Publish/Unpublish and confirmed Delete, and does not show review or prepublication quality gates. **Existing Server revisions, concurrency checks and no-DELETE API remain unchanged.** A future deletion implementation must first resolve referenced-guide preservation and governance; the UI prototype does not authorize cascading historical erasure.
+
+
 A guide is a shared **referenceable** source-of-truth, not an inline block
 copied into another record. Guides use `CatalogItem` (UUIDv7, permanent
 `gui-*` public ID) and immutable `CatalogRevision` snapshots, plus the
