@@ -1,5 +1,8 @@
 # FUT-15 — Deliberate deployment targets, external access and verified use
 
+> **Approved Workgroup UI target (October 2026):** [Deployment & Access matrix specification](deployment-access-workgroup-ui-spec.md) · [HTML prototype](prototypes/deployment-access/index.html). Three orientations: read-only Task-by-phase, read-only Task-by-specialty, editable Person-by-specialty. Person readiness is presented as two checks (rights+licenses; individual tested installation), gray ineligible cells are not actionable, and unpublished solutions offer authorized *global Publish* but not Unpublish. The existing Server entitlement event sequence, evidence-reference requirement, immutable history and permissions below remain in force pending a reviewed backend adaptation; the mock is not evidence of implemented Server support.
+
+
 Issue: [#89](https://github.com/aradenac/AI-Compass/issues/89). Depends on FUT-06 OS compatibility, FUT-07 pinned setup recipes, FUT-13 economic projections and FUT-14 Management Insights.
 
 ## Operator workflow (Server)

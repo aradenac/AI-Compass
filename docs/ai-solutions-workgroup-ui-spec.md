@@ -1,5 +1,8 @@
 # AI Solutions & Recommendations — Workgroup UI contract
 
+> **Related deployment UI:** [Deployment & Access prototype](prototypes/deployment-access/index.html) · [specification](deployment-access-workgroup-ui-spec.md). Eligible persons may initiate a **global Publish** action from the Deployment matrix, but that action must use the same authorized AI Solutions editorial publication gate. Unpublish/revoke belongs only to AI Solutions; publication cannot be implied by a checked individual licence or installation.
+
+
 **Approved product-owner prototype:** [interactive HTML](prototypes/ai-solutions/index.html) · [design handoff](prototypes/ai-solutions/DESIGN.md). See [prototype convention](prototypes/README.md).
 
 **Current implemented baseline:** [Evidence-linked Recommendations](recommendations-server.md), [Results Explorer target](results-explorer-workgroup-ui-spec.md), [Role-based UX](role-based-user-experience-and-guided-navigation.md), and [Composable Setup Guides](composable-setup-guides.md). This document defines the *target experience*, not yet-implemented APIs or thresholds.

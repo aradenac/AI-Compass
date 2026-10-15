@@ -1,5 +1,8 @@
 # AI Compass — Deployment & Adoption Planning
 
+> **Approved deployment Workgroup experience (2026-10-15):** [three-view matrix specification](deployment-access-workgroup-ui-spec.md) · [standalone HTML prototype](prototypes/deployment-access/index.html). Task-oriented phase/specialty matrices are consultation-only; Person × AI Solution cells permit readiness checks when eligible, plus global publication via the AI Solutions editorial gate. The target UI collapses rights/licences to a single checkbox and adds a separate user-tested installation checkbox without a mandatory reference field. Detailed FUT-15 Server validation and immutable event evidence rules still require explicit reconciliation before production integration.
+
+
 > **Approved Profitability & Opportunities Workgroup view (2026-10-15):** [target UX/business contract](profitability-opportunities-workgroup-ui-spec.md) · [HTML prototype](prototypes/profitability-opportunities/index.html). A collapsible phase/specialty × **Activated / + Benchmarked / + Forecast** incremental gain matrix replaces the many-solution columns in this specific Workgroup view. Show two populated actionable lists (measured priority deployments and theoretical experiments, both with accessibility). The new strictly incremental comparison is a **proposed future economic algorithm**, not the presently implemented FUT-13 scenario slicing; all original planning and management contracts below remain until a separate reviewed implementation.
 
 
