@@ -1,5 +1,8 @@
 # AI Compass — Composable Setup Guides & Lifecycle
 
+> **Approved Workgroup Guides & Charter UX (2026-10-15):** [UI contract](guides-charter-workgroup-ui-spec.md) · [HTML prototype](prototypes/guides-charter/index.html). The visible view is a simple library/editor and preview with Publish, Unpublish and confirmed Delete. No visible revisions, review submission, recipe composition/applicability editor or pre-publication quality checklist. **The composable recipe, exact snapshot, historical immutability and publication-reference requirements below remain backend/domain contracts**, not controls on this screen. DELETE is a target UX action, not an implemented Server endpoint; references and audit history require a separately reviewed safe backend design.
+
+
 > **Reference:** Product/domain specification maintained with the implemented application. The delivery tracker and outstanding UX acceptance work are maintained in the [implementation plan](future-evolutions/implementation-plan.md).
 
 > **Contract:** Reusable Setup Guide modules, exact applicability, composed recipes, rendered guide history and validation semantics.
