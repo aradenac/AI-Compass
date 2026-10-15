@@ -135,6 +135,9 @@ The profitability matrix and its calculations are defined in **DAP**, not reimpl
 
 ## 6. AI Workgroup Studio — one categorized navigable knowledge map
 
+> **Approved Profitability & Opportunities Workgroup prototype:** [UI spec](profitability-opportunities-workgroup-ui-spec.md) · [HTML](prototypes/profitability-opportunities/index.html). Default exploration is a phase/specialty-grouped, collapsed incremental economic matrix (Activated, + Benchmark, + Forecast), with separated priority deployments and experiments and their enterprise access statuses. Existing scenario simulation/planning operations stay in the restricted planning workspace; historical Server economics are not retrospectively changed.
+
+
 > **Approved Technology Catalog Workgroup prototype:** [UI spec](technology-catalog-workgroup-ui-spec.md) · [interactive HTML](prototypes/technology-catalog/index.html). Search Models/Providers/Harnesses/Frameworks, maintain enterprise accessibility, relevant pricing, capabilities/limits and linked setup Guides. No maturity field, standalone revision-history tab or model pricing tab; immutable backend audit persists.
 
 
