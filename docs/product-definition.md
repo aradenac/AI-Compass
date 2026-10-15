@@ -1,5 +1,8 @@
 # AI Compass — Product Definition
 
+> **Latest role-aware UX decision (2026-10-15):** [User Workspaces UI contract](user-workspaces-ui-spec.md) and [two role-separated prototypes](prototypes/user-workspaces/index.html). No personal Workgroup dashboard; Workgroup can configure users' IDE/OS/WSL constraints and relevant Tasks without managing account permissions. The User experience opens to My AI Workspace, with own Tasks, solutions, guides, availability and self-tested setup. Multi-role experience selection belongs to the authenticated account menu and is enforced by grants.
+
+
 > **Status:** Agreed functional baseline  
 > **Date:** 2026-10-08  
 > **Scope:** Internal web platform, extensible across business units (BUs)  
