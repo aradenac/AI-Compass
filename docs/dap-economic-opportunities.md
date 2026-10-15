@@ -1,5 +1,8 @@
 # FUT-13 — Annual economic opportunity scenarios (DAP-02)
 
+> **Newly approved Workgroup visual target (2026-10-15):** [Profitability & Opportunities UI specification](profitability-opportunities-workgroup-ui-spec.md) and [HTML example](prototypes/profitability-opportunities/index.html). Target columns are *Activated, incremental + Benchmark relative to activation, incremental + Forecast relative to best activated/benchmarked alternative*; this differs from the existing FUT-13 **disjoint allocation by population/evidence** described below. A new explicitly versioned method and activation integration must be defined and tested before backend implementation; do not silently reinterpret prior FUT-13 calculations or snapshots.
+
+
 This extension uses the **existing** DAP-01 versioned WorkloadProfile (role,
 specialty, person, cohort and inheritance). It adds versioned immutable
 selection/calculation snapshots, NOT a second workforce/price profile.

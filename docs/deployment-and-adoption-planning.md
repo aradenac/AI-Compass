@@ -1,5 +1,8 @@
 # AI Compass — Deployment & Adoption Planning
 
+> **Approved Profitability & Opportunities Workgroup view (2026-10-15):** [target UX/business contract](profitability-opportunities-workgroup-ui-spec.md) · [HTML prototype](prototypes/profitability-opportunities/index.html). A collapsible phase/specialty × **Activated / + Benchmarked / + Forecast** incremental gain matrix replaces the many-solution columns in this specific Workgroup view. Show two populated actionable lists (measured priority deployments and theoretical experiments, both with accessibility). The new strictly incremental comparison is a **proposed future economic algorithm**, not the presently implemented FUT-13 scenario slicing; all original planning and management contracts below remain until a separate reviewed implementation.
+
+
 > **Reference:** Product/domain specification maintained with the implemented application. The delivery tracker and outstanding UX acceptance work are maintained in the [implementation plan](future-evolutions/implementation-plan.md).
 
 > **Contract:** Workload profiles; versioned Task × configuration economic projections and history; deployment access targeting; resource and rollout budgets.

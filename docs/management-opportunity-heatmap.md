@@ -1,5 +1,8 @@
 # FUT-14 — Task × AI configuration opportunity heatmap and Management Insights
 
+> **Workgroup-view UX update (2026-10-15):** [approved Profitability & Opportunities contract](profitability-opportunities-workgroup-ui-spec.md) · [HTML](prototypes/profitability-opportunities/index.html). This proposed Workgroup view groups Task activity by phase or specialty, collapsed by default, and shows **three incremental gain columns instead of candidate columns**, a dated stacked-area history and separate measured deployment/theoretical experimentation recommendations with accessibility. The FUT-14 existing Management heatmap API and its older Task × configuration semantics below are **not yet migrated or superseded as Server contracts**. Incremental economic formulas and verified activations need additional implementation.
+
+
 **Implementation:** shared `shared-opportunity-heatmap.js` in both authenticated
 Server Management and independent fictional Demo Management. One
 `opportunity_insights_services.py` projection wraps the **existing FUT-13
