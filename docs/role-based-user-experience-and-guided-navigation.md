@@ -138,6 +138,9 @@ The profitability matrix and its calculations are defined in **DAP**, not reimpl
 
 ## 6. AI Workgroup Studio — one categorized navigable knowledge map
 
+> **Approved Guides & Charter destination:** [view UI spec](guides-charter-workgroup-ui-spec.md) · [HTML](prototypes/guides-charter/index.html). Single searchable library and document editor/preview; direct Publish, Unpublish and confirmed Delete; no visible revision or review/composition/quality-gate controls. Underlying immutable guide and campaign evidence obligations remain authoritative.
+
+
 > **Approved Deployment & Access Workgroup prototype:** [three-view UX specification](deployment-access-workgroup-ui-spec.md) · [HTML](prototypes/deployment-access/index.html). Read-only Task matrices grouped by phase or specialty, plus Person × Solution availability checks grouped by professional specialty. Non-applicable cells are disabled; a not-yet-published solution offers a globally authorized Publish action, while Unpublish stays in AI Solutions. Two checks cover personal rights/licences and personally tested installation. Existing Server evidence rules remain intact until changed explicitly.
 
 
