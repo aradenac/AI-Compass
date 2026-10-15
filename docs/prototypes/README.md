@@ -23,7 +23,9 @@ docs/
 7. **Review screenshots visually** at both supported widths before approving a prototype and again after implementation. A passing Chromium journey or a generated PNG is not visual approval.
 8. Keep changes reviewable: separate design-reference changes from functional implementation. A prototype is an approved visual target **only after product-owner approval**, never automatically by committing it.
 
-## Index
+## Index| Guides & Charter | [UI specification](../guides-charter-workgroup-ui-spec.md) | [HTML](guides-charter/index.html) · [Design](guides-charter/DESIGN.md) | Approved simplified prototype; delete backend contract pending |
+
+
 
 | View | Specification | Prototype | Status |
 | --- | --- | --- | --- |
