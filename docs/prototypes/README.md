@@ -36,6 +36,7 @@ docs/
 | Technology Catalog | [UI specification](../technology-catalog-workgroup-ui-spec.md) | [HTML](technology-catalog/index.html) · [Design handoff](technology-catalog/DESIGN.md) | Approved prototype; tariff and Guides integrations pending |
 | Profitability & Opportunities | [UI spec](../profitability-opportunities-workgroup-ui-spec.md) | [HTML](profitability-opportunities/index.html) · [Design](profitability-opportunities/DESIGN.md) | Approved prototype, incremental economic logic pending backend |
 | Deployment & Access | [UI specification](../deployment-access-workgroup-ui-spec.md) | [HTML](deployment-access/index.html) · [Design](deployment-access/DESIGN.md) | Approved Workgroup prototype; Server integration differences documented |
+| User Profiles & My AI Workspace | [UI specification](../user-workspaces-ui-spec.md) | [Workgroup profiles](user-workspaces/workgroup-profiles.html) · [User home](user-workspaces/my-ai-workspace.html) · [Design](user-workspaces/DESIGN.md) | Separate experiences; role-gated prototype |
 | Workgroup Studio landing knowledge map | [Workgroup landing UI contract](../workgroup-studio-home-ui-spec.md) | [HTML](workgroup-studio/index.html) · [Design handoff](workgroup-studio/DESIGN.md) | Candidate reference; pending owner visual approval |
 
 Future views should receive their own directory and index entry; do not overwrite another view's prototype.
