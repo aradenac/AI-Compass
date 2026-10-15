@@ -1,5 +1,8 @@
 # AI Compass — Technology Accessibility & Pricing Management
 
+> **Approved Technology Catalog UI presentation:** [specification](technology-catalog-workgroup-ui-spec.md) · [prototype](prototypes/technology-catalog/index.html). Commercial offer management is presented under **Providers, Harnesses and Frameworks**, not as a Model-level tariff editor. A Provider offer may be model-specific or combination-specific; this refines *where charges are edited* without dropping model-applicable offer semantics, immutable price selections or anti-double-counting rules below.
+
+
 > **Reference:** Product/domain specification maintained with the implemented application. The delivery tracker and outstanding UX acceptance work are maintained in the [implementation plan](future-evolutions/implementation-plan.md).
 
 > **Contract:** Versioned enterprise accessibility, pricing offers, billable meters, pinned selection and deterministic reference costs.

@@ -135,6 +135,9 @@ The profitability matrix and its calculations are defined in **DAP**, not reimpl
 
 ## 6. AI Workgroup Studio — one categorized navigable knowledge map
 
+> **Approved Technology Catalog Workgroup prototype:** [UI spec](technology-catalog-workgroup-ui-spec.md) · [interactive HTML](prototypes/technology-catalog/index.html). Search Models/Providers/Harnesses/Frameworks, maintain enterprise accessibility, relevant pricing, capabilities/limits and linked setup Guides. No maturity field, standalone revision-history tab or model pricing tab; immutable backend audit persists.
+
+
 > **Needs & Feedback Workgroup destination:** [approved content-view specification](needs-feedback-workgroup-ui-spec.md) · [standalone HTML prototype](prototypes/needs-feedback/index.html). The view supports list/search/filter at left, a chronological conversation at center, metadata at right, and a compact summary/action strip. Requested new status/priority/type features are explicit pending business-model changes, not existing capabilities.
 
 

@@ -33,6 +33,7 @@ docs/
 | Benchmark Workspace manager & campaign detail | [UI specification](../benchmark-workspace-workgroup-ui-spec.md) | [Manager](benchmark-workspace/index.html) · [Campaign detail](benchmark-workspace/campaign.html) · [Handoff](benchmark-workspace/DESIGN.md) | User-reviewed prototype; backend adaptation pending |
 | Results Explorer read-only Workgroup view | [UI specification](../results-explorer-workgroup-ui-spec.md) | [HTML](results-explorer/index.html) · [Design handoff](results-explorer/DESIGN.md) | Approved read-only prototype; production integration pending |
 | AI Solutions & Recommendations | [UI specification](../ai-solutions-workgroup-ui-spec.md) | [HTML](ai-solutions/index.html) · [Design handoff](ai-solutions/DESIGN.md) | Approved prototype; qualification/publication backend work pending |
+| Technology Catalog | [UI specification](../technology-catalog-workgroup-ui-spec.md) | [HTML](technology-catalog/index.html) · [Design handoff](technology-catalog/DESIGN.md) | Approved prototype; tariff and Guides integrations pending |
 | Workgroup Studio landing knowledge map | [Workgroup landing UI contract](../workgroup-studio-home-ui-spec.md) | [HTML](workgroup-studio/index.html) · [Design handoff](workgroup-studio/DESIGN.md) | Candidate reference; pending owner visual approval |
 
 Future views should receive their own directory and index entry; do not overwrite another view's prototype.
