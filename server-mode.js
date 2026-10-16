@@ -568,6 +568,21 @@
       screen = grants.includes("users_manage") ? "server-users" : "ux-auth-panel";
     }
     var sidebar = document.getElementById("server-side-navigation");
+    // The rendered screen always wins over an unreachable or unpermitted request:
+    // a refused section must never stay in the breadcrumb/current marker as if it
+    // were the displayed location (fail-closed location, not just fail-closed data).
+    if (screen === "ux-auth-panel" && !maintenanceWorkspace) {
+      currentSection = "account";
+    } else if (maintenanceWorkspace) {
+      if (screen === "ux-auth-panel") currentSection = "account";
+      else if (screen === "server-governance-audit" && currentSection !== "audit") currentSection = "audit";
+      else if (screen === "server-data-health" && currentSection !== "health") currentSection = "health";
+    } else if (personaId === "engineer" && screen === "server-engineer" && currentSection !== "home") {
+      currentSection = "home";
+    } else if (personaId === "management" && screen === "server-management-insights" &&
+        currentSection !== "home") {
+      currentSection = "home";
+    }
     sidebar.innerHTML = window.AICompassShell.serverNav(
       personaId, grants, currentSection, maintenanceWorkspace);
     window.AICompassShell.selectScreen(serverScreenHost, screen);

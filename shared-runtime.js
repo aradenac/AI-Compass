@@ -16,7 +16,13 @@
     var messages = {401: "Authentication required", 403: "Access denied",
       409: "Revision conflict: reload authoritative data before retrying",
       422: "Invalid fields", 503: "Server unavailable. No Demo fallback"};
-    var e = new Error((messages[status] || details) + " (" + code + ")");
+    // Keep the status taxonomy first and append the authoritative server detail,
+    // so optimistic-concurrency branches can rely on the status code instead of
+    // matching a controller-specific free-text message.
+    var base = messages[status] || details;
+    var message = messages[status] && details && details !== base ?
+      base + " · " + details : base;
+    var e = new Error(message + " (" + code + ")");
     e.status = status; e.code = code;
     return e;
   }
@@ -110,8 +116,11 @@
       choices.map(function (p) {
         var href = mode === MODES.demo ? demoHref(p.id) :
           (p.id === "maintenance" ? "/maintenance?mode=server" : "/?mode=server&workspace=" + p.id);
+        // The workspace switcher is not the current page: the sidebar entry is.
+        // aria-current="true" keeps the same visual emphasis without claiming a
+        // second, contradictory "current page" for assistive technology.
         return '<a href="' + esc(href) + '" data-persona="' + p.id + '"' +
-          (p.id === requested ? ' aria-current="page"' : "") + '>' + esc(p.label) + '</a>';
+          (p.id === requested ? ' aria-current="true"' : "") + '>' + esc(p.label) + '</a>';
       }).join(" · ") + '</nav>';
   }
   function createProviders(mode, demo, server) {

@@ -28,10 +28,10 @@ These specifications contain the domain rules, acceptance criteria, cross-relati
 
 | Order / priority | Issue | Scope and verification obligation |
 | --- | --- | --- |
-| **1 / P0-UX-GAP** | [#123](https://github.com/aradenac/AI-Compass/issues/123) — UX-R04 | Truly shared **business-domain** presentation components across Demo/Server, TD-01, no feature loss |
-| **2 / P1-UX-GAP** | [#124](https://github.com/aradenac/AI-Compass/issues/124) — UX-R05 | **Implemented, [PR #132](https://github.com/aradenac/AI-Compass/pull/132) in review:** scoped draft resume, real Run stepper, first-class 409 conflict UX and creator-only Run writes, reusing the existing helper; see [behaviour contract](../draft-conflict-and-run-stepper.md). Issue not closed until the PR is reviewed and merged. |
-| **3 / P2-UX-GAP** | [#125](https://github.com/aradenac/AI-Compass/issues/125) — UX-R06 | End-to-end Engineer, Workgroup, Results/Recommendations and Management user journeys |
-| **4 / P3-UX-GAP** | [#126](https://github.com/aradenac/AI-Compass/issues/126) — UX-R07 | Desktop Chromium coverage of 20 UX scenarios, visual consistency and accessibility baseline |
+| **1 / P0-UX-GAP** | [#123](https://github.com/aradenac/AI-Compass/issues/123) — UX-R04 | **Merged on `main`:** truly shared **business-domain** presentation components across Demo/Server, TD-01, no feature loss |
+| **2 / P1-UX-GAP** | [#124](https://github.com/aradenac/AI-Compass/issues/124) — UX-R05 | **Merged on `main`:** scoped draft resume, real Run stepper, first-class 409 conflict UX and creator-only Run writes, reusing the existing helper; see [behaviour contract](../draft-conflict-and-run-stepper.md) |
+| **3 / P2-UX-GAP** | [#125](https://github.com/aradenac/AI-Compass/issues/125) — UX-R06 | **Merged on `main`:** end-to-end Engineer, Workgroup, Results/Recommendations and Management user journeys |
+| **4 / P3-UX-GAP** | [#126](https://github.com/aradenac/AI-Compass/issues/126) — UX-R07 | Desktop Chromium coverage of 20 UX scenarios, visual consistency and accessibility baseline — **executable [coverage matrix](../ux-acceptance-matrix.md) and gate implemented; on the merged #123–#125 base the executed run reports 19 requirements VERIFIED, 3 PARTIAL and 2 BLOCKED (owner/product decisions)**, so the issue stays open for review |
 
 All four retain **desktop-web-only** scope. No mobile/tablet requirement; run independent Server and Demo tests. Existing branch rule enforcement is deliberately deferred under [TD-UI-01](../technical-debt.md).
 

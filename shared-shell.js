@@ -18,8 +18,14 @@
       '<div class="side-foot">' + (opts.footer || "") + '</div></aside>' +
       '<section class="main ux-main"><header class="topbar ux-topbar">' +
       '<div class="top-label"><span class="crumb">Workspace</span>' +
-      '<span class="muted" aria-hidden="true">/</span><strong id="ux-page-title">' +
-      esc(opts.title || "AI Compass") + '</strong></div>' +
+      '<span class="muted" aria-hidden="true">/</span>' +
+      // In authenticated Server the shell owns the single page heading, so the
+      // current location is programmatically the first heading of every view.
+      // Offline Demo keeps its own page-level heading and only shows the label.
+      (opts.mode === "server"
+        ? '<h1 class="ux-location" id="ux-page-title">' + esc(opts.title || "AI Compass") + '</h1>'
+        : '<strong id="ux-page-title">' + esc(opts.title || "AI Compass") + '</strong>') +
+      '</div>' +
       '<div class="top-actions">' + (opts.account || "") + '</div></header>' +
       '<main class="content ux-content" id="ux-main-content">' + (opts.content || "") +
       '</main></section></div>' + (opts.extras || "");
